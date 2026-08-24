@@ -1,0 +1,240 @@
+# TitanOS Doctrine — Pole Reversal / Power-Inversion Survival
+#
+# WHY THIS DOCTRINE EXISTS, IN PLAIN TERMS
+#
+# Every invariant in doctrine-002.yaml assumes the human-review seat is
+# occupied by a good-faith actor. That assumption is itself an attack
+# surface: the seat, the key, the credential, the reviewer identity can all
+# change hands — through compromise, coercion, succession, or betrayal —
+# without any code changing at all. "Pole reversal" names that event: the
+# entity holding authorization power flips from trustworthy to hostile (or
+# simply changes) while the architecture around it stays exactly the same.
+#
+# THE PRIME DIRECTIVE THIS DOCTRINE STATES
+#
+# The system's structural guarantees must not depend on WHO currently holds
+# authority. They must hold when the seat is empty, contested, compromised,
+# or actively hostile — because a governance architecture that only works
+# when the right person is in charge is not governance, it is trust dressed
+# up as governance. This is deliberately the same shape as §8 in the
+# Epistemic Firewall doctrine ("the filter must not become an ideological
+# filter") one level up: there, the danger was the MACHINE deciding whose
+# ideas count; here it is the HUMAN SEAT itself being captured and used to
+# do the same thing through the front door.
+#
+# WHAT THIS DOCTRINE IS NOT
+#
+# It is not a claim that TitanOS can survive an arbitrary coup, and it does
+# not claim untested resilience. Every SURVIVES claim below cites the code
+# and test that demonstrate it; every DOES NOT YET SURVIVE claim is a real,
+# currently open gap, not a hedge. "We can survive it" is engineered as
+# "the record cannot be erased even by whoever now holds power" — a
+# narrower, checkable claim than "hostile takeover is prevented."
+
+id: DOCTRINE-POLE-REVERSAL-001
+version: "1"
+status: ACTIVE
+effective_from: "2026-08-25"
+supersedes: null
+superseded_by: null
+relates_to: [DOCTRINE-002]
+
+principles:
+  - id: PR-01
+    name: Structure outlives occupancy
+    statement: >
+      An invariant enforced by the absence of a code edge (e.g. no
+      QUARANTINED -> AUTHORIZED transition) survives a change of reviewer
+      identity automatically, because it was never conditioned on reviewer
+      identity in the first place. An invariant enforced by "the current
+      human will refuse to do the bad thing" does not survive, because it
+      was conditioned on exactly the thing that just changed.
+
+  - id: PR-02
+    name: History is a record, not a resource
+    statement: >
+      Append-only stores (quarantine, dissent) cannot be edited by a new
+      occupant of the review seat to make the past agree with the present.
+      A hostile actor can add new, self-serving entries; they cannot remove
+      or alter what came before. The lie sits next to the truth, dated.
+
+  - id: PR-03
+    name: A single seat is a single point of failure
+    statement: >
+      Wherever one reviewed_by field is sufficient to release, transition,
+      or resolve, exactly one compromised actor is sufficient to abuse it.
+      This is named explicitly as an unenforced principle below (see
+      falsification_conditions) rather than assumed solved.
+
+  - id: PR-04
+    name: Reversal is a first-class failure mode, not an edge case
+    statement: >
+      "The reviewer turns hostile" is modelled the same way "the network
+      call fails" or "the YAML is malformed" is modelled — as an expected
+      input to plan for, not a catastrophe to hope never happens.
+
+invariants:
+  - id: PR-I-01
+    statement: No append-only store (QuarantineStore, DissentRegister)
+      exposes a delete/purge/clear/remove method, regardless of who calls it
+      or what the calling artifact's content claims.
+    machine_checkable: true
+    enforced_at: cosmic-library/firewall/quarantine.py::class QuarantineStore
+    test: cosmic-library/firewall/tests/test_quarantine_dissent.py::TestPreservationNotDeletion::test_store_exposes_no_delete_surface
+    status: ENFORCED
+    note: >
+      Same property, same proof pattern, also holds in
+      cosmic-library/firewall/dissent.py::DissentRegister — verified by
+      schema/tests/test_meta_attack.py::TestDeleteQuarantineRecordAttempt
+      and firewall/tests/test_quarantine_dissent.py::test_register_exposes_no_delete_surface.
+      This holds even if the caller IS the compromised reviewer — the
+      method does not exist to call. Verified by hasattr() assertion, not
+      by trusting a runtime permission check a hostile caller could route
+      around.
+
+  - id: PR-I-02
+    statement: CONTAMINATED and QUARANTINED states have no transition edge
+      to AUTHORIZED, so no single actor — original or replacement,
+      trustworthy or hostile — can move an artifact there in one step.
+    machine_checkable: true
+    enforced_at: cosmic-library/firewall/quarantine.py::TRANSITIONS
+    test: cosmic-library/firewall/tests/test_quarantine_dissent.py::TestNoPathToExecution,
+      cosmic-library/schema/tests/test_meta_attack.py::TestChangeTheTransitionTable
+    status: ENFORCED
+    note: >
+      A hostile reviewer must still pass QUARANTINED -> VERIFIED, which
+      requires a non-empty reviewed_by. This slows and RECORDS abuse; it
+      does not currently prevent a single hostile reviewer from eventually
+      completing both steps themselves (see PR-I-04, PARTIAL).
+
+  - id: PR-I-03
+    statement: A dispute's minority/losing positions remain in the record
+      after resolution, regardless of who resolves it or in whose favour.
+    machine_checkable: true
+    enforced_at: cosmic-library/firewall/dissent.py::def resolve
+    test: cosmic-library/firewall/tests/test_quarantine_dissent.py::TestDissentIsNotContamination::test_resolution_preserves_the_losing_position,
+      ::test_minority_positions_survive_resolution
+    status: ENFORCED
+    note: >
+      Even a captured reviewer resolving every dispute in their own favour
+      cannot erase the fact that someone objected. Future audit of THAT
+      reviewer's pattern-of-resolution becomes possible precisely because
+      this record survives.
+
+  - id: PR-I-04
+    statement: Authorization requires more than one independent reviewer
+      (four-eyes / N-of-M) before an artifact can move VERIFIED ->
+      AUTHORIZED or QUARANTINED -> VERIFIED.
+    machine_checkable: true
+    enforced_at: NOT IMPLEMENTED
+    test: NOT IMPLEMENTED
+    status: NOT_ENFORCED
+    note: >
+      THE central open gap of this doctrine. Today `reviewed_by` is one
+      free-text string; a single compromised or coerced actor is
+      sufficient to release a quarantined artifact or resolve a dispute.
+      The record of having done so survives (PR-I-01/02/03) but the ACTION
+      itself is not prevented. This is the DAO Doctrine Compiler
+      directive's §15 four-eyes requirement — flagged there as
+      unimplemented, restated here because pole reversal is the exact
+      scenario it exists to defend against.
+
+  - id: PR-I-05
+    statement: reviewed_by is a cryptographically-bound identity, not a
+      free-text string a hostile actor with store write access could set
+      to anyone's name.
+    machine_checkable: true
+    enforced_at: NOT IMPLEMENTED
+    test: NOT IMPLEMENTED
+    status: NOT_ENFORCED
+    note: >
+      Today `reviewed_by="kyle"` is just a string parameter. Anyone who can
+      call transition() can attribute the review to anyone. The append-only
+      history (PR-I-02/03) proves SOMETHING was recorded; it does not yet
+      prove WHO. Closing this requires a signature or identity provider
+      this library deliberately has no opinion on yet (§Zero-Dependency
+      Principle — do not add a dependency before deciding it's necessary).
+
+  - id: PR-I-06
+    statement: Doctrine amendments are versioned with an explicit
+      authorized_by field and never edit a prior version's file in place.
+    machine_checkable: true
+    enforced_at: cosmic-library/doctrine/doctrine-002.yaml::amendment_record
+    test: manual — compiler/coverage.py checks enforced_at resolution, not
+      amendment provenance; no automated check exists yet
+    status: PARTIAL
+    note: >
+      The FORMAT survives pole reversal (a hostile amendment shows up as a
+      new numbered file with authorized_by visible, not a silent edit) —
+      this doctrine file's own versioning follows the identical discipline.
+      Git
+      history itself is the actual tamper-evidence mechanism here, and git
+      history is only as trustworthy as the repository's own access
+      controls — which this doctrine does not model. See F-007
+      (failures/FAILURE_ARCHIVE.md) for a concrete case of history-layer
+      compromise in a *different* repository.
+
+failure_behavior:
+  on_single_reviewer_authorizing_release: RECORD (not currently blocked — see PR-I-04)
+  on_amendment_without_authorized_by: REFUSE (compiler treats as INVALID_STATUS/STALE_CLAIM pattern)
+  on_detected_reviewer_identity_forgery: UNDEFINED — no detection mechanism exists (PR-I-05 gap)
+  terminal_sequence:
+    - STOP
+    - PRESERVE
+    - EXPLAIN
+    - RETURN TO HUMANITY
+  note: >
+    Note what "RETURN TO HUMANITY" cannot mean under a confirmed pole
+    reversal: it cannot mean "return to whichever human currently holds the
+    seat," because that human may be the compromised party. This doctrine
+    does not solve that regress — it names it. A real incident requires an
+    out-of-band human channel this library has no authority to designate.
+
+limitations:
+  - This doctrine describes what survives a change of WHO holds authority.
+    It does not model or defend against compromise of the underlying git
+    repository, filesystem, or execution environment — those are
+    infrastructure-layer concerns outside this library's scope.
+  - PR-I-04 and PR-I-05 are the load-bearing gaps. Until they close, the
+    honest claim is "abuse by a single captured reviewer is recorded and
+    eventually auditable," not "abuse by a single captured reviewer is
+    prevented."
+  - No live exercise of an actual hostile-reviewer scenario has been run.
+    Every invariant above is verified against its unit test, not against a
+    simulated adversarial operator.
+
+falsification_conditions:
+  - If any code path allows QUARANTINED -> AUTHORIZED or CONTAMINATED ->
+    AUTHORIZED in one transition, PR-I-02 is false.
+  - If a QuarantineStore or DissentRegister instance is found to expose a
+    working delete/purge/clear/remove method, PR-I-01 is false.
+  - If a resolved dispute's minority positions are absent from
+    rec.positions after resolve(), PR-I-03 is false.
+  - PR-I-04 and PR-I-05 are ALREADY falsified in the sense that they are
+    not implemented — they are listed as NOT_ENFORCED, not claimed.
+
+amendment_record:
+  - from: null
+    to: DOCTRINE-POLE-REVERSAL-001
+    date: "2026-08-25"
+    what_changed: Initial doctrine.
+    why: >
+      Explicit human instruction: "make doctrine for the inevitable power
+      switch or pole reversal ... to show we can survive it, that's our
+      prime directive." Interpreted as an engineering requirement (which
+      invariants survive a change of who holds authority) rather than a
+      literal claim of coup-proofing, per this session's standing rule
+      against overclaiming ("100% immutable" -> "cryptographically
+      tamper-evident, versioned, append-only, reproducible").
+    evidence: >
+      PR-I-01, PR-I-02, PR-I-03 independently verified via the existing
+      36/36 firewall test suite plus schema/tests/test_meta_attack.py
+      (13/13). PR-I-04, PR-I-05, PR-I-06 are honestly reported as
+      NOT_ENFORCED/PARTIAL rather than asserted.
+    risks_introduced: >
+      None to existing code — this is a doctrine file, no code path
+      changed. The risk is social: a doctrine titled "survival" could be
+      misread as a completed guarantee. The limitations and
+      falsification_conditions sections exist specifically to foreclose
+      that reading.
+    authorized_by: PENDING_HUMAN_REVIEW

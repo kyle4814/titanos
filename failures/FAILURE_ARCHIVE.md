@@ -203,11 +203,65 @@ passing check that cannot fail in the way that matters is not a check.
 
 ---
 
+## F-009 — Validator crashed under uncaught RecursionError on deep alias chains
+
+**Status:** FIXED · **Severity:** high · **Found by:** an adversarial test, not review
+
+`schema/tests/test_false_negatives.py`'s alias-fan-out test threw a
+20-layer self-referencing anchor chain at `validate_artifact()`. PyYAML's
+own `compose()`/construct machinery is recursive, so the chain blew the
+Python call stack with an uncaught `RecursionError` *before* the
+validator's own `MAX_NODES`/`MAX_DEPTH` ceiling ever got to run — the
+ceiling was correct but the code path meant to reach it never did.
+
+**Why it matters:** a crash that propagates past `validate_artifact()` is
+worse than a rejection — a caller with a bare `try/except ValueError`
+around the call would let this exception escape as an unhandled 500,
+which in many deployment shapes fails OPEN (request retried elsewhere,
+error swallowed by a supervisor, etc.) rather than closed.
+
+**Fix:** `RecursionError` is now caught explicitly around both the compose
+and construct stages and converted to `MalformedYamlError` -> `INVALID`,
+same as any other structural rejection.
+Test: `schema/tests/test_false_negatives.py::TestYamlAliasAndAnchorTricks::test_alias_fanout_is_bounded_not_silently_expanded`.
+
+---
+
+## F-010 — Validator crashed on non-string YAML keys, found against the real 3,058-file corpus
+
+**Status:** FIXED · **Severity:** medium · **Found by:** running against real data, not a synthetic test
+
+Running `legacy/classify.py` against the actual, unmodified 3,058-file
+legacy YAML corpus (not a hypothetical one) crashed with
+`TypeError: '<' not supported between instances of 'bool' and 'str'`. A
+real file in the corpus used a boolean-shaped key (e.g. `true:`), which
+YAML permits. `sorted(set(data.keys()) - known)` then tried to compare a
+`bool` against `str` keys and raised.
+
+**Why it matters:** this is the same class as F-009 (validator failing
+open via an uncaught exception) but found by exercising real-world data
+rather than adversarial imagination — a reminder that the two methods
+find different bugs and neither substitutes for the other.
+
+**Fix:** two layers. (1) a new rule R-12 flags non-string keys explicitly
+as `INVALID`. (2) `validate_artifact()` now wraps its entire body in a
+try/except that converts *any* unforeseen exception to a structured
+`INVALID` result (rule R-0), so a future unknown input shape fails closed
+by construction rather than requiring the next specific bug to be
+anticipated in advance.
+Tests: `schema/tests/test_real_corpus_regressions.py` (5 tests, written
+directly from this incident).
+
+---
+
 ## Cross-cutting observations
 
-1. **Seven of eight defects were found by tests or by rendering, not by
-   review.** Reading code found almost nothing; running it found nearly
-   everything.
+1. **Nine of ten defects were found by tests, adversarial execution, or
+   rendering — not by review.** Reading code found almost nothing; running
+   it found nearly everything. F-009 and F-010 add the sharpest version of
+   this yet: F-009 came from an adversarial test, F-010 from running
+   against real, unmodified production data — two different discovery
+   methods, two different real bugs, neither would have found the other.
 2. **Two defects were introduced by fixes to other defects** (F-002 by
    F-001). Change is a defect source.
 3. **The most dangerous findings were the confident-but-wrong ones**
