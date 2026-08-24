@@ -1,0 +1,65 @@
+# Deliberately invalid: capability_type EXECUTABLE but zero jurisdiction
+# declared anywhere (MG-R-11 contradiction — claims to act, claims no
+# scope to act within), AND lifecycle.status disagrees with
+# promotion.current_gate (a different, independently-fatal contradiction).
+magl:
+  id: magl-example-broken-executor
+  name: "Broken Executor"
+  version: "1.0.0"
+  title: "An executable capability with no declared jurisdiction"
+  description: "This fixture exists to be refused by the validator."
+
+  classification:
+    domain: [automation]
+    capability_type: [EXECUTABLE]
+    epistemic_status: IMPLEMENTED_SYSTEM
+    maturity: EXPERIMENTAL
+
+  provenance:
+    source_artifacts: []
+    source_hashes: []
+    authorship: []
+    license: "MIT"
+    derivation_chain: []
+
+  purpose:
+    problem: "demonstrates a schema violation"
+    intended_benefit: "test fixture"
+    non_goals: []
+
+  jurisdiction:
+    may_read: []
+    may_write: []
+    may_execute: []
+    may_call: []
+    may_modify: []
+    may_publish: []
+    prohibited_actions: []
+
+  inputs: {required: [], optional: [], schemas: []}
+  outputs: {declared: [], schemas: []}
+  dependencies: {required: [], optional: [], incompatible_with: []}
+  assumptions: []
+  unknowns: []
+  risks: {known: [], failure_modes: [], abuse_cases: [], false_positive_risks: [], false_negative_risks: []}
+  controls: {validation: [], authorization: [], containment: [], rollback: [], human_review: []}
+  verification: {schema_tests: [], unit_tests: [], integration_tests: [], simulation_tests: [], evidence_requirements: []}
+  composition: {provides: [], requires: [], compatible_interfaces: [], conflict_resolution: "", composition_limits: []}
+
+  lifecycle:
+    status: RAW
+    created_at: "2026-08-25T00:00:00Z"
+    updated_at: "2026-08-25T00:00:00Z"
+    deprecated_by: ""
+    superseded_by: ""
+
+  audit: {content_hash: "", signatures: [], immutable_history_ref: ""}
+
+  documentation:
+    summary: "test fixture, deliberately invalid"
+    examples: []
+    limitations: ["this fixture is intentionally broken"]
+
+  promotion:
+    current_gate: STABLE
+    requirements_for_next_gate: []

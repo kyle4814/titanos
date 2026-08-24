@@ -1,0 +1,92 @@
+magl:
+  id: magl-example-secret-scanner
+  name: Secret Scanner
+  version: "1.0.0"
+  title: "Static Secret Scanner"
+  description: "Scans declared text inputs for credential-shaped patterns and reports findings without modifying anything."
+
+  classification:
+    domain: [security, validation]
+    capability_type: [ANALYTICAL]
+    epistemic_status: IMPLEMENTED_SYSTEM
+    maturity: STABLE
+
+  provenance:
+    source_artifacts: ["cosmic-library/legacy/classify.py"]
+    source_hashes: []
+    authorship: ["titanos-library-architect"]
+    license: "MIT"
+    derivation_chain: []
+
+  purpose:
+    problem: "Text artifacts may contain leaked credentials before publication."
+    intended_benefit: "Catch obvious secret patterns before a human reviews an artifact for release."
+    non_goals: ["does not claim to catch every possible secret format"]
+
+  jurisdiction:
+    may_read: ["declared_input_text"]
+    may_write: []
+    may_execute: []
+    may_call: []
+    may_modify: []
+    may_publish: []
+    prohibited_actions: ["network_egress", "delete_source_file"]
+
+  inputs:
+    required: ["text"]
+    optional: []
+    schemas: []
+  outputs:
+    declared: ["finding_list"]
+    schemas: []
+  dependencies:
+    required: []
+    optional: []
+    incompatible_with: []
+  assumptions: ["input text is UTF-8"]
+  unknowns: ["coverage against novel secret formats is not measured"]
+  risks:
+    known: ["false negatives on obfuscated secrets"]
+    failure_modes: ["silent pattern-list staleness"]
+    abuse_cases: []
+    false_positive_risks: ["high-entropy non-secret strings"]
+    false_negative_risks: ["secrets split across multiple fields"]
+  controls:
+    validation: ["schema validation on input"]
+    authorization: []
+    containment: []
+    rollback: []
+    human_review: ["findings require human triage before action"]
+  verification:
+    schema_tests: ["magl/validators/tests/test_validate_magl.py"]
+    unit_tests: []
+    integration_tests: []
+    simulation_tests: []
+    evidence_requirements: ["no evidence requirement beyond passing tests"]
+  composition:
+    provides: ["secret_scan_capability"]
+    requires: []
+    compatible_interfaces: ["text_input_v1"]
+    conflict_resolution: "none required — read-only capability"
+    composition_limits: []
+
+  lifecycle:
+    status: STABLE
+    created_at: "2026-08-25T00:00:00Z"
+    updated_at: "2026-08-25T00:00:00Z"
+    deprecated_by: ""
+    superseded_by: ""
+
+  audit:
+    content_hash: ""
+    signatures: []
+    immutable_history_ref: ""
+
+  documentation:
+    summary: "A read-only, analytical secret scanner with no write/execute jurisdiction."
+    examples: []
+    limitations: ["pattern-based, not exhaustive", "no semantic understanding of context"]
+
+  promotion:
+    current_gate: STABLE
+    requirements_for_next_gate: []
