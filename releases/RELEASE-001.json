@@ -1,5 +1,5 @@
 {
-  "artifact_count": 7,
+  "artifact_count": 11,
   "artifacts": [
     {
       "artifact_id": "sha256:754443996cd96d06248d79589d691572460266ad821140cb9d714780ae3b9ed2",
@@ -32,6 +32,26 @@
       "path": "failures/FAILURE_ARCHIVE.md"
     },
     {
+      "artifact_id": "sha256:67e560c6a4fc5463d1d3f6b07ee96d997773cc5514a3b7609c7087f291a090e2",
+      "content_hash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "path": "firewall/__init__.py"
+    },
+    {
+      "artifact_id": "sha256:0866a6e56df3289802fdabeacd6fd8d9ca3d324bfd8bf90548a53354e6cd5582",
+      "content_hash": "sha256:f3b57bd26626cd8618fea2eaed2303bf58ccedc72931fffaacb3c7d863b01220",
+      "path": "firewall/gate.py"
+    },
+    {
+      "artifact_id": "sha256:67e560c6a4fc5463d1d3f6b07ee96d997773cc5514a3b7609c7087f291a090e2",
+      "content_hash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "path": "firewall/tests/__init__.py"
+    },
+    {
+      "artifact_id": "sha256:408f6d916e0aafe6e9cfb65de72b87d9875f295389a1920ae510307abb31f04c",
+      "content_hash": "sha256:f8f8ced890653fa2d81d8d414d033b16992287745715373e2c784c770ecdc7f8",
+      "path": "firewall/tests/test_firewall.py"
+    },
+    {
       "artifact_id": "sha256:4d95215dc907702c730a7c4acda734545d72024b251aac885cb4e82fd2246490",
       "content_hash": "sha256:bfe66413829d0b6c94353bdcacba5688df96ac4aab0c59d4e522c2ddf571bd4e",
       "path": "provenance/seal.py"
@@ -48,7 +68,7 @@
   "parent_release": null,
   "pipeline_version": "cosmic-library-1",
   "publication_status": "CANDIDATE_ONLY_DO_NOT_PUBLISH",
-  "release_hash": "sha256:b69eb7af9f3fbdd0d3a60f0c34501c4a01621ac3a657b1d55d00f0a8b0df641e",
+  "release_hash": "sha256:9d89305c0193c63ffa69814d8121fce16663dd59fbc8fbfd33be90018268a818",
   "release_id": "TITANOS-COSMIC-LIBRARY-001",
   "signature": null,
   "signature_status": "UNSIGNED",
