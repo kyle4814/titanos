@@ -1,0 +1,168 @@
+# TitanOS Knowledge Production Machine — Constitution
+#
+# DEVIATION FROM THE DIRECTIVE, STATED UP FRONT: the directive's repo
+# skeleton (§XV) specifies a top-level /titanos directory. That path
+# already exists on this machine as an unrelated project
+# (/home/tech2/titanos — mission.yaml, config.yaml, game.yaml). This
+# machine is built at /home/tech2/cosmic-library/kpm/ instead, alongside
+# the existing schema/firewall/doctrine work it deliberately reuses the
+# house style of. Never silently overwrite an unfamiliar directory.
+#
+# THE ONE RULE THIS FILE EXISTS TO STATE
+#
+# The machine does not claim it cannot fail. It claims that when it fails,
+# the failure is visible, contained, and recoverable — never silent, never
+# total, never irreversible by default.
+
+id: KPM-CONSTITUTION-001
+version: "1"
+status: ACTIVE
+effective_from: "2026-08-25"
+
+prime_law: >
+  Assume every artifact, agent, test, metric, model, source, and doctrine
+  can fail. Preserve evidence. Contain failure. Preserve dissent. Test.
+  Version. Refuse unsafe promotion.
+
+objective_function:
+  maximise:
+    - useful_verified_knowledge_production
+    - traceability
+    - composability
+    - reversibility
+    - testability
+    - auditability
+    - cross_domain_reuse
+    - human_agency
+    - safe_recursive_improvement
+  minimise:
+    - unsupported_certainty
+    - hidden_assumptions
+    - agent_drift
+    - secret_leakage
+    - provenance_loss
+    - duplicate_doctrine
+    - dependency_capture
+    - narrative_contamination
+    - metric_gaming
+    - recursive_error_amplification
+    - irreversible_propagation
+    - unreviewable_autonomy
+
+# ── Epistemic type system (§IV) ─────────────────────────────────────────
+# Enforced in code at kpm/schemas/epistemic_types.py::FORBIDDEN_TRANSITIONS
+# — an explicit table, same pattern as firewall/quarantine.py::TRANSITIONS.
+# Absence of an edge is the enforcement mechanism, not a runtime check.
+epistemic_classifications:
+  - VERIFIED_FACT
+  - EVIDENCE_SUPPORTED_MODEL
+  - IMPLEMENTED_SYSTEM
+  - TECHNICAL_DESIGN
+  - SOFTWARE_REQUIREMENT
+  - POLICY_REQUIREMENT
+  - ARCHITECTURAL_METAPHOR
+  - SYMBOLIC_DOCTRINE
+  - CREATIVE_CONCEPT
+  - SPECULATIVE_HYPOTHESIS
+  - SCIENTIFIC_CLAIM_REQUIRING_EVIDENCE
+  - HISTORICAL_CLAIM_REQUIRING_EVIDENCE
+  - UNVERIFIED_EXTERNAL_CLAIM
+  - PERSONAL_EXPERIENCE
+  - UNKNOWN
+
+forbidden_classification_transitions:
+  - [SYMBOLIC_DOCTRINE, VERIFIED_FACT]
+  - [SPECULATIVE_HYPOTHESIS, VERIFIED_FACT]
+  - [PERSONAL_EXPERIENCE, VERIFIED_EXTERNAL_CAUSE]
+  - [CREATIVE_CONCEPT, IMPLEMENTED_SYSTEM]
+
+# ── Promotion gates (§XI) ────────────────────────────────────────────────
+# Enforced in code at kpm/promotion/state_machine.py::TRANSITIONS.
+promotion_states:
+  - RAW
+  - DISTILLED
+  - PROVISIONAL
+  - TESTED
+  - CONTESTED
+  - QUARANTINED
+  - HUMAN_REVIEW
+  - STABLE
+  - DEPRECATED
+  - SUPERSEDED
+
+forbidden_promotion_transitions:
+  - [RAW, STABLE]
+  - [QUARANTINED, STABLE]
+  - [CONTESTED, STABLE]
+  - [DISTILLED, STABLE]
+  - [PROVISIONAL, STABLE]
+
+# ── Work cell roles (§VII) ───────────────────────────────────────────────
+# No agent may self-certify its own output. The producer is not the final
+# promoter — DISTILLER and ARCHITECT produce; ADVERSARY and VERIFIER gate;
+# neither pair may act as the other.
+work_cell_roles:
+  - id: DISTILLER
+    produces: [claims, concepts, requirements, unknowns]
+    may_self_certify: false
+  - id: ARCHITECT
+    produces: [abstractions, interfaces, schemas, modules]
+    may_self_certify: false
+  - id: ADVERSARY
+    checks: [assumptions, security, evidence, incentives, recursion, promotion_logic]
+    may_promote: false
+  - id: VERIFIER
+    checks: [provenance, schema, contradictions, tests, acceptance_criteria]
+    may_promote: false
+  - id: LIBRARIAN
+    optional: true
+    checks: [duplication, naming, dependency_relationships, placement, versioning, discoverability]
+
+promotion_rule: >
+  A blueprint_atom's producer (DISTILLER/ARCHITECT) must not be recorded as
+  its own reviewer in audit.reviewed_by. Enforced at
+  kpm/promotion/state_machine.py — see PROMOTER != PRODUCER test.
+
+# ── Autopilot jurisdiction (§XII) ────────────────────────────────────────
+autopilot_may:
+  - discover_unprocessed_sources
+  - queue_bounded_jobs
+  - run_work_cells
+  - generate_candidate_blueprints
+  - run_deterministic_validation
+  - run_tests
+  - open_contradiction_records
+  - suggest_next_jobs
+
+autopilot_may_not:
+  - publish_sensitive_material_automatically
+  - rewrite_source_history
+  - delete_quarantined_evidence
+  - declare_claims_true
+  - promote_itself_to_constitutional_authority
+  - remove_dissent
+  - override_human_jurisdiction
+  - perform_irreversible_external_actions_without_explicit_authorization
+
+# ── Stop conditions (§VI) ────────────────────────────────────────────────
+stop_conditions:
+  - no_meaningful_new_information
+  - diminishing_returns_reached
+  - recursion_budget_exhausted
+  - unresolved_critical_contradiction
+  - evidence_requirement_unmet
+  - human_jurisdiction_required
+  - security_boundary_reached
+  - source_contamination_suspected
+
+terminal_sequence:
+  - STOP
+  - PRESERVE
+  - EXPLAIN
+  - RETURN_CONTROL
+
+limitations: >
+  This file is prose-and-enumeration doctrine. Every line under
+  epistemic_classifications, forbidden_*_transitions, and work_cell_roles
+  is cross-checked against real code and real tests below — see the build
+  report for what is ENFORCED vs. DOCUMENTARY_ONLY at time of writing.
