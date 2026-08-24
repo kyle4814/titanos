@@ -1,5 +1,5 @@
 {
-  "artifact_count": 11,
+  "artifact_count": 14,
   "artifacts": [
     {
       "artifact_id": "sha256:754443996cd96d06248d79589d691572460266ad821140cb9d714780ae3b9ed2",
@@ -37,9 +37,19 @@
       "path": "firewall/__init__.py"
     },
     {
+      "artifact_id": "sha256:74e63a4400a759e036f3837e35346c4e4c516c616c7005ae8ef972d7212a2f2c",
+      "content_hash": "sha256:45512f20c4ddc0fddc309ba59a661d38bb530097617ef09fad1658eaa1b63a20",
+      "path": "firewall/dissent.py"
+    },
+    {
       "artifact_id": "sha256:0866a6e56df3289802fdabeacd6fd8d9ca3d324bfd8bf90548a53354e6cd5582",
       "content_hash": "sha256:f3b57bd26626cd8618fea2eaed2303bf58ccedc72931fffaacb3c7d863b01220",
       "path": "firewall/gate.py"
+    },
+    {
+      "artifact_id": "sha256:b7e3fb03df897895dce2de440359a4f4ed950b9d9dde7865120f8153f661c4be",
+      "content_hash": "sha256:365361cbafeac64e27181ff51b46caa68cb6d334782fa0bfbffb4a28b42a464c",
+      "path": "firewall/quarantine.py"
     },
     {
       "artifact_id": "sha256:67e560c6a4fc5463d1d3f6b07ee96d997773cc5514a3b7609c7087f291a090e2",
@@ -50,6 +60,11 @@
       "artifact_id": "sha256:408f6d916e0aafe6e9cfb65de72b87d9875f295389a1920ae510307abb31f04c",
       "content_hash": "sha256:f8f8ced890653fa2d81d8d414d033b16992287745715373e2c784c770ecdc7f8",
       "path": "firewall/tests/test_firewall.py"
+    },
+    {
+      "artifact_id": "sha256:ae71872114125bc8bb337561e13a352b32ac1bd1a7604faa0047203867dd556d",
+      "content_hash": "sha256:27a48a109129606abb5f325ee72c7eafcaed67d1e8c6b674d714194d5fe003a1",
+      "path": "firewall/tests/test_quarantine_dissent.py"
     },
     {
       "artifact_id": "sha256:4d95215dc907702c730a7c4acda734545d72024b251aac885cb4e82fd2246490",
@@ -68,7 +83,7 @@
   "parent_release": null,
   "pipeline_version": "cosmic-library-1",
   "publication_status": "CANDIDATE_ONLY_DO_NOT_PUBLISH",
-  "release_hash": "sha256:9d89305c0193c63ffa69814d8121fce16663dd59fbc8fbfd33be90018268a818",
+  "release_hash": "sha256:c2d0e36c17f9e765ebff41d68463ec16c39d2862a5828cbe4a2567e14af9951f",
   "release_id": "TITANOS-COSMIC-LIBRARY-001",
   "signature": null,
   "signature_status": "UNSIGNED",
