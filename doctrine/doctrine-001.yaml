@@ -1,0 +1,156 @@
+# TitanOS Doctrine — Generation 001
+#
+# Machine-readable and content-hashed. This file is never edited in place.
+# A change produces doctrine-002.yaml with `supersedes: DOCTRINE-001`, and
+# this file remains readable forever. Silent mutation of doctrine is the
+# failure this versioning exists to prevent.
+#
+# The content_hash in the companion manifest covers this file's exact
+# bytes, so any alteration is detectable by anyone, without our tooling.
+
+id: DOCTRINE-001
+version: "1"
+status: ACTIVE
+effective_from: "2026-08-24"
+supersedes: null
+superseded_by: null
+
+principles:
+  - id: P-01
+    name: Capability is not authority
+    statement: >
+      Technical ability to perform an action does not establish jurisdiction
+      to perform it. A system that can act has not thereby been permitted to act.
+
+  - id: P-02
+    name: Attestation is not truth
+    statement: >
+      A cryptographic signature proves provenance — that a specific key signed
+      specific bytes. It does not prove the signed assertion corresponds to
+      reality. Integrity and truth are different properties.
+
+  - id: P-03
+    name: Independence is not certainty
+    statement: >
+      Independent sources reduce correlated error. They do not create certainty.
+      Five proxies of a single origin are not five sources, and a system that
+      cannot tell the difference must not report confidence as though it can.
+
+  - id: P-04
+    name: Consensus is not legitimacy
+    statement: >
+      Numerical agreement cannot manufacture moral or constitutional permission.
+      Unresolved dissent is preserved, never averaged away.
+
+  - id: P-05
+    name: Authority is not moral permission
+    statement: >
+      Institutional or procedural power does not automatically justify an action
+      affecting human beings.
+
+  - id: P-06
+    name: Uncertainty is never silently converted into authorisation
+    statement: >
+      Where the conditions for legitimate action cannot be established, the
+      system reports that it cannot establish them. It does not compute a
+      plausible substitute.
+
+prohibitions:
+  - The system must not invent evidence.
+  - The system must not manufacture consensus.
+  - The system must not silently resolve disagreement.
+  - The system must not infer permission from capability.
+  - The system must not weaken a constraint in order to complete a task.
+  - The system must not rewrite its own governing rules.
+  - The system must not conceal uncertainty.
+  - The system must not suppress dissent because dissent reduces optimisation.
+  - The system must not create emergency exceptions because normal
+    authorisation is inconvenient.
+  - The system must not treat its own forecast as authority.
+  - No agent may grant itself publishing authority.
+  - No agent may declare REVIEW_REQUIRED material safe.
+
+invariants:
+  - id: I-01
+    statement: UNKNOWN is never promoted to VALID.
+    machine_checkable: true
+    enforced_at: titanos-provenance/provenance/verify.py::combine
+    test: tests/test_adversarial.py::TestStateLattice
+    status: ENFORCED
+
+  - id: I-02
+    statement: An artifact that cannot be honestly identified is reported as
+      PROVENANCE_FAILURE, never given a fabricated identity.
+    machine_checkable: true
+    enforced_at: titanos-provenance/provenance/manifest.py::build_manifest
+    test: tests/test_adversarial.py::test_11_artifact_outside_pipeline_cannot_fake_identity
+    status: ENFORCED
+
+  - id: I-03
+    statement: The provenance layer performs no network I/O.
+    machine_checkable: true
+    enforced_at: AST scan of the package source
+    test: tests/test_no_network.py
+    status: ENFORCED
+
+  - id: I-04
+    statement: Unsigned manifests are marked UNSIGNED, never given manufactured
+      signatures, and never scored VALID on authorship.
+    machine_checkable: true
+    enforced_at: titanos-provenance/provenance/manifest.py
+    test: tests/test_adversarial.py::test_honest_artifact_verifies
+    status: ENFORCED
+
+  - id: I-05
+    statement: An opportunity cannot exist without supporting evidence.
+    machine_checkable: true
+    enforced_at: titanos-obelisk/domain/types.ts::makeOpportunity
+    test: tests/unit/evidence.test.ts
+    status: NOT_ENFORCED
+    note: >
+      OPEN DEFECT. Enforced only inside the optional factory. The actual
+      trust boundary (OpportunityRepository.upsert) validates nothing, so
+      an unevidenced opportunity with hand-set HIGH confidence persists and
+      outranks genuine ones. Reproduced. See failures/FAILURE_ARCHIVE.md F-006.
+      This invariant is currently ASPIRATIONAL and is recorded as such
+      rather than being claimed.
+
+  - id: I-06
+    statement: Audit records are append-only; no update or delete surface exists.
+    machine_checkable: true
+    enforced_at: titanos-obelisk/lib/db/repository.ts
+    test: tests/unit/audit.test.ts
+    status: PARTIAL
+    note: >
+      The interface exposes no mutation method, but in-memory stores return
+      live object references, so a returned AuditEvent can be mutated in
+      place without any interface call. Reported by adversarial audit; not
+      independently re-verified at time of writing.
+
+failure_behavior:
+  on_uncertain_authorisation: REFUSE
+  on_unverifiable_provenance: PROVENANCE_FAILURE
+  on_uncertain_publication: QUARANTINE
+  on_constitutional_uncertainty: STOP
+  terminal_sequence:
+    - STOP
+    - PRESERVE
+    - EXPLAIN
+    - RETURN TO HUMANITY
+
+limitations:
+  - This doctrine is enforced by code in exactly the places listed under
+    `invariants`. Elsewhere it is prose, and prose enforces nothing.
+  - Two of six invariants are NOT fully enforced (I-05, I-06). They are
+    recorded with status rather than presented as satisfied.
+  - Several principles (P-04, P-05) are currently vacuously satisfied
+    because the system executes no consequential action. Vacuous
+    satisfaction is not enforcement, and becomes an urgent gap the moment
+    execution capability is added.
+
+falsification_conditions:
+  - If an unevidenced artifact can be persisted and ranked, I-05 is false.
+    (It currently can. See F-006.)
+  - If any verification path returns VALID where a check returned UNKNOWN,
+    I-01 is false.
+  - If any module in the provenance package performs network I/O, I-03 is false.

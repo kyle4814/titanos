@@ -1,0 +1,41 @@
+{
+  "artifact_count": 4,
+  "artifacts": [
+    {
+      "artifact_id": "sha256:d94acc8c143d1ef306390e1af2db07dfa95065e01601585fa28cc4b1993a2591",
+      "content_hash": "sha256:1d65c9f480b71480c1385510e691c6249843ff32e47d1d671fe710fe29ef324a",
+      "path": "RECURSIVE_LIBRARY_IMPLEMENTATION_REPORT.md"
+    },
+    {
+      "artifact_id": "sha256:a803d371063d07707648a371b1a708230e733dc20eb1781891fb14b85ab4833f",
+      "content_hash": "sha256:4033cb9ba257772784a32805cdc1946862191363b7aa9045744904eccba4a642",
+      "path": "doctrine/doctrine-001.yaml"
+    },
+    {
+      "artifact_id": "sha256:b4896ac062c7fae7d38ab1b4922d0722c801cc8e0918d5198488599fa042b0f6",
+      "content_hash": "sha256:424bd858addefc733680357298a2cebff32ee3e92dcb6ae4c843cc2f0f31b82c",
+      "path": "failures/FAILURE_ARCHIVE.md"
+    },
+    {
+      "artifact_id": "sha256:4d95215dc907702c730a7c4acda734545d72024b251aac885cb4e82fd2246490",
+      "content_hash": "sha256:bfe66413829d0b6c94353bdcacba5688df96ac4aab0c59d4e522c2ddf571bd4e",
+      "path": "provenance/seal.py"
+    }
+  ],
+  "doctrine_hash": "sha256:4033cb9ba257772784a32805cdc1946862191363b7aa9045744904eccba4a642",
+  "doctrine_version": "1",
+  "generation": 1,
+  "human_release_authorization": "NOT_GRANTED",
+  "known_open_defects": [
+    "F-006 upsert accepts fabricated authority",
+    "F-007 git history contaminated"
+  ],
+  "parent_release": null,
+  "pipeline_version": "cosmic-library-1",
+  "publication_status": "CANDIDATE_ONLY_DO_NOT_PUBLISH",
+  "release_hash": "sha256:15372556e2767c9ebb12861be856186afb958d0b2c8e5535d18b2847dc0e1ff5",
+  "release_id": "TITANOS-COSMIC-LIBRARY-001",
+  "signature": null,
+  "signature_status": "UNSIGNED",
+  "source_revision": "cosmic-library-gen-001"
+}
