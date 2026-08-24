@@ -1,0 +1,25 @@
+pilot_simulation:
+  id: pilot-backup-approver-alert
+  automation_candidate_ref: candidate-backup-approver-alert
+  baseline:
+    description: "Invoices route to a single named clerk with no automated escalation; when unavailable, approvals stall with no alerting."
+    metrics:
+      - name: "average invoice approval delay"
+        current_value: "2-3 business days"
+  proposed_change: "Notify a designated backup approver automatically when an invoice sits unactioned for 24 hours. No approval authority changes."
+  expected_benefit: "Reduced worst-case delay during clerk absence, without changing who holds approval authority."
+  known_risks:
+    - "notification could reach a stale backup-approver roster"
+    - "alert fatigue if thresholds are set too aggressively"
+  failure_scenarios:
+    - scenario: "backup approver roster is out of date and notification goes nowhere useful"
+      likelihood: MEDIUM
+      impact: MEDIUM
+      detection_method: "notification service delivery failure logs, reviewed weekly during pilot"
+    - scenario: "notification volume overwhelms backup approver, alerts get ignored"
+      likelihood: LOW
+      impact: LOW
+      detection_method: "backup approver survey at pilot midpoint"
+  rollback_plan_ref: rollback-backup-approver-alert
+  measurement_plan_ref: measurement-backup-approver-alert
+  status: APPROVED_FOR_PILOT

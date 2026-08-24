@@ -1,0 +1,14 @@
+rollback_contract:
+  id: rollback-backup-approver-alert
+  applies_to_ref: candidate-backup-approver-alert
+  trigger_conditions:
+    - "notification volume exceeds 20/day (alert fatigue signal)"
+    - "backup approver reports notifications sent for already-approved invoices"
+  rollback_steps:
+    - "disable the notification rule in the automation scheduler"
+    - "confirm no further notifications are sent for 24 hours"
+    - "notify the invoice clerk's manager that the pilot was rolled back"
+  rollback_owner: "Finance IT Operations Lead"
+  estimated_rollback_time: "under 10 minutes"
+  data_loss_risk: NONE
+  verified: false

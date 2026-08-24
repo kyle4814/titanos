@@ -1,0 +1,84 @@
+magl:
+  id: magl-backup-approver-alert
+  name: "Backup Approver Alert"
+  version: "0.1.0"
+  title: "Automated backup-approver notification"
+  description: "When the invoice clerk has not actioned an invoice within 24 hours, notify a designated backup approver. Does not approve anything itself."
+
+  classification:
+    domain: [finance, automation]
+    capability_type: [EXECUTABLE]
+    epistemic_status: TECHNICAL_DESIGN
+    maturity: EXPERIMENTAL
+
+  provenance:
+    source_artifacts: ["rpa/fixtures/automation_candidate.yaml", "rpa/fixtures/bottleneck.yaml", "rpa/fixtures/legacy_map.yaml"]
+    source_hashes: []
+    authorship: ["titanos-rpa-pipeline"]
+    license: "internal-pilot-only"
+    derivation_chain: ["bottleneck-invoice-clerk-dependency", "candidate-backup-approver-alert"]
+
+  purpose:
+    problem: "A single named clerk with no automated escalation causes multi-week invoice delays during absence."
+    intended_benefit: "Reduce worst-case approval delay without changing approval authority."
+    non_goals: ["does not approve invoices", "does not modify invoice amounts"]
+
+  jurisdiction:
+    may_read: ["invoice_approval_workflow_status"]
+    may_write: []
+    may_execute: []
+    may_call: ["notification_service"]
+    may_modify: []
+    may_publish: []
+    prohibited_actions: ["approve_invoice", "modify_invoice_amount"]
+
+  inputs: {required: ["invoice_approval_workflow_status"], optional: [], schemas: []}
+  outputs: {declared: ["backup_approver_notification"], schemas: []}
+  dependencies: {required: [], optional: [], incompatible_with: []}
+  assumptions: ["backup approver roster is kept current"]
+  unknowns: ["whether informal backup coverage already exists was not confirmed"]
+  risks:
+    known: ["stale roster causes notification to reach nobody useful"]
+    failure_modes: ["notification service outage"]
+    abuse_cases: []
+    false_positive_risks: ["clerk was actively working the invoice via a channel not tracked by the workflow system"]
+    false_negative_risks: ["threshold set too high, delay compounds before anyone is notified"]
+  controls:
+    validation: ["pilot_simulation contract required before deployment"]
+    authorization: ["human jurisdiction gate: TESTED -> QUARANTINED -> HUMAN_REVIEW -> STABLE"]
+    containment: ["prohibited_actions enforced at jurisdiction level"]
+    rollback: ["see rpa/fixtures/rollback_contract.yaml"]
+    human_review: ["required before STABLE promotion"]
+  verification:
+    schema_tests: ["rpa/validators/tests/test_validate_automation_candidate.py"]
+    unit_tests: []
+    integration_tests: ["rpa/tests/test_end_to_end.py"]
+    simulation_tests: ["rpa/fixtures/pilot_simulation.yaml"]
+    evidence_requirements: ["bottleneck evidence in rpa/fixtures/bottleneck.yaml"]
+  composition:
+    provides: ["backup_approver_notification_capability"]
+    requires: ["invoice_approval_workflow_status"]
+    compatible_interfaces: ["notification_service_v1"]
+    conflict_resolution: "refuses composition with any MAGL prohibiting invoice-workflow read access"
+    composition_limits: []
+
+  lifecycle:
+    status: RAW
+    created_at: "2026-08-25T00:00:00Z"
+    updated_at: "2026-08-25T00:00:00Z"
+    deprecated_by: ""
+    superseded_by: ""
+
+  audit:
+    content_hash: ""
+    signatures: []
+    immutable_history_ref: ""
+
+  documentation:
+    summary: "Read/notify-only escalation capability derived from a key-person-dependency bottleneck finding."
+    examples: []
+    limitations: ["depends on an accurate backup-approver roster, which this MAGL does not itself maintain or verify"]
+
+  promotion:
+    current_gate: RAW
+    requirements_for_next_gate: ["pass validate_magl", "pass pilot simulation", "human review via rpa/gates/human_jurisdiction.py"]

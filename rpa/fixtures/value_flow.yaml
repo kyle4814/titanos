@@ -1,0 +1,32 @@
+value_flow:
+  id: value-flow-acme-finance-2026q3
+  system_map_ref: map-acme-invoicing
+  period: "2026-Q3"
+  value_created:
+    - source: "on-time vendor payment discounts captured"
+      amount_description: "approx $12,000 in early-payment discounts"
+  necessary_consumption:
+    - category: STAFF
+      amount_description: "invoice clerk salary, 1.0 FTE"
+      basis: "required to operate the current manual approval workflow"
+    - category: INFRASTRUCTURE
+      amount_description: "legacy invoicing system hosting and vendor support contract"
+      basis: "required to keep the invoicing system operational"
+  extractions:
+    - id: extraction-erp-vendor-support-fee
+      recipient: "ERP Support Vendor Inc"
+      reason: "ongoing support contract for the legacy invoicing system"
+      authority: "signed vendor support agreement, contract FIN-VS-2024-11"
+      contribution: "24/7 system uptime support and quarterly patching"
+      limit: "capped at contracted quarterly fee, no overage without renegotiation"
+      audit_mechanism: "quarterly invoice reviewed against contract terms by finance controller"
+      reviewable: true
+  reinvestment:
+    - target: "backup-approver notification pilot"
+      amount_description: "engineering time, no direct budget line"
+      rationale: "reduce key-person dependency risk identified in bottleneck scan"
+  reserved:
+    - purpose: "invoicing system emergency replacement fund"
+      amount_description: "$5,000 quarterly reserve"
+  returned: []
+  undeclared_leakage_flag: false

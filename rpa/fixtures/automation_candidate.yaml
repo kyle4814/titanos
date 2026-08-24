@@ -1,0 +1,22 @@
+automation_candidate:
+  id: candidate-backup-approver-alert
+  bottleneck_ref: bottleneck-invoice-clerk-dependency
+  system_map_ref: map-acme-invoicing
+  title: "Automated backup-approver notification"
+  description: "When the invoice clerk has not actioned an invoice within 24 hours, notify a designated backup approver. Does not approve anything itself."
+  proposed_jurisdiction:
+    may_read: ["invoice_approval_workflow_status"]
+    may_write: []
+    may_execute: []
+    may_call: ["notification_service"]
+    may_modify: []
+    prohibited_actions: ["approve_invoice", "modify_invoice_amount"]
+  automation_scope: SMALL_BOUNDED_AUTOMATION
+  requires_human_approval: true
+  reversible: true
+  rollback_plan: "disable the notification rule; no data is written or modified by this candidate so nothing needs to be undone"
+  epistemic_status: TECHNICAL_DESIGN
+  known_risks:
+    - "notification could be sent to the wrong backup approver if the roster is stale"
+    - "over-notification could cause alert fatigue and be ignored"
+  pilot_size: "one team, two weeks, notifications logged but not yet acted on"

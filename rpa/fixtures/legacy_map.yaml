@@ -1,0 +1,65 @@
+legacy_system_map:
+  id: map-acme-invoicing
+  organisation_name: "Acme Manufacturing Co (pseudonym)"
+  version: "1.0.0"
+  scanned_at: "2026-08-25T00:00:00Z"
+  scan_method: MIXED
+  epistemic_status: EVIDENCE_SUPPORTED_MODEL
+
+  nodes:
+    - id: node-invoice-clerk
+      type: PERSON
+      name: "Senior Invoice Clerk"
+      authority: ["approve invoices under $5000"]
+      known_failure_history: ["was on leave 3 weeks in 2026, invoicing stalled"]
+      criticality: HIGH
+    - id: node-invoicing-system
+      type: SOFTWARE_SYSTEM
+      name: "Legacy Invoicing System (2004)"
+      authority: []
+      known_failure_history: ["database corruption 2023"]
+      criticality: MUST_NEVER_STOP
+    - id: node-erp-vendor
+      type: VENDOR
+      name: "ERP Support Vendor Inc"
+      authority: []
+      known_failure_history: []
+      criticality: MEDIUM
+    - id: node-approval-workflow
+      type: WORKFLOW
+      name: "Invoice Approval Workflow"
+      authority: []
+      known_failure_history: []
+      criticality: HIGH
+
+  edges:
+    - from_node: node-invoicing-system
+      to_node: node-invoice-clerk
+      relationship: FEEDS_DATA_TO
+      is_manual: false
+      typical_delay: "instant"
+    - from_node: node-invoice-clerk
+      to_node: node-approval-workflow
+      relationship: MANUAL_HANDOFF_TO
+      is_manual: true
+      typical_delay: "2-3 business days"
+    - from_node: node-invoicing-system
+      to_node: node-erp-vendor
+      relationship: VENDOR_OF
+      is_manual: false
+      typical_delay: ""
+
+  boundaries:
+    - id: boundary-finance
+      description: "Finance department internal systems"
+      contains_node_ids: [node-invoice-clerk, node-invoicing-system, node-approval-workflow]
+
+  jurisdictions:
+    - authority_node_id: node-invoice-clerk
+      scope_node_ids: [node-approval-workflow]
+      basis: "delegated financial authority under company policy FIN-004"
+
+  single_points_of_failure: [node-invoice-clerk, node-invoicing-system]
+
+  unknowns:
+    - "whether the ERP vendor has a documented disaster recovery plan was not established during this scan"

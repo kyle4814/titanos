@@ -1,0 +1,15 @@
+before_after_measurement:
+  id: measurement-backup-approver-alert
+  pilot_simulation_ref: pilot-backup-approver-alert
+  metrics:
+    - name: "average invoice approval delay"
+      before_value: "2-3 business days"
+      after_value: ""
+      measurement_method: "timestamp diff between invoice receipt and approval, logged by the invoicing system"
+    - name: "invoices delayed over 5 business days"
+      before_value: "approx 8% of invoices"
+      after_value: ""
+      measurement_method: "count of invoices exceeding threshold, queried weekly"
+  measurement_window: "4 weeks post-pilot-start"
+  confounding_factors:
+    - "quarter-end volume spikes may distort delay averages"

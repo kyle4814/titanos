@@ -1,0 +1,17 @@
+institutional_bottleneck:
+  id: bottleneck-invoice-clerk-dependency
+  system_map_ref: map-acme-invoicing
+  involved_node_ids: [node-invoice-clerk, node-approval-workflow]
+  bottleneck_type: KEY_PERSON_DEPENDENCY
+  epistemic_status: EVIDENCE_SUPPORTED_MODEL
+  evidence:
+    - "invoicing stalled for 3 weeks during 2026 leave period, documented in map scan"
+  estimated_impact:
+    value_at_risk: "approx 2 weeks of invoice processing delay per absence event"
+    delay_contribution: "2-3 business days per invoice under normal operation, weeks during absence"
+    failure_propagation_scope: ["node-approval-workflow", "downstream vendor payment timing"]
+  assumptions:
+    - "no documented backup approver exists"
+  unknowns:
+    - "whether a second staff member has informal familiarity with the process was not confirmed"
+  recommended_next_step: "interview the invoice clerk's manager to confirm whether a backup approver has ever been designated"
