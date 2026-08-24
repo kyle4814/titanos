@@ -1,15 +1,30 @@
 {
-  "artifact_count": 4,
+  "artifact_count": 7,
   "artifacts": [
+    {
+      "artifact_id": "sha256:754443996cd96d06248d79589d691572460266ad821140cb9d714780ae3b9ed2",
+      "content_hash": "sha256:862263fa1f46c20f0d1e4dac5ffcc75abd55c08211b2c3864c5f8764b9d87793",
+      "path": ".gitignore"
+    },
     {
       "artifact_id": "sha256:d94acc8c143d1ef306390e1af2db07dfa95065e01601585fa28cc4b1993a2591",
       "content_hash": "sha256:1d65c9f480b71480c1385510e691c6249843ff32e47d1d671fe710fe29ef324a",
       "path": "RECURSIVE_LIBRARY_IMPLEMENTATION_REPORT.md"
     },
     {
+      "artifact_id": "sha256:cf73e5845b9ffc26ec377facbd8fdb12c6ffe0a5f8012b19ba2ee5540d6edc43",
+      "content_hash": "sha256:e0bc74d3954315a5e58b86f25053a09290e18e38f7b87d24ece2c4a3a54f7bdc",
+      "path": "compiler/coverage.py"
+    },
+    {
       "artifact_id": "sha256:a803d371063d07707648a371b1a708230e733dc20eb1781891fb14b85ab4833f",
       "content_hash": "sha256:4033cb9ba257772784a32805cdc1946862191363b7aa9045744904eccba4a642",
       "path": "doctrine/doctrine-001.yaml"
+    },
+    {
+      "artifact_id": "sha256:ffa3e9411f3768883604b299f0a494f337a643c83ba6750ad2b653680658fe4f",
+      "content_hash": "sha256:28e169477e678fe4a8bcdedfe72e6f968e89141797521111b276156949b41e5d",
+      "path": "doctrine/doctrine-002.yaml"
     },
     {
       "artifact_id": "sha256:b4896ac062c7fae7d38ab1b4922d0722c801cc8e0918d5198488599fa042b0f6",
@@ -33,7 +48,7 @@
   "parent_release": null,
   "pipeline_version": "cosmic-library-1",
   "publication_status": "CANDIDATE_ONLY_DO_NOT_PUBLISH",
-  "release_hash": "sha256:15372556e2767c9ebb12861be856186afb958d0b2c8e5535d18b2847dc0e1ff5",
+  "release_hash": "sha256:b69eb7af9f3fbdd0d3a60f0c34501c4a01621ac3a657b1d55d00f0a8b0df641e",
   "release_id": "TITANOS-COSMIC-LIBRARY-001",
   "signature": null,
   "signature_status": "UNSIGNED",
