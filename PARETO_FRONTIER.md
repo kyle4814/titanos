@@ -25,6 +25,20 @@ re-verified, not trusted, the next time it's picked up.
 
 ## Built
 
+### FRONTIER-006 — Layer 0 Worker Contract
+- **status:** BUILT — `foundation/layer0_worker.py`, 18 tests.
+- Third consecutive directive to request typed worker infrastructure;
+  first two correctly deferred as empty theater (nine worker directories,
+  no code). This ask was narrower — one contract — and Python's ABC
+  mechanism enforces the four mandatory hooks (`check_existing`,
+  `verify`, `preserve_provenance`, `update_state`) at instantiation time,
+  stronger than the doctrine even required.
+- **explicitly declined this cycle:** `foundation/PARETO_FRONTIER.md`,
+  `foundation/PARETO_LEDGER.json`, `foundation/NEXT_LEVER.md` — all three
+  requested by `TITANOS_LAYER0_RECURSIVE_PARETO_FRONTIER.md`, all three
+  functionally duplicate this very file and `NEXT_MOVE.md`, already
+  living at repo root. Not built.
+
 ### FRONTIER-000 — Narrative Atom schema + validator
 - **status:** BUILT — commit pending this cycle, `narrative/schema/
   narrative_atom.py` + `narrative/validators/validate_narrative_atom.py`,

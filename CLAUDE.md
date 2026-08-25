@@ -8,8 +8,9 @@
 @TITANOS_PARETO_FRONTIER_RECURSION_ENGINE.md
 @TITANOS_LIVING_PARETO_FRONTIER_ARCHITECTURE.md
 @TITANOS_AKASHIC_NARRATIVE_ENGINE.md
+@TITANOS_LAYER0_RECURSIVE_PARETO_FRONTIER.md
 
-These eight files are stateless configuration — plain files in this
+These nine files are stateless configuration — plain files in this
 repository, loaded at the start of every session that works here,
 independent of any conversation memory or session recall. Added
 2026-08-25 per Kyle's explicit instruction.

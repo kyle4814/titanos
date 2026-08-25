@@ -8,7 +8,14 @@ rather than being deleted here.
 
 ---
 
-**As of 2026-08-25, cycle following the Narrative Atom build:**
+**As of 2026-08-25, cycle following the Layer 0 Worker Contract build:**
+
+Unchanged recommendation below — this cycle built FRONTIER-006 (Layer 0
+Worker Contract) because that was the audited answer for
+`TITANOS_LAYER0_RECURSIVE_PARETO_FRONTIER.md`'s own scope, same
+independent-audits-don't-displace-each-other's-recommendation pattern as
+the prior cycle.
+
 
 ## Recommended: FRONTIER-001 — Reusable secret/credential scanner
 
