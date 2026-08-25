@@ -129,11 +129,18 @@ act on. The machinery exists and is tested against synthetic cases only.
 
 ## WHAT THE NEXT SMALLEST WORK CELL SHOULD DO
 
-Ingest ONE real source file through `SourceRegistry.ingest_source()`,
-extract ONE claim from it via `classify_claim()`, build ONE
-`blueprint_atom` YAML referencing that claim, run it through
-`validate_blueprint()`, and promote it through `PromotionStore` from RAW
-to at least TESTED — as a single integration test, not new production
-code. This is the cheapest way to find out whether the four independently
-built, independently green components actually fit together, before
-building anything further on top of an unverified assumption that they do.
+~~Ingest ONE real source... as a single integration test~~ — **done,
+2026-08-26**: `kpm/tests/test_end_to_end.py`. Confirms all four
+components genuinely fit together — `SourceRegistry.ingest_source()`'s
+real `artifact_id` feeds `classify_claim()`'s `evidence_refs`, that
+claim's id feeds a real `blueprint_atom` YAML's `provenance.
+interpretations`, `validate_blueprint()` returns VALID against it, and
+`PromotionStore` advances it RAW→DISTILLED→PROVISIONAL→TESTED on the
+real transition table (no shortcut edge exists — same table this
+session's `regression_engine.py` and `rpa/gates/human_jurisdiction.py`
+both reuse). Also found and fixed while building this: `kpm/tests/`
+had no `__init__.py`, so `unittest discover` was silently never running
+anything placed there — this test would have shipped invisible to CI
+without that fix.
+
+No further gap currently identified against this subsystem.

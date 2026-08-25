@@ -55,7 +55,18 @@ items already tracked in `HUMAN_DECISIONS.md`.
 
 ## Next smallest work cell
 
-FRONTIER-004 (Narrative Atom Store — the state-machine driver mirroring
-`kpm/promotion/state_machine.py::PromotionStore`), blocked only on
-priority, not on any missing dependency — the pattern to copy already
-exists three times elsewhere in this repository.
+~~FRONTIER-004 (Narrative Atom Store)~~ — **done, this entry just went
+stale**: `narrative/store/narrative_atom_store.py` (commit `d5537c1`,
+`PARETO_FRONTIER.md` archive), plus the intake bridge
+(`narrative/intake/source_vault_bridge.py`, `FRONTIER-MEMBRANE`) and
+the cross-atom referential integrity checker
+(`narrative/composition/checker.py`, `FRONTIER-NARRATIVE-REFCHECK`).
+Real, non-synthetic atoms now exist and have been driven through real
+promotion transitions and real cross-atom relation checks
+(`FIRST_PING.md`, `narrative/tests/test_real_ingestion_exchange_atoms.py`).
+
+Current real next step: `PARETO_FRONTIER.md` FRONTIER-005 (Five-Record
+query views, Gold Ledger, Isomorphism contract) — correctly still
+Blocked as of 2026-08-26, since only 4 real atoms exist across two
+ingestion events, not yet substantial enough to build query views
+against without the result being speculative.

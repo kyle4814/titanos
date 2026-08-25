@@ -156,11 +156,15 @@ jurisdiction gate built this session inherits these from
 
 ## Next smallest work cell
 
-Build the one thing this session deliberately left as a limitation: a
-cross-file composition checker for the map→bottleneck→candidate→pilot
-chain, so a candidate referencing a bottleneck_ref that doesn't actually
-exist in any registered bottleneck record gets caught structurally rather
-than only by careful fixture-writing (as in this session). This mirrors
-exactly the gap `magl/BUILD_REPORT.md` named as ITS next step (wiring
-catalogue registration to the composition engine) — the same shape of gap
-has now appeared in two consecutive layers of this library.
+~~Build a cross-file composition checker for the map→bottleneck→
+candidate→pilot chain~~ — **done, built same session as originally
+named, this entry just went stale**: `rpa/composition/checker.py`
+(`FRONTIER-REFCHECK`, `PARETO_FRONTIER.md` archive, commit `9a63205`,
+extended `d8afa32`/`3741094`/`b5cad9a`). Verified present and current
+2026-08-26 — confirmed via `ls rpa/composition/` rather than assumed
+from this file's own prior text, which is exactly why this correction
+was needed: a stale "still to do" note describing already-closed work
+is itself a real finding, not just housekeeping.
+
+No new gap identified against this subsystem specifically as of
+2026-08-26.
