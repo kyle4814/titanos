@@ -62,20 +62,19 @@ answer these yet, it stays in `INTUITION.md`, not here.
   promoted to "smallest first move now."
 
 ### FRONTIER-008 — Per-subsystem seed/manifest packaging
-- **CURRENT:** `firewall/ADOPT.md`, `schema/ADOPT.md`,
-  `kpm/ADOPT.md` (all 2026-08-25/26) built and verified — every
-  subsystem's quickstart *code*, not just its test command, independently
-  re-run and matched. `kpm/ADOPT.md`'s first draft actually caught two
-  real inaccuracies (`reclassify()`'s real positional signature;
-  `PromotionStore` has no RAW->TESTED shortcut edge) before they shipped
-  — the verification step is load-bearing, not ceremonial. 5 of 8
-  subsystems (`magl/`, `rpa/`, `taal/`, `foundation/`, `narrative/`)
-  still lack this doc.
-- **GAP:** template proven three times; not yet replicated to the rest.
+- **CURRENT:** `firewall/`, `schema/`, `kpm/`, `magl/` all have a
+  verified `ADOPT.md` (2026-08-25/26) — every quickstart's *code*, not
+  just its test command, independently re-run and matched. `kpm/
+  ADOPT.md`'s first draft caught two real inaccuracies before shipping;
+  `magl/ADOPT.md` reused its own `test_end_to_end.py`'s exact
+  demonstrated path rather than inventing one, and it also ran clean
+  first try. 4 of 8 subsystems (`rpa/`, `taal/`, `foundation/`,
+  `narrative/`) still lack this doc.
+- **GAP:** template proven four times; not yet replicated to the rest.
 - **LEVER:** MEDIUM-HIGH — real now that `kyle4814/titanos` is public
   and CI-green.
-- **FIRST STEP:** done (`firewall/`, `schema/`, `kpm/`). Next: replicate
-  to the remaining 5.
+- **FIRST STEP:** done (`firewall/`, `schema/`, `kpm/`, `magl/`). Next:
+  replicate to the remaining 4.
 - **PROOF:** `firewall/ADOPT.md`'s quickstart commands independently
   re-run and matched, not just written.
 - **UNLOCK:** `TITANOS_GREENLIGHT_AND_MEMETIC_DOCTRINE.md`'s Seed/
