@@ -25,6 +25,29 @@ re-verified, not trusted, the next time it's picked up.
 
 ## Built
 
+### FRONTIER-014 — Closed-loop reality proof with a real worker (`foundation/sentinel_worker.py`)
+- **status:** BUILT — `SentinelSweepWorker`, 5 closed-loop tests, no
+  mocks anywhere in the loop.
+- Every prior queue<->worker seam test used a synthetic test-double
+  worker (`_SucceedingWorker` etc.) — proves the wiring, not that a real
+  worker doing real work survives the same path. Built the first real
+  `Layer0Worker`: its `execute_minimum` runs the actual `foundation.
+  sentinel.pulse_sweep()` (unmodified, already-tested) against the real
+  repository; its `update_state` writes a real `foundation.crystal.
+  Crystal` into a real `CrystalStore`. `test_closed_loop_reality.py`
+  independently re-runs `pulse_sweep()` and asserts the recorded
+  Crystal's evidence matches it — proof the loop carried real output,
+  not a canned string (G1).
+- Proves: G2 (no transition bypass), G3/T8 (dependent task never
+  reaches worker until its dependency is DONE), T11 (two independent
+  tasks each independently verified and recorded), T12 (budget-bounded
+  stop leaves the untouched task genuinely untouched — PENDING, no
+  worker constructed, no Crystal written), G9 (two separate `run()`
+  calls don't share hidden loop state — the second finds nothing
+  eligible and writes nothing new).
+- **reality pass:** `pulse_sweep()` run again post-change — 3 findings,
+  identical to FRONTIER-011, zero new issues.
+
 ### FRONTIER-013 — Queue <-> Layer0Worker execution seam (`foundation/queue_worker_adapter.py`)
 - **status:** BUILT — `make_worker_perform`/`make_worker_verify`, 10 seam
   tests (T1-T10 matrix) + 1 regression test, both existing modules
