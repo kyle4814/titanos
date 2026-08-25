@@ -74,6 +74,22 @@ Last compiled 2026-08-25. Each item cites its source report.
     readiness pass) covers the immediate need; a proper reusable scanner
     module doesn't exist yet.
 
+## Reference — no action required unless this capability is ever wanted
+
+12. **External communication is disabled by default, on purpose.**
+    `foundation/communication_gate.py::authorize_communication()` is the
+    switch (`TITANOS_COMMUNICATION_SWITCH_001.md`) — no network
+    capability has been built behind it, and this repository still makes
+    zero network connections. If a future session ever needs bounded,
+    read-only external retrieval, the switch already exists to gate it:
+    it requires a named human (`human_authorized_by`), a declared reason
+    (`human_authorization_note`), an explicit scope (`READ_URL` /
+    `READ_API` / `RECEIVE_WEBHOOK` — none implemented), and explicit
+    `reversibility_acknowledged=True`. Nothing here is blocking; this
+    entry exists so a future session finds the switch instead of
+    re-deriving the same discipline from scratch or building a fetcher
+    without one. *(Ø_FRONTIER_PROBE_001 / EXTERNAL_COMMUNICATION_SWITCH_001.)*
+
 ## Recurring theme worth naming once, not per-session
 
 Three consecutive build sessions (MAGL → RPA → TAAL) each independently

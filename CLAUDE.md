@@ -74,7 +74,13 @@ code — a switch/gate/state machine the next stage cannot bypass — checked
 at a minimum of two independent points, fail-closed on unknown. The
 first function hard-gated under this rule: `foundation/publication_gate.py`
 (publication / private-public boundary crossing), built because it was
-the pending real-world action, not a hypothetical one.
+the pending real-world action, not a hypothetical one. The second:
+`foundation/communication_gate.py` (external communication) — see
+`TITANOS_COMMUNICATION_SWITCH_001.md`. **The switch exists; the door
+does not** — this repository still makes zero network connections and
+still passes the Obelisk Test unchanged; `authorize_communication()`'s
+result is consumed by nothing, because no retrieval/send/receive
+mechanism has been built.
 
 **Hell's Gate** is the general admission boundary
 (`foundation/hells_gate.py`): every artifact seeking to enter the
