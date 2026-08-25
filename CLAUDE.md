@@ -13,8 +13,9 @@
 @TITANOS_MEMORY_IRRELEVANCE_PROTOCOL.md
 @TITANOS_SENTINEL_141.md
 @TITANOS_ADDENDUM_FRONTIER_AS_CAPABILITY_MAP.md
+@TITANOS_OBELISK_ZERO_DEPENDENCY_DOCTRINE.md
 
-These thirteen files are stateless configuration — plain files in this
+These fourteen files are stateless configuration — plain files in this
 repository, loaded at the start of every session that works here,
 independent of any conversation memory or session recall. Added
 2026-08-25 per Kyle's explicit instruction.
@@ -112,6 +113,13 @@ STEP/PROOF/UNLOCK/REUSE per entry; built items archived to a one-line
 table, not left in the active scan path) and introduces `INTUITION.md`
 — a low-commitment discovery surface for observations that aren't yet
 evidence-backed enough to become frontier commitments.
+
+**Obelisk Zero-Dependency Doctrine** — H0 (proven now, zero external
+dependency) / H1 (resource-conditional, never claimed as implemented) /
+H2 (civilisational vista, a strategic map only). Audited same day: zero
+network imports anywhere in this repository, `yaml` the sole third-party
+dependency across all eight subsystems — the Obelisk Test already
+passes. See `TITANOS_OBELISK_ZERO_DEPENDENCY_DOCTRINE.md`.
 
 ## `PARETO_FRONTIER.md`, `NEXT_MOVE.md`, and `INTUITION.md`
 
