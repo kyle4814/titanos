@@ -53,14 +53,24 @@ ContradictionStatus = str
 STATUSES = ("OPEN", "RESOLVED", "WONT_FIX")
 
 
-@dataclass
+@dataclass(frozen=True)
 class ContradictionRecord:
+    """Frozen (2026-08-26, adversarial review finding): a caller holding
+    a reference from `.get()` could previously do
+    `rec.status = "RESOLVED"` or `rec.history.append(...)` directly,
+    bypassing `resolve()`'s evidence-gate and forging a status/history
+    entry with zero evidence — the exact `EPISTEMIC_INTEGRITY_002` shape
+    already closed on `Claim`/`AtomRecord`/`PromotionRecord`/
+    `QuarantineRecord`/`FlowSwitchRecord` earlier this session, missed
+    here because `ContradictionRegistry` wasn't in that sweep. `history`
+    is now a tuple; `record()`/`resolve()` replace it via
+    `object.__setattr__` instead of mutating in place."""
     contradiction_id: str
     description: str
     involved_ids: tuple[str, ...]
     status: ContradictionStatus = "OPEN"
     resolution: dict[str, Any] | None = None
-    history: list[dict[str, Any]] = field(default_factory=list)
+    history: tuple[dict[str, Any], ...] = field(default_factory=tuple)
     created_at: str = ""
 
     def to_dict(self) -> dict[str, Any]:
@@ -104,8 +114,9 @@ class ContradictionRegistry:
             status="OPEN",
             created_at=now,
         )
-        rec.history.append({"event": "RECORDED", "status": "OPEN", "at": now,
-                            "involved_ids": list(rec.involved_ids)})
+        entry = {"event": "RECORDED", "status": "OPEN", "at": now,
+                 "involved_ids": list(rec.involved_ids)}
+        object.__setattr__(rec, "history", rec.history + (entry,))
         self._contradictions[contradiction_id] = rec
         return rec
 
@@ -143,16 +154,17 @@ class ContradictionRegistry:
             "evidence_refs": tuple(evidence_refs),
             "resolved_by": resolved_by,
         }
-        rec.history.append({
+        entry = {
             "event": "RESOLVED", "from": rec.status, "to": final_status,
             "reason": resolution_reason, "evidence_refs": list(evidence_refs),
             "resolved_by": resolved_by,
             "at": datetime.now(timezone.utc).isoformat(),
             # Explicit: involved_ids are unchanged by resolution.
             "involved_ids_preserved": list(rec.involved_ids),
-        })
-        rec.status = final_status
-        rec.resolution = resolution
+        }
+        object.__setattr__(rec, "history", rec.history + (entry,))
+        object.__setattr__(rec, "status", final_status)
+        object.__setattr__(rec, "resolution", resolution)
         return rec
 
     def get(self, contradiction_id: str) -> ContradictionRecord | None:

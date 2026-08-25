@@ -126,5 +126,36 @@ class TestAppendOnlyHistory(unittest.TestCase):
         self.assertEqual(events, ["RECORDED", "RESOLVED"])
 
 
+class TestRecordCannotBeForgedByDirectMutation(unittest.TestCase):
+    """Adversarial review (2026-08-26) found `ContradictionRecord` was
+    the one append-only record type this session's EPISTEMIC_INTEGRITY_002
+    sweep missed: a caller holding a reference from `.get()` could
+    previously do `rec.status = "RESOLVED"` directly, forging a resolved
+    status with zero evidence -- exactly the gate `resolve()` exists to
+    enforce, bypassed entirely. Proven live by the reviewer before this
+    fix; these tests prove it is now closed."""
+
+    def test_status_cannot_be_forged_by_direct_assignment(self):
+        reg = ContradictionRegistry()
+        rec = reg.record("c-16", "bp-1 vs bp-2", ["bp-1", "bp-2"])
+        with self.assertRaises(Exception):
+            rec.status = "RESOLVED"
+        self.assertEqual(reg.get("c-16").status, "OPEN")
+
+    def test_history_cannot_be_forged_by_append(self):
+        reg = ContradictionRegistry()
+        rec = reg.record("c-17", "bp-1 vs bp-2", ["bp-1", "bp-2"])
+        with self.assertRaises(AttributeError):
+            rec.history.append({"event": "RESOLVED", "forged": True})
+
+    def test_the_only_legal_path_to_resolved_still_requires_evidence(self):
+        reg = ContradictionRegistry()
+        reg.record("c-18", "bp-1 vs bp-2", ["bp-1", "bp-2"])
+        with self.assertRaises(ValueError):
+            reg.resolve("c-18", "no evidence given", evidence_refs=(),
+                        resolved_by="carol")
+        self.assertEqual(reg.get("c-18").status, "OPEN")
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -94,9 +94,16 @@ from kpm.contradictions.registry import ContradictionRegistry
 
 ## Limitations
 
-No persistence layer — every store (`SourceRegistry`, `PromotionStore`,
-`ContradictionRegistry`) is in-memory per process instance; nothing
-survives a restart. No cryptographic signing. No network calls.
+**Correction, verified 2026-08-26:** `SourceRegistry` is NOT in-memory
+only — by default it persists real, content-addressed data to disk
+(`kpm/source-vault/registry.jsonl` + `kpm/source-vault/archive/*.blob`),
+reloading on construction. This was found and corrected after this
+session's own `FIRST_PING.md` ingestion calls actually wrote real files
+into the tracked repository, contradicting an earlier draft of this
+doc's blanket "no persistence layer" claim. `PromotionStore` and
+`ContradictionRegistry` genuinely are in-memory per process instance —
+nothing they hold survives a restart. No cryptographic signing on any
+store. No network calls anywhere in this subsystem.
 
 ## Changelog
 
@@ -145,6 +152,6 @@ public_modules:
 runtime_dependencies: [PyYAML]
 test_command: python3 -m unittest discover -s kpm -p "test_*.py"
 test_count: 102
-known_limitation: no persistence layer, single-reviewer authority only
+known_limitation: SourceRegistry persists to disk by default (kpm/source-vault/), PromotionStore/ContradictionRegistry do not; single-reviewer authority only
 provenance: kpm/BUILD_REPORT.md, kpm/constitution/CONSTITUTION.yaml
 ```

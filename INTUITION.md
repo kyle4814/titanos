@@ -36,17 +36,22 @@ however promising it looks.
   that way — worth considering when FRONTIER-004 is picked up, not a
   separate frontier item on its own yet.
 
-- **No cross-session persistence exists anywhere in this repository.**
-  Every store (`QuarantineStore`, `PromotionStore`, `RealityYieldLedger`,
-  `CrystalStore`, `TaskQueue`) is in-memory only, by design, matching
-  the "reuse existing task records... do not create a second memory
-  system" discipline. But it also means `RecoveryHandoff`
-  (`foundation/task_queue.py`) can only ever recover within a single
-  process's lifetime — a genuinely interrupted *session* (not just an
-  interrupted `run()` call) still has nothing durable to recover from.
-  Whether this matters depends entirely on whether this repository ever
-  needs to survive a real process restart mid-queue — no evidence yet
-  that it does.
+- **Correction, verified 2026-08-26: this claim was wrong for one
+  store.** `QuarantineStore`, `PromotionStore`, `RealityYieldLedger`,
+  `CrystalStore`, `TaskQueue` genuinely are in-memory only. But
+  `kpm/source_vault/registry.py::SourceRegistry` is NOT — by default it
+  persists real, content-addressed data to
+  `kpm/source-vault/registry.jsonl` + `archive/*.blob`, reloading on
+  construction, and this session's own `FIRST_PING.md` work exercised
+  that for real (found when the ingestion calls left real files in the
+  tracked repo, not a temp dir). So cross-session persistence DOES exist
+  for one specific store, just not the task-queue/promotion/ledger
+  family this observation was actually worried about. `RecoveryHandoff`
+  (`foundation/task_queue.py`) still can only recover within a single
+  process's lifetime — that specific concern stands unchanged. Whether
+  this matters depends entirely on whether this repository ever needs
+  to survive a real process restart mid-queue — still no evidence that
+  it does.
 
 - **`foundation/secret_scanner.py`'s email/path-leakage patterns are
   LOW confidence and currently unused by anything.** Only
