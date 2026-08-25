@@ -8,19 +8,20 @@ rather than being deleted here.
 
 ---
 
-**As of 2026-08-25, cycle following the closed-loop reality proof:**
+**As of 2026-08-25, cycle following the deferral + recovery handoff build:**
 
-Unchanged recommendation below — this cycle built FRONTIER-014
-(`foundation/sentinel_worker.py::SentinelSweepWorker`), the first real
-(non-test-double) `Layer0Worker` driven through the queue seam end to
-end: its unit of work is a real `pulse_sweep()` run, its state update
-writes a real `Crystal`. Five closed-loop tests confirm the loop carries
-genuine output (evidence cross-checked against an independent fresh
-sweep), never bypasses eligibility or budget bounds, and two separate
-`run()` calls share no hidden state. Reality pass via `pulse_sweep()`
-found zero new issues, same 3 pre-existing FRONTIER-011 findings.
-Same independent-audits-don't-displace-each-other's-recommendation
-pattern as every prior cycle.
+Unchanged recommendation below — this cycle built FRONTIER-015
+(`RunReport.deferred` + `recovery_handoff()`) in response to a
+pressure-aware execution directive. Audited first: `task_queue.run()`
+already processes one atomic task at a time with hard budget checks
+(the GREEN->AMBER->RED shape the directive wanted was already
+structurally present), so no new task states or monitoring were built.
+The two real gaps — a stopped run not naming which eligible work it
+left behind, and no compact handoff summary — are now closed, built
+entirely on `TaskQueue`/`RunReport`, no new memory system. Reality pass
+found zero new issues, same 3 pre-existing FRONTIER-011 findings. Same
+independent-audits-don't-displace-each-other's-recommendation pattern
+as every prior cycle.
 
 
 ## Recommended: FRONTIER-001 — Reusable secret/credential scanner

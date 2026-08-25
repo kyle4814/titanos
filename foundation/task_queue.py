@@ -48,6 +48,7 @@ from typing import Callable, Optional
 
 __all__ = [
     "Task", "TaskQueue", "RunBudget", "RunReport",
+    "RecoveryHandoff", "recovery_handoff",
     "run", "reconcile_in_progress",
     "TASK_STATES", "TRANSITIONS",
 ]
@@ -226,6 +227,54 @@ class RunReport:
     completed: tuple[str, ...] = field(default_factory=tuple)
     failed: tuple[tuple[str, str], ...] = field(default_factory=tuple)  # (task_id, reason)
     stopped_reason: str = ""
+    # Eligible-but-not-started task_ids at the moment this run stopped —
+    # explicit deferral (MAGL_CAP_002), not a new task state. A deferred
+    # task's own `state` stays exactly what it already was (PENDING) —
+    # pressure reduces how much work a run STARTS, it never touches a
+    # task's own state machine.
+    deferred: tuple[str, ...] = field(default_factory=tuple)
+
+
+@dataclass(frozen=True)
+class RecoveryHandoff:
+    """The minimum durable information a fresh session/model needs to
+    resume this queue without any prior chat context — built entirely
+    from `TaskQueue`/`RunReport`, no second memory system. Per MAGL_
+    CAP_002's Recovery Contract: current run state, next atomic action,
+    relevant task ids, what still needs verification, and any known
+    blocker — nothing else.
+    """
+    run_state: str
+    next_atomic_action: Optional[str]  # a task_id, or None if nothing is pending
+    relevant_task_ids: tuple[str, ...]
+    verification_required: tuple[str, ...]  # task_ids left IN_PROGRESS
+    known_blockers: tuple[tuple[str, str], ...]  # (task_id, failure_reason) for FAILED tasks
+
+
+def recovery_handoff(queue: TaskQueue, report: RunReport) -> RecoveryHandoff:
+    """Build a `RecoveryHandoff` from the queue's actual current state and
+    the just-completed run's report. Read-only — inspects, does not
+    mutate, and does not guess: an IN_PROGRESS task found here still
+    requires `reconcile_in_progress()` before a future run may trust it,
+    exactly as before this function existed.
+    """
+    in_progress = tuple(t.task_id for t in queue.all_tasks() if t.state == "IN_PROGRESS")
+    known_blockers = tuple(
+        (t.task_id, t.failure_reason) for t in queue.all_tasks() if t.state == "FAILED"
+    )
+    failed_ids = tuple(tid for tid, _ in known_blockers)
+    next_action = report.deferred[0] if report.deferred else None
+    # Order preserved, duplicates removed — a task can appear in at most
+    # one of deferred/in_progress/failed at a time (mutually exclusive
+    # states), but dedup defensively rather than assuming that forever.
+    relevant = tuple(dict.fromkeys(report.deferred + in_progress + failed_ids))
+    return RecoveryHandoff(
+        run_state=report.stopped_reason,
+        next_atomic_action=next_action,
+        relevant_task_ids=relevant,
+        verification_required=in_progress,
+        known_blockers=known_blockers,
+    )
 
 
 def run(
@@ -245,19 +294,28 @@ def run(
 
     effective_max_tasks = budget.max_tasks - budget.verification_reserve
 
+    def _stop(reason: str) -> RunReport:
+        # Explicit deferral (MAGL_CAP_002): whatever is still eligible
+        # at the moment we stop is reported, not silently left for a
+        # future caller to rediscover by re-querying the queue. The
+        # tasks themselves are untouched — still PENDING, nothing here
+        # transitions or claims them.
+        deferred = tuple(t.task_id for t in queue.eligible_tasks())
+        return RunReport(tuple(completed), tuple(failed), reason, deferred)
+
     while True:
         if task_count >= effective_max_tasks:
-            return RunReport(tuple(completed), tuple(failed), "max_tasks reached (after verification_reserve)")
+            return _stop("max_tasks reached (after verification_reserve)")
         if len(failed) >= budget.max_failures:
-            return RunReport(tuple(completed), tuple(failed), "max_failures reached")
+            return _stop("max_failures reached")
         if budget.time_budget_seconds is not None and (
             time.monotonic() - started
         ) >= budget.time_budget_seconds:
-            return RunReport(tuple(completed), tuple(failed), "time_budget_seconds reached")
+            return _stop("time_budget_seconds reached")
 
         eligible = queue.eligible_tasks()
         if not eligible:
-            return RunReport(tuple(completed), tuple(failed), "no eligible tasks remain")
+            return _stop("no eligible tasks remain")
 
         task = eligible[0]
         task_count += 1

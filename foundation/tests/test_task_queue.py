@@ -1,7 +1,8 @@
 import unittest
 
 from foundation.task_queue import (
-    RunBudget, RunReport, Task, TaskQueue, can_transition, reconcile_in_progress, run,
+    RunBudget, RunReport, Task, TaskQueue, can_transition, reconcile_in_progress,
+    recovery_handoff, run,
 )
 
 
@@ -243,6 +244,72 @@ class TestRun(unittest.TestCase):
             perform=lambda t: "ok", verify=lambda t, r: True,
         )
         self.assertEqual(report, RunReport((), (), "no eligible tasks remain"))
+
+    # -- MAGL_CAP_002: explicit deferral + recovery handoff -----------------
+
+    def test_t7_budget_stop_reports_deferred_eligible_tasks_explicitly(self):
+        q = self._queue_of(5)
+        report = run(
+            q, RunBudget(max_tasks=2, max_failures=5),
+            perform=lambda t: "ok", verify=lambda t, r: True,
+        )
+        # T3/T5, PENDING work is untouched — still discoverable via the
+        # queue itself — but the run report also says so explicitly,
+        # rather than requiring a caller to re-derive it.
+        self.assertEqual(set(report.deferred), {"T2", "T3", "T4"})
+        for tid in report.deferred:
+            self.assertEqual(q.get(tid).state, "PENDING")
+
+    def test_completed_run_has_no_deferred_tasks(self):
+        q = self._queue_of(2)
+        report = run(
+            q, RunBudget(max_tasks=10, max_failures=5),
+            perform=lambda t: "ok", verify=lambda t, r: True,
+        )
+        self.assertEqual(report.deferred, ())
+
+    def test_t9_recovery_handoff_built_from_repository_state_alone(self):
+        # No chat context, no external state -- everything the handoff
+        # needs comes from the queue and the report it just produced.
+        q = self._queue_of(3)
+        report = run(
+            q, RunBudget(max_tasks=1, max_failures=5),
+            perform=lambda t: "ok", verify=lambda t, r: True,
+        )
+        handoff = recovery_handoff(q, report)
+        self.assertEqual(handoff.run_state, "max_tasks reached (after verification_reserve)")
+        self.assertEqual(handoff.next_atomic_action, "T1")
+        self.assertIn("T1", handoff.relevant_task_ids)
+        self.assertIn("T2", handoff.relevant_task_ids)
+        self.assertEqual(handoff.verification_required, ())
+        self.assertEqual(handoff.known_blockers, ())
+
+    def test_recovery_handoff_surfaces_in_progress_and_failed_tasks(self):
+        q = TaskQueue()
+        stuck = Task(task_id="STUCK", description="x")
+        stuck.transition_to("IN_PROGRESS")
+        q.load(stuck)
+        q.load(Task(task_id="BAD", description="x", max_attempts=1, attempts=1))
+        report = run(
+            q, RunBudget(max_tasks=5, max_failures=5),
+            perform=lambda t: "ok", verify=lambda t, r: True,
+        )
+        handoff = recovery_handoff(q, report)
+        self.assertIn("STUCK", handoff.verification_required)
+        self.assertTrue(any(tid == "BAD" for tid, _ in handoff.known_blockers))
+        # An IN_PROGRESS task must never be treated as the "next atomic
+        # action" -- it needs reconcile_in_progress() first, not a fresh
+        # run() picking it up (it isn't even PENDING, so run() can't).
+        self.assertNotEqual(handoff.next_atomic_action, "STUCK")
+
+    def test_recovery_handoff_next_action_none_when_nothing_deferred(self):
+        q = self._queue_of(1)
+        report = run(
+            q, RunBudget(max_tasks=5, max_failures=5),
+            perform=lambda t: "ok", verify=lambda t, r: True,
+        )
+        handoff = recovery_handoff(q, report)
+        self.assertIsNone(handoff.next_atomic_action)
 
 
 if __name__ == "__main__":

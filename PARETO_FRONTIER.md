@@ -25,6 +25,29 @@ re-verified, not trusted, the next time it's picked up.
 
 ## Built
 
+### FRONTIER-015 — Explicit deferral + recovery handoff (`foundation/task_queue.py`)
+- **status:** BUILT — `RunReport.deferred`, `RecoveryHandoff`,
+  `recovery_handoff()`, 5 new tests.
+- MAGL_CAP_002 asked for pressure-aware (GREEN/AMBER/RED) bounded
+  execution. Audited first: `task_queue.run()` already processes one
+  atomic task at a time with a hard budget check before each iteration
+  — there was never a "batch" to shrink, so the GREEN->AMBER "reduce
+  ambition" behaviour was already structurally true, not missing.
+  `RunBudget`'s four limits already produce a clean, explicit stop
+  (`RunReport.stopped_reason`) with completed work preserved — the
+  RED->STOP behaviour already existed too. The two genuinely missing
+  pieces, both from the directive's own "Recovery Contract" section:
+  (1) a stopped run didn't say *which* eligible tasks it left
+  unstarted, only that it stopped — now `RunReport.deferred`; (2) no
+  compact handoff summary existed (current run state / next atomic
+  action / relevant task ids / what needs verification / known
+  blockers) — a caller could reconstruct this by hand from `TaskQueue`,
+  but nothing built it explicitly — now `recovery_handoff()`, built
+  entirely from `TaskQueue`+`RunReport`, no new memory system, no
+  persistence.
+- **not built:** no new task states, no monitoring, no polling, no
+  batching mechanism — none were missing.
+
 ### FRONTIER-014 — Closed-loop reality proof with a real worker (`foundation/sentinel_worker.py`)
 - **status:** BUILT — `SentinelSweepWorker`, 5 closed-loop tests, no
   mocks anywhere in the loop.
