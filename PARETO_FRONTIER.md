@@ -105,7 +105,8 @@ from the active scan path per this addendum's compaction rule.
 | ID | Capability | Commit |
 |---|---|---|
 | FRONTIER-RG | Bounded recursive execution ancestry (recursion guard) | `93b3e89` |
-| FRONTIER-004 | Narrative Atom Store (`narrative/store/narrative_atom_store.py`) | (this cycle) |
+| FRONTIER-004 | Narrative Atom Store (`narrative/store/narrative_atom_store.py`) | `d5537c1` |
+| FRONTIER-MEMBRANE | Source Vault -> Narrative Atom bridge (`narrative/intake/source_vault_bridge.py`) | (this cycle) |
 | FRONTIER-000 | Narrative Atom schema + validator | `d14e128` |
 | FRONTIER-006 | Layer 0 Worker Contract (ABC-enforced) | `f416cd0` |
 | FRONTIER-007 | Crystalline Memory (`foundation/crystal.py`) | `7ecf615` |
