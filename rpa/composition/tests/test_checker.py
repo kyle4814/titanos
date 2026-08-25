@@ -87,6 +87,60 @@ class TestDanglingReferencesRefused(unittest.TestCase):
         self.assertEqual(report.verdict, "REFUSED")
         self.assertTrue(any(f.check == "pilot_measurement_ref" for f in report.findings))
 
+    def test_rollback_citing_existing_candidate_produces_no_finding(self):
+        rollback = _load("rollback_contract.yaml")
+        candidate = _load("automation_candidate.yaml")
+        report = check_chain_integrity(rollback_docs=[rollback], candidate_docs=[candidate])
+        self.assertEqual(report.verdict, "INTACT")
+        self.assertFalse(any(f.check == "rollback_candidate_ref" for f in report.findings))
+
+    def test_rollback_citing_nonexistent_candidate_is_refused(self):
+        rollback = _load("rollback_contract.yaml")
+        rollback["rollback_contract"]["applies_to_ref"] = "candidate-that-does-not-exist"
+        candidate = _load("automation_candidate.yaml")
+        report = check_chain_integrity(rollback_docs=[rollback], candidate_docs=[candidate])
+        self.assertEqual(report.verdict, "REFUSED")
+        self.assertTrue(any(f.check == "rollback_candidate_ref" for f in report.findings))
+        self.assertIn("candidate-that-does-not-exist", report.findings[0].involved_ids)
+
+    def test_rollback_candidate_ref_detected_by_composition_layer_not_single_doc_validator(self):
+        """A dangling applies_to_ref is structurally valid to
+        validate_rollback_contract.py (RB-R-4/RB-R-5 only check shape) —
+        the failure must come from check_chain_integrity(), proving this
+        is a composition-boundary check, not a duplicate of the
+        single-document validator's own rules."""
+        import sys as _sys
+        from pathlib import Path as _Path
+        _sys.path.insert(0, str(_Path(__file__).resolve().parents[3]))
+        from rpa.validators.validate_rollback_contract import validate_rollback_contract
+
+        rollback = _load("rollback_contract.yaml")
+        rollback["rollback_contract"]["applies_to_ref"] = "candidate-that-does-not-exist"
+        raw_text = yaml.safe_dump(rollback)
+        single_doc_result = validate_rollback_contract(raw_text)
+        self.assertEqual(single_doc_result.status, "VALID")
+
+        candidate = _load("automation_candidate.yaml")
+        report = check_chain_integrity(rollback_docs=[rollback], candidate_docs=[candidate])
+        self.assertEqual(report.verdict, "REFUSED")
+
+    def test_rollback_candidate_ref_not_checked_without_candidate_docs_supplied(self):
+        """Absence of candidate_docs must not itself trigger a finding —
+        mirrors the existing partial-input pattern for every other _ref
+        check in this file."""
+        rollback = _load("rollback_contract.yaml")
+        report = check_chain_integrity(rollback_docs=[rollback])
+        self.assertEqual(report.verdict, "INTACT")
+        self.assertEqual(report.findings, [])
+
+    def test_rollback_candidate_ref_is_deterministic(self):
+        rollback = _load("rollback_contract.yaml")
+        rollback["rollback_contract"]["applies_to_ref"] = "candidate-that-does-not-exist"
+        candidate = _load("automation_candidate.yaml")
+        r1 = check_chain_integrity(rollback_docs=[rollback], candidate_docs=[candidate])
+        r2 = check_chain_integrity(rollback_docs=[rollback], candidate_docs=[candidate])
+        self.assertEqual(r1.to_dict(), r2.to_dict())
+
     def test_measurement_citing_nonexistent_pilot_is_refused(self):
         measurement = _load("before_after_measurement.yaml")
         measurement["before_after_measurement"]["pilot_simulation_ref"] = "pilot-that-does-not-exist"

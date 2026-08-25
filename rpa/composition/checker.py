@@ -154,6 +154,25 @@ def check_chain_integrity(
                     for doc in rollback_docs}
     measurement_ids = {doc.get("before_after_measurement", {}).get("id")
                        for doc in measurement_docs}
+
+    for doc in rollback_docs:
+        rb = doc.get("rollback_contract", {})
+        rid = rb.get("id")
+
+        aref = rb.get("applies_to_ref")
+        if candidate_docs and aref not in candidate_ids:
+            findings.append(Finding(
+                check="rollback_candidate_ref", severity="FATAL",
+                what=f"rollback contract '{rid}' references applies_to_ref "
+                     f"'{aref}' which is not among the supplied automation "
+                     f"candidates",
+                why="validate_rollback_contract.py's own docstring names "
+                    "this resolution as deliberately deferred to the "
+                    "composition layer — a rollback contract citing a "
+                    "candidate that cannot be found is not a rollback "
+                    "target the architecture can trust",
+                involved_ids=(rid, aref),
+            ))
     pilot_ids: set[str] = set()
     for doc in pilot_docs:
         p = doc.get("pilot_simulation", {})
