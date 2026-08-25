@@ -4,8 +4,9 @@
 @TITANOS_NEXT_LEVER_SEQUENCER.md
 @TITANOS_REALITY_YIELD_PROFIT_ARCHITECTURE.md
 @TITANOS_CRITICAL_FUNCTION_SWITCH_GATE.md
+@TITANOS_HELLS_GATE.md
 
-These four files are stateless configuration — plain files in this
+These five files are stateless configuration — plain files in this
 repository, loaded at the start of every session that works here,
 independent of any conversation memory or session recall. Added
 2026-08-25 per Kyle's explicit instruction.
@@ -57,6 +58,26 @@ at a minimum of two independent points, fail-closed on unknown. The
 first function hard-gated under this rule: `foundation/publication_gate.py`
 (publication / private-public boundary crossing), built because it was
 the pending real-world action, not a hypothetical one.
+
+**Hell's Gate** is the general admission boundary
+(`foundation/hells_gate.py`): every artifact seeking to enter the
+canonical core produces exactly one of ADMIT / QUARANTINE / REJECT /
+HUMAN_REVIEW_REQUIRED, default QUARANTINE, never "TRUSTED." It routes
+actual containment through the real `firewall.quarantine.QuarantineStore`
+rather than a second store, and does not replace the more specific gates
+already behind it (`publication_gate.py`, `taal/gate/root_gate.py`,
+`magl/composition/engine.py`) — it's the front door those still sit
+behind.
+
+## `HUMAN_DECISIONS.md`
+
+**Read this before assuming something is blocked, broken, or needs to be
+rebuilt.** Every judgment call this project has deliberately left to a
+human, across every session, is consolidated there in one place instead
+of scattered across eight `BUILD_REPORT.md` files. Kyle asked to be able
+to go hands-off this machine — this file is how a future session (with
+or without him present) finds out what's actually still waiting on a
+decision, without re-deriving it from git history.
 
 ## Standing facts about this repository
 

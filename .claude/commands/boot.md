@@ -29,7 +29,10 @@ summary is not proof of anything; verified behavior is.
 
 4. **LOAD CURRENT STATE + PROVENANCE** — Read every `BUILD_REPORT.md`
    under `schema/`, `firewall/` (if present), `kpm/`, `magl/`, `rpa/`,
-   `taal/`, `foundation/`. Run `git log --oneline -15` to see what
+   `taal/`, `foundation/`. Read `HUMAN_DECISIONS.md` — the consolidated
+   list of every judgment call left to a human across every session; do
+   not treat an item there as blocking unless it actually blocks the
+   move you're about to make. Run `git log --oneline -15` to see what
    actually landed most recently, not what a conversation summary claims
    landed. Run the full repository test suite (every `*/tests/` directory
    discovered via `python3 -m unittest discover`) and record the real
