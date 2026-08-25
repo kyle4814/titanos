@@ -25,6 +25,18 @@ re-verified, not trusted, the next time it's picked up.
 
 ## Built
 
+### FRONTIER-010 — Sentinel_141 Level 1 Pulse Sweep (`foundation/sentinel.py`)
+- **status:** BUILT — `Finding`/`HealthReport`/`pulse_sweep()`/
+  `FourPaths`, 24 tests.
+- First read-only health sensor in this repo. Real finding from its own
+  first run against this repository: `schema/`, `firewall/`,
+  `narrative/` have no `BUILD_REPORT.md` — recorded, not auto-fixed
+  (Sentinel may not silently route a finding into execution).
+- **explicitly declined this cycle:** Level 2 Deep Sweep, Level 3
+  Strategic Compaction Review, external scheduling — no production
+  history of Level 1 running yet to justify them; no GitHub remote to
+  attach a scheduler to (same block as FRONTIER-003).
+
 ### FRONTIER-MAP — Memory Map (`MEMORY_MAP.md`)
 - **status:** BUILT
 - Priority item 1 of `TITANOS_MEMORY_IRRELEVANCE_PROTOCOL.md`'s own
@@ -165,6 +177,16 @@ re-verified, not trusted, the next time it's picked up.
   not loud, which is worse than a build failure.
 - **dependencies:** `MEMORY_MAP.md` (built — this entry's own audit).
 - **duplication_risk:** none — no selector mechanism exists today.
+
+### FRONTIER-011 — Missing BUILD_REPORT.md for schema/, firewall/, narrative/
+- **status:** OPEN
+- **added:** 2026-08-25
+- **source:** Sentinel_141's own first `pulse_sweep()` run against this
+  repository (`foundation/sentinel.py::check_subsystem_build_reports`).
+- **value:** LOW-MEDIUM — audit-trail consistency with the five sibling
+  subsystems that already have one; no functional impact.
+- **effort:** LOW.
+- **risk:** none — pure documentation addition.
 
 ### FRONTIER-004 — Narrative Atom Store (state machine driver)
 - **status:** OPEN

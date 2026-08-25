@@ -8,16 +8,16 @@ rather than being deleted here.
 
 ---
 
-**As of 2026-08-25, cycle following the Memory Map build:**
+**As of 2026-08-25, cycle following the Sentinel_141 Pulse Sweep build:**
 
-Unchanged recommendation below — this cycle built `MEMORY_MAP.md`
-(priority item 1 of `TITANOS_MEMORY_IRRELEVANCE_PROTOCOL.md`'s own
-build order) because that doctrine's own sequencing rule requires the
-map before any of its other six priority items. The map found a real,
-measured problem (1,700+ lines of doctrine loading unconditionally at
-every boot) and named FRONTIER-009 as the deferred fix rather than
-building a fake selector to look done. Same independent-audits-don't-
-displace-each-other's-recommendation pattern as every prior cycle.
+Unchanged recommendation below — this cycle built FRONTIER-010
+(Sentinel_141 Level 1 Pulse Sweep, `foundation/sentinel.py`) because
+`TITANOS_SENTINEL_141.md` asked for the smallest missing observation
+layer and none existed. Its own first run found a real gap
+(FRONTIER-011, three subsystems missing `BUILD_REPORT.md`) — recorded,
+not auto-fixed, since Sentinel may not route a finding into execution.
+Same independent-audits-don't-displace-each-other's-recommendation
+pattern as every prior cycle.
 
 
 ## Recommended: FRONTIER-001 — Reusable secret/credential scanner

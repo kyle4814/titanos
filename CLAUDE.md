@@ -11,8 +11,9 @@
 @TITANOS_LAYER0_RECURSIVE_PARETO_FRONTIER.md
 @TITANOS_GREENLIGHT_AND_MEMETIC_DOCTRINE.md
 @TITANOS_MEMORY_IRRELEVANCE_PROTOCOL.md
+@TITANOS_SENTINEL_141.md
 
-These eleven files are stateless configuration — plain files in this
+These twelve files are stateless configuration — plain files in this
 repository, loaded at the start of every session that works here,
 independent of any conversation memory or session recall. Added
 2026-08-25 per Kyle's explicit instruction.
@@ -94,6 +95,15 @@ at every boot, which is Tier 3 content paying Tier 0 cost — caused by a
 named platform limitation (`@`-import has no lazy-load primitive), not
 fixed this cycle. See `MEMORY_MAP.md` for the full tier classification
 and `PARETO_FRONTIER.md` FRONTIER-009 for the deferred fix.
+
+**Sentinel_141** is the repo's first read-only health sensor
+(`foundation/sentinel.py::pulse_sweep()`) — deterministic checks only
+(broken `@`-imports, missing `BUILD_REPORT.md`, Python syntax, duplicate
+`PARETO_FRONTIER.md` ids), CT_141-compacted above 20 raw findings,
+structurally forbidden from executing a finding (`FourPaths` cannot
+recommend a path with no proposal; no public callable is named as an
+action verb). Real finding from its first run: `schema/`, `firewall/`,
+`narrative/` have no `BUILD_REPORT.md`.
 
 ## `PARETO_FRONTIER.md` and `NEXT_MOVE.md`
 
