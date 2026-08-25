@@ -25,6 +25,37 @@ re-verified, not trusted, the next time it's picked up.
 
 ## Built
 
+### FRONTIER-013 — Queue <-> Layer0Worker execution seam (`foundation/queue_worker_adapter.py`)
+- **status:** BUILT — `make_worker_perform`/`make_worker_verify`, 10 seam
+  tests (T1-T10 matrix) + 1 regression test, both existing modules
+  (`task_queue.py`, `layer0_worker.py`) unmodified except one real bug
+  fix (below).
+- Explicit adapter, not a redesign: `task_queue.run()`'s `perform:
+  Callable[[Task], str]` / `verify: Callable[[Task, str], bool]`
+  contract is genuinely incompatible with `Layer0Worker.run()`'s
+  zero-arg/`CycleRecord`-return shape — bridged via a `dict[str,
+  CycleRecord]` the two returned closures share, not by changing either
+  contract. Success is detected via `"UPDATE_STATE" in record.
+  steps_completed` (the one step only reached after execute+verify both
+  succeed), not `record.halted` (which is also `True` on a *successful*
+  cycle that recommends stopping future recursion — checking it alone
+  would misclassify that as failure).
+- **real bug found and fixed by writing the seam tests:**
+  `TaskQueue.eligible_tasks()` silently skipped dependencies on unknown
+  task_ids (`if d in self._tasks` filtered them out of the `all(...)`
+  check instead of failing it), making a task with only unrecognised
+  dependencies vacuously eligible — fail-open instead of fail-closed.
+  Fixed; regression test added to `test_task_queue.py`. Discovered via
+  T8 ("ineligible task never reaches worker execution"), not introduced
+  by this cycle.
+- **reality pass:** `foundation/sentinel.py::pulse_sweep()` run against
+  the actual current repo post-change — 3 findings, identical to the
+  pre-existing FRONTIER-011 finding (missing `BUILD_REPORT.md` for
+  three subsystems), zero new findings, not compacted.
+- The arbitrary-callable path (no worker involved) is preserved and
+  still tested unchanged (T7) — `Layer0Worker` integration is an
+  explicit canonical option, not the only way to run a task.
+
 ### FRONTIER-012 — Bounded Task Queue Workflow (`foundation/task_queue.py`)
 - **status:** BUILT — `Task`/`TaskQueue`/`RunBudget`/`run()`/
   `reconcile_in_progress()`, 32 tests.

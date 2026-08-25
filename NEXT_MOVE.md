@@ -8,15 +8,18 @@ rather than being deleted here.
 
 ---
 
-**As of 2026-08-25, cycle following the Task Queue build:**
+**As of 2026-08-25, cycle following the Queue<->Worker seam build:**
 
-Unchanged recommendation below — this cycle built FRONTIER-012 (Bounded
-Task Queue Workflow, `foundation/task_queue.py`) in response to a
-directive claiming a prior session left task-queue work interrupted.
-`git status` was verified clean first — no such prior work existed
-anywhere in this repo, so this was a fresh build of the described
-workflow, not a recovery. Same independent-audits-don't-displace-each-
-other's-recommendation pattern as every prior cycle.
+Unchanged recommendation below — this cycle built FRONTIER-013 (the
+explicit `foundation/queue_worker_adapter.py` bridge between
+`task_queue.run()` and `Layer0Worker.run()`), closing the seam named by
+`MAGL_FND_003` without modifying either existing, already-tested module.
+Found and fixed one real pre-existing bug along the way (`eligible_
+tasks()` treated unknown dependencies as vacuously satisfied instead of
+fail-closed) — caught by writing the seam test matrix, not by this
+cycle's own new code. Reality pass via `sentinel.pulse_sweep()` found
+zero new issues. Same independent-audits-don't-displace-each-other's-
+recommendation pattern as every prior cycle.
 
 
 ## Recommended: FRONTIER-001 — Reusable secret/credential scanner

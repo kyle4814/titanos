@@ -142,7 +142,12 @@ class TaskQueue:
         for task in self.all_tasks():
             if task.state != "PENDING":
                 continue
-            if all(self._tasks[d].state == "DONE" for d in task.dependencies if d in self._tasks):
+            # Fail-closed: a dependency on an unknown task_id must never
+            # be silently skipped as vacuously satisfied — that would
+            # make an ineligible task (per validate()'s own "unknown
+            # dependency" finding) eligible anyway. Found by
+            # foundation/tests/test_queue_worker_adapter.py's T8 case.
+            if all(d in self._tasks and self._tasks[d].state == "DONE" for d in task.dependencies):
                 eligible.append(task)
         return tuple(eligible)
 

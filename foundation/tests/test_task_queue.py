@@ -91,6 +91,15 @@ class TestTaskQueue(unittest.TestCase):
         eligible = [t.task_id for t in q.eligible_tasks()]
         self.assertEqual(eligible, ["B"])
 
+    def test_unknown_dependency_never_vacuously_eligible(self):
+        # Fail-closed regression: a task depending on a task_id that
+        # does not exist must never be treated as eligible just because
+        # there's nothing to check it against. Found via
+        # test_queue_worker_adapter.py's T8 seam case.
+        q = TaskQueue()
+        q.load(Task(task_id="A", description="x", dependencies=("GHOST",)))
+        self.assertEqual(q.eligible_tasks(), ())
+
     def test_non_pending_tasks_never_eligible(self):
         q = TaskQueue()
         t = Task(task_id="A", description="x")
