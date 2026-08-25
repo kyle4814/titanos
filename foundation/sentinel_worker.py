@@ -69,6 +69,12 @@ class SentinelSweepWorker(Layer0Worker):
         self.crystal_id = crystal_id
         self.provenance: list[_ProvenanceRecord] = []
 
+    def objective(self) -> str:
+        # Reuses the exact `problem` string update_state() already
+        # writes into the Crystal below — declared once, not invented
+        # twice.
+        return "is the repository's boot/state/test integrity currently intact?"
+
     def observe(self) -> Any:
         return self.repo_root
 
@@ -84,6 +90,19 @@ class SentinelSweepWorker(Layer0Worker):
 
     def verify(self, result: Any) -> bool:
         return isinstance(result, HealthReport) and result.raw_finding_count >= 0
+
+    def recommend_next(self, yield_signal: Any) -> Any:
+        # Grounded in this cycle's own real HealthReport, not invented:
+        # `yield_signal` is whatever measure_yield() returned (the
+        # unmodified default: None), so the recommendation is derived
+        # from `self.provenance` (populated by preserve_provenance()
+        # just before this hook runs), not from yield_signal.
+        if not self.provenance:
+            return None
+        last = self.provenance[-1]
+        if last.raw_finding_count == 0:
+            return "none — sweep clean, no follow-up sweep required yet"
+        return f"review the {last.raw_finding_count} open finding(s) before the next sweep"
 
     def preserve_provenance(self, result: Any, *, verified: bool) -> None:
         report: HealthReport = result if isinstance(result, HealthReport) else None

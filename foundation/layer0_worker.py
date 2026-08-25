@@ -48,6 +48,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
 
+from foundation.conclusion_gate import CycleConclusion, conclude_cycle
+
 __all__ = [
     "Layer0Worker", "CycleRecord", "StopSignal", "should_halt",
     "DEFAULT_INFORMATION_GAIN_THRESHOLD", "DEFAULT_YIELD_THRESHOLD",
@@ -98,11 +100,18 @@ class CycleRecord:
     steps_completed: list[str] = field(default_factory=list)
     halted: bool = False
     halt_reason: str = ""
+    # Populated by run() via conclude_cycle() at every return point —
+    # never a caller/worker-declared status. See SUBZERO_MUTATION_001 /
+    # CONCLUSION_ENFORCEMENT_001: a worker's own halted/halt_reason
+    # cannot by itself claim COMPLETE; the gate derives the real
+    # terminal status from what run() actually collected.
+    conclusion: CycleConclusion | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {"worker_id": self.worker_id, "started_at": self.started_at,
                 "steps_completed": list(self.steps_completed),
-                "halted": self.halted, "halt_reason": self.halt_reason}
+                "halted": self.halted, "halt_reason": self.halt_reason,
+                "conclusion": self.conclusion.to_dict() if self.conclusion else None}
 
 
 class Layer0Worker(ABC):
@@ -148,6 +157,11 @@ class Layer0Worker(ABC):
         if not permitted:
             record.halted = True
             record.halt_reason = "permission not granted"
+            record.conclusion = conclude_cycle(
+                objective=self.objective(), next_move="",
+                next_move_executed=False,
+                blocker="permission not granted",
+            )
             return record
 
         result = self.execute_minimum(lever)
@@ -160,6 +174,11 @@ class Layer0Worker(ABC):
             record.halt_reason = "verification failed"
             self.preserve_provenance(result, verified=False)
             record.steps_completed.append("PRESERVE_PROVENANCE")
+            record.conclusion = conclude_cycle(
+                objective=self.objective(), changed=str(result),
+                next_move="", next_move_executed=False,
+                blocker="verification failed",
+            )
             return record
 
         yield_signal = self.measure_yield(result)
@@ -180,9 +199,31 @@ class Layer0Worker(ABC):
             record.halt_reason = "formal stop condition met"
         record.steps_completed.append("HALT")
 
+        # The Next-Move Isolation Law, proven across this real seam:
+        # `next_move` above is a RECOMMENDATION recorded via
+        # RECOMMEND_NEXT — run() never calls or executes it. Declaring
+        # `next_move_executed=False` here is therefore never a
+        # convenient default, it is a structural fact about this
+        # function's own control flow: nothing between RECOMMEND_NEXT
+        # and this line performs the recommended lever.
+        record.conclusion = conclude_cycle(
+            objective=self.objective(), changed=str(result),
+            proof=f"verified={verified}, steps_completed={len(record.steps_completed)}",
+            next_move=str(next_move) if next_move is not None else "",
+            next_move_executed=False,
+        )
+
         return record
 
     # ── Optional hooks — sensible no-op defaults are legitimate here ──────
+    def objective(self) -> str:
+        """Default: no declared objective. Override to state what this
+        worker's cycle is actually for — conclude_cycle() cannot emit
+        COMPLETE without one, by design; a worker that hasn't overridden
+        this has made no claim about its own purpose, so BLOCKED is the
+        honest terminal status, not a bug in the gate."""
+        return ""
+
     def boot(self) -> None:
         """Default no-op. Override for real initialization."""
 
