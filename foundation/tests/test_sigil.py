@@ -4,10 +4,11 @@ import unittest
 from pathlib import Path
 
 from foundation.sigil import (
-    Sigil, RECURSION_GUARD_ENV, compute_sigil, compute_tier, format_sigil, reconcile_sigil,
+    Sigil, PROOF_OPERATION, compute_sigil, compute_tier, format_sigil, reconcile_sigil,
     _dimension_iron, _dimension_lattice, _dimension_frontier,
     _dimension_memory, _dimension_sight, _dimension_reality, _dimension_orchestration,
 )
+from foundation.recursion_guard import check as guard_check
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -218,20 +219,23 @@ class TestComputeSigilOnRealRepo(unittest.TestCase):
     once per test, to bound runtime while still proving determinism
     against two genuinely independent computations.
 
-    SKIPS ITSELF when RECURSION_GUARD_ENV is set. `compute_sigil()`'s own
-    proof dimension shells out to `python3 -m unittest discover -s
-    foundation`, which would otherwise re-discover and re-run THIS test
-    class, which would call `compute_sigil()` again, which would shell
-    out again -- unbounded recursion. `_dimension_proof` sets this env
-    var on every child subprocess it spawns specifically so this class
-    can detect "I am running nested inside someone else's proof-dimension
-    check" and skip rather than recurse. See `RECURSION_GUARD_ENV`'s
-    docstring in foundation/sigil.py.
+    SKIPS ITSELF when already running inside another `compute_sigil()`
+    call's proof dimension. `compute_sigil()`'s own proof dimension
+    shells out to `python3 -m unittest discover -s foundation`, which
+    would otherwise re-discover and re-run THIS test class, which would
+    call `compute_sigil()` again, which would shell out again --
+    unbounded recursion. `_dimension_proof` calls `foundation.
+    recursion_guard.check(PROOF_OPERATION)` before spawning any
+    subprocess and stamps `child_env()` ancestry on every child it does
+    spawn; this class performs the same check so it can detect "I am
+    running nested inside someone else's proof-dimension check" and
+    skip rather than recurse. See `foundation/recursion_guard.py`'s
+    module docstring for the full causal chain.
     """
 
     @classmethod
     def setUpClass(cls):
-        if os.environ.get(RECURSION_GUARD_ENV):
+        if not guard_check(PROOF_OPERATION).is_safe():
             raise unittest.SkipTest(
                 "running nested inside another compute_sigil() call's proof "
                 "dimension -- skipping to avoid unbounded recursion"

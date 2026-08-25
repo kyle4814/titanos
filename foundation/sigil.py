@@ -52,24 +52,26 @@ from pathlib import Path
 from typing import Optional
 
 from foundation.sentinel import SUBSYSTEMS_REQUIRING_BUILD_REPORT, pulse_sweep
+from foundation.recursion_guard import GuardDecision, check as guard_check, child_env as guard_child_env
 
 __all__ = [
     "Sigil", "SigilReconciliation", "compute_sigil", "reconcile_sigil", "format_sigil",
-    "RECURSION_GUARD_ENV",
+    "PROOF_OPERATION",
 ]
 
 # `_dimension_proof` shells out to `python3 -m unittest discover -s
 # foundation`, and `foundation/tests/` contains this module's own
 # real-repo integration tests, which call `compute_sigil()`. Without a
 # guard this recurses without bound: every nested compute_sigil() spawns
-# its own eight subprocesses, one of which is "foundation" again. This
-# environment variable is set on every child subprocess `_dimension_proof`
-# spawns; `foundation/tests/test_sigil.py`'s real-repo test class checks
-# for it in `setUpClass` and skips itself when present, capping recursion
-# at exactly one guarded level instead of forking indefinitely. This was
-# discovered by actually triggering the fork bomb during development, not
-# reasoned out in advance — see the module-level test suite's own note.
-RECURSION_GUARD_ENV = "TITANOS_SIGIL_RECURSION_GUARD"
+# its own eight subprocesses, one of which is "foundation" again — this
+# was discovered by actually triggering the fork bomb during development,
+# not reasoned out in advance. `foundation/recursion_guard.py` is the
+# general fix (see its own docstring for the full causal chain and why
+# a single ad hoc boolean env var was replaced with it): before spawning
+# any subprocess, `_dimension_proof` calls `guard_check(PROOF_OPERATION)`
+# — a repeat entry is blocked BEFORE a single subprocess is created, not
+# after a recursive child has already started and must notice on its own.
+PROOF_OPERATION = "sigil_proof_sweep"
 
 DIMENSION_NAMES = (
     "iron", "lattice", "proof", "sight", "frontier", "orchestration", "memory", "reality",
@@ -133,16 +135,24 @@ def _dimension_proof(repo_root: Path) -> tuple[int, str, bool, int]:
     comparing its count against known reality, not assumed correct
     because the code looked right.
 
-    Each child subprocess is launched with `RECURSION_GUARD_ENV` set —
-    see that constant's docstring for why this is load-bearing, not
-    decorative: without it, this function recursively forks without
-    bound the moment its own real-repo tests run as part of the
-    `foundation` suite it shells out to.
+    Guarded via `foundation/recursion_guard.py`: `guard_check()` is
+    called FIRST, before any subprocess is created. If this call is
+    itself running nested inside another `PROOF_OPERATION` (i.e. it was
+    reached via the `foundation` child subprocess below, discovering and
+    running this module's own real-repo tests), the check returns
+    `BLOCKED_REPEAT` and this function returns immediately with a
+    bounded, explicit "guard-blocked" result — no subprocess is spawned
+    at all for the repeat entry, not merely a spawned child noticing
+    later that it should stop.
     """
+    guard = guard_check(PROOF_OPERATION)
+    if not guard.is_safe():
+        return 0, f"guard-blocked: {guard.reason}", False, 0
+
     subsystems = ("schema", "firewall", "kpm", "magl", "rpa", "taal", "foundation", "narrative")
     total = 0
     all_green = True
-    child_env = {**os.environ, RECURSION_GUARD_ENV: "1"}
+    spawn_env = guard_child_env(PROOF_OPERATION)
     for name in subsystems:
         subsystem_dir = repo_root / name
         if not subsystem_dir.is_dir():
@@ -152,7 +162,7 @@ def _dimension_proof(repo_root: Path) -> tuple[int, str, bool, int]:
             proc = subprocess.run(
                 [sys.executable, "-m", "unittest", "discover", "-s", name, "-p", "test_*.py"],
                 cwd=str(repo_root), capture_output=True, text=True,
-                env=child_env, timeout=120,
+                env=spawn_env, timeout=120,
             )
         except subprocess.TimeoutExpired:
             all_green = False
