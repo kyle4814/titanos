@@ -64,13 +64,18 @@ answer these yet, it stays in `INTUITION.md`, not here.
 ## Blocked
 
 ### FRONTIER-003 — CI workflow (`.github/workflows/`)
-- **CURRENT:** test command is already simple and uniform (`python3 -m
-  unittest discover` per subsystem), no build step, no secrets needed.
-- **GAP:** no workflow file, and no GitHub remote to attach one to.
-- **LEVER:** "CI is the heartbeat" once real — HIGH value, but a
-  workflow file with nothing to trigger it is empty theater today.
-- **blocked_by:** `HUMAN_DECISIONS.md` item 1 (no GitHub repo target
-  named yet).
+- **CURRENT:** `.github/workflows/tests.yml` built 2026-08-25
+  (`EXTERNAL_IDENTITY_GATE_001`, commit `6fb29fa`) — the exact
+  per-subsystem test invocation, no build step, no secrets. Pure
+  content; does nothing until pushed to a real GitHub repository.
+- **GAP:** no GitHub remote to actually trigger it — `HUMAN_DECISIONS.md`
+  item 1's `target_repo` is DECLARED (`kyle4814/titanos`) but the repo
+  itself has not been created and no local `git remote` is configured.
+- **LEVER:** "CI is the heartbeat" once real — HIGH value, still not
+  yet exercised.
+- **blocked_by:** creating the actual GitHub repo and wiring the
+  remote — real external actions requiring a separate, explicit
+  go-ahead this session has not received.
 
 ### FRONTIER-008 — Per-subsystem seed/manifest packaging
 - **CURRENT:** each subsystem now has a `BUILD_REPORT.md` (internal
