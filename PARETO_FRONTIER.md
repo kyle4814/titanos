@@ -1,331 +1,157 @@
-# Pareto Frontier Registry
+# Pareto Frontier — Capability Map
 
-Persistent, git-tracked candidate-move registry per
-`TITANOS_PARETO_FRONTIER_RECURSION_ENGINE.md` §XII. This is the "living"
-half of the architecture's decision state — before this file existed, a
-LEVER phase's Option A/B/C analysis lived only in a chat transcript and
-had to be re-derived from scratch (or from memory) by the next session.
-`/boot` now loads this file as one of its ten steps.
+Not a backlog. Per `TITANOS_ADDENDUM_FRONTIER_AS_CAPABILITY_MAP.md`
+(loaded via `CLAUDE.md`), this file is the navigation surface between
+what this repository can demonstrably do (code + tests) and what it can
+next become (the smallest credible delta). `/boot` loads it. Distinct
+from `HUMAN_DECISIONS.md` (judgment calls only a human can resolve) and
+from `INTUITION.md` (low-commitment discovery — nothing there is
+authorized work until it passes the Frontier Gate below and moves here).
 
-**Not the same thing as `HUMAN_DECISIONS.md`.** That file holds judgment
-calls only a human can resolve (policy, legal, personal choices — "should
-X be true"). This file holds ranked engineering candidate moves ("what
-should get built next") — some entries here exist *because* an item in
-`HUMAN_DECISIONS.md` unblocks them once resolved; each entry says so
-where relevant.
-
-**Staleness is a real risk with this kind of file — named, not hidden.**
-A frontier registry nobody updates becomes exactly the kind of stale
-assumption `TITANOS_PARETO_FRONTIER_RECURSION_ENGINE.md`'s Boot Zero
-step is supposed to catch. Convention: every entry carries `added`
-(date) and `status`; an entry not touched in a long time should be
-re-verified, not trusted, the next time it's picked up.
+**Staleness is a real risk, named not hidden.** An entry not touched in
+a long time should be re-verified against real repository state before
+being trusted, not assumed still accurate.
 
 ---
 
-## Built
+## Frontier Gate
 
-### FRONTIER-001 — Reusable secret/credential scanner
-- **status:** BUILT — `foundation/secret_scanner.py::scan()`, 11 tests.
-  Reuses `foundation.sentinel.Finding`/`consolidate()` rather than a
-  parallel type. `ScanReport.to_evidence_string()` produces the literal
-  input `foundation/publication_gate.py::PublicationSwitch.
-  secret_scan_evidence` expects — wired to the existing gate, not a
-  standalone artifact.
-- Real check against this repository: 0 HIGH-confidence findings
-  (excluding the scanner's own test file's intentional synthetic
-  fixtures — `AKIA...`/PEM-header strings used to prove detection).
-- Highest-evidence standing candidate for 7 consecutive cycles; the ad
-  hoc pattern set had already found one real issue previously
-  (`legacy/manifests/*.json` path leakage) before being wrapped here.
+No candidate enters "Active" without answering all seven. If it can't
+answer these yet, it stays in `INTUITION.md`, not here.
 
-### FRONTIER-011 — BUILD_REPORT.md for schema/, firewall/, narrative/
-- **status:** BUILT — all three written 2026-08-25 (`schema/
-  BUILD_REPORT.md`, `firewall/BUILD_REPORT.md`, `narrative/
-  BUILD_REPORT.md`), verified by a fresh `pulse_sweep()` run returning 0
-  findings (was 3, flagged identically across three prior cycles).
-- **source:** Sentinel_141's own first `pulse_sweep()` run
-  (`foundation/sentinel.py::check_subsystem_build_reports`).
-- Selected this cycle as the highest-evidence documented item with no
-  open blocker — three independent cycles had already named it and
-  deferred it in favour of other work; nothing else in the frontier had
-  comparable evidence with zero risk.
+1. **CURRENT** — what the repository can demonstrably do right now.
+2. **GAP** — the specific missing capability.
+3. **LEVER** — why closing this gap is disproportionately valuable.
+4. **FIRST STEP** — the smallest implementation or proof.
+5. **PROOF** — how the new capability becomes verified.
+6. **UNLOCK** — what becomes reachable afterward.
+7. **REUSE** — what existing work this builds on rather than duplicates.
 
-### FRONTIER-015 — Explicit deferral + recovery handoff (`foundation/task_queue.py`)
-- **status:** BUILT — `RunReport.deferred`, `RecoveryHandoff`,
-  `recovery_handoff()`, 5 new tests.
-- MAGL_CAP_002 asked for pressure-aware (GREEN/AMBER/RED) bounded
-  execution. Audited first: `task_queue.run()` already processes one
-  atomic task at a time with a hard budget check before each iteration
-  — there was never a "batch" to shrink, so the GREEN->AMBER "reduce
-  ambition" behaviour was already structurally true, not missing.
-  `RunBudget`'s four limits already produce a clean, explicit stop
-  (`RunReport.stopped_reason`) with completed work preserved — the
-  RED->STOP behaviour already existed too. The two genuinely missing
-  pieces, both from the directive's own "Recovery Contract" section:
-  (1) a stopped run didn't say *which* eligible tasks it left
-  unstarted, only that it stopped — now `RunReport.deferred`; (2) no
-  compact handoff summary existed (current run state / next atomic
-  action / relevant task ids / what needs verification / known
-  blockers) — a caller could reconstruct this by hand from `TaskQueue`,
-  but nothing built it explicitly — now `recovery_handoff()`, built
-  entirely from `TaskQueue`+`RunReport`, no new memory system, no
-  persistence.
-- **not built:** no new task states, no monitoring, no polling, no
-  batching mechanism — none were missing.
-
-### FRONTIER-014 — Closed-loop reality proof with a real worker (`foundation/sentinel_worker.py`)
-- **status:** BUILT — `SentinelSweepWorker`, 5 closed-loop tests, no
-  mocks anywhere in the loop.
-- Every prior queue<->worker seam test used a synthetic test-double
-  worker (`_SucceedingWorker` etc.) — proves the wiring, not that a real
-  worker doing real work survives the same path. Built the first real
-  `Layer0Worker`: its `execute_minimum` runs the actual `foundation.
-  sentinel.pulse_sweep()` (unmodified, already-tested) against the real
-  repository; its `update_state` writes a real `foundation.crystal.
-  Crystal` into a real `CrystalStore`. `test_closed_loop_reality.py`
-  independently re-runs `pulse_sweep()` and asserts the recorded
-  Crystal's evidence matches it — proof the loop carried real output,
-  not a canned string (G1).
-- Proves: G2 (no transition bypass), G3/T8 (dependent task never
-  reaches worker until its dependency is DONE), T11 (two independent
-  tasks each independently verified and recorded), T12 (budget-bounded
-  stop leaves the untouched task genuinely untouched — PENDING, no
-  worker constructed, no Crystal written), G9 (two separate `run()`
-  calls don't share hidden loop state — the second finds nothing
-  eligible and writes nothing new).
-- **reality pass:** `pulse_sweep()` run again post-change — 3 findings,
-  identical to FRONTIER-011, zero new issues.
-
-### FRONTIER-013 — Queue <-> Layer0Worker execution seam (`foundation/queue_worker_adapter.py`)
-- **status:** BUILT — `make_worker_perform`/`make_worker_verify`, 10 seam
-  tests (T1-T10 matrix) + 1 regression test, both existing modules
-  (`task_queue.py`, `layer0_worker.py`) unmodified except one real bug
-  fix (below).
-- Explicit adapter, not a redesign: `task_queue.run()`'s `perform:
-  Callable[[Task], str]` / `verify: Callable[[Task, str], bool]`
-  contract is genuinely incompatible with `Layer0Worker.run()`'s
-  zero-arg/`CycleRecord`-return shape — bridged via a `dict[str,
-  CycleRecord]` the two returned closures share, not by changing either
-  contract. Success is detected via `"UPDATE_STATE" in record.
-  steps_completed` (the one step only reached after execute+verify both
-  succeed), not `record.halted` (which is also `True` on a *successful*
-  cycle that recommends stopping future recursion — checking it alone
-  would misclassify that as failure).
-- **real bug found and fixed by writing the seam tests:**
-  `TaskQueue.eligible_tasks()` silently skipped dependencies on unknown
-  task_ids (`if d in self._tasks` filtered them out of the `all(...)`
-  check instead of failing it), making a task with only unrecognised
-  dependencies vacuously eligible — fail-open instead of fail-closed.
-  Fixed; regression test added to `test_task_queue.py`. Discovered via
-  T8 ("ineligible task never reaches worker execution"), not introduced
-  by this cycle.
-- **reality pass:** `foundation/sentinel.py::pulse_sweep()` run against
-  the actual current repo post-change — 3 findings, identical to the
-  pre-existing FRONTIER-011 finding (missing `BUILD_REPORT.md` for
-  three subsystems), zero new findings, not compacted.
-- The arbitrary-callable path (no worker involved) is preserved and
-  still tested unchanged (T7) — `Layer0Worker` integration is an
-  explicit canonical option, not the only way to run a task.
-
-### FRONTIER-012 — Bounded Task Queue Workflow (`foundation/task_queue.py`)
-- **status:** BUILT — `Task`/`TaskQueue`/`RunBudget`/`run()`/
-  `reconcile_in_progress()`, 32 tests.
-- Requested as a "reconciliation" of a previously-interrupted task-queue
-  session. **Verified first, per this repo's own Zero-Trust
-  Reconnaissance rule: `git status` was clean and no queue/runner code
-  existed anywhere in the repository before this cycle.** There was
-  nothing to reconcile — the premise was false, named honestly rather
-  than silently played along with. Built fresh instead: load -> validate
-  -> select eligible -> perform bounded unit -> verify -> save -> repeat
-  within budget -> stop. Same state-machine discipline as `kpm/promotion/
-  state_machine.py`/`foundation/flow_switch.py` (explicit transition
-  table, illegal edges simply absent). `reconcile_in_progress()` directly
-  implements the directive's own rule that an IN_PROGRESS task is never
-  assumed complete without independent evidence.
-
-### FRONTIER-010 — Sentinel_141 Level 1 Pulse Sweep (`foundation/sentinel.py`)
-- **status:** BUILT — `Finding`/`HealthReport`/`pulse_sweep()`/
-  `FourPaths`, 24 tests.
-- First read-only health sensor in this repo. Real finding from its own
-  first run against this repository: `schema/`, `firewall/`,
-  `narrative/` have no `BUILD_REPORT.md` — recorded, not auto-fixed
-  (Sentinel may not silently route a finding into execution).
-- **explicitly declined this cycle:** Level 2 Deep Sweep, Level 3
-  Strategic Compaction Review, external scheduling — no production
-  history of Level 1 running yet to justify them; no GitHub remote to
-  attach a scheduler to (same block as FRONTIER-003).
-
-### FRONTIER-MAP — Memory Map (`MEMORY_MAP.md`)
-- **status:** BUILT
-- Priority item 1 of `TITANOS_MEMORY_IRRELEVANCE_PROTOCOL.md`'s own
-  build order. Classifies this repo's real content into the doctrine's
-  five tiers; finds a measured, real problem (1,700+ lines of Tier-3
-  doctrine loading as Tier-0 cost every boot via `CLAUDE.md`'s
-  `@`-imports) and names its cause honestly as a platform limitation,
-  not something this cycle papered over with a fake selector.
-
-### FRONTIER-007 — Crystalline Memory (`foundation/crystal.py`)
-- **status:** BUILT — `Crystal`/`CrystalStore`, 19 tests.
-- Answer to the "MEMORY" link in the chain named by
-  `TITANOS_GREENLIGHT_AND_MEMETIC_DOCTRINE.md`:
-  `REALITY→LEVER→ACTION→TEST→YIELD→MEMORY→PACKAGE→ADOPTION→FEEDBACK`.
-  REALITY/LEVER/ACTION/TEST/YIELD already existed; PACKAGE (FRONTIER-008)
-  and ADOPTION/FEEDBACK are blocked (no GitHub remote / no external ping
-  surface); MEMORY was the first unblocked genuinely-missing link — every
-  prior cycle's conclusion lived only in `BUILD_REPORT.md` prose, never
-  as a structured record forcing "what would disprove this" to be
-  answered explicitly. Not a duplicate of `reality_yield_ledger.py`
-  (that answers cost/benefit; `Crystal` answers epistemic provenance).
-
-### FRONTIER-006 — Layer 0 Worker Contract
-- **status:** BUILT — `foundation/layer0_worker.py`, 18 tests.
-- Third consecutive directive to request typed worker infrastructure;
-  first two correctly deferred as empty theater (nine worker directories,
-  no code). This ask was narrower — one contract — and Python's ABC
-  mechanism enforces the four mandatory hooks (`check_existing`,
-  `verify`, `preserve_provenance`, `update_state`) at instantiation time,
-  stronger than the doctrine even required.
-- **explicitly declined this cycle:** `foundation/PARETO_FRONTIER.md`,
-  `foundation/PARETO_LEDGER.json`, `foundation/NEXT_LEVER.md` — all three
-  requested by `TITANOS_LAYER0_RECURSIVE_PARETO_FRONTIER.md`, all three
-  functionally duplicate this very file and `NEXT_MOVE.md`, already
-  living at repo root. Not built.
-
-### FRONTIER-000 — Narrative Atom schema + validator
-- **status:** BUILT — commit pending this cycle, `narrative/schema/
-  narrative_atom.py` + `narrative/validators/validate_narrative_atom.py`,
-  67 tests.
-- Item (A) from `TITANOS_AKASHIC_NARRATIVE_ENGINE.md`'s §XVIII list — the
-  primitive every other item in that doctrine (Five-Record model, Gold
-  Ledger, Isomorphism contract, Primary Narrative format) would operate
-  on. Reuses `kpm.schemas.epistemic_types.ALL_CLASSIFICATIONS` for
-  `epistemic_layer` rather than a parallel vocabulary.
-
-## Active candidates
+## Active
 
 ### FRONTIER-002 — `permission_request` → `GateInput` adapter
-- **status:** OPEN
-- **added:** 2026-08-25
-- **value:** MEDIUM — closes the third instance of this session's
-  recurring "proven seam, not yet a pipeline" pattern
-  (`taal/BUILD_REPORT.md` next-work-cell).
-- **effort:** LOW — both shapes are already fully specified and tested
-  independently; this is a pure mapping function.
-- **risk:** LOW — internal only, no external-facing change, no privilege
-  implications.
-- **reversibility:** HIGH.
-- **evidence:** none yet — untested hypothesis that closing this seam
-  matters in practice; no real workload has hit it yet.
-- **information_gain:** LOW-MEDIUM — would confirm or disconfirm whether
-  the two shapes actually compose cleanly, which is currently assumed,
-  not verified.
-- **dependencies:** `taal/schema/permission_request.py`,
-  `taal/gate/root_gate.py::GateInput` (both exist and are tested).
-- **reality_yield:** unmeasured until built.
-- **duplication_risk:** none — this exact gap is named in
-  `taal/BUILD_REPORT.md` and nowhere else attempts it.
-
-### FRONTIER-003 — CI workflow (`.github/workflows/`)
-- **status:** BLOCKED
-- **added:** 2026-08-25
-- **value:** HIGH once a GitHub remote exists — "CI is the heartbeat"
-  (`TITANOS_LIVING_PARETO_FRONTIER_ARCHITECTURE.md` §XIV).
-- **effort:** LOW — the test command is already simple and uniform
-  (`python3 -m unittest discover` per subsystem), no build step, no
-  secrets required to run tests.
-- **risk:** LOW.
-- **reversibility:** HIGH.
-- **blocked_by:** `HUMAN_DECISIONS.md` item 1 — no GitHub repo exists yet
-  to attach a workflow to. Writing the YAML file is cheap and could be
-  done speculatively, but doctrine explicitly warns against "empty
-  theater" — a workflow file with nothing to trigger it is exactly that,
-  so this stays BLOCKED rather than OPEN until the repo target is named.
-
-### FRONTIER-008 — Per-subsystem seed/manifest packaging
-- **status:** BLOCKED
-- **added:** 2026-08-25
-- **value:** MEDIUM-HIGH once publication is real — makes each subsystem
-  self-describing to an external adopter (thesis, quickstart, examples,
-  failure cases, threat model, limitations, changelog, fork guide,
-  manifest, provenance, contribution path — `TITANOS_GREENLIGHT_AND_
-  MEMETIC_DOCTRINE.md` §3).
-- **blocked_by:** same as FRONTIER-003 — no GitHub remote exists yet, so
-  a fork guide / contribution path has nowhere to point. Building the
-  template now would be empty theater per this repo's own standing rule.
-- **dependencies:** `HUMAN_DECISIONS.md` item 1 (GitHub target).
+- **CURRENT:** `taal/schema/permission_request.py` and `taal/gate/
+  root_gate.py::GateInput` both exist, independently tested, and are
+  never composed — a permission request cannot yet reach the root gate
+  without a human hand-writing the translation each time.
+- **GAP:** no adapter function maps one shape onto the other.
+- **LEVER:** closes the third instance of this session's recurring
+  "proven seam, not yet a pipeline" pattern (`taal/BUILD_REPORT.md`
+  next-work-cell) — the same shape as the queue↔worker seam already
+  closed (FRONTIER-013).
+- **FIRST STEP:** a pure mapping function, `permission_request_to_gate_input()`.
+- **PROOF:** unit tests asserting the mapped `GateInput` round-trips the
+  request's fields correctly, plus one test driving a real
+  `permission_request` through `root_gate.evaluate_request()` end to end.
+- **UNLOCK:** `taal`'s root gate becomes reachable from real permission
+  requests without hand-written glue at every call site.
+- **REUSE:** both source contracts unmodified, same adapter-not-redesign
+  pattern as `foundation/queue_worker_adapter.py`.
+- **effort:** LOW. **risk:** LOW (internal, no privilege change).
 
 ### FRONTIER-009 — Boot Context Selector for `CLAUDE.md` doctrine imports
-- **status:** OPEN
-- **added:** 2026-08-25
-- **value:** MEDIUM — reduces boot context size (currently 1,700+ lines
-  of Tier-3 doctrine loaded unconditionally every session, per
-  `MEMORY_MAP.md`), no functional/safety change.
-- **effort:** MEDIUM-HIGH — requires either a platform capability that
-  does not currently exist (conditional `@`-import), or removing the
-  `@`-imports and replacing them with plain-text pointers `/boot` reads
-  selectively — a real behavior change with a real regression risk (a
-  session could simply never read a doctrine file it needed).
-- **risk:** LOW-MEDIUM — the failure mode (missed doctrine) is silent,
-  not loud, which is worse than a build failure.
-- **dependencies:** `MEMORY_MAP.md` (built — this entry's own audit).
-- **duplication_risk:** none — no selector mechanism exists today.
+- **CURRENT:** `MEMORY_MAP.md` (built) measured 1,700+ lines across
+  twelve `@`-imported doctrine files loading unconditionally at every
+  session boot — Tier-3 content paying Tier-0 cost.
+- **GAP:** no mechanism loads only the doctrine relevant to the active
+  task.
+- **LEVER:** reduces boot context size with no functional change.
+- **FIRST STEP:** genuinely uncertain — see below.
+- **PROOF:** would need a regression test proving a session can still
+  discover a doctrine file it needs despite not auto-loading it.
+- **UNLOCK:** cheaper, faster session boots as the doctrine stack grows
+  further.
+- **REUSE:** `MEMORY_MAP.md`'s tier classification.
+- **effort:** MEDIUM-HIGH — no native lazy-`@`-import capability exists
+  in Claude Code; the only implementation path is removing `@`-imports
+  entirely and replacing them with plain-text pointers a session reads
+  selectively, which trades automatic loading for manual discipline and
+  risks a session silently missing doctrine it needed (a silent failure
+  mode, worse than a loud one). **risk:** LOW-MEDIUM for this reason —
+  not yet clearly a net win, which is why this remains OPEN rather than
+  promoted to "smallest first move now."
 
 ### FRONTIER-004 — Narrative Atom Store (state machine driver)
-- **status:** OPEN
-- **added:** 2026-08-25
-- **value:** MEDIUM — `narrative/schema/narrative_atom.py`'s
-  `PROMOTION_TRANSITIONS` table exists and is tested, but nothing
-  actually drives an atom through it across calls (no store, no
-  `reviewed_by`-gated promotion to `CANONICAL_ABSTRACTION`, mirroring
-  `kpm/promotion/state_machine.py::PromotionStore`).
-- **effort:** LOW — the pattern to copy already exists three times in
-  this repo (`kpm/promotion/state_machine.py`,
-  `foundation/flow_switch.py::FlowSwitchStore`, `firewall/quarantine.py`).
-- **risk:** LOW.
-- **evidence:** none yet — no real narrative atom has been promoted
-  through any state.
-- **dependencies:** `narrative/schema/narrative_atom.py` (built).
+- **CURRENT:** `narrative/schema/narrative_atom.py`'s
+  `PROMOTION_TRANSITIONS` table exists and is tested; nothing drives a
+  real atom through it across calls.
+- **GAP:** no store (no `reviewed_by`-gated promotion to
+  `CANONICAL_ABSTRACTION`, mirroring `kpm/promotion/state_machine.py`).
+- **LEVER:** the pattern to copy already exists three times in this
+  repo — near-zero design risk, mechanical implementation.
+- **FIRST STEP:** `NarrativeAtomStore`, same shape as
+  `PromotionStore`/`FlowSwitchStore`/`QuarantineStore`.
+- **PROOF:** unit tests mirroring `kpm/promotion/state_machine.py`'s own
+  test suite (self-promotion forbidden, illegal transitions absent).
+- **UNLOCK:** FRONTIER-005 (Five-Record views etc.) becomes buildable
+  against real state instead of speculative infrastructure.
+- **REUSE:** `narrative_atom.py`'s existing transition table verbatim.
+- **effort:** LOW. **risk:** LOW.
+
+## Blocked
+
+### FRONTIER-003 — CI workflow (`.github/workflows/`)
+- **CURRENT:** test command is already simple and uniform (`python3 -m
+  unittest discover` per subsystem), no build step, no secrets needed.
+- **GAP:** no workflow file, and no GitHub remote to attach one to.
+- **LEVER:** "CI is the heartbeat" once real — HIGH value, but a
+  workflow file with nothing to trigger it is empty theater today.
+- **blocked_by:** `HUMAN_DECISIONS.md` item 1 (no GitHub repo target
+  named yet).
+
+### FRONTIER-008 — Per-subsystem seed/manifest packaging
+- **CURRENT:** each subsystem now has a `BUILD_REPORT.md` (internal
+  audit trail); none has an external "how to adopt/fork/remove this"
+  document (thesis, quickstart, failure cases, threat model, fork
+  guide, contribution path).
+- **GAP:** no packaging template.
+- **LEVER:** MEDIUM-HIGH once publication is real.
+- **blocked_by:** same as FRONTIER-003 — a fork guide has nowhere to
+  point without a GitHub remote.
 
 ### FRONTIER-005 — Five-Record query views, Gold Ledger, Isomorphism contract
-- **status:** OPEN
-- **added:** 2026-08-25
-- **value:** MEDIUM-HIGH once real atoms exist to query — currently
-  zero real narrative atoms have been ingested, so building these would
-  be speculative infrastructure with nothing to operate on.
-- **effort:** MEDIUM.
-- **dependencies:** FRONTIER-004, and a real ingestion source (no
-  narrative content has been ingested into this repository yet).
-- Items (B), (C), (F) from `TITANOS_AKASHIC_NARRATIVE_ENGINE.md`'s
-  §XVIII list, deliberately not built this cycle — "do not build
-  everything at once."
+- **CURRENT:** zero real narrative atoms exist anywhere in this repo.
+- **GAP:** views/ledger/contract over content that doesn't exist yet.
+- **blocked_by:** FRONTIER-004, and a real ingestion source.
+- Items (B)/(C)/(F) of `TITANOS_AKASHIC_NARRATIVE_ENGINE.md` §XVIII,
+  deliberately deferred — "do not build everything at once."
+
+## Archive (built)
+
+One line each — full reasoning lives in the commit that built it. Kept
+here, not deleted, per this file's own Archivist principle; removed
+from the active scan path per this addendum's compaction rule.
+
+| ID | Capability | Commit |
+|---|---|---|
+| FRONTIER-000 | Narrative Atom schema + validator | `d14e128` |
+| FRONTIER-006 | Layer 0 Worker Contract (ABC-enforced) | `f416cd0` |
+| FRONTIER-007 | Crystalline Memory (`foundation/crystal.py`) | `7ecf615` |
+| FRONTIER-MAP | Memory Map / boot-load tier audit | `f5c2f34` |
+| FRONTIER-010 | Sentinel_141 Level 1 Pulse Sweep | `b25b680` |
+| FRONTIER-012 | Bounded Task Queue Workflow | `f5de342` |
+| FRONTIER-013 | Queue ↔ Layer0Worker execution seam | `0b1efba` |
+| FRONTIER-014 | Closed-loop reality proof (real worker) | `190b119` |
+| FRONTIER-015 | Explicit run deferral + recovery handoff | `44c9b18` |
+| FRONTIER-011 | `BUILD_REPORT.md` for schema/firewall/narrative | `e816905` |
+| FRONTIER-001 | Reusable secret/credential scanner | `1b03480` |
 
 ## Rejected / not on the frontier
 
-- **Full `core/`/`workers/`/`ledgers/` directory restructure** proposed
-  by `TITANOS_LIVING_PARETO_FRONTIER_ARCHITECTURE.md` §IV — rejected as
-  the *next move* (not as a future possibility) specifically because
-  every one of those directories would either duplicate something that
-  already exists under this repo's current structure (`foundation/` ⊃
-  the doctrine's `core/obelisk`+`core/ct141`+`core/hells_gate`;
-  `magl/`+`rpa/`+`taal/` already ARE the MAGL-shaped subsystems the
-  doctrine's `magls/active/` etc. describes) or would be empty theater
-  (`workers/scout/`, `workers/historian/` etc. have no code behind them
-  yet — the four-agent pattern is currently doctrine + ad hoc execution
-  in each session, not typed worker processes). Renaming working,
-  tested code into a new directory tree to match a prescribed shape,
-  with no functional change, is pure churn — explicitly against this
-  same doctrine's own "do not rebuild existing modules under new names"
-  rule (§XVI). If a genuine need for typed worker processes emerges,
-  build that need directly; don't pre-build the scaffolding.
+- **Full `core/`/`workers/`/`ledgers/` directory restructure** — would
+  duplicate existing structure (`foundation/`/`magl/`/`rpa/`/`taal/`
+  already are the shapes proposed) or be empty theater (typed worker
+  directories with no code). Rejected as the *next move*, not as a
+  future possibility — if a genuine need for typed worker processes
+  emerges, build that need directly, don't pre-build scaffolding.
 
 ## How to use this file
 
-1. Before proposing new work, check here first — an entry may already
-   exist with its trade-offs worked out.
-2. When a candidate is selected and built, update its `status` to
-   `BUILT` (not deleted — provenance survives, per this doctrine's own
-   Archivist principle) and note the commit.
-3. When a new candidate is discovered during recon, add it here with all
-   fields filled honestly — `UNKNOWN` is a legitimate value for any
-   field, an empty field is not.
+1. Check here before proposing new work — an entry may already exist
+   with its trade-offs worked out.
+2. A candidate must pass the Frontier Gate (all 7 questions answered)
+   before it's added under Active.
+3. When built, move the entry's one-line summary to the Archive table
+   and note the commit — don't leave stale full-prose entries active.
+4. Re-verify a long-untouched entry against real repository state
+   before trusting it.

@@ -12,8 +12,9 @@
 @TITANOS_GREENLIGHT_AND_MEMETIC_DOCTRINE.md
 @TITANOS_MEMORY_IRRELEVANCE_PROTOCOL.md
 @TITANOS_SENTINEL_141.md
+@TITANOS_ADDENDUM_FRONTIER_AS_CAPABILITY_MAP.md
 
-These twelve files are stateless configuration — plain files in this
+These thirteen files are stateless configuration — plain files in this
 repository, loaded at the start of every session that works here,
 independent of any conversation memory or session recall. Added
 2026-08-25 per Kyle's explicit instruction.
@@ -105,14 +106,24 @@ recommend a path with no proposal; no public callable is named as an
 action verb). Real finding from its first run: `schema/`, `firewall/`,
 `narrative/` have no `BUILD_REPORT.md`.
 
-## `PARETO_FRONTIER.md` and `NEXT_MOVE.md`
+**Frontier-as-Capability-Map addendum** governs `PARETO_FRONTIER.md`'s
+own maintenance discipline (Frontier Gate: CURRENT/GAP/LEVER/FIRST
+STEP/PROOF/UNLOCK/REUSE per entry; built items archived to a one-line
+table, not left in the active scan path) and introduces `INTUITION.md`
+— a low-commitment discovery surface for observations that aren't yet
+evidence-backed enough to become frontier commitments.
+
+## `PARETO_FRONTIER.md`, `NEXT_MOVE.md`, and `INTUITION.md`
 
 The persistent state layer `TITANOS_LIVING_PARETO_FRONTIER_ARCHITECTURE.md`'s
 boot sequence assumed already existed — built 2026-08-25 as that
 doctrine's own "highest-lever missing connection" for that cycle.
 `PARETO_FRONTIER.md` is the ranked candidate-move registry (engineering
 work items, not human judgment calls — see below); `NEXT_MOVE.md` is the
-single standing recommendation. `/boot` loads both. Neither replaces
+single standing recommendation; `INTUITION.md` is a low-commitment
+discovery surface with no authority — nothing there is implementation
+work until it passes the Frontier Gate and moves into
+`PARETO_FRONTIER.md`. `/boot` loads all three. None replaces
 `HUMAN_DECISIONS.md`.
 
 ## `HUMAN_DECISIONS.md`

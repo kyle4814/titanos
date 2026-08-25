@@ -8,14 +8,12 @@ rather than being deleted here.
 
 ---
 
-**As of 2026-08-25, cycle following the secret scanner build:**
-
-FRONTIER-001 is now BUILT — `foundation/secret_scanner.py::scan()`,
-after 7 consecutive cycles as the standing highest-evidence
-recommendation. Wired directly to `foundation/publication_gate.py`'s
-existing `secret_scan_evidence` field via `ScanReport.
-to_evidence_string()`. Real check against this repository: 0
-HIGH-confidence findings.
+**As of 2026-08-25, cycle following the Frontier-as-Capability-Map
+restructure:** `PARETO_FRONTIER.md` was reformatted per the Frontier
+Gate schema (CURRENT/GAP/LEVER/FIRST STEP/PROOF/UNLOCK/REUSE); 11 built
+entries archived to a one-line table. `INTUITION.md` created as the
+low-commitment discovery surface. No code changed this cycle. The
+recommendation itself is unchanged from the prior cycle.
 
 ## Recommended: FRONTIER-002 — `permission_request` → `GateInput` adapter
 
