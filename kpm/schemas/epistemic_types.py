@@ -154,7 +154,7 @@ def can_reclassify(old: str, new: str) -> bool:
     return (old, new) not in FORBIDDEN_TRANSITIONS
 
 
-@dataclass
+@dataclass(frozen=True)
 class Claim:
     """A single extracted claim with exactly one primary classification.
 
@@ -162,6 +162,15 @@ class Claim:
     is retained as a tuple entry. Nothing here ever pops, clears, or
     rewrites a history entry — same discipline as
     firewall/dissent.py's DisputeRecord.history.
+
+    Frozen so `classification`/`confidence`/`evidence_refs` can only
+    change via `reclassify()` (through `object.__setattr__`, the
+    standard escape hatch for a frozen dataclass's own internal
+    mutation) -- a caller holding a Claim reference cannot bypass
+    `FORBIDDEN_TRANSITIONS`/`MissingEvidence` by assigning
+    `claim.classification = ...` directly. `history` remains an
+    ordinary mutable list; appending to it does not reassign the
+    attribute, so it stays legal under freezing.
     """
     claim_id: str
     text: str
@@ -306,9 +315,10 @@ def reclassify(
         # these classes in the first place, but a transition INTO one of
         # them while confidence is still HIGH from the old classification
         # must not silently carry that confidence over.
-        claim.confidence = "LOW"
+        object.__setattr__(claim, "confidence", "LOW")
 
-    claim.classification = new_classification
-    claim.evidence_refs = tuple(evidence_refs) if evidence_refs else claim.evidence_refs
+    object.__setattr__(claim, "classification", new_classification)
+    if evidence_refs:
+        object.__setattr__(claim, "evidence_refs", tuple(evidence_refs))
     claim.history.append((new_classification, reason, _now(), by))
     return claim

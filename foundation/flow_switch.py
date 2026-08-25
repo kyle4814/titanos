@@ -146,13 +146,21 @@ def detect_panic(sample: PanicSample) -> bool:
 # Append-only history store
 # ─────────────────────────────────────────────────────────────
 
-@dataclass
+@dataclass(frozen=True)
 class FlowSwitchRecord:
     """An append-only record of one session's tempo history.
 
     Mirrors QuarantineRecord's shape: current state plus a growing
     history list, amended only by appending new entries.
-    """
+
+    Frozen so `mode` can only change via `FlowSwitchStore.transition()`
+    (through `object.__setattr__`, the standard escape hatch for a
+    frozen dataclass's own internal mutation) -- a caller holding a
+    reference obtained from `get()` cannot bypass `can_transition()`
+    (and in particular the deliberately-absent SIGNAL_COLLAPSE -> NORMAL/
+    HIGH_COMPLEXITY edges) by assigning `rec.mode = ...` directly.
+    `history` remains an ordinary mutable list; appending to it does not
+    reassign the attribute, so it stays legal under freezing."""
     session_id: str
     mode: OperatingMode
     history: list[dict[str, Any]] = field(default_factory=list)
@@ -231,7 +239,7 @@ class FlowSwitchStore:
             "evidence_for_exit": evidence_for_exit,
             "at": datetime.now(timezone.utc).isoformat(),
         })
-        rec.mode = to_mode
+        object.__setattr__(rec, "mode", to_mode)
         return rec
 
     def get(self, session_id: str) -> FlowSwitchRecord | None:

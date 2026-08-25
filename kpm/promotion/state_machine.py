@@ -116,9 +116,17 @@ def can_transition(src: PromotionState, dst: PromotionState) -> bool:
     return dst in TRANSITIONS.get(src, frozenset())
 
 
-@dataclass
+@dataclass(frozen=True)
 class PromotionRecord:
-    """An append-only record. Amended by adding history entries, never by editing."""
+    """An append-only record. Amended by adding history entries, never by editing.
+
+    Frozen so `state` can only change via `PromotionStore.promote()`
+    (through `object.__setattr__`, the standard escape hatch for a
+    frozen dataclass's own internal mutation) -- a caller holding a
+    reference obtained from `get()` cannot bypass `can_transition()`/
+    `SelfPromotionForbidden` by assigning `rec.state = ...` directly.
+    `history` remains an ordinary mutable list; appending to it does not
+    reassign the attribute, so it stays legal under freezing."""
     blueprint_id: str
     state: PromotionState
     created_by: str
@@ -217,7 +225,7 @@ class PromotionStore:
             "reviewed_by": reviewed_by,
             "at": datetime.now(timezone.utc).isoformat(),
         })
-        rec.state = to_state
+        object.__setattr__(rec, "state", to_state)
         return rec
 
     def get(self, blueprint_id: str) -> PromotionRecord | None:

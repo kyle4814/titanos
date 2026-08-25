@@ -62,10 +62,18 @@ class SelfCanonizationForbidden(IllegalAtomTransition):
     name IS present, it is just the same name as the creator's."""
 
 
-@dataclass
+@dataclass(frozen=True)
 class AtomRecord:
     """An append-only record. Amended by adding history entries, never
-    by editing an existing one."""
+    by editing an existing one.
+
+    Frozen so `state` can only change via `NarrativeAtomStore.promote()`
+    (through `object.__setattr__`, the standard escape hatch for a
+    frozen dataclass's own internal mutation) -- a caller holding a
+    reference obtained from `get()` cannot bypass `can_promote()`/
+    `SelfCanonizationForbidden` by assigning `rec.state = ...` directly.
+    `history` remains an ordinary mutable list; appending to it does not
+    reassign the attribute, so it stays legal under freezing."""
     atom_id: str
     state: str
     created_by: str
@@ -140,7 +148,7 @@ class NarrativeAtomStore:
             "reviewed_by": reviewed_by,
             "at": datetime.now(timezone.utc).isoformat(),
         })
-        rec.state = to_state
+        object.__setattr__(rec, "state", to_state)
         return rec
 
     def get(self, atom_id: str) -> AtomRecord | None:
