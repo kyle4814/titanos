@@ -53,9 +53,19 @@ however promising it looks.
   `secret_scan_evidence` (fed by the whole `ScanReport`) is wired to
   `publication_gate.py`. Whether LOW-confidence findings should block
   `PublicationSwitch.secret_scan_passed` or just get logged is a real,
-  unresolved design question — not decided, not yet even asked as a
-  `HUMAN_DECISIONS.md` item, because publication has never actually been
-  attempted against this scanner's output yet.
+  unresolved design question — not decided.
+  **Update 2026-08-26:** publication has now actually happened
+  (`kyle4814/titanos` is public). The real scan (6,346 findings: 8 HIGH
+  + 1 MEDIUM, both confirmed benign test fixtures; 6,337 LOW "path
+  leakage", confirmed benign) was judged by a human decision at the
+  time — a `PublicationSwitch` object was never actually constructed in
+  code with that evidence (`grep` confirms `PublicationSwitch(` only
+  appears in test files, never in a real call site). The gate exists
+  and is tested; it was not the mechanism actually used for the real
+  push. Still not urgent — no second real publication decision has
+  needed it yet — but the gap between "gate exists" and "gate was
+  actually used for the one real decision that needed it" is now a
+  concrete, evidenced observation, not a hypothetical.
 
 - **The `TITANOS_*.md` doctrine stack has grown to twelve files.**
   `MEMORY_MAP.md` measured this as a real boot-context problem
@@ -70,6 +80,8 @@ however promising it looks.
 - Does `taal/gate/root_gate.py::GateInput` actually need every field
   `permission_request.py` provides, or does FRONTIER-002's adapter
   reveal an intentional narrowing? Won't know until it's built.
-- Is `CrystalStore.reusable_abstractions()` actually queried by
-  anything yet, or is it a well-tested but unused convenience method?
-  Worth checking before adding more surface area to `crystal.py`.
+- ~~Is `CrystalStore.reusable_abstractions()` actually queried by
+  anything yet~~ — **Answered 2026-08-26:** no. `grep` confirms its
+  only callers are its own tests. Confirmed unused convenience method,
+  not a hidden dependency — do not add surface area to `crystal.py`'s
+  query API without a real caller motivating it first.
