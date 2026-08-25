@@ -15,6 +15,18 @@ an honest map of where the other 13 named modules stand — 6 already exist
 elsewhere in this repo, 7 remain genuinely unbuilt. See `MAPPING.md` for
 the full breakdown and reasoning.
 
+**2026-08-25, same-day addendum:** `publication_gate.py` added under
+`TITANOS_CRITICAL_FUNCTION_SWITCH_GATE.md` — the first of that doctrine's
+§2 critical-function list (publication / private-public boundary
+crossing) to actually get hard-gated code rather than remaining a
+reminder. 22 tests, including a direct proof that a caller cannot bypass
+`authorize_publish()` by hand-constructing a `PublicationDecision` with
+`action_permitted=True` — the function only ever re-derives permission
+from the switch's own declared evidence. The other 18 functions named in
+that doctrine's §2 list (code execution, credential access, deletion,
+deployment, ...) remain ungated as code — named here so they're not
+mistaken for closed.
+
 ## Files created
 
 | Component | Files | Tests |

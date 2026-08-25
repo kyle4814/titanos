@@ -3,8 +3,9 @@
 @TITANOS_GO_CYCLE_DOCTRINE.md
 @TITANOS_NEXT_LEVER_SEQUENCER.md
 @TITANOS_REALITY_YIELD_PROFIT_ARCHITECTURE.md
+@TITANOS_CRITICAL_FUNCTION_SWITCH_GATE.md
 
-These three files are stateless configuration — plain files in this
+These four files are stateless configuration — plain files in this
 repository, loaded at the start of every session that works here,
 independent of any conversation memory or session recall. Added
 2026-08-25 per Kyle's explicit instruction.
@@ -46,6 +47,16 @@ state — every `BUILD_REPORT.md`/`MAPPING.md` under `schema/`, `firewall/`,
 prior conversation's summary of it, per the GO Cycle doctrine's own
 Zero-Trust Reconnaissance principle (§V): a module list is not proof a
 capability is missing or present; verified behavior is.
+
+**Critical Function Switch-Gate Constitution** governs how doctrine
+becomes enforcement: a reminder is not a guarantee, so every critical
+function (publication, credential access, irreversible changes,
+canonical promotion, deletion, deployment, ...) must be backed by real
+code — a switch/gate/state machine the next stage cannot bypass — checked
+at a minimum of two independent points, fail-closed on unknown. The
+first function hard-gated under this rule: `foundation/publication_gate.py`
+(publication / private-public boundary crossing), built because it was
+the pending real-world action, not a hypothetical one.
 
 ## Standing facts about this repository
 
