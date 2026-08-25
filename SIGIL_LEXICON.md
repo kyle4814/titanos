@@ -61,6 +61,7 @@ case has ever appeared.)
 | SIGIL.VERIFIED_CHANGE | Δ | verified change | a repository mutation confirmed by targeted + regression proof | L3 capability | ACTIVE | (cross-cutting) | commit `93b3e89` | 1 |
 | SIGIL.DURABLE_STATE | ▣ | durable state | committed, reconciled repository state (not chat context) | L1 domain | ACTIVE | `PARETO_FRONTIER.md`, `SIGIL.md`, `NEXT_MOVE.md` | (repo-native, no single test) | 1 |
 | SIGIL.MIN_CAUSAL_SEAM | ⌁ | minimum causal seam | the smallest single point requiring inspection to resolve an ambiguity | L2 component | ACTIVE | (methodological, this session's own recurring practice) | — | 1 |
+| SIGIL.REF_INTEGRITY | 🔗 | referential integrity | a reference crossing document/record boundaries must resolve at the relevant composition boundary, or the composition is refused | L4 invariant | ACTIVE | proven `rpa/composition/checker.py::check_chain_integrity()`, independently transferred and reproven `narrative/composition/checker.py::check_atom_relations()` | `rpa/composition/tests/test_checker.py` (22 tests), `narrative/composition/tests/test_checker.py` (11 tests) | 1 |
 
 ## Evolution contract (future, not yet implemented)
 
