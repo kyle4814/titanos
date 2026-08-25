@@ -72,12 +72,18 @@ class AtomRecord:
     frozen dataclass's own internal mutation) -- a caller holding a
     reference obtained from `get()` cannot bypass `can_promote()`/
     `SelfCanonizationForbidden` by assigning `rec.state = ...` directly.
-    `history` remains an ordinary mutable list; appending to it does not
-    reassign the attribute, so it stays legal under freezing."""
+    `history` is a `tuple`, not a `list` -- a caller holding a
+    reference cannot `rec.history.append(...)`/`.insert(...)` to forge
+    an entry (EPISTEMIC_INTEGRITY_002 found and closed a live exploit
+    of exactly this shape against `PromotionRecord`, consumed by
+    `rpa/gates/human_jurisdiction.py::confirm_pilot_authorized()` --
+    see that module's own updated docstring). `promote()`/`register()`
+    replace `history` with a new tuple via `object.__setattr__`, the
+    same pattern already used for `state`."""
     atom_id: str
     state: str
     created_by: str
-    history: list[dict[str, Any]] = field(default_factory=list)
+    history: tuple[dict[str, Any], ...] = field(default_factory=tuple)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -101,9 +107,9 @@ class NarrativeAtomStore:
             raise ValueError("register() requires a non-empty created_by")
         rec = AtomRecord(
             atom_id=atom_id, state=state, created_by=created_by,
-            history=[{"from": None, "to": state, "reason": "registered",
+            history=({"from": None, "to": state, "reason": "registered",
                       "reviewed_by": None,
-                      "at": datetime.now(timezone.utc).isoformat()}],
+                      "at": datetime.now(timezone.utc).isoformat()},),
         )
         self._records[atom_id] = rec
         return rec
@@ -143,11 +149,12 @@ class NarrativeAtomStore:
                     f"cannot be canonized by the same identity as reviewer."
                 )
 
-        rec.history.append({
+        new_entry = {
             "from": rec.state, "to": to_state, "reason": reason,
             "reviewed_by": reviewed_by,
             "at": datetime.now(timezone.utc).isoformat(),
-        })
+        }
+        object.__setattr__(rec, "history", rec.history + (new_entry,))
         object.__setattr__(rec, "state", to_state)
         return rec
 

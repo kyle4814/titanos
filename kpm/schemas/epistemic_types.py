@@ -168,9 +168,14 @@ class Claim:
     standard escape hatch for a frozen dataclass's own internal
     mutation) -- a caller holding a Claim reference cannot bypass
     `FORBIDDEN_TRANSITIONS`/`MissingEvidence` by assigning
-    `claim.classification = ...` directly. `history` remains an
-    ordinary mutable list; appending to it does not reassign the
-    attribute, so it stays legal under freezing.
+    `claim.classification = ...` directly. `history` is a `tuple` of
+    tuples, not a `list` -- a caller holding a reference cannot
+    `claim.history.append(...)`/`.insert(...)` to forge an entry
+    (EPISTEMIC_INTEGRITY_002 found and closed a live exploit of exactly
+    this shape against `PromotionRecord`, consumed by `rpa/gates/
+    human_jurisdiction.py::confirm_pilot_authorized()`). `reclassify()`
+    replaces `history` with a new tuple via `object.__setattr__`, the
+    same pattern already used for `classification`.
     """
     claim_id: str
     text: str
@@ -178,7 +183,7 @@ class Claim:
     confidence: str
     evidence_refs: tuple[str, ...] = ()
     classified_by: str = ""
-    history: list[tuple[str, str, str, str]] = field(default_factory=list)
+    history: tuple[tuple[str, str, str, str], ...] = field(default_factory=tuple)
     # each history entry: (classification, reason, at_iso8601, by)
 
     def to_dict(self) -> dict[str, Any]:
@@ -245,7 +250,7 @@ def classify_claim(
         confidence=confidence,
         evidence_refs=tuple(evidence_refs),
         classified_by=classified_by,
-        history=[(classification, "initial classification", _now(), classified_by)],
+        history=((classification, "initial classification", _now(), classified_by),),
     )
 
 
@@ -320,5 +325,8 @@ def reclassify(
     object.__setattr__(claim, "classification", new_classification)
     if evidence_refs:
         object.__setattr__(claim, "evidence_refs", tuple(evidence_refs))
-    claim.history.append((new_classification, reason, _now(), by))
+    object.__setattr__(
+        claim, "history",
+        claim.history + ((new_classification, reason, _now(), by),),
+    )
     return claim

@@ -333,7 +333,7 @@ class TestClaimDataclassShape(unittest.TestCase):
         self.assertEqual(c.confidence, "LOW")
         self.assertEqual(c.evidence_refs, ("doc-1",))
         self.assertEqual(c.classified_by, "agent-1")
-        self.assertIsInstance(c.history, list)
+        self.assertIsInstance(c.history, tuple)  # EPISTEMIC_INTEGRITY_002: tuple, not list
 
     def test_to_dict_roundtrip_shape(self):
         c = classify_claim("f2", "sample", "POLICY_REQUIREMENT", "agent-1")

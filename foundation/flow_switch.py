@@ -159,11 +159,15 @@ class FlowSwitchRecord:
     reference obtained from `get()` cannot bypass `can_transition()`
     (and in particular the deliberately-absent SIGNAL_COLLAPSE -> NORMAL/
     HIGH_COMPLEXITY edges) by assigning `rec.mode = ...` directly.
-    `history` remains an ordinary mutable list; appending to it does not
-    reassign the attribute, so it stays legal under freezing."""
+    `history` is a `tuple`, not a `list` -- a caller holding a
+    reference cannot `rec.history.append(...)`/`.insert(...)` to forge
+    an entry (EPISTEMIC_INTEGRITY_002 found and closed a live exploit
+    of exactly this shape against `PromotionRecord`). `transition()`/
+    `start_session()` replace `history` with a new tuple via
+    `object.__setattr__`, the same pattern already used for `mode`."""
     session_id: str
     mode: OperatingMode
-    history: list[dict[str, Any]] = field(default_factory=list)
+    history: tuple[dict[str, Any], ...] = field(default_factory=tuple)
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -192,12 +196,12 @@ class FlowSwitchStore:
         rec = FlowSwitchRecord(
             session_id=session_id,
             mode=initial_mode,
-            history=[{
+            history=({
                 "from": None, "to": initial_mode,
                 "reason": "session start",
                 "evidence_for_exit": "n/a — initial mode",
                 "at": datetime.now(timezone.utc).isoformat(),
-            }],
+            },),
         )
         self._records[session_id] = rec
         return rec
@@ -234,11 +238,12 @@ class FlowSwitchStore:
                 f"deliberately no edge from SIGNAL_COLLAPSE to NORMAL or "
                 f"HIGH_COMPLEXITY — recovery must pass through RECOVERY."
             )
-        rec.history.append({
+        new_entry = {
             "from": rec.mode, "to": to_mode, "reason": reason,
             "evidence_for_exit": evidence_for_exit,
             "at": datetime.now(timezone.utc).isoformat(),
-        })
+        }
+        object.__setattr__(rec, "history", rec.history + (new_entry,))
         object.__setattr__(rec, "mode", to_mode)
         return rec
 

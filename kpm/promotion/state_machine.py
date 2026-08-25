@@ -125,12 +125,24 @@ class PromotionRecord:
     frozen dataclass's own internal mutation) -- a caller holding a
     reference obtained from `get()` cannot bypass `can_transition()`/
     `SelfPromotionForbidden` by assigning `rec.state = ...` directly.
-    `history` remains an ordinary mutable list; appending to it does not
-    reassign the attribute, so it stays legal under freezing."""
+
+    `history` is a `tuple`, not a `list` -- a caller holding a
+    reference cannot `rec.history.append(...)`/`.insert(...)` to forge
+    an entry. EPISTEMIC_INTEGRITY_002 found and closed a real, live
+    exploit here: `rpa/gates/human_jurisdiction.py::
+    confirm_pilot_authorized()` trusts the LAST history entry whose
+    `to` is `"STABLE"` to decide pilot authorization -- with a mutable
+    list, appending a forged `{"from": "HUMAN_REVIEW", "reviewed_by":
+    "forged"}` entry after a real, correctly-refused promotion flipped
+    that gate from False to True without ever touching the frozen
+    `state` field. `promote()`/`register()` now replace `history` with
+    a new tuple via `object.__setattr__`, the same pattern already used
+    for `state` -- appending is still possible, forging or reordering
+    an existing entry is not."""
     blueprint_id: str
     state: PromotionState
     created_by: str
-    history: list[dict[str, Any]] = field(default_factory=list)
+    history: tuple[dict[str, Any], ...] = field(default_factory=tuple)
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -154,9 +166,9 @@ class PromotionStore:
             raise ValueError(f"blueprint '{blueprint_id}' is already registered")
         rec = PromotionRecord(
             blueprint_id=blueprint_id, state=state, created_by=created_by,
-            history=[{"from": None, "to": state, "reason": "registered",
+            history=({"from": None, "to": state, "reason": "registered",
                       "reviewed_by": None,
-                      "at": datetime.now(timezone.utc).isoformat()}],
+                      "at": datetime.now(timezone.utc).isoformat()},),
         )
         self._records[blueprint_id] = rec
         return rec
@@ -220,11 +232,12 @@ class PromotionStore:
                     f"('{rec.created_by}'). §VII requires an independent reviewer."
                 )
 
-        rec.history.append({
+        new_entry = {
             "from": rec.state, "to": to_state, "reason": reason,
             "reviewed_by": reviewed_by,
             "at": datetime.now(timezone.utc).isoformat(),
-        })
+        }
+        object.__setattr__(rec, "history", rec.history + (new_entry,))
         object.__setattr__(rec, "state", to_state)
         return rec
 

@@ -97,9 +97,17 @@ class QuarantineRecord:
     standard escape hatch for a frozen dataclass's own internal
     mutation) -- a caller holding a reference obtained from `get()`
     cannot bypass `can_transition()`'s reviewed_by requirement by
-    assigning `rec.state = ...` directly. `history` remains an ordinary
-    mutable list; appending to it does not reassign the attribute, so
-    it stays legal under freezing."""
+    assigning `rec.state = ...` directly. `history` is a `tuple`, not a
+    `list` -- a caller holding a reference cannot `rec.history.
+    append(...)`/`.insert(...)` to forge an entry (EPISTEMIC_
+    INTEGRITY_002 found and closed a live exploit of exactly this shape
+    against `PromotionRecord`). `transition()`/`quarantine()` replace
+    `history` with a new tuple via `object.__setattr__`, the same
+    pattern already used for `state`. `provenance` remains an ordinary
+    mutable dict -- a disclosed, not fixed, residual boundary; no
+    consumer in this repository currently trusts `provenance` for a
+    trust/authority decision the way `confirm_pilot_authorized()`
+    trusted `history`."""
     artifact_id: str
     content_hash: str
     state: ContaminationState
@@ -107,7 +115,7 @@ class QuarantineRecord:
     provenance: Mapping[str, Any]
     preserved_content: str
     created_at: str
-    history: list[dict[str, Any]] = field(default_factory=list)
+    history: tuple[dict[str, Any], ...] = field(default_factory=tuple)
     human_review_status: str = "PENDING"
 
     def to_dict(self) -> dict[str, Any]:
@@ -161,8 +169,8 @@ class QuarantineStore:
             provenance=dict(provenance or {}),
             preserved_content=content,
             created_at=datetime.now(timezone.utc).isoformat(),
-            history=[{"from": from_state, "to": "QUARANTINED", "reason": reason,
-                      "at": datetime.now(timezone.utc).isoformat()}],
+            history=({"from": from_state, "to": "QUARANTINED", "reason": reason,
+                      "at": datetime.now(timezone.utc).isoformat()},),
         )
         self._records[artifact_id] = rec
         return rec
@@ -191,11 +199,12 @@ class QuarantineStore:
                 "releasing from QUARANTINED requires reviewed_by. Automated "
                 "release would make quarantine a delay rather than a gate."
             )
-        rec.history.append({
+        new_entry = {
             "from": rec.state, "to": to_state, "reason": reason,
             "reviewed_by": reviewed_by,
             "at": datetime.now(timezone.utc).isoformat(),
-        })
+        }
+        object.__setattr__(rec, "history", rec.history + (new_entry,))
         object.__setattr__(rec, "state", to_state)
         if reviewed_by:
             object.__setattr__(rec, "human_review_status", f"REVIEWED_BY:{reviewed_by}")
