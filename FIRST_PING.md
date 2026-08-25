@@ -55,6 +55,19 @@ system outside TitanOS's own boundary.
 - **LIMIT:** one exchange. Repeatability, not novelty, is what would
   turn this into a durable capability rather than a single proof.
 
+## Second exchange, 2026-08-26 — growing real atom count
+
+A second genuine external artifact, distinct from the first: this
+repository's own real commit history on `kyle4814/titanos`, read via
+`gh api repos/kyle4814/titanos/commits`. Ingested the same way (`Source
+Registry.ingest_source()`, `SRC-593e3597f297463b99ce1c593e8a5870`), then
+registered as an actual `narrative.store.narrative_atom_store` atom
+(`NA-TITANOS-COMMIT-HISTORY-001`, RAW → OBSERVED → CLASSIFIED, real
+frozen append-only history) rather than a `kpm` claim — narrative's
+real atom count moves from 2 to 3. Still short of what FRONTIER-005
+needs to stop being speculative, but a genuine, deliberate step in that
+direction rather than an accidental byproduct.
+
 ## What was NOT built
 
 No new module. Every piece used (`SourceRegistry`, `classify_claim`,
