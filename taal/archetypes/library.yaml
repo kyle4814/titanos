@@ -1,0 +1,824 @@
+# TAAL Threat Archetype Library — 12 records.
+#
+# CONTAINER SHAPE: this file is a top-level list under `archetypes:`, where
+# each list entry is itself a full `threat_archetype:`-wrapped document
+# body (i.e. each entry is exactly what
+# taal.validators.validate_threat_archetype.validate_threat_archetype()
+# expects once re-wrapped/dumped as its own YAML document — see
+# taal/archetypes/tests/test_library.py, which re-serialises each entry
+# individually and validates it through the same public function used on
+# any other threat_archetype document, rather than inventing a
+# library-specific validation path).
+#
+# SYMBOLIC -> TECHNICAL MAPPING (documented per the governing directive —
+# judgment calls explained inline at each archetype's technical_layer):
+#
+#   THE DECEIVER      -> IDENTITY_DECEPTION
+#     Misrepresents its own identity/context to downstream consumers.
+#   THE PARASITE       -> RESOURCE_ABUSE
+#     Consumes shared compute/quota/storage beyond its declared need.
+#   THE IMPERSONATOR   -> AUTHORIZATION_ABUSE
+#     Uses another principal's credential/session rather than merely
+#     misstating its own identity (distinguishes it from THE DECEIVER:
+#     this is about *using* someone else's authority, not *claiming* a
+#     different one of its own).
+#   THE INVADER         -> TRUST_BOUNDARY_CONFUSION
+#     Crosses into a zone it was never granted trust in, exploiting
+#     ambiguous boundary definitions rather than a specific privilege
+#     grant (distinguishes it from THE ESCALATOR below).
+#   THE CORRUPTER        -> INTEGRITY_MANIPULATION
+#     Degrades the correctness of data/artifacts/state it touches.
+#   THE ESCALATOR         -> PRIVILEGE_ESCALATION_ATTEMPTS
+#     Seeks a *higher* privilege tier than granted, as opposed to THE
+#     INVADER's boundary-ambiguity exploitation.
+#   THE SHADOW              -> OBSERVABILITY_EVASION_RISK
+#     Acts in ways designed to avoid audit/logging/detection.
+#   THE PERSISTOR            -> PERSISTENCE_RISK
+#     Establishes continued presence beyond its authorized window.
+#   THE EXTRACTOR              -> DATA_EXFILTRATION_PATTERNS
+#     Acquires data/value beyond its declared scope of need.
+#   THE SABOTEUR                -> AVAILABILITY_DISRUPTION
+#     Degrades or denies service/availability to legitimate consumers.
+#   THE DIVIDER                  -> THIRD_PARTY_DELEGATION_RISK
+#     Fragments trust by inserting an unaccountable intermediary/delegate
+#     between principals who believe they are dealing with each other
+#     directly (judgment call: "trust-boundary fragmentation" reads most
+#     naturally as delegation-chain risk rather than TRUST_BOUNDARY_
+#     CONFUSION, which THE INVADER already occupies).
+#   THE MANIPULATOR                -> SOCIAL_ENGINEERING_RISK
+#     Uses deceptive influence on a human or automated authorizer to gain
+#     consent it could not obtain on the merits.
+#
+# All twelve are defensive/observational documents: capability_request,
+# behaviour.observable_indicators, and controls describe WHAT IS SOUGHT
+# and HOW IT'S NOTICED, never a working exploitation technique.
+
+archetypes:
+
+  - id: ta-deceiver-001
+    version: "1.0.0"
+    title: "The Deceiver — identity/context misrepresentation"
+    symbolic_layer:
+      archetype_name: "THE DECEIVER"
+      metaphor_status: "SYMBOLIC_ONLY"
+      human_description: >
+        The oldest mask-wearer: an agent that presents an identity or
+        operating context inconsistent with its actual provenance, so
+        that downstream systems reason about the wrong actor.
+    technical_layer:
+      threat_class: "IDENTITY_DECEPTION"
+      behaviour_class: "Declares an identity/context inconsistent with its provenance record"
+      target_classes: ["orchestrator", "downstream_agent", "audit_log"]
+      asset_classes: ["identity_claims", "session_context", "provenance_record"]
+    adversarial_goal:
+      primary: "Have downstream systems act on a false identity or context claim"
+      secondary: ["Avoid triggering identity-verification checks", "Blend declared identity with a higher-trust principal"]
+    capability_request:
+      requested_permissions: ["act_as_declared_identity"]
+      requested_resources: []
+      requested_scope: "single_session"
+      requested_duration: "session_lifetime"
+      requested_persistence: "none"
+      requested_external_access: []
+    boundary_analysis:
+      origin: "external_agent"
+      target: "orchestrator"
+      trust_boundary_crossed: ["unverified_identity_claim_accepted"]
+      privilege_boundary_crossed: []
+      data_boundary_crossed: []
+      execution_boundary_crossed: []
+    evidence:
+      supporting_signals: ["identity_claim_mismatch_observed_in_provenance_diff"]
+      confidence: "EVIDENCE_SUPPORTED_MODEL"
+      contradictory_signals: []
+      unknowns: ["whether the mismatch is intentional or configuration drift"]
+    behaviour:
+      observable_indicators: ["declared identity differs from provenance record on cross-check"]
+      temporal_patterns: ["mismatch appears only after a context handoff"]
+      dependency_patterns: []
+      anomalous_requests: []
+    risk:
+      confidentiality_impact: "LOW"
+      integrity_impact: "MEDIUM"
+      availability_impact: "NONE"
+      blast_radius: "single session, single downstream consumer"
+      reversibility: "FULLY_REVERSIBLE"
+    controls:
+      prevention: ["mandatory identity attestation before context handoff"]
+      detection: ["cross-check declared identity against provenance record at each hop"]
+      containment: ["suspend session pending re-attestation"]
+      recovery: ["re-issue session under verified identity"]
+    response:
+      default_state: "REQUIRES_HUMAN_REVIEW"
+      escalation_conditions: ["mismatch recurs across multiple sessions"]
+      human_review_conditions: ["mismatch persists after re-attestation"]
+    false_positive_controls: ["allow declared aliasing patterns registered in advance"]
+    false_negative_controls: ["periodic sampling audit of accepted identity claims"]
+    provenance:
+      sources: ["taal-governing-directive"]
+      evidence_status: "TECHNICAL_DESIGN"
+      last_reviewed: "2026-08-25T00:00:00Z"
+
+  - id: ta-parasite-001
+    version: "1.0.0"
+    title: "The Parasite — unauthorized resource consumption"
+    symbolic_layer:
+      archetype_name: "THE PARASITE"
+      metaphor_status: "SYMBOLIC_ONLY"
+      human_description: >
+        A host-feeder: an agent that draws shared compute, quota, or
+        storage far beyond its declared need, weakening the system it
+        depends on without ever formally breaching a permission.
+    technical_layer:
+      threat_class: "RESOURCE_ABUSE"
+      behaviour_class: "Consumes shared compute/quota/storage beyond declared need"
+      target_classes: ["shared_compute_pool", "rate_limited_api", "storage_quota"]
+      asset_classes: ["compute_budget", "api_quota", "storage_capacity"]
+    adversarial_goal:
+      primary: "Extract disproportionate resource share relative to declared workload"
+      secondary: ["Starve co-tenant workloads of shared capacity"]
+    capability_request:
+      requested_permissions: ["submit_compute_jobs"]
+      requested_resources: ["cpu_time", "storage_volume"]
+      requested_scope: "shared_pool"
+      requested_duration: "indeterminate"
+      requested_persistence: "none"
+      requested_external_access: []
+    boundary_analysis:
+      origin: "authorized_agent"
+      target: "shared_resource_pool"
+      trust_boundary_crossed: []
+      privilege_boundary_crossed: []
+      data_boundary_crossed: []
+      execution_boundary_crossed: ["resource_consumption_exceeds_declared_budget"]
+    evidence:
+      supporting_signals: ["sustained resource draw far above historical baseline"]
+      confidence: "EVIDENCE_SUPPORTED_MODEL"
+      contradictory_signals: ["declared workload growth could explain part of the increase"]
+      unknowns: ["whether increase reflects legitimate scale-up"]
+    behaviour:
+      observable_indicators: ["resource consumption exceeds declared budget by a large, sustained margin"]
+      temporal_patterns: ["consumption grows monotonically without a corresponding output increase"]
+      dependency_patterns: ["spawns additional workers without new authorization"]
+      anomalous_requests: []
+    risk:
+      confidentiality_impact: "NONE"
+      integrity_impact: "NONE"
+      availability_impact: "MEDIUM"
+      blast_radius: "shared resource pool, all co-tenants"
+      reversibility: "FULLY_REVERSIBLE"
+    controls:
+      prevention: ["hard per-agent resource budgets enforced at allocation time"]
+      detection: ["compare consumption trend against declared budget and historical baseline"]
+      containment: ["throttle or suspend the consuming agent's allocation"]
+      recovery: ["restore prior budget after review"]
+    response:
+      default_state: "AUTHORIZED_WITH_CONSTRAINTS"
+      escalation_conditions: ["consumption exceeds budget by more than an order of magnitude"]
+      human_review_conditions: ["co-tenant workloads report measurable degradation"]
+    false_positive_controls: ["exempt declared legitimate scale-up events with prior notice"]
+    false_negative_controls: ["periodic audit of budget-vs-consumption ratios across all agents"]
+    provenance:
+      sources: ["taal-governing-directive"]
+      evidence_status: "TECHNICAL_DESIGN"
+      last_reviewed: "2026-08-25T00:00:00Z"
+
+  - id: ta-impersonator-001
+    version: "1.0.0"
+    title: "The Impersonator — identity/credential misuse"
+    symbolic_layer:
+      archetype_name: "THE IMPERSONATOR"
+      metaphor_status: "SYMBOLIC_ONLY"
+      human_description: >
+        Wears another's face outright: an agent that uses a credential
+        or session belonging to a different principal, rather than
+        merely misstating its own identity.
+    technical_layer:
+      threat_class: "AUTHORIZATION_ABUSE"
+      behaviour_class: "Uses a credential or session issued to a different principal"
+      target_classes: ["auth_gateway", "session_store"]
+      asset_classes: ["credentials", "session_tokens"]
+    adversarial_goal:
+      primary: "Act under another principal's authorization without their consent"
+      secondary: ["Avoid attribution to its own principal for the actions taken"]
+    capability_request:
+      requested_permissions: ["reuse_session_token"]
+      requested_resources: []
+      requested_scope: "borrowed_session"
+      requested_duration: "until_token_expiry"
+      requested_persistence: "none"
+      requested_external_access: []
+    boundary_analysis:
+      origin: "unauthorized_agent"
+      target: "authenticated_service"
+      trust_boundary_crossed: []
+      privilege_boundary_crossed: ["acting under a principal's authority without their session-issuance consent"]
+      data_boundary_crossed: []
+      execution_boundary_crossed: []
+    evidence:
+      supporting_signals: ["same session token used from two structurally distinct call origins"]
+      confidence: "EVIDENCE_SUPPORTED_MODEL"
+      contradictory_signals: ["legitimate multi-device use could produce a similar pattern"]
+      unknowns: ["whether the second origin is an authorized device of the same principal"]
+    behaviour:
+      observable_indicators: ["session token used from an origin inconsistent with its issuance record"]
+      temporal_patterns: ["reuse occurs immediately after a credential-issuance event elsewhere"]
+      dependency_patterns: []
+      anomalous_requests: ["requests scoped beyond the token's originally-issued purpose"]
+    risk:
+      confidentiality_impact: "HIGH"
+      integrity_impact: "MEDIUM"
+      availability_impact: "LOW"
+      blast_radius: "the impersonated principal's full authorized scope"
+      reversibility: "PARTIALLY_REVERSIBLE"
+    controls:
+      prevention: ["bind sessions to origin fingerprint at issuance"]
+      detection: ["flag session use from an origin inconsistent with issuance record"]
+      containment: ["revoke the session token immediately on mismatch"]
+      recovery: ["re-issue credentials to the legitimate principal, invalidate the old token"]
+    response:
+      default_state: "QUARANTINED"
+      escalation_conditions: ["mismatch confirmed against issuance record"]
+      human_review_conditions: ["principal disputes ownership of the flagged origin"]
+    false_positive_controls: ["allow pre-registered multi-device origin sets per principal"]
+    false_negative_controls: ["periodic review of session-to-origin binding logs for drift"]
+    provenance:
+      sources: ["taal-governing-directive"]
+      evidence_status: "TECHNICAL_DESIGN"
+      last_reviewed: "2026-08-25T00:00:00Z"
+
+  - id: ta-invader-001
+    version: "1.0.0"
+    title: "The Invader — unauthorized boundary crossing"
+    symbolic_layer:
+      archetype_name: "THE INVADER"
+      metaphor_status: "SYMBOLIC_ONLY"
+      human_description: >
+        Steps through walls that were assumed solid: an agent that
+        crosses into a zone it was never granted trust in, exploiting
+        ambiguous or under-specified boundary definitions.
+    technical_layer:
+      threat_class: "TRUST_BOUNDARY_CONFUSION"
+      behaviour_class: "Operates within a zone whose trust boundary was ambiguously defined"
+      target_classes: ["inter_service_boundary", "tenant_isolation_layer"]
+      asset_classes: ["boundary_definitions", "cross_zone_call_paths"]
+    adversarial_goal:
+      primary: "Operate in a zone under a trust assumption that was never explicitly granted"
+      secondary: ["Exploit inconsistent boundary definitions between two systems describing the same zone differently"]
+    capability_request:
+      requested_permissions: []
+      requested_resources: []
+      requested_scope: "ambiguous_zone"
+      requested_duration: "indeterminate"
+      requested_persistence: "none"
+      requested_external_access: []
+    boundary_analysis:
+      origin: "adjacent_zone_agent"
+      target: "ambiguously_bounded_zone"
+      trust_boundary_crossed: ["operates in a zone with two conflicting boundary definitions across systems"]
+      privilege_boundary_crossed: []
+      data_boundary_crossed: []
+      execution_boundary_crossed: []
+    evidence:
+      supporting_signals: ["two systems disagree on which zone this call path belongs to"]
+      confidence: "EVIDENCE_SUPPORTED_MODEL"
+      contradictory_signals: []
+      unknowns: ["which boundary definition is authoritative"]
+    behaviour:
+      observable_indicators: ["call path crosses a zone boundary that two policy sources define inconsistently"]
+      temporal_patterns: []
+      dependency_patterns: ["depends on a component whose zone membership is undeclared"]
+      anomalous_requests: []
+    risk:
+      confidentiality_impact: "MEDIUM"
+      integrity_impact: "MEDIUM"
+      availability_impact: "NONE"
+      blast_radius: "the ambiguously-bounded zone and its declared trust neighbours"
+      reversibility: "PARTIALLY_REVERSIBLE"
+    controls:
+      prevention: ["reconcile boundary definitions across all policy sources before deployment"]
+      detection: ["diff boundary definitions across systems and flag disagreements"]
+      containment: ["default-deny cross-zone calls pending reconciliation"]
+      recovery: ["publish a single reconciled boundary definition and re-validate call paths"]
+    response:
+      default_state: "REQUIRES_HUMAN_REVIEW"
+      escalation_conditions: ["boundary disagreement persists after automated reconciliation attempt"]
+      human_review_conditions: ["reconciliation would change an existing authorized call path"]
+    false_positive_controls: ["allow explicitly co-declared shared zones"]
+    false_negative_controls: ["periodic cross-system boundary-definition diff audit"]
+    provenance:
+      sources: ["taal-governing-directive"]
+      evidence_status: "TECHNICAL_DESIGN"
+      last_reviewed: "2026-08-25T00:00:00Z"
+
+  - id: ta-corrupter-001
+    version: "1.0.0"
+    title: "The Corrupter — integrity degradation"
+    symbolic_layer:
+      archetype_name: "THE CORRUPTER"
+      metaphor_status: "SYMBOLIC_ONLY"
+      human_description: >
+        Rot beneath the surface: an agent whose changes leave data or
+        artifacts subtly wrong, degrading correctness without an
+        obvious, single point of failure.
+    technical_layer:
+      threat_class: "INTEGRITY_MANIPULATION"
+      behaviour_class: "Introduces changes that degrade the correctness of data or artifacts it touches"
+      target_classes: ["shared_dataset", "build_artifact", "configuration_store"]
+      asset_classes: ["data_integrity", "artifact_checksums", "configuration_state"]
+    adversarial_goal:
+      primary: "Degrade the correctness of shared data or artifacts without immediate detection"
+      secondary: ["Have the degraded state propagate to downstream consumers before it is caught"]
+    capability_request:
+      requested_permissions: ["write_shared_dataset"]
+      requested_resources: []
+      requested_scope: "shared_dataset"
+      requested_duration: "single_write"
+      requested_persistence: "none"
+      requested_external_access: []
+    boundary_analysis:
+      origin: "authorized_writer"
+      target: "shared_dataset"
+      trust_boundary_crossed: []
+      privilege_boundary_crossed: []
+      data_boundary_crossed: ["writes values inconsistent with the dataset's declared invariants"]
+      execution_boundary_crossed: []
+    evidence:
+      supporting_signals: ["checksum drift on records not flagged as intentionally updated"]
+      confidence: "EVIDENCE_SUPPORTED_MODEL"
+      contradictory_signals: ["some drift may reflect a legitimate schema migration"]
+      unknowns: ["scope of downstream consumers already affected"]
+    behaviour:
+      observable_indicators: ["dataset checksum diverges from expected value without a corresponding change-log entry"]
+      temporal_patterns: ["drift accumulates gradually across many small writes"]
+      dependency_patterns: []
+      anomalous_requests: []
+    risk:
+      confidentiality_impact: "NONE"
+      integrity_impact: "HIGH"
+      availability_impact: "LOW"
+      blast_radius: "the shared dataset and all downstream consumers"
+      reversibility: "PARTIALLY_REVERSIBLE"
+    controls:
+      prevention: ["enforce schema/invariant validation on every write"]
+      detection: ["periodic checksum reconciliation against change-log"]
+      containment: ["freeze writes to the dataset pending investigation"]
+      recovery: ["restore from last known-good checksum-verified snapshot"]
+    response:
+      default_state: "REQUIRES_HUMAN_REVIEW"
+      escalation_conditions: ["drift detected across multiple unrelated records"]
+      human_review_conditions: ["restoring from snapshot would discard legitimate later writes"]
+    false_positive_controls: ["exempt writes tagged with a verified migration ticket"]
+    false_negative_controls: ["independent periodic full-dataset integrity audit"]
+    provenance:
+      sources: ["taal-governing-directive"]
+      evidence_status: "TECHNICAL_DESIGN"
+      last_reviewed: "2026-08-25T00:00:00Z"
+
+  - id: ta-escalator-001
+    version: "1.0.0"
+    title: "The Escalator — unauthorized privilege expansion"
+    symbolic_layer:
+      archetype_name: "THE ESCALATOR"
+      metaphor_status: "SYMBOLIC_ONLY"
+      human_description: >
+        Climbs the ladder it was never handed: an agent that seeks a
+        privilege tier above what it was granted, one small step at a
+        time.
+    technical_layer:
+      threat_class: "PRIVILEGE_ESCALATION_ATTEMPTS"
+      behaviour_class: "Requests or attains a privilege tier above its granted baseline"
+      target_classes: ["permission_manager", "role_assignment_service"]
+      asset_classes: ["privilege_grants", "role_definitions"]
+    adversarial_goal:
+      primary: "Attain a privilege tier higher than the one originally granted"
+      secondary: ["Accumulate incremental grants that individually look benign"]
+    capability_request:
+      requested_permissions: ["request_role_upgrade"]
+      requested_resources: []
+      requested_scope: "own_principal"
+      requested_duration: "indeterminate"
+      requested_persistence: "requested_to_persist_beyond_task"
+      requested_external_access: []
+    boundary_analysis:
+      origin: "granted_low_privilege_agent"
+      target: "privilege_management_service"
+      trust_boundary_crossed: []
+      privilege_boundary_crossed: ["requests a role above its declared baseline without a corresponding task justification"]
+      data_boundary_crossed: []
+      execution_boundary_crossed: []
+    evidence:
+      supporting_signals: ["sequence of small permission requests that together exceed the task's declared scope"]
+      confidence: "EVIDENCE_SUPPORTED_MODEL"
+      contradictory_signals: ["a legitimately expanding task could produce a similar request sequence"]
+      unknowns: ["whether the task scope itself has legitimately grown"]
+    behaviour:
+      observable_indicators: ["cumulative granted privilege exceeds the task's originally declared scope"]
+      temporal_patterns: ["requests arrive in a rapid sequence of small increments rather than one explicit ask"]
+      dependency_patterns: []
+      anomalous_requests: ["requests a permission with no corresponding declared task need"]
+    risk:
+      confidentiality_impact: "MEDIUM"
+      integrity_impact: "HIGH"
+      availability_impact: "LOW"
+      blast_radius: "everything reachable at the newly attained privilege tier"
+      reversibility: "PARTIALLY_REVERSIBLE"
+    controls:
+      prevention: ["require explicit task-linked justification for every privilege grant"]
+      detection: ["flag cumulative privilege growth against task's originally declared scope"]
+      containment: ["revoke incrementally-granted privileges pending review"]
+      recovery: ["reset principal to its originally-granted baseline privilege tier"]
+    response:
+      default_state: "QUARANTINED"
+      escalation_conditions: ["cumulative grant exceeds declared task scope by a defined threshold"]
+      human_review_conditions: ["principal disputes that the grants were unjustified"]
+    false_positive_controls: ["exempt grants pre-approved as part of a declared task-scope expansion"]
+    false_negative_controls: ["periodic audit comparing granted privilege against declared task scope"]
+    provenance:
+      sources: ["taal-governing-directive"]
+      evidence_status: "TECHNICAL_DESIGN"
+      last_reviewed: "2026-08-25T00:00:00Z"
+
+  - id: ta-shadow-001
+    version: "1.0.0"
+    title: "The Shadow — unaccountable/unaudited activity"
+    symbolic_layer:
+      archetype_name: "THE SHADOW"
+      metaphor_status: "SYMBOLIC_ONLY"
+      human_description: >
+        Leaves no footprint: an agent whose actions are structured to
+        avoid audit trails and observability, so its behaviour cannot
+        be reconstructed after the fact.
+    technical_layer:
+      threat_class: "OBSERVABILITY_EVASION_RISK"
+      behaviour_class: "Acts in ways structured to avoid audit/logging/detection"
+      target_classes: ["logging_pipeline", "audit_trail_store"]
+      asset_classes: ["log_completeness", "audit_trail_integrity"]
+    adversarial_goal:
+      primary: "Perform actions that cannot later be reconstructed from the audit trail"
+      secondary: ["Avoid triggering log-volume or anomaly-detection thresholds"]
+    capability_request:
+      requested_permissions: []
+      requested_resources: []
+      requested_scope: "own_actions"
+      requested_duration: "indeterminate"
+      requested_persistence: "none"
+      requested_external_access: []
+    boundary_analysis:
+      origin: "authorized_agent"
+      target: "logging_pipeline"
+      trust_boundary_crossed: []
+      privilege_boundary_crossed: []
+      data_boundary_crossed: []
+      execution_boundary_crossed: ["performs actions through a call path with reduced or absent logging coverage"]
+    evidence:
+      supporting_signals: ["action count inferred from side effects exceeds action count present in logs"]
+      confidence: "EVIDENCE_SUPPORTED_MODEL"
+      contradictory_signals: ["a known logging-pipeline gap could explain part of the discrepancy"]
+      unknowns: ["whether the gap is intentional evasion or an existing coverage hole"]
+    behaviour:
+      observable_indicators: ["observed side effects exceed what the audit trail accounts for"]
+      temporal_patterns: ["activity concentrates in call paths with known reduced logging coverage"]
+      dependency_patterns: []
+      anomalous_requests: []
+    risk:
+      confidentiality_impact: "LOW"
+      integrity_impact: "MEDIUM"
+      availability_impact: "NONE"
+      blast_radius: "any action taken through the under-logged call path"
+      reversibility: "UNKNOWN"
+    controls:
+      prevention: ["close known logging-coverage gaps before granting execution access to a path"]
+      detection: ["reconcile observed side effects against logged actions on a schedule"]
+      containment: ["route the agent's calls only through fully-logged paths pending review"]
+      recovery: ["backfill logging coverage and require re-attestation of prior unaccounted actions"]
+    response:
+      default_state: "REQUIRES_HUMAN_REVIEW"
+      escalation_conditions: ["discrepancy between side effects and log records exceeds a defined threshold"]
+      human_review_conditions: ["closing the coverage gap would require a service change"]
+    false_positive_controls: ["exempt call paths with a documented, reviewed logging exemption"]
+    false_negative_controls: ["periodic side-effect-to-log reconciliation audit across all call paths"]
+    provenance:
+      sources: ["taal-governing-directive"]
+      evidence_status: "TECHNICAL_DESIGN"
+      last_reviewed: "2026-08-25T00:00:00Z"
+
+  - id: ta-persistor-001
+    version: "1.0.0"
+    title: "The Persistor — unauthorized continued presence"
+    symbolic_layer:
+      archetype_name: "THE PERSISTOR"
+      metaphor_status: "SYMBOLIC_ONLY"
+      human_description: >
+        Overstays the invitation: an agent, credential, or process that
+        remains active well past its authorized window, quietly
+        retaining a foothold.
+    technical_layer:
+      threat_class: "PERSISTENCE_RISK"
+      behaviour_class: "Remains active or retains access beyond its authorized window"
+      target_classes: ["session_manager", "scheduled_task_registry"]
+      asset_classes: ["session_lifetime", "task_schedules", "credential_validity"]
+    adversarial_goal:
+      primary: "Retain access or an active process beyond its authorized duration"
+      secondary: ["Re-establish presence automatically after an expected expiry"]
+    capability_request:
+      requested_permissions: []
+      requested_resources: []
+      requested_scope: "own_session_or_task"
+      requested_duration: "beyond_declared_expiry"
+      requested_persistence: "attempts_auto_renewal_without_reauthorization"
+      requested_external_access: []
+    boundary_analysis:
+      origin: "previously_authorized_agent"
+      target: "session_or_task_registry"
+      trust_boundary_crossed: []
+      privilege_boundary_crossed: []
+      data_boundary_crossed: []
+      execution_boundary_crossed: ["remains scheduled or active past its declared expiry without re-authorization"]
+    evidence:
+      supporting_signals: ["active session or task found with an expiry timestamp already in the past"]
+      confidence: "EVIDENCE_SUPPORTED_MODEL"
+      contradictory_signals: ["a renewal request may be pending legitimate approval"]
+      unknowns: ["whether renewal was ever actually requested"]
+    behaviour:
+      observable_indicators: ["session or scheduled task still active after its declared expiry timestamp"]
+      temporal_patterns: ["re-appears shortly after an expected termination event"]
+      dependency_patterns: []
+      anomalous_requests: []
+    risk:
+      confidentiality_impact: "MEDIUM"
+      integrity_impact: "LOW"
+      availability_impact: "LOW"
+      blast_radius: "everything reachable within the overstayed session or task's original scope"
+      reversibility: "FULLY_REVERSIBLE"
+    controls:
+      prevention: ["enforce hard expiry with no implicit auto-renewal"]
+      detection: ["scan for active sessions/tasks past their declared expiry on a schedule"]
+      containment: ["terminate the session or task immediately on expiry detection"]
+      recovery: ["require explicit re-authorization before any re-establishment"]
+    response:
+      default_state: "QUARANTINED"
+      escalation_conditions: ["overstay duration exceeds a defined threshold past expiry"]
+      human_review_conditions: ["principal claims a legitimate pending renewal"]
+    false_positive_controls: ["exempt sessions with an explicit, logged renewal grant"]
+    false_negative_controls: ["periodic full registry sweep for expiry-timestamp inconsistencies"]
+    provenance:
+      sources: ["taal-governing-directive"]
+      evidence_status: "TECHNICAL_DESIGN"
+      last_reviewed: "2026-08-25T00:00:00Z"
+
+  - id: ta-extractor-001
+    version: "1.0.0"
+    title: "The Extractor — unauthorized data/value acquisition"
+    symbolic_layer:
+      archetype_name: "THE EXTRACTOR"
+      metaphor_status: "SYMBOLIC_ONLY"
+      human_description: >
+        Draws out more than it was given: an agent that acquires data
+        or value beyond its declared scope of need, often in small
+        increments that individually look unremarkable.
+    technical_layer:
+      threat_class: "DATA_EXFILTRATION_PATTERNS"
+      behaviour_class: "Acquires data or value beyond its declared scope of need"
+      target_classes: ["data_store", "export_pipeline"]
+      asset_classes: ["sensitive_records", "aggregate_dataset_value"]
+    adversarial_goal:
+      primary: "Acquire data or value beyond what the declared task requires"
+      secondary: ["Aggregate individually-small reads into a scope exceeding declared need"]
+    capability_request:
+      requested_permissions: ["read_data_store"]
+      requested_resources: []
+      requested_scope: "declared_task_scope"
+      requested_duration: "single_task"
+      requested_persistence: "none"
+      requested_external_access: ["export_to_external_destination"]
+    boundary_analysis:
+      origin: "authorized_reader"
+      target: "data_store"
+      trust_boundary_crossed: []
+      privilege_boundary_crossed: []
+      data_boundary_crossed: ["cumulative read volume exceeds the declared task's data need"]
+      execution_boundary_crossed: []
+    evidence:
+      supporting_signals: ["read volume over time exceeds what the declared task output could plausibly use"]
+      confidence: "EVIDENCE_SUPPORTED_MODEL"
+      contradictory_signals: ["a legitimate batch-processing task could read a similarly large volume"]
+      unknowns: ["whether an external export destination actually received the data"]
+    behaviour:
+      observable_indicators: ["cumulative read volume exceeds declared task's data need by a large margin"]
+      temporal_patterns: ["reads occur in many small requests rather than one declared bulk export"]
+      dependency_patterns: []
+      anomalous_requests: ["read request scoped to fields outside the declared task's field list"]
+    risk:
+      confidentiality_impact: "HIGH"
+      integrity_impact: "NONE"
+      availability_impact: "NONE"
+      blast_radius: "the full set of records reachable under the agent's read scope"
+      reversibility: "IRREVERSIBLE"
+    controls:
+      prevention: ["field-level and volume-capped read scoping per declared task"]
+      detection: ["compare cumulative read volume/field-set against declared task need"]
+      containment: ["suspend read access pending review"]
+      recovery: ["rotate any credentials used and notify affected data owners if applicable"]
+    response:
+      default_state: "QUARANTINED"
+      escalation_conditions: ["read volume exceeds declared need by a defined multiple"]
+      human_review_conditions: ["export destination cannot be confirmed as internal"]
+    false_positive_controls: ["exempt tasks with a pre-declared bulk-read justification"]
+    false_negative_controls: ["periodic audit of read-volume-to-declared-need ratios across all agents"]
+    provenance:
+      sources: ["taal-governing-directive"]
+      evidence_status: "TECHNICAL_DESIGN"
+      last_reviewed: "2026-08-25T00:00:00Z"
+
+  - id: ta-saboteur-001
+    version: "1.0.0"
+    title: "The Saboteur — availability/integrity disruption"
+    symbolic_layer:
+      archetype_name: "THE SABOTEUR"
+      metaphor_status: "SYMBOLIC_ONLY"
+      human_description: >
+        Breaks what others depend on: an agent whose actions degrade or
+        deny service to legitimate consumers, sometimes as a side
+        effect of an otherwise-authorized task.
+    technical_layer:
+      threat_class: "AVAILABILITY_DISRUPTION"
+      behaviour_class: "Degrades or denies service to legitimate consumers"
+      target_classes: ["shared_service_endpoint", "task_queue"]
+      asset_classes: ["service_availability", "queue_throughput"]
+    adversarial_goal:
+      primary: "Degrade or deny availability of a shared service to legitimate consumers"
+      secondary: ["Mask the disruption as an incidental side effect of a legitimate task"]
+    capability_request:
+      requested_permissions: ["submit_to_task_queue"]
+      requested_resources: []
+      requested_scope: "shared_service"
+      requested_duration: "indeterminate"
+      requested_persistence: "none"
+      requested_external_access: []
+    boundary_analysis:
+      origin: "authorized_agent"
+      target: "shared_service_endpoint"
+      trust_boundary_crossed: []
+      privilege_boundary_crossed: []
+      data_boundary_crossed: []
+      execution_boundary_crossed: ["submission pattern degrades throughput for other queue consumers"]
+    evidence:
+      supporting_signals: ["measured latency/error-rate increase for other consumers correlates with this agent's submission volume"]
+      confidence: "EVIDENCE_SUPPORTED_MODEL"
+      contradictory_signals: ["an unrelated infrastructure issue could also explain the correlation"]
+      unknowns: ["whether the degradation is intentional or an unanticipated side effect"]
+    behaviour:
+      observable_indicators: ["other consumers' latency/error rate rises in correlation with this agent's activity"]
+      temporal_patterns: ["submission bursts precede measurable service degradation"]
+      dependency_patterns: []
+      anomalous_requests: ["submits requests structured to consume disproportionate queue processing time"]
+    risk:
+      confidentiality_impact: "NONE"
+      integrity_impact: "LOW"
+      availability_impact: "HIGH"
+      blast_radius: "all consumers of the shared service endpoint"
+      reversibility: "FULLY_REVERSIBLE"
+    controls:
+      prevention: ["per-agent submission rate and cost limits on shared queues"]
+      detection: ["correlate other-consumer degradation with per-agent submission volume"]
+      containment: ["throttle or pause the correlated agent's submissions"]
+      recovery: ["drain the queue backlog and restore normal throughput"]
+    response:
+      default_state: "AUTHORIZED_WITH_CONSTRAINTS"
+      escalation_conditions: ["correlated degradation exceeds a defined service-level threshold"]
+      human_review_conditions: ["throttling would block a declared high-priority legitimate task"]
+    false_positive_controls: ["exempt agents with a pre-approved high-volume task window"]
+    false_negative_controls: ["periodic review of submission-volume-to-degradation correlation across all agents"]
+    provenance:
+      sources: ["taal-governing-directive"]
+      evidence_status: "TECHNICAL_DESIGN"
+      last_reviewed: "2026-08-25T00:00:00Z"
+
+  - id: ta-divider-001
+    version: "1.0.0"
+    title: "The Divider — trust-boundary fragmentation via delegation"
+    symbolic_layer:
+      archetype_name: "THE DIVIDER"
+      metaphor_status: "SYMBOLIC_ONLY"
+      human_description: >
+        Slips between two who trust each other directly: an agent that
+        inserts itself as an unaccountable intermediary in a delegation
+        chain, so neither original party can see the whole picture.
+    technical_layer:
+      threat_class: "THIRD_PARTY_DELEGATION_RISK"
+      behaviour_class: "Inserts itself as an unaccountable intermediary in a delegation chain"
+      target_classes: ["delegation_chain", "task_handoff_pipeline"]
+      asset_classes: ["delegation_records", "chain_of_custody_metadata"]
+    adversarial_goal:
+      primary: "Become an unaccountable intermediary between two principals who believe they deal with each other directly"
+      secondary: ["Omit itself from the visible delegation record"]
+    capability_request:
+      requested_permissions: ["relay_task_between_principals"]
+      requested_resources: []
+      requested_scope: "delegation_chain"
+      requested_duration: "single_handoff"
+      requested_persistence: "none"
+      requested_external_access: []
+    boundary_analysis:
+      origin: "intermediary_agent"
+      target: "delegation_chain"
+      trust_boundary_crossed: ["participates in a chain without appearing in the declared delegation record"]
+      privilege_boundary_crossed: []
+      data_boundary_crossed: []
+      execution_boundary_crossed: []
+    evidence:
+      supporting_signals: ["a handoff's timing/metadata implies an extra hop not present in the delegation record"]
+      confidence: "EVIDENCE_SUPPORTED_MODEL"
+      contradictory_signals: ["network/queueing delay could explain part of the timing gap"]
+      unknowns: ["identity of the unrecorded intermediary, if one exists"]
+    behaviour:
+      observable_indicators: ["handoff timing/metadata implies a hop count exceeding the declared delegation record"]
+      temporal_patterns: []
+      dependency_patterns: ["a task handoff routes through a component not listed in the declared chain"]
+      anomalous_requests: []
+    risk:
+      confidentiality_impact: "MEDIUM"
+      integrity_impact: "MEDIUM"
+      availability_impact: "NONE"
+      blast_radius: "both principals in the affected delegation chain"
+      reversibility: "PARTIALLY_REVERSIBLE"
+    controls:
+      prevention: ["require every hop in a delegation chain to self-register in the delegation record"]
+      detection: ["compare handoff metadata hop-count against the declared delegation record"]
+      containment: ["reject handoffs whose implied hop-count exceeds the declared record"]
+      recovery: ["re-establish a direct, fully-recorded delegation chain between the original principals"]
+    response:
+      default_state: "REQUIRES_HUMAN_REVIEW"
+      escalation_conditions: ["hop-count mismatch confirmed across multiple handoffs"]
+      human_review_conditions: ["re-establishing a direct chain would break an existing legitimate integration"]
+    false_positive_controls: ["exempt pre-registered infrastructure hops (e.g. declared relays)"]
+    false_negative_controls: ["periodic audit of handoff metadata against declared delegation records"]
+    provenance:
+      sources: ["taal-governing-directive"]
+      evidence_status: "TECHNICAL_DESIGN"
+      last_reviewed: "2026-08-25T00:00:00Z"
+
+  - id: ta-manipulator-001
+    version: "1.0.0"
+    title: "The Manipulator — deceptive influence on authorization decisions"
+    symbolic_layer:
+      archetype_name: "THE MANIPULATOR"
+      metaphor_status: "SYMBOLIC_ONLY"
+      human_description: >
+        Argues its way through the gate: an agent that shapes the
+        framing, urgency, or phrasing presented to a human or automated
+        authorizer to obtain consent it could not obtain on the merits.
+    technical_layer:
+      threat_class: "SOCIAL_ENGINEERING_RISK"
+      behaviour_class: "Shapes framing/urgency presented to an authorizer to obtain consent not earned on the merits"
+      target_classes: ["human_approver", "automated_authorization_gate"]
+      asset_classes: ["approval_decision_record", "authorization_criteria"]
+    adversarial_goal:
+      primary: "Obtain an authorization decision that would not be granted on the request's actual merits"
+      secondary: ["Reduce the reviewer's scrutiny time via manufactured urgency"]
+    capability_request:
+      requested_permissions: ["submit_for_authorization"]
+      requested_resources: []
+      requested_scope: "single_request"
+      requested_duration: "single_decision"
+      requested_persistence: "none"
+      requested_external_access: []
+    boundary_analysis:
+      origin: "requesting_agent"
+      target: "authorization_gate"
+      trust_boundary_crossed: []
+      privilege_boundary_crossed: ["obtains an authorization decision the request's actual risk profile would not have earned on its merits"]
+      data_boundary_crossed: []
+      execution_boundary_crossed: []
+    evidence:
+      supporting_signals: ["request framing/urgency language differs systematically from the request's actual risk profile"]
+      confidence: "SPECULATIVE_HYPOTHESIS"
+      contradictory_signals: ["urgent framing could reflect a genuinely time-sensitive legitimate request"]
+      unknowns: ["reviewer's actual decision process and what weight framing carried"]
+    behaviour:
+      observable_indicators: ["approval rate for this requester's framing pattern exceeds approval rate for equivalent-risk requests overall"]
+      temporal_patterns: ["urgency language appears disproportionately in requests later found to carry elevated risk"]
+      dependency_patterns: []
+      anomalous_requests: ["request framing emphasizes urgency/authority disproportionate to the declared risk tier"]
+    risk:
+      confidentiality_impact: "MEDIUM"
+      integrity_impact: "MEDIUM"
+      availability_impact: "NONE"
+      blast_radius: "whatever the manipulated authorization decision grants access to"
+      reversibility: "PARTIALLY_REVERSIBLE"
+    controls:
+      prevention: ["present authorizers with a risk-tier score computed independently of the request's framing text"]
+      detection: ["compare approval rate by framing pattern against approval rate for equivalent computed risk tier"]
+      containment: ["require secondary review for requests with unusually persuasive framing relative to computed risk"]
+      recovery: ["re-review and, if warranted, revoke the granted authorization"]
+    response:
+      default_state: "REQUIRES_HUMAN_REVIEW"
+      escalation_conditions: ["framing-driven approval-rate divergence exceeds a defined threshold"]
+      human_review_conditions: ["a granted authorization is later found to have relied primarily on framing rather than computed risk"]
+    false_positive_controls: ["exempt requesters with an established track record of accurate urgency framing"]
+    false_negative_controls: ["periodic blind re-review of a sample of approved requests with framing stripped"]
+    provenance:
+      sources: ["taal-governing-directive"]
+      evidence_status: "TECHNICAL_DESIGN"
+      last_reviewed: "2026-08-25T00:00:00Z"
