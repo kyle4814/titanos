@@ -5,8 +5,9 @@
 @TITANOS_REALITY_YIELD_PROFIT_ARCHITECTURE.md
 @TITANOS_CRITICAL_FUNCTION_SWITCH_GATE.md
 @TITANOS_HELLS_GATE.md
+@TITANOS_PARETO_FRONTIER_RECURSION_ENGINE.md
 
-These five files are stateless configuration — plain files in this
+These six files are stateless configuration — plain files in this
 repository, loaded at the start of every session that works here,
 independent of any conversation memory or session recall. Added
 2026-08-25 per Kyle's explicit instruction.
