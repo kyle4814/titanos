@@ -225,6 +225,72 @@ def check_duplicate_frontier_ids(repo_root: Path) -> list[Finding]:
     return findings
 
 
+# `## Active` and `## Blocked` entries are checked for the one field
+# pair genuinely present in 100% of real entries at time of writing
+# (verified by reading the file, not assumed) — `- **CURRENT:**` and
+# `- **GAP:**`, always as the entry's first two bullets. `## Archive`
+# (a one-line table, different shape entirely) and `## Rejected` are
+# not checked — this validator verifies declared structure is
+# complete, per section, for the shape that section actually uses; it
+# does not impose one schema on every section. It never judges whether
+# an entry's content is strategically correct — only that the two
+# always-present structural fields exist (`MARKDOWN_EXECUTION_
+# BOUNDARY_001`'s own Anti-Overreach Law: structural validity != strategic truth).
+_FRONTIER_ENTRY_SECTIONS = ("## Active", "## Blocked")
+
+
+def check_frontier_schema(repo_root: Path) -> list[Finding]:
+    frontier_md = repo_root / "PARETO_FRONTIER.md"
+    if not frontier_md.exists():
+        return []
+    text = frontier_md.read_text()
+    lines = text.splitlines()
+
+    findings: list[Finding] = []
+    current_section: str | None = None
+    current_entry_id: str | None = None
+    entry_lines: list[str] = []
+
+    def _check_entry(entry_id: str, body_lines: list[str]) -> None:
+        body = "\n".join(body_lines)
+        for field_name in ("- **CURRENT:**", "- **GAP:**"):
+            if field_name not in body:
+                findings.append(Finding(
+                    observation=f"{entry_id} is missing required field {field_name}",
+                    evidence_location=f"{frontier_md}::{entry_id}",
+                    confidence="HIGH",
+                    interpretation=(
+                        "every Active/Blocked entry has carried CURRENT and GAP "
+                        "as its first two bullets in this file's real history; "
+                        "this entry does not"
+                    ),
+                    reversibility="reversible — add the missing bullet",
+                    recommended_next_action="review if publishing",
+                ))
+
+    for line in lines:
+        if line.startswith("## "):
+            if current_entry_id and current_section in _FRONTIER_ENTRY_SECTIONS:
+                _check_entry(current_entry_id, entry_lines)
+            current_section = line.strip()
+            current_entry_id = None
+            entry_lines = []
+            continue
+        if line.startswith("### FRONTIER"):
+            if current_entry_id and current_section in _FRONTIER_ENTRY_SECTIONS:
+                _check_entry(current_entry_id, entry_lines)
+            match = re.match(r"### (FRONTIER-\S+)", line)
+            current_entry_id = match.group(1) if match else line.strip()
+            entry_lines = []
+            continue
+        entry_lines.append(line)
+
+    if current_entry_id and current_section in _FRONTIER_ENTRY_SECTIONS:
+        _check_entry(current_entry_id, entry_lines)
+
+    return findings
+
+
 def pulse_sweep(repo_root: Path) -> HealthReport:
     """Run every Level-1 deterministic check and return a consolidated,
     CT_141-compacted HealthReport. Read-only: touches nothing on disk."""
@@ -233,6 +299,7 @@ def pulse_sweep(repo_root: Path) -> HealthReport:
     raw.extend(check_subsystem_build_reports(repo_root))
     raw.extend(check_python_syntax(repo_root))
     raw.extend(check_duplicate_frontier_ids(repo_root))
+    raw.extend(check_frontier_schema(repo_root))
 
     consolidated = consolidate(raw)
     raw_count = len(consolidated)
