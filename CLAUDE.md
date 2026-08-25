@@ -10,8 +10,9 @@
 @TITANOS_AKASHIC_NARRATIVE_ENGINE.md
 @TITANOS_LAYER0_RECURSIVE_PARETO_FRONTIER.md
 @TITANOS_GREENLIGHT_AND_MEMETIC_DOCTRINE.md
+@TITANOS_MEMORY_IRRELEVANCE_PROTOCOL.md
 
-These ten files are stateless configuration — plain files in this
+These eleven files are stateless configuration — plain files in this
 repository, loaded at the start of every session that works here,
 independent of any conversation memory or session recall. Added
 2026-08-25 per Kyle's explicit instruction.
@@ -84,6 +85,15 @@ structured "why did we believe this, what would disprove it" record per
 completed cycle, the doctrine's own MEMORY link in
 `REALITY→LEVER→ACTION→TEST→YIELD→MEMORY→PACKAGE→ADOPTION→FEEDBACK` — is
 built: `foundation/crystal.py` (`Crystal`/`CrystalStore`).
+
+**Memory Irrelevance Protocol** audits this file's own loading discipline
+against its own five-tier model (invariants / live state / executable
+knowledge / indexed doctrine / provenance archive) and finds a real gap:
+all eleven `@`-imported doctrine files (1,700+ lines) load unconditionally
+at every boot, which is Tier 3 content paying Tier 0 cost — caused by a
+named platform limitation (`@`-import has no lazy-load primitive), not
+fixed this cycle. See `MEMORY_MAP.md` for the full tier classification
+and `PARETO_FRONTIER.md` FRONTIER-009 for the deferred fix.
 
 ## `PARETO_FRONTIER.md` and `NEXT_MOVE.md`
 

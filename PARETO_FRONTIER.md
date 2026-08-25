@@ -25,6 +25,15 @@ re-verified, not trusted, the next time it's picked up.
 
 ## Built
 
+### FRONTIER-MAP — Memory Map (`MEMORY_MAP.md`)
+- **status:** BUILT
+- Priority item 1 of `TITANOS_MEMORY_IRRELEVANCE_PROTOCOL.md`'s own
+  build order. Classifies this repo's real content into the doctrine's
+  five tiers; finds a measured, real problem (1,700+ lines of Tier-3
+  doctrine loading as Tier-0 cost every boot via `CLAUDE.md`'s
+  `@`-imports) and names its cause honestly as a platform limitation,
+  not something this cycle papered over with a fake selector.
+
 ### FRONTIER-007 — Crystalline Memory (`foundation/crystal.py`)
 - **status:** BUILT — `Crystal`/`CrystalStore`, 19 tests.
 - Answer to the "MEMORY" link in the chain named by
@@ -140,6 +149,22 @@ re-verified, not trusted, the next time it's picked up.
   a fork guide / contribution path has nowhere to point. Building the
   template now would be empty theater per this repo's own standing rule.
 - **dependencies:** `HUMAN_DECISIONS.md` item 1 (GitHub target).
+
+### FRONTIER-009 — Boot Context Selector for `CLAUDE.md` doctrine imports
+- **status:** OPEN
+- **added:** 2026-08-25
+- **value:** MEDIUM — reduces boot context size (currently 1,700+ lines
+  of Tier-3 doctrine loaded unconditionally every session, per
+  `MEMORY_MAP.md`), no functional/safety change.
+- **effort:** MEDIUM-HIGH — requires either a platform capability that
+  does not currently exist (conditional `@`-import), or removing the
+  `@`-imports and replacing them with plain-text pointers `/boot` reads
+  selectively — a real behavior change with a real regression risk (a
+  session could simply never read a doctrine file it needed).
+- **risk:** LOW-MEDIUM — the failure mode (missed doctrine) is silent,
+  not loud, which is worse than a build failure.
+- **dependencies:** `MEMORY_MAP.md` (built — this entry's own audit).
+- **duplication_risk:** none — no selector mechanism exists today.
 
 ### FRONTIER-004 — Narrative Atom Store (state machine driver)
 - **status:** OPEN

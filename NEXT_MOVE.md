@@ -8,18 +8,16 @@ rather than being deleted here.
 
 ---
 
-**As of 2026-08-25, cycle following the Crystalline Memory build:**
+**As of 2026-08-25, cycle following the Memory Map build:**
 
-Unchanged recommendation below — this cycle built FRONTIER-007
-(Crystalline Memory, `foundation/crystal.py`) because four directives
-pasted in rapid succession (compressed into
-`TITANOS_GREENLIGHT_AND_MEMETIC_DOCTRINE.md`) named the same "MEMORY"
-gap in their own REALITY→LEVER→ACTION→TEST→YIELD→MEMORY→PACKAGE→
-ADOPTION→FEEDBACK chain, and MEMORY was the first unblocked genuinely-
-missing link in that chain (PACKAGE and ADOPTION/FEEDBACK are blocked on
-the no-GitHub-remote decision, same as FRONTIER-003/008). Same
-independent-audits-don't-displace-each-other's-recommendation pattern as
-every prior cycle.
+Unchanged recommendation below — this cycle built `MEMORY_MAP.md`
+(priority item 1 of `TITANOS_MEMORY_IRRELEVANCE_PROTOCOL.md`'s own
+build order) because that doctrine's own sequencing rule requires the
+map before any of its other six priority items. The map found a real,
+measured problem (1,700+ lines of doctrine loading unconditionally at
+every boot) and named FRONTIER-009 as the deferred fix rather than
+building a fake selector to look done. Same independent-audits-don't-
+displace-each-other's-recommendation pattern as every prior cycle.
 
 
 ## Recommended: FRONTIER-001 — Reusable secret/credential scanner
