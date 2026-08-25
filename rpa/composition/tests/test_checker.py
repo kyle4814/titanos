@@ -87,6 +87,24 @@ class TestDanglingReferencesRefused(unittest.TestCase):
         self.assertEqual(report.verdict, "REFUSED")
         self.assertTrue(any(f.check == "pilot_measurement_ref" for f in report.findings))
 
+    def test_measurement_citing_nonexistent_pilot_is_refused(self):
+        measurement = _load("before_after_measurement.yaml")
+        measurement["before_after_measurement"]["pilot_simulation_ref"] = "pilot-that-does-not-exist"
+        pilot = _load("pilot_simulation.yaml")
+        report = check_chain_integrity(measurement_docs=[measurement], pilot_docs=[pilot])
+        self.assertEqual(report.verdict, "REFUSED")
+        self.assertTrue(any(f.check == "measurement_pilot_ref" for f in report.findings))
+        self.assertIn("pilot-that-does-not-exist", report.findings[0].involved_ids)
+
+    def test_measurement_pilot_ref_not_checked_without_pilot_docs_supplied(self):
+        """Absence of pilot_docs must not itself trigger a finding —
+        mirrors TestPartialInputsDoNotFalsePositive's existing pattern
+        for every other _ref check in this file."""
+        measurement = _load("before_after_measurement.yaml")
+        report = check_chain_integrity(measurement_docs=[measurement])
+        self.assertEqual(report.verdict, "INTACT")
+        self.assertEqual(report.findings, [])
+
     def test_multiple_broken_references_all_reported_not_just_first(self):
         map_doc = _load("legacy_map.yaml")
         bottleneck = _load("bottleneck.yaml")

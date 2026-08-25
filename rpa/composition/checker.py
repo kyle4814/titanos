@@ -154,6 +154,29 @@ def check_chain_integrity(
                     for doc in rollback_docs}
     measurement_ids = {doc.get("before_after_measurement", {}).get("id")
                        for doc in measurement_docs}
+    pilot_ids: set[str] = set()
+    for doc in pilot_docs:
+        p = doc.get("pilot_simulation", {})
+        if p.get("id"):
+            pilot_ids.add(p["id"])
+
+    for doc in measurement_docs:
+        ba = doc.get("before_after_measurement", {})
+        bid = ba.get("id")
+
+        pref = ba.get("pilot_simulation_ref")
+        if pilot_docs and pref not in pilot_ids:
+            findings.append(Finding(
+                check="measurement_pilot_ref", severity="FATAL",
+                what=f"measurement '{bid}' references pilot_simulation_ref "
+                     f"'{pref}' which is not among the supplied pilot "
+                     f"simulations",
+                why="validate_before_after_measurement.py's own docstring "
+                    "names this resolution as deliberately deferred to the "
+                    "composition layer — a measurement plan citing a pilot "
+                    "that cannot be found is not measuring anything real",
+                involved_ids=(bid, pref),
+            ))
 
     for doc in pilot_docs:
         p = doc.get("pilot_simulation", {})
