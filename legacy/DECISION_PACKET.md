@@ -8,7 +8,18 @@ Generated 2026-08-25 against the real, live corpus at scan time —
 live (this is the same figure the earlier `PUBLICATION_READINESS_REPORT.md`
 audit reported independently — cross-checked, not assumed still true).
 
-Raw output: `legacy/manifests/track_a.json`, `legacy/manifests/track_b.json`.
+Raw output: `legacy/manifests/track_a.json`, `legacy/manifests/track_b.json`
+(regenerate locally via `python3 legacy/classify.py` — **not tracked in
+git**, added 2026-08-25 as part of pre-publication review: the manifests
+contain full filesystem paths from outside this repository, and inspecting
+them showed they reveal the names and directory structure of unrelated
+private projects on the scanning machine — e.g. project codenames under
+`clawd_backup/`. That's a real, if modest, information-disclosure risk
+for a public repository, unrelated to anything this packet is actually
+about. Excluded from tracking rather than redacted-in-place, since the
+raw paths were never load-bearing for any test — only the aggregate
+statistics below are. This exclusion is itself logged, not silent, per
+the standing rule against hiding what was found.)
 
 ---
 

@@ -1,3 +1,9 @@
 __pycache__/
 *.pyc
 .claude/RESUME.md
+
+# Derived legacy-corpus manifests: regeneratable via legacy/classify.py,
+# but contain full filesystem paths from outside this repo that reveal
+# unrelated private project names/structure. Excluded from tracking for
+# public release safety -- see legacy/DECISION_PACKET.md.
+legacy/manifests/*.json
