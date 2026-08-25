@@ -61,29 +61,21 @@ answer these yet, it stays in `INTUITION.md`, not here.
   not yet clearly a net win, which is why this remains OPEN rather than
   promoted to "smallest first move now."
 
-### FRONTIER-008 — Per-subsystem seed/manifest packaging
-- **CURRENT:** `firewall/`, `schema/`, `kpm/`, `magl/`, `rpa/`, `taal/`,
-  `foundation/` all have a verified `ADOPT.md` (2026-08-25/26) — every
-  quickstart's *code*, not just its test command, independently re-run
-  and matched. `foundation/ADOPT.md` (17 modules, the largest subsystem)
-  deliberately scoped full quickstart depth to the two hard-gated
-  critical functions (`flow_switch`/CT_141, `publication_gate`) and
-  indexed the rest by pointer — proportionate depth, third time applied
-  this cycle (`rpa/`, `taal/`, now `foundation/`). Only `narrative/`
-  remains.
-- **GAP:** template proven seven times; one subsystem left.
-- **LEVER:** MEDIUM-HIGH — real now that `kyle4814/titanos` is public
-  and CI-green.
-- **FIRST STEP:** done (`firewall/`, `schema/`, `kpm/`, `magl/`, `rpa/`,
-  `taal/`, `foundation/`). Next: `narrative/`, the last one.
-- **PROOF:** `firewall/ADOPT.md`'s quickstart commands independently
-  re-run and matched, not just written.
-- **UNLOCK:** `TITANOS_GREENLIGHT_AND_MEMETIC_DOCTRINE.md`'s Seed/
-  Manifest chain (PACKAGE step) has a real first instance, not a
-  speculative field list.
-- **REUSE:** `firewall/BUILD_REPORT.md`'s content as source material for
-  the threat-model/limitations sections; externalizes it, doesn't
-  duplicate it.
+## Archive addition — FRONTIER-008 COMPLETE
+
+All 8 subsystems now have a verified `ADOPT.md` (`firewall/`, `schema/`,
+`kpm/`, `magl/`, `rpa/`, `taal/`, `foundation/`, `narrative/`,
+2026-08-25/26) — every quickstart's *code*, not just its test command,
+independently re-run and matched against real output. Verification was
+load-bearing, not ceremonial: caught and fixed three real inaccuracies
+before they shipped (`kpm/ADOPT.md`: `reclassify()`'s true positional
+signature + `PromotionStore` has no RAW→TESTED shortcut edge;
+`taal/ADOPT.md`: a wrong claimed verdict, missing `supporting_evidence`).
+Depth was scoped proportionately, not uniformly — `rpa/`, `taal/`,
+`foundation/` (largest, 17 modules) each gave full quickstart depth only
+to their security-critical or highest-value pieces, indexing the rest by
+pointer, matching the Blueprint Production Law's "smaller than the
+original domain" test. Moved to Archive table below.
 
 ## Blocked
 
@@ -140,6 +132,7 @@ from the active scan path per this addendum's compaction rule.
 | FRONTIER-HISTORY-FREEZE | Closed a real, LIVE exploit: the same 5 types' `history` field was still a mutable list under freezing -- converted to tuple, closing a forged-entry bypass of `rpa/gates/human_jurisdiction.py`'s pilot-authorization gate | `8e0e12d` |
 | FRONTIER-003 | CI workflow real and green (`kyle4814/titanos` created public, pushed, `.github/workflows/tests.yml` fired for the first time and passed, 8/8 subsystems) | `6fb29fa` (workflow) + live push 2026-08-25 |
 | FIRST-PING | First proven `WORLD -> TITANOS -> WORLD` exchange: real GitHub Actions run ingested + classified through the existing (pre-built) digestion pipeline, self-sourced not human-supplied. See `FIRST_PING.md`. No new code. | (this commit) |
+| FRONTIER-008 | Per-subsystem external packaging docs (`ADOPT.md`) for all 8 subsystems -- every quickstart independently re-run and matched, caught 3 real doc bugs before shipping | `82862e4`,`8b9d906`,`2b1fb4c`,`8c299e0`,`cb8bd84`,`3c5c87c`,`e8afcae`,(this commit) |
 
 ## Rejected / not on the frontier
 
