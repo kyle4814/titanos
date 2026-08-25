@@ -6,8 +6,9 @@
 @TITANOS_CRITICAL_FUNCTION_SWITCH_GATE.md
 @TITANOS_HELLS_GATE.md
 @TITANOS_PARETO_FRONTIER_RECURSION_ENGINE.md
+@TITANOS_LIVING_PARETO_FRONTIER_ARCHITECTURE.md
 
-These six files are stateless configuration — plain files in this
+These seven files are stateless configuration — plain files in this
 repository, loaded at the start of every session that works here,
 independent of any conversation memory or session recall. Added
 2026-08-25 per Kyle's explicit instruction.
@@ -69,6 +70,16 @@ rather than a second store, and does not replace the more specific gates
 already behind it (`publication_gate.py`, `taal/gate/root_gate.py`,
 `magl/composition/engine.py`) — it's the front door those still sit
 behind.
+
+## `PARETO_FRONTIER.md` and `NEXT_MOVE.md`
+
+The persistent state layer `TITANOS_LIVING_PARETO_FRONTIER_ARCHITECTURE.md`'s
+boot sequence assumed already existed — built 2026-08-25 as that
+doctrine's own "highest-lever missing connection" for that cycle.
+`PARETO_FRONTIER.md` is the ranked candidate-move registry (engineering
+work items, not human judgment calls — see below); `NEXT_MOVE.md` is the
+single standing recommendation. `/boot` loads both. Neither replaces
+`HUMAN_DECISIONS.md`.
 
 ## `HUMAN_DECISIONS.md`
 

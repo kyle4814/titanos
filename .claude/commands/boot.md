@@ -41,8 +41,13 @@ summary is not proof of anything; verified behavior is.
 5. **CHECK WHAT ALREADY EXISTS** — Read `magl/BUILD_REPORT.md`'s and
    `foundation/MAPPING.md`'s "next smallest work cell" / "genuinely
    unbuilt" sections specifically — these are the standing, named,
-   not-yet-closed gaps from prior GO cycles. Do not treat a capability as
-   missing without checking these first.
+   not-yet-closed gaps from prior GO cycles. Read `PARETO_FRONTIER.md`
+   (ranked candidate moves, some already scoped in full) and
+   `NEXT_MOVE.md` (the single standing recommendation from the last
+   cycle) — do not re-derive a frontier from scratch if one is already
+   recorded and still fresh; do re-verify it rather than trust it blindly
+   if its `added` date is old. Do not treat a capability as missing
+   without checking these first.
 
 6. **IDENTIFY ACTIVE OBJECTIVE** — From step 4-5's findings, state the
    current objective in one sentence. If multiple `BUILD_REPORT.md` files

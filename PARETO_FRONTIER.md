@@ -1,0 +1,120 @@
+# Pareto Frontier Registry
+
+Persistent, git-tracked candidate-move registry per
+`TITANOS_PARETO_FRONTIER_RECURSION_ENGINE.md` §XII. This is the "living"
+half of the architecture's decision state — before this file existed, a
+LEVER phase's Option A/B/C analysis lived only in a chat transcript and
+had to be re-derived from scratch (or from memory) by the next session.
+`/boot` now loads this file as one of its ten steps.
+
+**Not the same thing as `HUMAN_DECISIONS.md`.** That file holds judgment
+calls only a human can resolve (policy, legal, personal choices — "should
+X be true"). This file holds ranked engineering candidate moves ("what
+should get built next") — some entries here exist *because* an item in
+`HUMAN_DECISIONS.md` unblocks them once resolved; each entry says so
+where relevant.
+
+**Staleness is a real risk with this kind of file — named, not hidden.**
+A frontier registry nobody updates becomes exactly the kind of stale
+assumption `TITANOS_PARETO_FRONTIER_RECURSION_ENGINE.md`'s Boot Zero
+step is supposed to catch. Convention: every entry carries `added`
+(date) and `status`; an entry not touched in a long time should be
+re-verified, not trusted, the next time it's picked up.
+
+---
+
+## Active candidates
+
+### FRONTIER-001 — Reusable secret/credential scanner
+- **status:** OPEN
+- **added:** 2026-08-25
+- **value:** HIGH — needed for (a) actual GitHub publication, (b) Hell's
+  Gate Gate 2 (harm screen) once it evaluates real external
+  contributions, (c) MAGL's own named Open-Source Release Gate checklist
+  (`magl/BUILD_REPORT.md` human-decision #3).
+- **effort:** LOW-MEDIUM — the pattern set is already proven (used ad hoc
+  during the publication-readiness pass: API-key shapes, PEM headers,
+  generic secret assignments, email addresses, filesystem-path leakage).
+  Wrapping it in a tested `scan(paths) -> ScanReport` module is
+  mechanical, not exploratory.
+- **risk:** LOW — read-only, no privilege, fully reversible.
+- **reversibility:** HIGH.
+- **evidence:** the ad hoc scan already ran once for real and found one
+  genuine issue (`legacy/manifests/*.json` path leakage) — proof the
+  pattern set catches real things, not just theoretical ones.
+- **information_gain:** MEDIUM — mostly converts known-working manual
+  steps into a tested artifact, doesn't discover new unknowns.
+- **dependencies:** none.
+- **reality_yield:** would become the `secret_scan_evidence` input to
+  `foundation/publication_gate.py::PublicationSwitch` — directly wired to
+  an existing gate, not a standalone artifact nobody calls.
+- **duplication_risk:** none found — no scanner module exists anywhere in
+  this repo today (verified 2026-08-25).
+
+### FRONTIER-002 — `permission_request` → `GateInput` adapter
+- **status:** OPEN
+- **added:** 2026-08-25
+- **value:** MEDIUM — closes the third instance of this session's
+  recurring "proven seam, not yet a pipeline" pattern
+  (`taal/BUILD_REPORT.md` next-work-cell).
+- **effort:** LOW — both shapes are already fully specified and tested
+  independently; this is a pure mapping function.
+- **risk:** LOW — internal only, no external-facing change, no privilege
+  implications.
+- **reversibility:** HIGH.
+- **evidence:** none yet — untested hypothesis that closing this seam
+  matters in practice; no real workload has hit it yet.
+- **information_gain:** LOW-MEDIUM — would confirm or disconfirm whether
+  the two shapes actually compose cleanly, which is currently assumed,
+  not verified.
+- **dependencies:** `taal/schema/permission_request.py`,
+  `taal/gate/root_gate.py::GateInput` (both exist and are tested).
+- **reality_yield:** unmeasured until built.
+- **duplication_risk:** none — this exact gap is named in
+  `taal/BUILD_REPORT.md` and nowhere else attempts it.
+
+### FRONTIER-003 — CI workflow (`.github/workflows/`)
+- **status:** BLOCKED
+- **added:** 2026-08-25
+- **value:** HIGH once a GitHub remote exists — "CI is the heartbeat"
+  (`TITANOS_LIVING_PARETO_FRONTIER_ARCHITECTURE.md` §XIV).
+- **effort:** LOW — the test command is already simple and uniform
+  (`python3 -m unittest discover` per subsystem), no build step, no
+  secrets required to run tests.
+- **risk:** LOW.
+- **reversibility:** HIGH.
+- **blocked_by:** `HUMAN_DECISIONS.md` item 1 — no GitHub repo exists yet
+  to attach a workflow to. Writing the YAML file is cheap and could be
+  done speculatively, but doctrine explicitly warns against "empty
+  theater" — a workflow file with nothing to trigger it is exactly that,
+  so this stays BLOCKED rather than OPEN until the repo target is named.
+
+## Rejected / not on the frontier
+
+- **Full `core/`/`workers/`/`ledgers/` directory restructure** proposed
+  by `TITANOS_LIVING_PARETO_FRONTIER_ARCHITECTURE.md` §IV — rejected as
+  the *next move* (not as a future possibility) specifically because
+  every one of those directories would either duplicate something that
+  already exists under this repo's current structure (`foundation/` ⊃
+  the doctrine's `core/obelisk`+`core/ct141`+`core/hells_gate`;
+  `magl/`+`rpa/`+`taal/` already ARE the MAGL-shaped subsystems the
+  doctrine's `magls/active/` etc. describes) or would be empty theater
+  (`workers/scout/`, `workers/historian/` etc. have no code behind them
+  yet — the four-agent pattern is currently doctrine + ad hoc execution
+  in each session, not typed worker processes). Renaming working,
+  tested code into a new directory tree to match a prescribed shape,
+  with no functional change, is pure churn — explicitly against this
+  same doctrine's own "do not rebuild existing modules under new names"
+  rule (§XVI). If a genuine need for typed worker processes emerges,
+  build that need directly; don't pre-build the scaffolding.
+
+## How to use this file
+
+1. Before proposing new work, check here first — an entry may already
+   exist with its trade-offs worked out.
+2. When a candidate is selected and built, update its `status` to
+   `BUILT` (not deleted — provenance survives, per this doctrine's own
+   Archivist principle) and note the commit.
+3. When a new candidate is discovered during recon, add it here with all
+   fields filled honestly — `UNKNOWN` is a legitimate value for any
+   field, an empty field is not.
