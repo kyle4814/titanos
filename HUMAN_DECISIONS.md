@@ -11,12 +11,21 @@ Last compiled 2026-08-25. Each item cites its source report.
 ## Blocking actual publication
 
 1. **GitHub target repo/account.** `foundation/publication_gate.py`'s
-   `authorize_publish()` will refuse until a human names `target_repo`
-   explicitly. Confirmed 2026-08-25 (`REALITY_CONTACT_001`) via
-   `git remote -v`/`.git/config`: no remote is currently configured —
-   this repository is not connected to GitHub yet, despite how long
-   the session has run. `blocked_by` for `PARETO_FRONTIER.md`'s
-   FRONTIER-003/FRONTIER-008.
+   `authorize_publish()` will refuse until `target_repo` is not just
+   named but actually connected. **DECLARED 2026-08-25
+   (`EXTERNAL_IDENTITY_GATE_001`): `kyle4814/titanos`**, description
+   "TITANOS — The Operating System for Human + Machine Intelligence".
+   `gh auth status` confirms account `kyle4814` is authenticated; `gh
+   repo list` confirms **no repo named `titanos` currently exists** on
+   that account, and this local checkout still has no `git remote`
+   configured. So: the NAME is declared, the repo is NOT yet created,
+   and no remote is wired — `authorize_publish()` would still refuse.
+   Creating the actual GitHub repo (`gh repo create`) and wiring the
+   remote (`git remote add origin`) are real external actions this
+   session has not done and will not do without a separate, explicit
+   go-ahead. `blocked_by` for `PARETO_FRONTIER.md`'s FRONTIER-003/
+   FRONTIER-008 — partially unblocked: the CI workflow file itself
+   requires no remote to write, only to trigger.
    ~~LICENSE copyright holder name~~ — **RESOLVED 2026-08-25**: "the
    TitanOS project contributors" confirmed as the intended line, no
    change needed. *(This session, publication-readiness pass; resolved

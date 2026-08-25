@@ -1,0 +1,39 @@
+name: tests
+
+# FRONTIER-003 (PARETO_FRONTIER.md). Runs the exact test invocation
+# this repository's commit history has always used, per subsystem:
+# `python3 -m unittest discover -s <subsystem> -p "test_*.py"`. No
+# build step, no secrets -- the one runtime dependency (PyYAML, see
+# requirements.txt) is the only thing installed before testing.
+#
+# Written 2026-08-25 (EXTERNAL_IDENTITY_GATE_001) before this
+# repository had an actual GitHub remote -- pure content, requires no
+# external state to exist. Starts running the moment this repo is
+# pushed to a real GitHub repository; does nothing before that.
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        subsystem:
+          - schema
+          - firewall
+          - kpm
+          - magl
+          - rpa
+          - taal
+          - foundation
+          - narrative
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      - run: python3 -m unittest discover -s ${{ matrix.subsystem }} -p "test_*.py"
