@@ -127,6 +127,7 @@ from the active scan path per this addendum's compaction rule.
 | FRONTIER-MANIFEST | Runtime dependency manifest (`requirements.txt`, PyYAML pinned) | `b2ce4b1` |
 | FRONTIER-COMM-SWITCH | External Communication switch, prerequisite only (`foundation/communication_gate.py`) — no retrieval capability implemented | `ff7af45` |
 | FRONTIER-NARRATIVE-REFCHECK | Narrative atom cross-atom referential integrity checker (`narrative/composition/checker.py`) | `67c3507` |
+| FRONTIER-INVARIANT-SPECIMEN | First proven invariant durably registered in `SIGIL_LEXICON.md` (`SIGIL.REF_INTEGRITY`, transferred rpa->narrative) | `5fd5dc7` |
 
 ## Rejected / not on the frontier
 
