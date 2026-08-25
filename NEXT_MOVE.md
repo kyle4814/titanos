@@ -8,16 +8,15 @@ rather than being deleted here.
 
 ---
 
-**As of 2026-08-25, cycle following the Sentinel_141 Pulse Sweep build:**
+**As of 2026-08-25, cycle following the Task Queue build:**
 
-Unchanged recommendation below — this cycle built FRONTIER-010
-(Sentinel_141 Level 1 Pulse Sweep, `foundation/sentinel.py`) because
-`TITANOS_SENTINEL_141.md` asked for the smallest missing observation
-layer and none existed. Its own first run found a real gap
-(FRONTIER-011, three subsystems missing `BUILD_REPORT.md`) — recorded,
-not auto-fixed, since Sentinel may not route a finding into execution.
-Same independent-audits-don't-displace-each-other's-recommendation
-pattern as every prior cycle.
+Unchanged recommendation below — this cycle built FRONTIER-012 (Bounded
+Task Queue Workflow, `foundation/task_queue.py`) in response to a
+directive claiming a prior session left task-queue work interrupted.
+`git status` was verified clean first — no such prior work existed
+anywhere in this repo, so this was a fresh build of the described
+workflow, not a recovery. Same independent-audits-don't-displace-each-
+other's-recommendation pattern as every prior cycle.
 
 
 ## Recommended: FRONTIER-001 — Reusable secret/credential scanner

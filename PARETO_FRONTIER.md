@@ -25,6 +25,22 @@ re-verified, not trusted, the next time it's picked up.
 
 ## Built
 
+### FRONTIER-012 — Bounded Task Queue Workflow (`foundation/task_queue.py`)
+- **status:** BUILT — `Task`/`TaskQueue`/`RunBudget`/`run()`/
+  `reconcile_in_progress()`, 32 tests.
+- Requested as a "reconciliation" of a previously-interrupted task-queue
+  session. **Verified first, per this repo's own Zero-Trust
+  Reconnaissance rule: `git status` was clean and no queue/runner code
+  existed anywhere in the repository before this cycle.** There was
+  nothing to reconcile — the premise was false, named honestly rather
+  than silently played along with. Built fresh instead: load -> validate
+  -> select eligible -> perform bounded unit -> verify -> save -> repeat
+  within budget -> stop. Same state-machine discipline as `kpm/promotion/
+  state_machine.py`/`foundation/flow_switch.py` (explicit transition
+  table, illegal edges simply absent). `reconcile_in_progress()` directly
+  implements the directive's own rule that an IN_PROGRESS task is never
+  assumed complete without independent evidence.
+
 ### FRONTIER-010 — Sentinel_141 Level 1 Pulse Sweep (`foundation/sentinel.py`)
 - **status:** BUILT — `Finding`/`HealthReport`/`pulse_sweep()`/
   `FourPaths`, 24 tests.
