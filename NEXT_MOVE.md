@@ -21,10 +21,24 @@ append-only history. See `FIRST_PING.md` for full record. `GO <topic>`
 (from `TITANOS_LAUNCH_SEQUENCE_001.md`) is now proven at least once, not
 just specified.
 
-**Recommended next candidate:** FRONTIER-008 — replicate `firewall/
-ADOPT.md`'s proven template to the remaining 7 subsystems
-(`schema/` next: smallest, fewest cross-subsystem dependencies). No
-human decision required; self-navigable.
+**FRONTIER-008 CLOSED, 2026-08-26:** all 8 subsystems now have a
+verified `ADOPT.md` (`firewall`, `schema`, `kpm`, `magl`, `rpa`, `taal`,
+`foundation`, `narrative`). Verification caught 3 real doc bugs before
+they shipped — the check was load-bearing. Every quickstart's actual
+code, not just its claimed test command, was independently re-run.
+
+**Recommended next candidate:** `FRONTIER-005` (Five-Record query
+views, Gold Ledger, Isomorphism contract) stays correctly Blocked —
+only 2 real narrative atoms exist, building views over near-empty
+content would be speculative. `FRONTIER-009` (Boot Context Selector)
+stays correctly D-verdicted (UNNECESSARY, no observed failure caused by
+its absence). With both those closed off, the next self-navigable move
+is a second `GO <topic>` cycle: digest another real external artifact
+through the now-proven pipeline (`FIRST_PING.md`'s pattern), or —
+higher leverage — repeat the pipeline against something more
+substantial than a single CI run, to start actually growing
+`narrative/`'s real atom count past 2, which is what would unblock
+FRONTIER-005 legitimately rather than by force.
 
 **Superseded, kept for provenance — as of 2026-08-25, following
 MASTER_CYCLE_001 (commit `a7dfe81`):**
