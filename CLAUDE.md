@@ -138,9 +138,15 @@ IRON:10 | LATTICE:6 | PROOF:8 | SIGHT:10 | FRONTIER:10 | ORCH:10 |
 MEMORY:10 | REALITY:10`. **Caution if extending `foundation/sigil.py`:**
 its PROOF dimension shells out to run every subsystem's test suite,
 including `foundation`'s own — which contains this module's real-repo
-tests. `RECURSION_GUARD_ENV` prevents unbounded forking; do not remove
-it without understanding why it exists (see the module's own docstring
-and `TITANOS_SIGIL_CAPABILITY_INDEX.md`).
+tests. `foundation/recursion_guard.py::check()`/`child_env()` prevents
+unbounded forking (see `TITANOS_RECURSION_GUARD_001.md`); do not remove
+without understanding why it exists.
+
+`SIGIL_LEXICON.md` indexes proven *concepts* as glyphs (execution
+ancestry, bounded block, ...) — distinct from `SIGIL.md`'s maturity
+tier. `COMMAND_LEXICON.md` indexes one proven *execution chain*
+(recon→delta→proof→regression→process-check→doc→commit→handoff) —
+a specification only, no runtime resolver exists or is claimed.
 
 ## `PARETO_FRONTIER.md`, `NEXT_MOVE.md`, and `INTUITION.md`
 
