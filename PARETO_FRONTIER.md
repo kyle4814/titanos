@@ -25,6 +25,19 @@ re-verified, not trusted, the next time it's picked up.
 
 ## Built
 
+### FRONTIER-007 — Crystalline Memory (`foundation/crystal.py`)
+- **status:** BUILT — `Crystal`/`CrystalStore`, 19 tests.
+- Answer to the "MEMORY" link in the chain named by
+  `TITANOS_GREENLIGHT_AND_MEMETIC_DOCTRINE.md`:
+  `REALITY→LEVER→ACTION→TEST→YIELD→MEMORY→PACKAGE→ADOPTION→FEEDBACK`.
+  REALITY/LEVER/ACTION/TEST/YIELD already existed; PACKAGE (FRONTIER-008)
+  and ADOPTION/FEEDBACK are blocked (no GitHub remote / no external ping
+  surface); MEMORY was the first unblocked genuinely-missing link — every
+  prior cycle's conclusion lived only in `BUILD_REPORT.md` prose, never
+  as a structured record forcing "what would disprove this" to be
+  answered explicitly. Not a duplicate of `reality_yield_ledger.py`
+  (that answers cost/benefit; `Crystal` answers epistemic provenance).
+
 ### FRONTIER-006 — Layer 0 Worker Contract
 - **status:** BUILT — `foundation/layer0_worker.py`, 18 tests.
 - Third consecutive directive to request typed worker infrastructure;
@@ -114,6 +127,19 @@ re-verified, not trusted, the next time it's picked up.
   done speculatively, but doctrine explicitly warns against "empty
   theater" — a workflow file with nothing to trigger it is exactly that,
   so this stays BLOCKED rather than OPEN until the repo target is named.
+
+### FRONTIER-008 — Per-subsystem seed/manifest packaging
+- **status:** BLOCKED
+- **added:** 2026-08-25
+- **value:** MEDIUM-HIGH once publication is real — makes each subsystem
+  self-describing to an external adopter (thesis, quickstart, examples,
+  failure cases, threat model, limitations, changelog, fork guide,
+  manifest, provenance, contribution path — `TITANOS_GREENLIGHT_AND_
+  MEMETIC_DOCTRINE.md` §3).
+- **blocked_by:** same as FRONTIER-003 — no GitHub remote exists yet, so
+  a fork guide / contribution path has nowhere to point. Building the
+  template now would be empty theater per this repo's own standing rule.
+- **dependencies:** `HUMAN_DECISIONS.md` item 1 (GitHub target).
 
 ### FRONTIER-004 — Narrative Atom Store (state machine driver)
 - **status:** OPEN

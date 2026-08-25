@@ -8,13 +8,18 @@ rather than being deleted here.
 
 ---
 
-**As of 2026-08-25, cycle following the Layer 0 Worker Contract build:**
+**As of 2026-08-25, cycle following the Crystalline Memory build:**
 
-Unchanged recommendation below — this cycle built FRONTIER-006 (Layer 0
-Worker Contract) because that was the audited answer for
-`TITANOS_LAYER0_RECURSIVE_PARETO_FRONTIER.md`'s own scope, same
+Unchanged recommendation below — this cycle built FRONTIER-007
+(Crystalline Memory, `foundation/crystal.py`) because four directives
+pasted in rapid succession (compressed into
+`TITANOS_GREENLIGHT_AND_MEMETIC_DOCTRINE.md`) named the same "MEMORY"
+gap in their own REALITY→LEVER→ACTION→TEST→YIELD→MEMORY→PACKAGE→
+ADOPTION→FEEDBACK chain, and MEMORY was the first unblocked genuinely-
+missing link in that chain (PACKAGE and ADOPTION/FEEDBACK are blocked on
+the no-GitHub-remote decision, same as FRONTIER-003/008). Same
 independent-audits-don't-displace-each-other's-recommendation pattern as
-the prior cycle.
+every prior cycle.
 
 
 ## Recommended: FRONTIER-001 — Reusable secret/credential scanner

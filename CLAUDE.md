@@ -9,8 +9,9 @@
 @TITANOS_LIVING_PARETO_FRONTIER_ARCHITECTURE.md
 @TITANOS_AKASHIC_NARRATIVE_ENGINE.md
 @TITANOS_LAYER0_RECURSIVE_PARETO_FRONTIER.md
+@TITANOS_GREENLIGHT_AND_MEMETIC_DOCTRINE.md
 
-These nine files are stateless configuration — plain files in this
+These ten files are stateless configuration — plain files in this
 repository, loaded at the start of every session that works here,
 independent of any conversation memory or session recall. Added
 2026-08-25 per Kyle's explicit instruction.
@@ -73,6 +74,17 @@ already behind it (`publication_gate.py`, `taal/gate/root_gate.py`,
 `magl/composition/engine.py`) — it's the front door those still sit
 behind.
 
+**Greenlight & Memetic Propagation Doctrine** compresses four directives
+pasted in rapid succession into one file — audited against the existing
+nine and found ~90% restatement (same CT_141/Hell's Gate/Four-Agent/
+reality-yield shape under new names: Greenlight's RED/AMBER/QUARANTINE/
+GREEN maps 1:1 onto `foundation/hells_gate.py`'s existing four outcomes,
+not rebuilt). The one genuinely new, genuinely buildable gap — a
+structured "why did we believe this, what would disprove it" record per
+completed cycle, the doctrine's own MEMORY link in
+`REALITY→LEVER→ACTION→TEST→YIELD→MEMORY→PACKAGE→ADOPTION→FEEDBACK` — is
+built: `foundation/crystal.py` (`Crystal`/`CrystalStore`).
+
 ## `PARETO_FRONTIER.md` and `NEXT_MOVE.md`
 
 The persistent state layer `TITANOS_LIVING_PARETO_FRONTIER_ARCHITECTURE.md`'s
@@ -97,8 +109,9 @@ decision, without re-deriving it from git history.
 
 Real, running Python (unittest), no runtime dependency beyond PyYAML.
 Every subsystem (`schema/`, `firewall/`, `kpm/`, `magl/`, `rpa/`,
-`taal/`, `foundation/`) has its own `BUILD_REPORT.md` with an honest
-limitations/human-decisions/next-work-cell section — read those before
-assuming a capability is missing. As of the last full-repo regression
-run (2026-08-25), all suites pass; run them again rather than trusting
-that count, since it will go stale the moment this file does not.
+`taal/`, `foundation/`, `narrative/`) has its own `BUILD_REPORT.md` with
+an honest limitations/human-decisions/next-work-cell section — read
+those before assuming a capability is missing. As of the last full-repo
+regression run (2026-08-25, post-Crystal), all 8 suites pass, 915 tests
+total; run them again rather than trusting that count, since it will go
+stale the moment this file does not.
