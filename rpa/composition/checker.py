@@ -73,6 +73,7 @@ def check_chain_integrity(
     pilot_docs: Sequence[Mapping[str, Any]] = (),
     rollback_docs: Sequence[Mapping[str, Any]] = (),
     measurement_docs: Sequence[Mapping[str, Any]] = (),
+    value_docs: Sequence[Mapping[str, Any]] = (),
 ) -> ChainIntegrityReport:
     """Check that every cross-document reference in the chain resolves.
 
@@ -148,6 +149,25 @@ def check_chain_integrity(
                 why="the candidate must be scoped to the same map its "
                     "bottleneck was found in",
                 involved_ids=(cid, mref, map_id),
+            ))
+
+    for doc in value_docs:
+        vf = doc.get("value_flow", {})
+        vid = vf.get("id")
+
+        vmref = vf.get("system_map_ref")
+        if map_id is not None and vmref != map_id:
+            findings.append(Finding(
+                check="value_flow_system_map_ref", severity="FATAL",
+                what=f"value flow '{vid}' references system_map_ref "
+                     f"'{vmref}' but the supplied map's id is '{map_id}'",
+                why="value_flow.py's own docstring names this resolution "
+                    "as deliberately deferred to the composition layer, "
+                    "same boundary as institutional_bottleneck.py's "
+                    "system_map_ref — a value flow accounting for a "
+                    "system that isn't the one actually being reasoned "
+                    "about is not accounting for anything real",
+                involved_ids=(vid, vmref, map_id),
             ))
 
     rollback_ids = {doc.get("rollback_contract", {}).get("id")

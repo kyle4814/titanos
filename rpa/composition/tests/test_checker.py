@@ -87,6 +87,64 @@ class TestDanglingReferencesRefused(unittest.TestCase):
         self.assertEqual(report.verdict, "REFUSED")
         self.assertTrue(any(f.check == "pilot_measurement_ref" for f in report.findings))
 
+    def test_value_flow_citing_existing_map_produces_no_finding(self):
+        map_doc = _load("legacy_map.yaml")
+        value_flow = _load("value_flow.yaml")
+        report = check_chain_integrity(map_doc=map_doc, value_docs=[value_flow])
+        self.assertEqual(report.verdict, "INTACT")
+        self.assertFalse(any(f.check == "value_flow_system_map_ref" for f in report.findings))
+
+    def test_value_flow_wrong_map_ref_is_refused(self):
+        map_doc = _load("legacy_map.yaml")
+        value_flow = _load("value_flow.yaml")
+        value_flow["value_flow"]["system_map_ref"] = "map-that-does-not-exist"
+        report = check_chain_integrity(map_doc=map_doc, value_docs=[value_flow])
+        self.assertEqual(report.verdict, "REFUSED")
+        self.assertTrue(any(f.check == "value_flow_system_map_ref" for f in report.findings))
+        self.assertIn("map-that-does-not-exist", report.findings[0].involved_ids)
+
+    def test_value_flow_system_map_ref_not_checked_without_map_doc_supplied(self):
+        """Absence of map_doc must not itself trigger a finding — mirrors
+        the existing partial-input pattern (bottleneck/candidate's own
+        system_map_ref checks are equally silent when map_doc is None),
+        matching this schema's own documented optionality boundary:
+        system_map_ref is a required FIELD on the document, but this
+        composition-layer check only fires when a map to compare against
+        was actually supplied."""
+        value_flow = _load("value_flow.yaml")
+        report = check_chain_integrity(value_docs=[value_flow])
+        self.assertEqual(report.verdict, "INTACT")
+        self.assertEqual(report.findings, [])
+
+    def test_value_flow_system_map_ref_is_deterministic(self):
+        map_doc = _load("legacy_map.yaml")
+        value_flow = _load("value_flow.yaml")
+        value_flow["value_flow"]["system_map_ref"] = "map-that-does-not-exist"
+        r1 = check_chain_integrity(map_doc=map_doc, value_docs=[value_flow])
+        r2 = check_chain_integrity(map_doc=map_doc, value_docs=[value_flow])
+        self.assertEqual(r1.to_dict(), r2.to_dict())
+
+    def test_value_flow_check_detected_by_composition_layer_not_single_doc_validator(self):
+        """A wrong system_map_ref is structurally valid to
+        validate_value_flow.py (only shape/string-field rules apply) —
+        the failure must come from check_chain_integrity(), proving this
+        is a composition-boundary check, not a duplicate of the
+        single-document validator's own rules."""
+        import sys as _sys
+        from pathlib import Path as _Path
+        _sys.path.insert(0, str(_Path(__file__).resolve().parents[3]))
+        from rpa.validators.validate_value_flow import validate_value_flow
+
+        value_flow = _load("value_flow.yaml")
+        value_flow["value_flow"]["system_map_ref"] = "map-that-does-not-exist"
+        raw_text = yaml.safe_dump(value_flow)
+        single_doc_result = validate_value_flow(raw_text)
+        self.assertEqual(single_doc_result.status, "VALID")
+
+        map_doc = _load("legacy_map.yaml")
+        report = check_chain_integrity(map_doc=map_doc, value_docs=[value_flow])
+        self.assertEqual(report.verdict, "REFUSED")
+
     def test_rollback_citing_existing_candidate_produces_no_finding(self):
         rollback = _load("rollback_contract.yaml")
         candidate = _load("automation_candidate.yaml")
