@@ -51,14 +51,33 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Iterable
 
+from magl.composition.engine import MAGLSummary, check_composition
+
 __all__ = [
     "MAGLEntry",
     "MAGLCatalogue",
+    "CompositionRefusedAtRegistration",
     "RelationshipType",
     "Relationship",
     "MAGLRelationshipGraph",
     "transitive_dependencies",
 ]
+
+
+class CompositionRefusedAtRegistration(Exception):
+    """Raised by register_checked() when the incoming MAGL would conflict
+    with something already catalogued. Carries the full CompositionReport
+    so a caller sees every reason, not just that it failed."""
+
+    def __init__(self, magl_id: str, version: str, report: Any):
+        self.magl_id = magl_id
+        self.version = version
+        self.report = report
+        fatal = [f.what for f in report.findings if f.severity == "FATAL"]
+        super().__init__(
+            f"registering '{magl_id}' v{version} refused — would conflict "
+            f"with an already-catalogued MAGL: {'; '.join(fatal)}"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -109,6 +128,11 @@ class MAGLCatalogue:
         # magl_id -> version -> entry, plus insertion order per magl_id.
         self._entries: dict[str, dict[str, MAGLEntry]] = {}
         self._order: dict[str, list[str]] = {}
+        # magl_id -> version -> summary, ONLY populated by register_checked().
+        # register() never touches this — a caller using the plain path has
+        # no jurisdiction data to compose against, and this dict staying
+        # empty for them is correct, not a gap.
+        self._summaries: dict[str, dict[str, "MAGLSummary"]] = {}
 
     def register(self, entry: MAGLEntry) -> None:
         versions = self._entries.setdefault(entry.magl_id, {})
@@ -127,6 +151,42 @@ class MAGLCatalogue:
             )
         versions[stamped.version] = stamped
         self._order.setdefault(entry.magl_id, []).append(stamped.version)
+
+    def register_checked(self, entry: MAGLEntry, summary: MAGLSummary) -> None:
+        """Register, but only after checking the incoming MAGL against
+        every summary already catalogued via THIS method.
+
+        WHY THIS IS A SEPARATE METHOD, NOT A CHANGE TO register()
+
+        register() is a pure catalogue write — it has no jurisdiction data
+        to reason about and must stay usable for callers who only have an
+        MAGLEntry (e.g. re-cataloguing something already known-composable
+        by other means). register_checked() is the connected version named
+        as the next work cell in magl/BUILD_REPORT.md: "a MAGL that would
+        conflict with an already-catalogued one can still be registered
+        today, because these are two components with a proven seam, not
+        yet a connected pipeline." This closes that gap without changing
+        register()'s contract for existing callers.
+
+        THE CHECK SET
+
+        `summary` is checked via check_composition() against every summary
+        previously registered through register_checked() (never against
+        entries added via plain register(), which carry no summary). If
+        the report's verdict is REFUSED, this raises
+        CompositionRefusedAtRegistration BEFORE anything is written —
+        catalogue state and the summary store are unchanged on refusal, so
+        a caller retrying with a fixed MAGL sees a clean slate, not a
+        partial write to clean up.
+        """
+        existing = [s for by_version in self._summaries.values()
+                   for s in by_version.values()]
+        report = check_composition([*existing, summary])
+        if report.verdict == "REFUSED":
+            raise CompositionRefusedAtRegistration(entry.magl_id, entry.version, report)
+
+        self.register(entry)
+        self._summaries.setdefault(entry.magl_id, {})[entry.version] = summary
 
     def get(self, magl_id: str, version: str | None = None) -> MAGLEntry | None:
         """Look up one entry.

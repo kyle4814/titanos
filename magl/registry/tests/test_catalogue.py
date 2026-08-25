@@ -9,10 +9,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 from magl.registry.catalogue import (  # noqa: E402
     MAGLEntry,
     MAGLCatalogue,
+    CompositionRefusedAtRegistration,
     MAGLRelationshipGraph,
     RelationshipType,
     transitive_dependencies,
 )
+from magl.composition.engine import MAGLSummary  # noqa: E402
 
 
 def make_entry(magl_id="magl.example", version="1.0.0", **overrides) -> MAGLEntry:
@@ -256,6 +258,69 @@ class TestTransitiveDependencies(unittest.TestCase):
         graph.add_relationship("A", "DEPENDS_ON", "B")
         graph.add_relationship("B", "EXTENDS", "C")
         self.assertEqual(transitive_dependencies(graph, "A"), frozenset({"B"}))
+
+
+class TestRegisterChecked(unittest.TestCase):
+    """The gap named in magl/BUILD_REPORT.md's next-work-cell section:
+    registration now actually calls the composition engine."""
+
+    def test_compatible_pair_both_register(self):
+        cat = MAGLCatalogue()
+        a = MAGLSummary(magl_id="a", version="1.0.0", provides=("cap_x",))
+        b = MAGLSummary(magl_id="b", version="1.0.0", requires=("cap_x",))
+        cat.register_checked(make_entry("a", "1.0.0"), a)
+        cat.register_checked(make_entry("b", "1.0.0"), b)
+        self.assertIsNotNone(cat.get("a", "1.0.0"))
+        self.assertIsNotNone(cat.get("b", "1.0.0"))
+
+    def test_conflicting_pair_second_registration_refused(self):
+        cat = MAGLCatalogue()
+        guard = MAGLSummary(magl_id="guard", version="1.0.0",
+                            prohibited_actions=("delete_user_data",))
+        deleter = MAGLSummary(magl_id="deleter", version="1.0.0",
+                              may_execute=("delete_user_data",))
+        cat.register_checked(make_entry("guard", "1.0.0"), guard)
+        with self.assertRaises(CompositionRefusedAtRegistration):
+            cat.register_checked(make_entry("deleter", "1.0.0"), deleter)
+
+    def test_refused_registration_writes_nothing(self):
+        """Catalogue state must be unchanged on refusal — no partial write."""
+        cat = MAGLCatalogue()
+        guard = MAGLSummary(magl_id="guard", version="1.0.0",
+                            prohibited_actions=("delete_user_data",))
+        deleter = MAGLSummary(magl_id="deleter", version="1.0.0",
+                              may_execute=("delete_user_data",))
+        cat.register_checked(make_entry("guard", "1.0.0"), guard)
+        try:
+            cat.register_checked(make_entry("deleter", "1.0.0"), deleter)
+        except CompositionRefusedAtRegistration:
+            pass
+        self.assertIsNone(cat.get("deleter", "1.0.0"))
+        self.assertEqual(len(cat.all_versions("deleter")), 0)
+
+    def test_refusal_carries_the_full_report(self):
+        cat = MAGLCatalogue()
+        guard = MAGLSummary(magl_id="guard", version="1.0.0",
+                            prohibited_actions=("delete_user_data",))
+        deleter = MAGLSummary(magl_id="deleter", version="1.0.0",
+                              may_execute=("delete_user_data",))
+        cat.register_checked(make_entry("guard", "1.0.0"), guard)
+        with self.assertRaises(CompositionRefusedAtRegistration) as ctx:
+            cat.register_checked(make_entry("deleter", "1.0.0"), deleter)
+        self.assertEqual(ctx.exception.report.verdict, "REFUSED")
+        self.assertTrue(any(f.severity == "FATAL" for f in ctx.exception.report.findings))
+
+    def test_plain_register_does_not_populate_summaries_and_is_unaffected(self):
+        """register() (no composition check) must keep working exactly as
+        before — this is an additive method, not a breaking change."""
+        cat = MAGLCatalogue()
+        cat.register(make_entry("plain", "1.0.0"))
+        self.assertIsNotNone(cat.get("plain", "1.0.0"))
+        # A later register_checked() call must not be affected by entries
+        # that never went through the composition-aware path.
+        a = MAGLSummary(magl_id="checked-a", version="1.0.0", provides=("x",))
+        cat.register_checked(make_entry("checked-a", "1.0.0"), a)
+        self.assertIsNotNone(cat.get("checked-a", "1.0.0"))
 
 
 if __name__ == "__main__":
