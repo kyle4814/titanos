@@ -2,11 +2,23 @@
 
 @TITANOS_GO_CYCLE_DOCTRINE.md
 @TITANOS_NEXT_LEVER_SEQUENCER.md
+@TITANOS_REALITY_YIELD_PROFIT_ARCHITECTURE.md
 
-These two files are stateless configuration — plain files in this
+These three files are stateless configuration — plain files in this
 repository, loaded at the start of every session that works here,
 independent of any conversation memory or session recall. Added
 2026-08-25 per Kyle's explicit instruction.
+
+**Reality Yield & Profit Architecture Engine** governs `/go` (slash
+command, distinct from the bare word `GO`): a profit/exchange-scoped
+specialization of the same cycle, adding the Micro-P&L Invariant and the
+"send the smallest external ping" discipline. **Read its file's opening
+note before invoking `/go`** — this repository currently has no external
+ping surface (no product, no customer, no revenue), so `/go`'s own §XIII
+Step 4 rule ("if no external ping exists, do not build a large system —
+build the interface required to create the first one") means it will
+typically resolve to ordinary GO-Cycle work inside this repo, not literal
+profit-architecture construction, until that changes.
 
 **GO Cycle Doctrine** governs autonomous build behavior: when the
 operator types `GO` alone, self-navigate reconnaissance → target
