@@ -8,30 +8,33 @@ rather than being deleted here.
 
 ---
 
-**As of 2026-08-25, cycle following the Capability Sigil build:**
-Built `foundation/sigil.py` + `SIGIL.md` — computed capability index,
-current result `TIER:T6 | IRON:10 | LATTICE:6 | PROOF:8 | SIGHT:10 |
-FRONTIER:10 | ORCH:10 | MEMORY:10 | REALITY:10`. **Real bug found and
-fixed during this build**: the PROOF dimension's own test-running logic
-recursively forked without bound (it shells out to run `foundation`'s
-suite, which contains this very module's tests, which call
-`compute_sigil()` again) — caught by watching process count climb past
-50 forked processes, not by review. Fixed with an explicit recursion
-guard (`RECURSION_GUARD_ENV`) plus a subprocess timeout as a second
-safety net; verified clean with `ps aux` after the fix, zero leftover
-processes.
+**As of 2026-08-25, cycle following predecessor-debt closure (CHAIN_FRONTIER_001):**
+This entry was stale for 3 cycles — it still recommended FRONTIER-004
+after that item closed (`d5537c1`), and still named `RECURSION_GUARD_ENV`
+after it was replaced by `foundation/recursion_guard.py` (`93b3e89`,
+corrected in `CLAUDE.md` at `7198235`). Corrected here as the actual
+predecessor-closure debt this cycle found and fixed — not a new
+capability, a documentation-accuracy repair.
 
-## Recommended: FRONTIER-004 — Narrative Atom Store (state machine driver)
+Since then: FRONTIER-004 shipped (`d5537c1`), one real narrative
+ingestion ran (`5c73498`, two atoms — thin but genuinely real, not
+synthetic), and `COMMAND_LEXICON.md` was added (`7198235`).
 
-Now the highest-evidence open candidate: LOW effort, LOW risk, the
-pattern to copy already exists three times in this repository
-(`kpm/promotion/state_machine.py`, `foundation/flow_switch.py`,
-`firewall/quarantine.py`). See `PARETO_FRONTIER.md` for full reasoning.
+## No confidently recommended OPEN item this cycle
 
-## Also on the frontier, not recommended this cycle
+`PARETO_FRONTIER.md`'s only remaining `Active` entry is FRONTIER-009
+(Boot Context Selector) — MEDIUM-HIGH effort with an explicitly
+uncertain net win (a missed doctrine file is a silent failure mode,
+worse than a loud one); its own entry already says it is "not yet
+clearly a net win," not a ready move. Every other open item
+(FRONTIER-003, FRONTIER-005, FRONTIER-008) remains genuinely Blocked.
+FRONTIER-005's blocker is partially but not fully resolved: FRONTIER-004
+is done, and a real ingestion source now exists, but two atoms is thin
+evidence for building Five-Record views/Gold Ledger against — recorded
+honestly in `PARETO_FRONTIER.md`, not force-unblocked.
 
-FRONTIER-003 (CI workflow, blocked on GitHub remote), FRONTIER-005
-(Five-Record views / Gold Ledger, blocked on FRONTIER-004 and real
-ingested content), FRONTIER-008 (per-subsystem seed/manifest packaging,
-blocked on GitHub remote), FRONTIER-009 (Boot Context Selector, effort
-MEDIUM-HIGH with an uncertain net win). See `PARETO_FRONTIER.md`.
+**No code is a valid outcome this cycle** — recon found no proven
+transition ambiguity, no invalid phase transition that has actually
+occurred, and no execution seam currently dependent on model memory
+that a small repository-native contract would close. See
+`COMMAND_LEXICON.md`/`CHAIN_FRONTIER_001` handoff for the full recon.

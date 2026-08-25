@@ -73,9 +73,16 @@ answer these yet, it stays in `INTUITION.md`, not here.
   point without a GitHub remote.
 
 ### FRONTIER-005 — Five-Record query views, Gold Ledger, Isomorphism contract
-- **CURRENT:** zero real narrative atoms exist anywhere in this repo.
-- **GAP:** views/ledger/contract over content that doesn't exist yet.
-- **blocked_by:** FRONTIER-004, and a real ingestion source.
+- **CURRENT:** FRONTIER-004 (`NarrativeAtomStore`) is now built. Two
+  real narrative atoms exist (`NA-INGEST-001`/`NA-INGEST-002`,
+  `narrative/tests/test_real_ingestion_recursion_guard.py`, commit
+  `5c73498`) — real, not synthetic, but thin.
+- **GAP:** views/ledger/contract over content that barely exists yet.
+- **blocked_by:** partially resolved — FRONTIER-004 dependency is
+  satisfied; the "real ingestion source" dependency is technically
+  non-zero but not yet substantial enough to build query views/a Gold
+  Ledger against without the result being speculative. Not force-
+  unblocked; stays Blocked until more real content exists.
 - Items (B)/(C)/(F) of `TITANOS_AKASHIC_NARRATIVE_ENGINE.md` §XVIII,
   deliberately deferred — "do not build everything at once."
 
