@@ -9,10 +9,10 @@ function's output, not an independent source of truth. Re-run it rather
 than trusting this file if it looks stale.
 
 ```
-TIER:T6 | IRON:10 | LATTICE:6 | PROOF:8 | SIGHT:10 | FRONTIER:10 | ORCH:10 | MEMORY:10 | REALITY:10
+TIER:T6 | IRON:10 | LATTICE:6 | PROOF:9 | SIGHT:10 | FRONTIER:10 | ORCH:10 | MEMORY:10 | REALITY:10
 ```
 
-**Computed:** 2026-08-25, commit range ending `632e774`.
+**Computed:** 2026-08-25, commit range ending `c53411f`.
 
 ## Tier justification
 
@@ -29,7 +29,7 @@ yet, so scale-readiness is not claimed.
 |---|---|---|
 | IRON | 10 | 8/8 subsystems have `BUILD_REPORT.md` |
 | LATTICE | 6 | 6 modules with an explicit transition table (`kpm/promotion/state_machine.py`, `kpm/schemas/epistemic_types.py`, `foundation/task_queue.py`, `foundation/flow_switch.py`, `narrative/schema/narrative_atom.py`, `firewall/quarantine.py`) |
-| PROOF | 8 | 1018 tests, all green (real subprocess run, not a file count) |
+| PROOF | 9 | 1096 tests, all green (real subprocess run, not a file count) — crossed the 1050-test threshold in `min(10, 2 + total // 150)` since the last computation |
 | SIGHT | 10 | Sentinel present and clean, secret scanner present and wired to `publication_gate.py` |
 | FRONTIER | 10 | `PARETO_FRONTIER.md` has the Frontier Gate schema and Archive table; `NEXT_MOVE.md` and `INTUITION.md` both present |
 | ORCH | 10 | Queue, worker, adapter all present, and a real worker proven end to end (not just a test double) |
