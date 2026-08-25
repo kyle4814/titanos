@@ -15,8 +15,15 @@
 @TITANOS_ADDENDUM_FRONTIER_AS_CAPABILITY_MAP.md
 @TITANOS_OBELISK_ZERO_DEPENDENCY_DOCTRINE.md
 @TITANOS_SIGIL_CAPABILITY_INDEX.md
+@TITANOS_RECURSION_GUARD_001.md
 
-These fifteen files are stateless configuration — plain files in this
+Recursion Guard (16th doctrine file): protected execution ancestry
+must survive the process boundary where recursive spawning can occur
+— `foundation/recursion_guard.py`, wired into `foundation/sigil.py`'s
+subprocess-spawning PROOF dimension. Proof: 37/37 targeted, 8/8
+regression, zero process residue. Commit `93b3e89`.
+
+These sixteen files are stateless configuration — plain files in this
 repository, loaded at the start of every session that works here,
 independent of any conversation memory or session recall. Added
 2026-08-25 per Kyle's explicit instruction.
