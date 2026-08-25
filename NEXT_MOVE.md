@@ -8,26 +8,26 @@ rather than being deleted here.
 
 ---
 
-**As of 2026-08-25, cycle following the Frontier-as-Capability-Map
-restructure:** `PARETO_FRONTIER.md` was reformatted per the Frontier
-Gate schema (CURRENT/GAP/LEVER/FIRST STEP/PROOF/UNLOCK/REUSE); 11 built
-entries archived to a one-line table. `INTUITION.md` created as the
-low-commitment discovery surface. No code changed this cycle. The
-recommendation itself is unchanged from the prior cycle.
+**As of 2026-08-25, cycle following the permission_request adapter build:**
+FRONTIER-002 is now BUILT — `taal/gate/permission_request_adapter.py::
+permission_request_to_gate_input()`, 15 tests, closing `taal/
+BUILD_REPORT.md`'s named next-work-cell. Real seam finding: the identity/
+authority `GateInput` fields have no corresponding `permission_request`
+field by design — a request document cannot self-assert its own
+verification, mirroring the schema's existing `self_authorized`
+rejection rule one layer up.
 
-## Recommended: FRONTIER-002 — `permission_request` → `GateInput` adapter
+## Recommended: FRONTIER-004 — Narrative Atom Store (state machine driver)
 
-The next-highest standing candidate now that FRONTIER-001 is closed —
-see `PARETO_FRONTIER.md` for full reasoning (closes the third instance
-of the "proven seam, not yet a pipeline" pattern named in
-`taal/BUILD_REPORT.md`).
-
+Now the highest-evidence open candidate: LOW effort, LOW risk, the
+pattern to copy already exists three times in this repository
+(`kpm/promotion/state_machine.py`, `foundation/flow_switch.py`,
+`firewall/quarantine.py`). See `PARETO_FRONTIER.md` for full reasoning.
 
 ## Also on the frontier, not recommended this cycle
 
-FRONTIER-003 (CI workflow, blocked on GitHub remote), FRONTIER-004
-(Narrative Atom Store), FRONTIER-005 (Five-Record views / Gold Ledger,
-blocked on FRONTIER-004 and real ingested content), FRONTIER-008
-(per-subsystem seed/manifest packaging, blocked on GitHub remote),
-FRONTIER-009 (Boot Context Selector). See `PARETO_FRONTIER.md` for full
-reasoning on each.
+FRONTIER-003 (CI workflow, blocked on GitHub remote), FRONTIER-005
+(Five-Record views / Gold Ledger, blocked on FRONTIER-004 and real
+ingested content), FRONTIER-008 (per-subsystem seed/manifest packaging,
+blocked on GitHub remote), FRONTIER-009 (Boot Context Selector, effort
+MEDIUM-HIGH with an uncertain net win). See `PARETO_FRONTIER.md`.

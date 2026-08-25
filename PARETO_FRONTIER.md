@@ -29,26 +29,6 @@ answer these yet, it stays in `INTUITION.md`, not here.
 
 ## Active
 
-### FRONTIER-002 — `permission_request` → `GateInput` adapter
-- **CURRENT:** `taal/schema/permission_request.py` and `taal/gate/
-  root_gate.py::GateInput` both exist, independently tested, and are
-  never composed — a permission request cannot yet reach the root gate
-  without a human hand-writing the translation each time.
-- **GAP:** no adapter function maps one shape onto the other.
-- **LEVER:** closes the third instance of this session's recurring
-  "proven seam, not yet a pipeline" pattern (`taal/BUILD_REPORT.md`
-  next-work-cell) — the same shape as the queue↔worker seam already
-  closed (FRONTIER-013).
-- **FIRST STEP:** a pure mapping function, `permission_request_to_gate_input()`.
-- **PROOF:** unit tests asserting the mapped `GateInput` round-trips the
-  request's fields correctly, plus one test driving a real
-  `permission_request` through `root_gate.evaluate_request()` end to end.
-- **UNLOCK:** `taal`'s root gate becomes reachable from real permission
-  requests without hand-written glue at every call site.
-- **REUSE:** both source contracts unmodified, same adapter-not-redesign
-  pattern as `foundation/queue_worker_adapter.py`.
-- **effort:** LOW. **risk:** LOW (internal, no privilege change).
-
 ### FRONTIER-009 — Boot Context Selector for `CLAUDE.md` doctrine imports
 - **CURRENT:** `MEMORY_MAP.md` (built) measured 1,700+ lines across
   twelve `@`-imported doctrine files loading unconditionally at every
@@ -135,6 +115,7 @@ from the active scan path per this addendum's compaction rule.
 | FRONTIER-015 | Explicit run deferral + recovery handoff | `44c9b18` |
 | FRONTIER-011 | `BUILD_REPORT.md` for schema/firewall/narrative | `e816905` |
 | FRONTIER-001 | Reusable secret/credential scanner | `1b03480` |
+| FRONTIER-002 | `permission_request` → `GateInput` adapter | (this cycle) |
 
 ## Rejected / not on the frontier
 

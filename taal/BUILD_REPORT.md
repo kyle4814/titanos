@@ -147,11 +147,12 @@ None found.
 
 ## Next smallest work cell
 
-Build the `permission_request` → `GateInput` adapter function named in
-limitation #3 above, with a test proving a document that's VALID against
-`validate_permission_request()` but describes an unverifiable, high-risk
-request produces the same `REQUIRES_HUMAN_REVIEW`-or-worse outcome
-through the adapter as it would calling `evaluate_request()` directly —
-closing the same shape of "two components, proven seam, not yet a
-connected pipeline" gap this build series has now named three times
-(MAGL composition, RPA cross-file integrity, and now this one).
+~~Build the `permission_request` → `GateInput` adapter~~ — **done,
+2026-08-25**: `taal/gate/permission_request_adapter.py::
+permission_request_to_gate_input()`, 15 tests, closing the "proven seam,
+not yet a connected pipeline" gap named here. Confirms the identity/
+authority fields (`identity_verified`, `authority_asserted`, etc.) have
+no corresponding field in `permission_request`'s schema by design — a
+request document cannot self-assert its own identity verification, the
+same self-certification boundary `permission_request.py`'s own
+`self_authorized`/PR-R-9 rule already enforces one layer up.
