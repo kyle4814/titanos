@@ -65,16 +65,6 @@ however promising it looks.
   the platform limitation, or a different mitigation might become
   obvious that isn't visible yet.
 
-- **No `requirements.txt`/`pyproject.toml` pins the one real runtime
-  dependency (PyYAML).** `README.md` states "no runtime dependency
-  beyond PyYAML" as prose; nothing formalizes it as an installable
-  manifest. Found during the Obelisk Test audit
-  (`TITANOS_OBELISK_ZERO_DEPENDENCY_DOCTRINE.md`) — not a doctrine
-  violation (doesn't make anything depend on something speculative), and
-  nothing has ever failed to run for lack of a pinned version, so not
-  urgent. Worth doing whenever this repository's install story matters
-  to someone other than the current environment.
-
 ## Questions worth preserving, not yet answered
 
 - Does `taal/gate/root_gate.py::GateInput` actually need every field
