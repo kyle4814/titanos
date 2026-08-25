@@ -62,19 +62,16 @@ answer these yet, it stays in `INTUITION.md`, not here.
   promoted to "smallest first move now."
 
 ### FRONTIER-008 — Per-subsystem seed/manifest packaging
-- **CURRENT:** `firewall/ADOPT.md` built 2026-08-25 (thesis, quickstart,
-  failure cases, threat model, limitations, changelog, fork guide,
-  integration interfaces, contribution path, machine-readable manifest)
-  — the template proof. Verified against a fresh-reader test: its
-  quickstart's claimed test command actually run (`python3 -m unittest
-  discover -s firewall -p "test_*.py"` → 36/36, matching the doc's own
-  claim exactly). 7 of 8 subsystems (`schema/`, `kpm/`, `magl/`, `rpa/`,
-  `taal/`, `foundation/`, `narrative/`) still lack this doc.
-- **GAP:** template proven on one subsystem; not yet replicated.
+- **CURRENT:** `firewall/ADOPT.md` (2026-08-25) and `schema/ADOPT.md`
+  (2026-08-26) both built and verified — each subsystem's quickstart
+  test command independently re-run and matched (firewall 36/36, schema
+  67/67). 6 of 8 subsystems (`kpm/`, `magl/`, `rpa/`, `taal/`,
+  `foundation/`, `narrative/`) still lack this doc.
+- **GAP:** template proven twice; not yet replicated to the rest.
 - **LEVER:** MEDIUM-HIGH — real now that `kyle4814/titanos` is public
   and CI-green.
-- **FIRST STEP:** done (`firewall/ADOPT.md`). Next: replicate to the
-  remaining 7, smallest/least-dependent first.
+- **FIRST STEP:** done (`firewall/ADOPT.md`, `schema/ADOPT.md`). Next:
+  replicate to the remaining 6.
 - **PROOF:** `firewall/ADOPT.md`'s quickstart commands independently
   re-run and matched, not just written.
 - **UNLOCK:** `TITANOS_GREENLIGHT_AND_MEMETIC_DOCTRINE.md`'s Seed/
