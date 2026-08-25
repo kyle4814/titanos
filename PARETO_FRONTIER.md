@@ -25,6 +25,18 @@ re-verified, not trusted, the next time it's picked up.
 
 ## Built
 
+### FRONTIER-011 — BUILD_REPORT.md for schema/, firewall/, narrative/
+- **status:** BUILT — all three written 2026-08-25 (`schema/
+  BUILD_REPORT.md`, `firewall/BUILD_REPORT.md`, `narrative/
+  BUILD_REPORT.md`), verified by a fresh `pulse_sweep()` run returning 0
+  findings (was 3, flagged identically across three prior cycles).
+- **source:** Sentinel_141's own first `pulse_sweep()` run
+  (`foundation/sentinel.py::check_subsystem_build_reports`).
+- Selected this cycle as the highest-evidence documented item with no
+  open blocker — three independent cycles had already named it and
+  deferred it in favour of other work; nothing else in the frontier had
+  comparable evidence with zero risk.
+
 ### FRONTIER-015 — Explicit deferral + recovery handoff (`foundation/task_queue.py`)
 - **status:** BUILT — `RunReport.deferred`, `RecoveryHandoff`,
   `recovery_handoff()`, 5 new tests.
@@ -270,16 +282,6 @@ re-verified, not trusted, the next time it's picked up.
   not loud, which is worse than a build failure.
 - **dependencies:** `MEMORY_MAP.md` (built — this entry's own audit).
 - **duplication_risk:** none — no selector mechanism exists today.
-
-### FRONTIER-011 — Missing BUILD_REPORT.md for schema/, firewall/, narrative/
-- **status:** OPEN
-- **added:** 2026-08-25
-- **source:** Sentinel_141's own first `pulse_sweep()` run against this
-  repository (`foundation/sentinel.py::check_subsystem_build_reports`).
-- **value:** LOW-MEDIUM — audit-trail consistency with the five sibling
-  subsystems that already have one; no functional impact.
-- **effort:** LOW.
-- **risk:** none — pure documentation addition.
 
 ### FRONTIER-004 — Narrative Atom Store (state machine driver)
 - **status:** OPEN

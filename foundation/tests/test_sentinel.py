@@ -102,16 +102,31 @@ class TestPulseSweepOnRealRepo(unittest.TestCase):
         self.assertEqual(missing, [], f"broken @-imports: {missing}")
 
     def test_finds_subsystems_missing_build_report(self):
-        # Real, known finding at time of writing: schema/, firewall/,
-        # narrative/ have no BUILD_REPORT.md. This asserts the check
-        # actually surfaces it, not just that it runs without crashing.
+        # As of 2026-08-25 all eight subsystems have a BUILD_REPORT.md
+        # (schema/firewall/narrative were the last three, closed the same
+        # day this test's synthetic sibling below was added) — so the
+        # real-repo assertion here is now that the check finds NOTHING
+        # missing, not that it finds something. The check's actual
+        # detection behaviour is proven against a synthetic repo instead
+        # (test_check_surfaces_a_missing_build_report below), which does
+        # not go stale every time this repository's own state improves.
         report = pulse_sweep(REPO_ROOT)
         missing_names = {
             f.evidence_location.rsplit("/", 1)[-1]
             for f in report.findings
             if "has no BUILD_REPORT.md" in f.observation
         }
-        self.assertTrue(missing_names, "expected at least one subsystem missing BUILD_REPORT.md")
+        self.assertEqual(missing_names, set())
+
+    def test_check_surfaces_a_missing_build_report(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "schema").mkdir()
+            # No BUILD_REPORT.md written for it.
+            report = pulse_sweep(root)
+            missing = [f for f in report.findings if "has no BUILD_REPORT.md" in f.observation]
+            self.assertEqual(len(missing), 1)
+            self.assertIn("schema", missing[0].evidence_location)
 
 
 class TestPulseSweepOnSyntheticRepo(unittest.TestCase):

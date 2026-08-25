@@ -8,20 +8,19 @@ rather than being deleted here.
 
 ---
 
-**As of 2026-08-25, cycle following the deferral + recovery handoff build:**
+**As of 2026-08-25, cycle following the FRONTIER-011 close-out:**
 
-Unchanged recommendation below — this cycle built FRONTIER-015
-(`RunReport.deferred` + `recovery_handoff()`) in response to a
-pressure-aware execution directive. Audited first: `task_queue.run()`
-already processes one atomic task at a time with hard budget checks
-(the GREEN->AMBER->RED shape the directive wanted was already
-structurally present), so no new task states or monitoring were built.
-The two real gaps — a stopped run not naming which eligible work it
-left behind, and no compact handoff summary — are now closed, built
-entirely on `TaskQueue`/`RunReport`, no new memory system. Reality pass
-found zero new issues, same 3 pre-existing FRONTIER-011 findings. Same
-independent-audits-don't-displace-each-other's-recommendation pattern
-as every prior cycle.
+Unchanged recommendation below — this cycle closed FRONTIER-011 (the
+one item three consecutive cycles had already identified as the
+highest-evidence, zero-risk documented gap but deferred each time in
+favour of other frontier work): wrote `BUILD_REPORT.md` for `schema/`,
+`firewall/`, `narrative/`, verified by `pulse_sweep()` dropping from 3
+findings to 0. Also fixed one stale test (`test_sentinel.py`'s
+real-repo assertion had pinned itself to the very gap this cycle closed
+— replaced with a synthetic-repo test that proves the check's detection
+behaviour without going stale as this repository's own state improves).
+Same independent-audits-don't-displace-each-other's-recommendation
+pattern as every prior cycle.
 
 
 ## Recommended: FRONTIER-001 — Reusable secret/credential scanner
