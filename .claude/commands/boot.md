@@ -49,7 +49,10 @@ summary is not proof of anything; verified behavior is.
    recorded and still fresh; do re-verify it rather than trust it blindly
    if its `added` date is old. `INTUITION.md` holds unproven observations
    with no authority — worth a glance, never a substitute for the
-   frontier. Do not treat a capability as missing
+   frontier. `SIGIL.md` holds the last computed capability index
+   (`TIER:Tn | IRON:.. | ...`) — orientation, not authority; re-run
+   `foundation/sigil.py::compute_sigil()` rather than trusting a stale
+   snapshot if it's been a while. Do not treat a capability as missing
    without checking these first.
 
 6. **IDENTIFY ACTIVE OBJECTIVE** — From step 4-5's findings, state the

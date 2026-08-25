@@ -14,8 +14,9 @@
 @TITANOS_SENTINEL_141.md
 @TITANOS_ADDENDUM_FRONTIER_AS_CAPABILITY_MAP.md
 @TITANOS_OBELISK_ZERO_DEPENDENCY_DOCTRINE.md
+@TITANOS_SIGIL_CAPABILITY_INDEX.md
 
-These fourteen files are stateless configuration — plain files in this
+These fifteen files are stateless configuration — plain files in this
 repository, loaded at the start of every session that works here,
 independent of any conversation memory or session recall. Added
 2026-08-25 per Kyle's explicit instruction.
@@ -120,6 +121,19 @@ H2 (civilisational vista, a strategic map only). Audited same day: zero
 network imports anywhere in this repository, `yaml` the sole third-party
 dependency across all eight subsystems — the Obelisk Test already
 passes. See `TITANOS_OBELISK_ZERO_DEPENDENCY_DOCTRINE.md`.
+
+**Capability Sigil** (`SIGIL.md`, computed by `foundation/sigil.py::
+compute_sigil()`) is historical compression — what capability has
+already been earned — distinct from the frontier's directional "what's
+next." Never manually incremented; recomputes from repository evidence
+every time, same result for the same state. Current: `TIER:T6 |
+IRON:10 | LATTICE:6 | PROOF:8 | SIGHT:10 | FRONTIER:10 | ORCH:10 |
+MEMORY:10 | REALITY:10`. **Caution if extending `foundation/sigil.py`:**
+its PROOF dimension shells out to run every subsystem's test suite,
+including `foundation`'s own — which contains this module's real-repo
+tests. `RECURSION_GUARD_ENV` prevents unbounded forking; do not remove
+it without understanding why it exists (see the module's own docstring
+and `TITANOS_SIGIL_CAPABILITY_INDEX.md`).
 
 ## `PARETO_FRONTIER.md`, `NEXT_MOVE.md`, and `INTUITION.md`
 

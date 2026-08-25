@@ -115,7 +115,8 @@ from the active scan path per this addendum's compaction rule.
 | FRONTIER-015 | Explicit run deferral + recovery handoff | `44c9b18` |
 | FRONTIER-011 | `BUILD_REPORT.md` for schema/firewall/narrative | `e816905` |
 | FRONTIER-001 | Reusable secret/credential scanner | `1b03480` |
-| FRONTIER-002 | `permission_request` → `GateInput` adapter | (this cycle) |
+| FRONTIER-002 | `permission_request` → `GateInput` adapter | `632e774` |
+| SIGIL | Capability Sigil (`foundation/sigil.py`, `SIGIL.md`) | (this cycle) |
 
 ## Rejected / not on the frontier
 

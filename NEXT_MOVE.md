@@ -8,14 +8,18 @@ rather than being deleted here.
 
 ---
 
-**As of 2026-08-25, cycle following the permission_request adapter build:**
-FRONTIER-002 is now BUILT — `taal/gate/permission_request_adapter.py::
-permission_request_to_gate_input()`, 15 tests, closing `taal/
-BUILD_REPORT.md`'s named next-work-cell. Real seam finding: the identity/
-authority `GateInput` fields have no corresponding `permission_request`
-field by design — a request document cannot self-assert its own
-verification, mirroring the schema's existing `self_authorized`
-rejection rule one layer up.
+**As of 2026-08-25, cycle following the Capability Sigil build:**
+Built `foundation/sigil.py` + `SIGIL.md` — computed capability index,
+current result `TIER:T6 | IRON:10 | LATTICE:6 | PROOF:8 | SIGHT:10 |
+FRONTIER:10 | ORCH:10 | MEMORY:10 | REALITY:10`. **Real bug found and
+fixed during this build**: the PROOF dimension's own test-running logic
+recursively forked without bound (it shells out to run `foundation`'s
+suite, which contains this very module's tests, which call
+`compute_sigil()` again) — caught by watching process count climb past
+50 forked processes, not by review. Fixed with an explicit recursion
+guard (`RECURSION_GUARD_ENV`) plus a subprocess timeout as a second
+safety net; verified clean with `ps aux` after the fix, zero leftover
+processes.
 
 ## Recommended: FRONTIER-004 — Narrative Atom Store (state machine driver)
 
