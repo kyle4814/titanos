@@ -25,6 +25,20 @@ re-verified, not trusted, the next time it's picked up.
 
 ## Built
 
+### FRONTIER-001 — Reusable secret/credential scanner
+- **status:** BUILT — `foundation/secret_scanner.py::scan()`, 11 tests.
+  Reuses `foundation.sentinel.Finding`/`consolidate()` rather than a
+  parallel type. `ScanReport.to_evidence_string()` produces the literal
+  input `foundation/publication_gate.py::PublicationSwitch.
+  secret_scan_evidence` expects — wired to the existing gate, not a
+  standalone artifact.
+- Real check against this repository: 0 HIGH-confidence findings
+  (excluding the scanner's own test file's intentional synthetic
+  fixtures — `AKIA...`/PEM-header strings used to prove detection).
+- Highest-evidence standing candidate for 7 consecutive cycles; the ad
+  hoc pattern set had already found one real issue previously
+  (`legacy/manifests/*.json` path leakage) before being wrapped here.
+
 ### FRONTIER-011 — BUILD_REPORT.md for schema/, firewall/, narrative/
 - **status:** BUILT — all three written 2026-08-25 (`schema/
   BUILD_REPORT.md`, `firewall/BUILD_REPORT.md`, `narrative/
@@ -189,32 +203,6 @@ re-verified, not trusted, the next time it's picked up.
   `epistemic_layer` rather than a parallel vocabulary.
 
 ## Active candidates
-
-### FRONTIER-001 — Reusable secret/credential scanner
-- **status:** OPEN
-- **added:** 2026-08-25
-- **value:** HIGH — needed for (a) actual GitHub publication, (b) Hell's
-  Gate Gate 2 (harm screen) once it evaluates real external
-  contributions, (c) MAGL's own named Open-Source Release Gate checklist
-  (`magl/BUILD_REPORT.md` human-decision #3).
-- **effort:** LOW-MEDIUM — the pattern set is already proven (used ad hoc
-  during the publication-readiness pass: API-key shapes, PEM headers,
-  generic secret assignments, email addresses, filesystem-path leakage).
-  Wrapping it in a tested `scan(paths) -> ScanReport` module is
-  mechanical, not exploratory.
-- **risk:** LOW — read-only, no privilege, fully reversible.
-- **reversibility:** HIGH.
-- **evidence:** the ad hoc scan already ran once for real and found one
-  genuine issue (`legacy/manifests/*.json` path leakage) — proof the
-  pattern set catches real things, not just theoretical ones.
-- **information_gain:** MEDIUM — mostly converts known-working manual
-  steps into a tested artifact, doesn't discover new unknowns.
-- **dependencies:** none.
-- **reality_yield:** would become the `secret_scan_evidence` input to
-  `foundation/publication_gate.py::PublicationSwitch` — directly wired to
-  an existing gate, not a standalone artifact nobody calls.
-- **duplication_risk:** none found — no scanner module exists anywhere in
-  this repo today (verified 2026-08-25).
 
 ### FRONTIER-002 — `permission_request` → `GateInput` adapter
 - **status:** OPEN
