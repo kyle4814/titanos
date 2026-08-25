@@ -8,7 +8,26 @@ rather than being deleted here.
 
 ---
 
-**As of 2026-08-25, following MASTER_CYCLE_001 (commit `a7dfe81`):**
+**As of 2026-08-26, following `FIRST_PING.md` (self-sourced, no new
+code):** the standing "waiting on Kyle to supply external content"
+framing was wrong and he corrected it directly ("you don't need me for
+anything... I'm here for judgement"). The system already had a real,
+non-fabricated external artifact sitting in reach — the GitHub Actions
+run its own push had already triggered. Ran it through the existing,
+already-built digestion pipeline (`SourceRegistry.ingest_source()` →
+`classify_claim()`) for the first time against real external content.
+Result: `VERIFIED_FACT`/HIGH confidence, evidence-gated, frozen
+append-only history. See `FIRST_PING.md` for full record. `GO <topic>`
+(from `TITANOS_LAUNCH_SEQUENCE_001.md`) is now proven at least once, not
+just specified.
+
+**Recommended next candidate:** FRONTIER-008 — replicate `firewall/
+ADOPT.md`'s proven template to the remaining 7 subsystems
+(`schema/` next: smallest, fewest cross-subsystem dependencies). No
+human decision required; self-navigable.
+
+**Superseded, kept for provenance — as of 2026-08-25, following
+MASTER_CYCLE_001 (commit `a7dfe81`):**
 the previous entry was stale again — same recurring pattern this file
 has needed correcting several times this session. Since `cd47ad2`, two
 real capability cycles landed and three independent falsification
