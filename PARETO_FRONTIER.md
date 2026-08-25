@@ -61,31 +61,26 @@ answer these yet, it stays in `INTUITION.md`, not here.
   not yet clearly a net win, which is why this remains OPEN rather than
   promoted to "smallest first move now."
 
-## Blocked
-
-### FRONTIER-003 — CI workflow (`.github/workflows/`)
-- **CURRENT:** `.github/workflows/tests.yml` built 2026-08-25
-  (`EXTERNAL_IDENTITY_GATE_001`, commit `6fb29fa`) — the exact
-  per-subsystem test invocation, no build step, no secrets. Pure
-  content; does nothing until pushed to a real GitHub repository.
-- **GAP:** no GitHub remote to actually trigger it — `HUMAN_DECISIONS.md`
-  item 1's `target_repo` is DECLARED (`kyle4814/titanos`) but the repo
-  itself has not been created and no local `git remote` is configured.
-- **LEVER:** "CI is the heartbeat" once real — HIGH value, still not
-  yet exercised.
-- **blocked_by:** creating the actual GitHub repo and wiring the
-  remote — real external actions requiring a separate, explicit
-  go-ahead this session has not received.
-
 ### FRONTIER-008 — Per-subsystem seed/manifest packaging
 - **CURRENT:** each subsystem now has a `BUILD_REPORT.md` (internal
   audit trail); none has an external "how to adopt/fork/remove this"
   document (thesis, quickstart, failure cases, threat model, fork
-  guide, contribution path).
+  guide, contribution path). `kyle4814/titanos` is now a real, public,
+  CI-green repository (FRONTIER-003, archived below) — a fork guide has
+  somewhere to point for the first time.
 - **GAP:** no packaging template.
-- **LEVER:** MEDIUM-HIGH once publication is real.
-- **blocked_by:** same as FRONTIER-003 — a fork guide has nowhere to
-  point without a GitHub remote.
+- **LEVER:** MEDIUM-HIGH now that publication is real, not projected.
+- **FIRST STEP:** one subsystem (smallest: `firewall/` or `schema/`) gets
+  a real external-facing doc, proving the template before replicating
+  it seven more times.
+- **PROOF:** the doc itself, reviewed against a fresh-reader test (could
+  someone with zero session context actually fork and run it).
+- **UNLOCK:** the rest of `TITANOS_GREENLIGHT_AND_MEMETIC_DOCTRINE.md`'s
+  Seed/Manifest chain (PACKAGE step) stops being blocked.
+- **REUSE:** existing `BUILD_REPORT.md` content per subsystem as the
+  internal-audit source material; doesn't duplicate it, externalizes it.
+
+## Blocked
 
 ### FRONTIER-005 — Five-Record query views, Gold Ledger, Isomorphism contract
 - **CURRENT:** FRONTIER-004 (`NarrativeAtomStore`) is now built. Two
@@ -138,6 +133,7 @@ from the active scan path per this addendum's compaction rule.
 | FRONTIER-NO-CACHED-DECISION | Fourth registered invariant (`SIGIL.NO_CACHED_DECISION`), correctly scoped to 2 domains after recon disproved a false 3-domain claim; also fixed an audit gap in an existing test | `95906bb` |
 | FRONTIER-EPISTEMIC-FREEZE | Closed a real, reproduced epistemic-state collapse: froze 5 append-only record types (Claim, AtomRecord, PromotionRecord, QuarantineRecord, FlowSwitchRecord) that were bypassable via direct attribute assignment | `3dcb258` |
 | FRONTIER-HISTORY-FREEZE | Closed a real, LIVE exploit: the same 5 types' `history` field was still a mutable list under freezing -- converted to tuple, closing a forged-entry bypass of `rpa/gates/human_jurisdiction.py`'s pilot-authorization gate | `8e0e12d` |
+| FRONTIER-003 | CI workflow real and green (`kyle4814/titanos` created public, pushed, `.github/workflows/tests.yml` fired for the first time and passed, 8/8 subsystems) | `6fb29fa` (workflow) + live push 2026-08-25 |
 
 ## Rejected / not on the frontier
 

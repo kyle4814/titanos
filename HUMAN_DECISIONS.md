@@ -8,24 +8,21 @@ don't let it go stale the way it would if it only lived in chat history.
 
 Last compiled 2026-08-25. Each item cites its source report.
 
-## Blocking actual publication
+## Resolved — no longer blocking
 
-1. **GitHub target repo/account.** `foundation/publication_gate.py`'s
-   `authorize_publish()` will refuse until `target_repo` is not just
-   named but actually connected. **DECLARED 2026-08-25
-   (`EXTERNAL_IDENTITY_GATE_001`): `kyle4814/titanos`**, description
-   "TITANOS — The Operating System for Human + Machine Intelligence".
-   `gh auth status` confirms account `kyle4814` is authenticated; `gh
-   repo list` confirms **no repo named `titanos` currently exists** on
-   that account, and this local checkout still has no `git remote`
-   configured. So: the NAME is declared, the repo is NOT yet created,
-   and no remote is wired — `authorize_publish()` would still refuse.
-   Creating the actual GitHub repo (`gh repo create`) and wiring the
-   remote (`git remote add origin`) are real external actions this
-   session has not done and will not do without a separate, explicit
-   go-ahead. `blocked_by` for `PARETO_FRONTIER.md`'s FRONTIER-003/
-   FRONTIER-008 — partially unblocked: the CI workflow file itself
-   requires no remote to write, only to trigger.
+1. ~~GitHub target repo/account.~~ — **VERIFIED 2026-08-25.** Kyle
+   explicitly authorized creation + public push ("Yes, public"), after a
+   pre-push secret scan confirmed zero real secrets in the repository
+   (all 8 HIGH + 1 MEDIUM confidence findings were `foundation/tests/
+   test_secret_scanner.py`'s own fixture strings; 6,337 LOW findings were
+   benign local path references, 0 inside `.git/`). `gh repo create
+   kyle4814/titanos --public` ran, `origin` remote wired, full history
+   (`master`) pushed. `.github/workflows/tests.yml` fired for real for
+   the first time and passed (`gh run list`: `tests` workflow, success,
+   8/8 subsystems, 40s, run `32852929273`). `foundation/publication_gate.py`'s
+   `authorize_publish()` can now legitimately see a connected
+   `target_repo`. `PARETO_FRONTIER.md` FRONTIER-003 unblocked; FRONTIER-008
+   (per-subsystem packaging) now has somewhere to point.
    ~~LICENSE copyright holder name~~ — **RESOLVED 2026-08-25**: "the
    TitanOS project contributors" confirmed as the intended line, no
    change needed. *(This session, publication-readiness pass; resolved
