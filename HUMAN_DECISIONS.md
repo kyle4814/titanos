@@ -10,11 +10,17 @@ Last compiled 2026-08-25. Each item cites its source report.
 
 ## Blocking actual publication
 
-1. **GitHub target repo/account and LICENSE copyright holder name.**
-   `foundation/publication_gate.py`'s `authorize_publish()` will refuse
-   until a human names both explicitly (`target_repo`, and confirm
-   `LICENSE`'s "the TitanOS project contributors" line is what you
-   want). *(This session, publication-readiness pass.)*
+1. **GitHub target repo/account.** `foundation/publication_gate.py`'s
+   `authorize_publish()` will refuse until a human names `target_repo`
+   explicitly. Confirmed 2026-08-25 (`REALITY_CONTACT_001`) via
+   `git remote -v`/`.git/config`: no remote is currently configured —
+   this repository is not connected to GitHub yet, despite how long
+   the session has run. `blocked_by` for `PARETO_FRONTIER.md`'s
+   FRONTIER-003/FRONTIER-008.
+   ~~LICENSE copyright holder name~~ — **RESOLVED 2026-08-25**: "the
+   TitanOS project contributors" confirmed as the intended line, no
+   change needed. *(This session, publication-readiness pass; resolved
+   via `REALITY_CONTACT_001`.)*
 
 ## Open from earlier sessions, still unresolved
 
