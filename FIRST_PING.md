@@ -68,6 +68,20 @@ real atom count moves from 2 to 3. Still short of what FRONTIER-005
 needs to stop being speculative, but a genuine, deliberate step in that
 direction rather than an accidental byproduct.
 
+## Third exchange, 2026-08-26 — real cross-atom relation, durably tested
+
+Both exchanges above converted into two proper narrative atoms
+(`NA-EXCHANGE-001`/`002`, same specific-fact/generalised-model split as
+the pre-existing `NA-INGEST-001`/`002` pair), NA-EXCHANGE-002's
+`related_atoms` pointing at NA-EXCHANGE-001, both validated `VALID`, and
+`narrative.composition.checker.check_atom_relations()` run against them
+for the first time against real (non-fixture) content — `INTACT`, plus a
+negative control (drop the referenced atom, confirm the checker still
+refuses) proving the check actually discriminates. Preserved as a
+permanent regression test:
+`narrative/tests/test_real_ingestion_exchange_atoms.py` (4 tests, all
+passing, 92/92 in the full `narrative/` suite).
+
 ## What was NOT built
 
 No new module. Every piece used (`SourceRegistry`, `classify_claim`,
