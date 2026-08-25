@@ -16,6 +16,7 @@
 @TITANOS_OBELISK_ZERO_DEPENDENCY_DOCTRINE.md
 @TITANOS_SIGIL_CAPABILITY_INDEX.md
 @TITANOS_RECURSION_GUARD_001.md
+@TITANOS_LAUNCH_SEQUENCE_001.md
 
 Recursion Guard (16th doctrine file): protected execution ancestry
 must survive the process boundary where recursive spawning can occur
