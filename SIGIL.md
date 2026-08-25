@@ -9,19 +9,26 @@ function's output, not an independent source of truth. Re-run it rather
 than trusting this file if it looks stale.
 
 ```
-TIER:T6 | IRON:10 | LATTICE:6 | PROOF:9 | SIGHT:10 | FRONTIER:10 | ORCH:10 | MEMORY:10 | REALITY:10
+TIER:T7 | IRON:10 | LATTICE:6 | PROOF:10 | SIGHT:10 | FRONTIER:10 | ORCH:10 | MEMORY:10 | REALITY:10
 ```
 
-**Computed:** 2026-08-25, commit range ending `c53411f`.
+**Computed:** 2026-08-26, commit range ending `b71982c`.
 
 ## Tier justification
 
-All suites green, zero-network dependency holds, orchestration proven
-end to end (a real, non-test-double `Layer0Worker` driven through the
-queue via `foundation/sentinel_worker.py`), Sentinel reports zero open
-findings, every subsystem has a `BUILD_REPORT.md` — **T6**, not T7: no
-external integration boundary (CI, publication) has been demonstrated
-yet, so scale-readiness is not claimed.
+**T7, earned, not aspirational.** All suites green, zero-network
+dependency holds, orchestration proven end to end, Sentinel reports zero
+open findings, every subsystem has a `BUILD_REPORT.md` — plus the one
+new T7 fact: a real external integration boundary has actually been
+demonstrated, not just built. `kyle4814/titanos` is a real, public
+GitHub repository (`.git/config` has a real `origin` remote), and
+`.github/workflows/tests.yml` has actually run and returned a real
+success (`FIRST_PING.md` records the specific run URL and
+`conclusion=success`, not just the workflow file's existence).
+`compute_tier()`'s new rung (`foundation/sigil.py::
+_dimension_external_integration()`) checks this with local evidence
+only — no live network call, so the sigil computation itself never
+breaks the zero-network property it's certifying.
 
 ## Per-dimension evidence
 
@@ -29,12 +36,19 @@ yet, so scale-readiness is not claimed.
 |---|---|---|
 | IRON | 10 | 8/8 subsystems have `BUILD_REPORT.md` |
 | LATTICE | 6 | 6 modules with an explicit transition table (`kpm/promotion/state_machine.py`, `kpm/schemas/epistemic_types.py`, `foundation/task_queue.py`, `foundation/flow_switch.py`, `narrative/schema/narrative_atom.py`, `firewall/quarantine.py`) |
-| PROOF | 9 | 1096 tests, all green (real subprocess run, not a file count) — crossed the 1050-test threshold in `min(10, 2 + total // 150)` since the last computation |
+| PROOF | 10 | 1212 tests, all green (real subprocess run, not a file count) — crossed the 1200-test threshold in `min(10, 2 + total // 150)` |
 | SIGHT | 10 | Sentinel present and clean, secret scanner present and wired to `publication_gate.py` |
 | FRONTIER | 10 | `PARETO_FRONTIER.md` has the Frontier Gate schema and Archive table; `NEXT_MOVE.md` and `INTUITION.md` both present |
 | ORCH | 10 | Queue, worker, adapter all present, and a real worker proven end to end (not just a test double) |
 | MEMORY | 10 | `Crystal`, `MEMORY_MAP.md`, `recovery_handoff()` all present |
 | REALITY | 10 | Reality-yield ledger, Hell's Gate, publication gate all present, zero network-dependency imports found anywhere |
+
+## T7's evidence, specifically
+
+| Fact | Status | Evidence |
+|---|---|---|
+| Remote configured | yes | `.git/config` has a real `[remote "origin"]` with a non-empty URL |
+| Real external run recorded | yes | `FIRST_PING.md` documents `https://github.com/kyle4814/titanos/actions/runs/32852929273` with `conclusion=success`, an actual observed result, not a claim |
 
 ## What this deliberately does not measure
 

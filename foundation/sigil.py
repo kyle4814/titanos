@@ -298,8 +298,63 @@ def _dimension_reality(repo_root: Path) -> tuple[int, str, bool]:
     return score, justification, zero_network
 
 
+def _dimension_external_integration(repo_root: Path) -> tuple[bool, str]:
+    """T7's one new fact: has a real external integration boundary
+    actually been demonstrated (not just built)?
+
+    LOCAL EVIDENCE ONLY -- DELIBERATELY NO LIVE NETWORK CALL.
+
+    Checking this by actually calling the GitHub API would contradict
+    the very zero-network-dependency property `_dimension_reality()`
+    exists to certify -- a sigil computation that itself makes a
+    network call could never honestly claim the Obelisk Test still
+    passes. Instead this checks two purely local, offline facts:
+
+      1. `.git/config` has a `[remote "origin"]` section with a
+         non-empty URL -- real local git state, not a network probe.
+      2. A durable, committed record in the repository itself
+         (`FIRST_PING.md`) documents an actual observed external
+         result -- a GitHub Actions run reference alongside a recorded
+         success/conclusion, not merely the workflow file's existence
+         (which only proves CI was configured, not that it ever ran).
+
+    Both together distinguish "a remote is wired and CI might work"
+    from "a real external system was actually exercised and a human or
+    session recorded what it returned" -- the same evidence-over-claim
+    discipline `foundation/publication_gate.py` already holds.
+    """
+    git_config = repo_root / ".git" / "config"
+    remote_configured = False
+    if git_config.exists():
+        try:
+            text = git_config.read_text(errors="ignore")
+        except OSError:
+            text = ""
+        if re.search(r'\[remote "origin"\]\s*\n\s*url\s*=\s*\S+', text):
+            remote_configured = True
+
+    first_ping = repo_root / "FIRST_PING.md"
+    real_run_recorded = False
+    if first_ping.exists():
+        try:
+            text = first_ping.read_text(errors="ignore")
+        except OSError:
+            text = ""
+        has_run_ref = re.search(r"github\.com/\S+/actions/runs/\d+", text) is not None
+        has_success = re.search(r"conclusion\s*[=:]\s*[`\"']?success", text) is not None
+        real_run_recorded = has_run_ref and has_success
+
+    proven = remote_configured and real_run_recorded
+    justification = (
+        f"remote_configured={'yes' if remote_configured else 'no'}, "
+        f"real_run_recorded_locally={'yes' if real_run_recorded else 'no'}"
+    )
+    return proven, justification
+
+
 def compute_tier(*, all_tests_green: bool, sight_clean: bool, orchestration_proven: bool,
-                  zero_network: bool, iron_score: int) -> tuple[str, str]:
+                  zero_network: bool, iron_score: int,
+                  external_integration_proven: bool = False) -> tuple[str, str]:
     """Explicit conjunction ladder, not an averaged score. Each rung
     requires every fact of the rungs below it plus its own new fact —
     a tier can never be reached by a high average carrying one weak
@@ -314,7 +369,9 @@ def compute_tier(*, all_tests_green: bool, sight_clean: bool, orchestration_prov
         return "T4", "orchestration proven end to end, but Sentinel currently reports open findings"
     if iron_score < 10:
         return "T5", "self-maintaining workflow proven (Sentinel clean, orchestration proven), but not every subsystem has a BUILD_REPORT.md"
-    return "T6", "all suites green, zero-network holds, orchestration proven end to end, Sentinel clean, every subsystem documented — no external integration boundary (CI, publication) has been demonstrated, so T7 is not claimed"
+    if not external_integration_proven:
+        return "T6", "all suites green, zero-network holds, orchestration proven end to end, Sentinel clean, every subsystem documented — no external integration boundary (CI, publication) has been demonstrated, so T7 is not claimed"
+    return "T7", "everything T6 requires, plus a real external integration boundary actually demonstrated (remote configured, and a real recorded external run result — not just the workflow file's existence)"
 
 
 @dataclass(frozen=True)
@@ -345,10 +402,12 @@ def compute_sigil(repo_root: Path) -> Sigil:
     orchestration, orch_j, orch_proven = _dimension_orchestration(repo_root)
     memory, memory_j = _dimension_memory(repo_root)
     reality, reality_j, zero_network = _dimension_reality(repo_root)
+    external_integration_proven, external_j = _dimension_external_integration(repo_root)
 
     tier, tier_reason = compute_tier(
         all_tests_green=all_green, sight_clean=sight_clean,
         orchestration_proven=orch_proven, zero_network=zero_network, iron_score=iron,
+        external_integration_proven=external_integration_proven,
     )
 
     return Sigil(
@@ -358,7 +417,7 @@ def compute_sigil(repo_root: Path) -> Sigil:
         justification={
             "iron": iron_j, "lattice": lattice_j, "proof": proof_j, "sight": sight_j,
             "frontier": frontier_j, "orchestration": orch_j, "memory": memory_j,
-            "reality": reality_j,
+            "reality": reality_j, "external_integration": external_j,
         },
         all_tests_green=all_green, total_tests=total_tests,
     )

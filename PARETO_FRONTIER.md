@@ -132,7 +132,8 @@ from the active scan path per this addendum's compaction rule.
 | FRONTIER-HISTORY-FREEZE | Closed a real, LIVE exploit: the same 5 types' `history` field was still a mutable list under freezing -- converted to tuple, closing a forged-entry bypass of `rpa/gates/human_jurisdiction.py`'s pilot-authorization gate | `8e0e12d` |
 | FRONTIER-003 | CI workflow real and green (`kyle4814/titanos` created public, pushed, `.github/workflows/tests.yml` fired for the first time and passed, 8/8 subsystems) | `6fb29fa` (workflow) + live push 2026-08-25 |
 | FIRST-PING | First proven `WORLD -> TITANOS -> WORLD` exchange: real GitHub Actions run ingested + classified through the existing (pre-built) digestion pipeline, self-sourced not human-supplied. See `FIRST_PING.md`. No new code. | (this commit) |
-| FRONTIER-008 | Per-subsystem external packaging docs (`ADOPT.md`) for all 8 subsystems -- every quickstart independently re-run and matched, caught 3 real doc bugs before shipping | `82862e4`,`8b9d906`,`2b1fb4c`,`8c299e0`,`cb8bd84`,`3c5c87c`,`e8afcae`,(this commit) |
+| FRONTIER-008 | Per-subsystem external packaging docs (`ADOPT.md`) for all 8 subsystems -- every quickstart independently re-run and matched, caught 3 real doc bugs before shipping | `82862e4`,`8b9d906`,`2b1fb4c`,`8c299e0`,`cb8bd84`,`3c5c87c`,`e8afcae`,`1b7793c` |
+| FRONTIER-SIGIL-T7 | T7 rung implemented (`foundation/sigil.py::_dimension_external_integration()`) -- a documented-but-never-built ceiling, closed once real evidence (public repo + recorded CI success) actually existed to check against. Local-evidence-only by design, no live network call. 7 new tests, 32/32 targeted, 1212/1212 full regression. | (this commit) |
 
 ## Rejected / not on the frontier
 

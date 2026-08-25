@@ -140,9 +140,11 @@ passes. See `TITANOS_OBELISK_ZERO_DEPENDENCY_DOCTRINE.md`.
 compute_sigil()`) is historical compression — what capability has
 already been earned — distinct from the frontier's directional "what's
 next." Never manually incremented; recomputes from repository evidence
-every time, same result for the same state. Current: `TIER:T6 |
-IRON:10 | LATTICE:6 | PROOF:8 | SIGHT:10 | FRONTIER:10 | ORCH:10 |
-MEMORY:10 | REALITY:10`. **Caution if extending `foundation/sigil.py`:**
+every time, same result for the same state. Current: `TIER:T7 |
+IRON:10 | LATTICE:6 | PROOF:10 | SIGHT:10 | FRONTIER:10 | ORCH:10 |
+MEMORY:10 | REALITY:10` — T7 earned 2026-08-26 once `kyle4814/titanos`
+became a real public repo with a real recorded CI success; see
+`SIGIL.md`. **Caution if extending `foundation/sigil.py`:**
 its PROOF dimension shells out to run every subsystem's test suite,
 including `foundation`'s own — which contains this module's real-repo
 tests. `foundation/recursion_guard.py::check()`/`child_env()` prevents

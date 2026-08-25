@@ -7,6 +7,7 @@ from foundation.sigil import (
     Sigil, PROOF_OPERATION, compute_sigil, compute_tier, format_sigil, reconcile_sigil,
     _dimension_iron, _dimension_lattice, _dimension_frontier,
     _dimension_memory, _dimension_sight, _dimension_reality, _dimension_orchestration,
+    _dimension_external_integration,
 )
 from foundation.recursion_guard import check as guard_check
 
@@ -55,11 +56,27 @@ class TestComputeTierPureFunction(unittest.TestCase):
                                 orchestration_proven=True, zero_network=True, iron_score=7)
         self.assertEqual(tier, "T5")
 
-    def test_everything_true_reaches_t6_never_t7(self):
+    def test_everything_true_without_external_integration_caps_at_t6(self):
         tier, reason = compute_tier(all_tests_green=True, sight_clean=True,
                                      orchestration_proven=True, zero_network=True, iron_score=10)
         self.assertEqual(tier, "T6")
         self.assertIn("T7", reason)  # explicitly explains why T7 isn't claimed
+
+    def test_external_integration_proven_reaches_t7(self):
+        tier, reason = compute_tier(all_tests_green=True, sight_clean=True,
+                                     orchestration_proven=True, zero_network=True, iron_score=10,
+                                     external_integration_proven=True)
+        self.assertEqual(tier, "T7")
+        self.assertIn("real external integration boundary", reason)
+
+    def test_external_integration_alone_cannot_offset_a_lower_rung(self):
+        # T7 requires every fact T6 requires plus its own -- a real
+        # external integration boundary cannot buy T7 if a lower rung
+        # (here: not all tests green) already caps the tier.
+        tier, _ = compute_tier(all_tests_green=False, sight_clean=True,
+                                orchestration_proven=True, zero_network=True, iron_score=10,
+                                external_integration_proven=True)
+        self.assertEqual(tier, "T2")
 
     def test_a_single_weak_dimension_cannot_be_offset_by_others(self):
         # High "average" (everything else maxed) still caps hard at T2
@@ -160,6 +177,60 @@ class TestDimensionsOnSyntheticRepo(unittest.TestCase):
             self.assertEqual(score, 6)
 
 
+class TestDimensionExternalIntegration(unittest.TestCase):
+    """T7's one new fact -- checked with local-only evidence, never a
+    live network call (see the function's own docstring for why)."""
+
+    def test_empty_repo_not_proven(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            proven, justification = _dimension_external_integration(Path(tmp))
+            self.assertFalse(proven)
+            self.assertIn("remote_configured=no", justification)
+
+    def test_remote_alone_without_recorded_run_not_proven(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            gitdir = root / ".git"
+            gitdir.mkdir()
+            (gitdir / "config").write_text(
+                '[remote "origin"]\n\turl = https://github.com/example/repo.git\n'
+            )
+            proven, justification = _dimension_external_integration(root)
+            self.assertFalse(proven)
+            self.assertIn("remote_configured=yes", justification)
+            self.assertIn("real_run_recorded_locally=no", justification)
+
+    def test_recorded_run_without_remote_not_proven(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "FIRST_PING.md").write_text(
+                "run https://github.com/example/repo/actions/runs/123, "
+                "conclusion=success"
+            )
+            proven, justification = _dimension_external_integration(root)
+            self.assertFalse(proven)
+            self.assertIn("remote_configured=no", justification)
+
+    def test_both_facts_present_proven(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            gitdir = root / ".git"
+            gitdir.mkdir()
+            (gitdir / "config").write_text(
+                '[remote "origin"]\n\turl = https://github.com/example/repo.git\n'
+            )
+            (root / "FIRST_PING.md").write_text(
+                "run https://github.com/example/repo/actions/runs/123, "
+                "conclusion=success"
+            )
+            proven, justification = _dimension_external_integration(root)
+            self.assertTrue(proven)
+
+    def test_real_repo_is_actually_proven(self):
+        proven, justification = _dimension_external_integration(REPO_ROOT)
+        self.assertTrue(proven, justification)
+
+
 class TestFormatSigil(unittest.TestCase):
     def test_format_contains_all_dimensions(self):
         s = _sigil()
@@ -246,9 +317,12 @@ class TestComputeSigilOnRealRepo(unittest.TestCase):
     def test_deterministic_across_two_runs(self):
         self.assertEqual(self.first, self.second)
 
-    def test_real_repo_reaches_t6_with_all_suites_green(self):
+    def test_real_repo_reaches_t7_with_all_suites_green(self):
+        # This repository is now actually public (kyle4814/titanos) with
+        # a real, recorded CI success (FIRST_PING.md) -- T7 is earned
+        # evidence here, not aspirational.
         self.assertTrue(self.first.all_tests_green, self.first.justification["proof"])
-        self.assertEqual(self.first.tier, "T6")
+        self.assertEqual(self.first.tier, "T7")
         self.assertGreater(self.first.total_tests, 900)
 
     def test_reconcile_against_unchanged_real_repo_reports_no_change(self):
