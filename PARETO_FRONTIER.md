@@ -31,10 +31,20 @@ answer these yet, it stays in `INTUITION.md`, not here.
 
 ### FRONTIER-009 — Boot Context Selector for `CLAUDE.md` doctrine imports
 - **CURRENT:** `MEMORY_MAP.md` (built) measured 1,700+ lines across
-  twelve `@`-imported doctrine files loading unconditionally at every
-  session boot — Tier-3 content paying Tier-0 cost.
+  doctrine files loading unconditionally at every session boot — now
+  16 `@`-imports (grown from 12 at measurement time), count re-verified
+  2026-08-25 via `FRONTIER_009_RECON_001`. Tier-3 content paying Tier-0 cost.
 - **GAP:** no mechanism loads only the doctrine relevant to the active
   task.
+- **CAUSAL GAP RE-EXAMINED (`FRONTIER_009_RECON_001`):** no session has
+  ever failed to reliably do anything *because* of this — the current
+  system correctly loads all doctrine, every time. The cost is verbosity,
+  not a correctness failure. The chain "without X, the system cannot
+  reliably do Y, because Z" cannot honestly be written: X's absence
+  produces no observed Y failure. This entry's own `effort`/`risk`
+  fields already concluded the fix trades a loud cost (verbose boot) for
+  a silent one (a session missing doctrine it needed) — net negative.
+  **Verdict: D — UNNECESSARY. Stays OPEN, not built, not reordered.**
 - **LEVER:** reduces boot context size with no functional change.
 - **FIRST STEP:** genuinely uncertain — see below.
 - **PROOF:** would need a regression test proving a session can still
