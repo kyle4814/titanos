@@ -131,6 +131,7 @@ from the active scan path per this addendum's compaction rule.
 | FRONTIER-NO-DELETE-INVARIANT | Second registered invariant (`SIGIL.NO_DELETE_SURFACE`), proven across 8 independent stores, stronger than the control specimen | `e560129` |
 | FRONTIER-ABSENT-EDGE-INVARIANT | Third registered invariant (`SIGIL.ABSENT_ILLEGAL_EDGE`), proven across 6 independent state machines, independence verified by import-check test | `e8e1cf2` |
 | FRONTIER-NO-CACHED-DECISION | Fourth registered invariant (`SIGIL.NO_CACHED_DECISION`), correctly scoped to 2 domains after recon disproved a false 3-domain claim; also fixed an audit gap in an existing test | `95906bb` |
+| FRONTIER-EPISTEMIC-FREEZE | Closed a real, reproduced epistemic-state collapse: froze 5 append-only record types (Claim, AtomRecord, PromotionRecord, QuarantineRecord, FlowSwitchRecord) that were bypassable via direct attribute assignment | `3dcb258` |
 
 ## Rejected / not on the frontier
 
