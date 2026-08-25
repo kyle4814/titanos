@@ -7,8 +7,9 @@
 @TITANOS_HELLS_GATE.md
 @TITANOS_PARETO_FRONTIER_RECURSION_ENGINE.md
 @TITANOS_LIVING_PARETO_FRONTIER_ARCHITECTURE.md
+@TITANOS_AKASHIC_NARRATIVE_ENGINE.md
 
-These seven files are stateless configuration — plain files in this
+These eight files are stateless configuration — plain files in this
 repository, loaded at the start of every session that works here,
 independent of any conversation memory or session recall. Added
 2026-08-25 per Kyle's explicit instruction.

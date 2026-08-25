@@ -23,6 +23,18 @@ re-verified, not trusted, the next time it's picked up.
 
 ---
 
+## Built
+
+### FRONTIER-000 — Narrative Atom schema + validator
+- **status:** BUILT — commit pending this cycle, `narrative/schema/
+  narrative_atom.py` + `narrative/validators/validate_narrative_atom.py`,
+  67 tests.
+- Item (A) from `TITANOS_AKASHIC_NARRATIVE_ENGINE.md`'s §XVIII list — the
+  primitive every other item in that doctrine (Five-Record model, Gold
+  Ledger, Isomorphism contract, Primary Narrative format) would operate
+  on. Reuses `kpm.schemas.epistemic_types.ALL_CLASSIFICATIONS` for
+  `epistemic_layer` rather than a parallel vocabulary.
+
 ## Active candidates
 
 ### FRONTIER-001 — Reusable secret/credential scanner
@@ -88,6 +100,35 @@ re-verified, not trusted, the next time it's picked up.
   done speculatively, but doctrine explicitly warns against "empty
   theater" — a workflow file with nothing to trigger it is exactly that,
   so this stays BLOCKED rather than OPEN until the repo target is named.
+
+### FRONTIER-004 — Narrative Atom Store (state machine driver)
+- **status:** OPEN
+- **added:** 2026-08-25
+- **value:** MEDIUM — `narrative/schema/narrative_atom.py`'s
+  `PROMOTION_TRANSITIONS` table exists and is tested, but nothing
+  actually drives an atom through it across calls (no store, no
+  `reviewed_by`-gated promotion to `CANONICAL_ABSTRACTION`, mirroring
+  `kpm/promotion/state_machine.py::PromotionStore`).
+- **effort:** LOW — the pattern to copy already exists three times in
+  this repo (`kpm/promotion/state_machine.py`,
+  `foundation/flow_switch.py::FlowSwitchStore`, `firewall/quarantine.py`).
+- **risk:** LOW.
+- **evidence:** none yet — no real narrative atom has been promoted
+  through any state.
+- **dependencies:** `narrative/schema/narrative_atom.py` (built).
+
+### FRONTIER-005 — Five-Record query views, Gold Ledger, Isomorphism contract
+- **status:** OPEN
+- **added:** 2026-08-25
+- **value:** MEDIUM-HIGH once real atoms exist to query — currently
+  zero real narrative atoms have been ingested, so building these would
+  be speculative infrastructure with nothing to operate on.
+- **effort:** MEDIUM.
+- **dependencies:** FRONTIER-004, and a real ingestion source (no
+  narrative content has been ingested into this repository yet).
+- Items (B), (C), (F) from `TITANOS_AKASHIC_NARRATIVE_ENGINE.md`'s
+  §XVIII list, deliberately not built this cycle — "do not build
+  everything at once."
 
 ## Rejected / not on the frontier
 
