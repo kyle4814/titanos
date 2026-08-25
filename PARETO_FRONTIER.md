@@ -106,7 +106,7 @@ from the active scan path per this addendum's compaction rule.
 |---|---|---|
 | FRONTIER-RG | Bounded recursive execution ancestry (recursion guard) | `93b3e89` |
 | FRONTIER-004 | Narrative Atom Store (`narrative/store/narrative_atom_store.py`) | `d5537c1` |
-| FRONTIER-MEMBRANE | Source Vault -> Narrative Atom bridge (`narrative/intake/source_vault_bridge.py`) | (this cycle) |
+| FRONTIER-MEMBRANE | Source Vault -> Narrative Atom bridge (`narrative/intake/source_vault_bridge.py`) | `4ac4ef6` |
 | FRONTIER-000 | Narrative Atom schema + validator | `d14e128` |
 | FRONTIER-006 | Layer 0 Worker Contract (ABC-enforced) | `f416cd0` |
 | FRONTIER-007 | Crystalline Memory (`foundation/crystal.py`) | `7ecf615` |
@@ -119,7 +119,9 @@ from the active scan path per this addendum's compaction rule.
 | FRONTIER-011 | `BUILD_REPORT.md` for schema/firewall/narrative | `e816905` |
 | FRONTIER-001 | Reusable secret/credential scanner | `1b03480` |
 | FRONTIER-002 | `permission_request` → `GateInput` adapter | `632e774` |
-| SIGIL | Capability Sigil (`foundation/sigil.py`, `SIGIL.md`) | (this cycle) |
+| SIGIL | Capability Sigil (`foundation/sigil.py`, `SIGIL.md`) | `e3ce475` |
+| FRONTIER-FSCHEMA | `PARETO_FRONTIER.md` structural schema validator (`foundation/sentinel.py::check_frontier_schema`) | `cbcb73f` |
+| FRONTIER-REFCHECK | RPA cross-file referential integrity checker (`rpa/composition/checker.py`) | `9a63205`, extended `d8afa32`, `3741094` |
 
 ## Rejected / not on the frontier
 
