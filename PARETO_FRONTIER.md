@@ -62,23 +62,27 @@ answer these yet, it stays in `INTUITION.md`, not here.
   promoted to "smallest first move now."
 
 ### FRONTIER-008 — Per-subsystem seed/manifest packaging
-- **CURRENT:** each subsystem now has a `BUILD_REPORT.md` (internal
-  audit trail); none has an external "how to adopt/fork/remove this"
-  document (thesis, quickstart, failure cases, threat model, fork
-  guide, contribution path). `kyle4814/titanos` is now a real, public,
-  CI-green repository (FRONTIER-003, archived below) — a fork guide has
-  somewhere to point for the first time.
-- **GAP:** no packaging template.
-- **LEVER:** MEDIUM-HIGH now that publication is real, not projected.
-- **FIRST STEP:** one subsystem (smallest: `firewall/` or `schema/`) gets
-  a real external-facing doc, proving the template before replicating
-  it seven more times.
-- **PROOF:** the doc itself, reviewed against a fresh-reader test (could
-  someone with zero session context actually fork and run it).
-- **UNLOCK:** the rest of `TITANOS_GREENLIGHT_AND_MEMETIC_DOCTRINE.md`'s
-  Seed/Manifest chain (PACKAGE step) stops being blocked.
-- **REUSE:** existing `BUILD_REPORT.md` content per subsystem as the
-  internal-audit source material; doesn't duplicate it, externalizes it.
+- **CURRENT:** `firewall/ADOPT.md` built 2026-08-25 (thesis, quickstart,
+  failure cases, threat model, limitations, changelog, fork guide,
+  integration interfaces, contribution path, machine-readable manifest)
+  — the template proof. Verified against a fresh-reader test: its
+  quickstart's claimed test command actually run (`python3 -m unittest
+  discover -s firewall -p "test_*.py"` → 36/36, matching the doc's own
+  claim exactly). 7 of 8 subsystems (`schema/`, `kpm/`, `magl/`, `rpa/`,
+  `taal/`, `foundation/`, `narrative/`) still lack this doc.
+- **GAP:** template proven on one subsystem; not yet replicated.
+- **LEVER:** MEDIUM-HIGH — real now that `kyle4814/titanos` is public
+  and CI-green.
+- **FIRST STEP:** done (`firewall/ADOPT.md`). Next: replicate to the
+  remaining 7, smallest/least-dependent first.
+- **PROOF:** `firewall/ADOPT.md`'s quickstart commands independently
+  re-run and matched, not just written.
+- **UNLOCK:** `TITANOS_GREENLIGHT_AND_MEMETIC_DOCTRINE.md`'s Seed/
+  Manifest chain (PACKAGE step) has a real first instance, not a
+  speculative field list.
+- **REUSE:** `firewall/BUILD_REPORT.md`'s content as source material for
+  the threat-model/limitations sections; externalizes it, doesn't
+  duplicate it.
 
 ## Blocked
 
