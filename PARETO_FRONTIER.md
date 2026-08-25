@@ -51,23 +51,6 @@ answer these yet, it stays in `INTUITION.md`, not here.
   not yet clearly a net win, which is why this remains OPEN rather than
   promoted to "smallest first move now."
 
-### FRONTIER-004 — Narrative Atom Store (state machine driver)
-- **CURRENT:** `narrative/schema/narrative_atom.py`'s
-  `PROMOTION_TRANSITIONS` table exists and is tested; nothing drives a
-  real atom through it across calls.
-- **GAP:** no store (no `reviewed_by`-gated promotion to
-  `CANONICAL_ABSTRACTION`, mirroring `kpm/promotion/state_machine.py`).
-- **LEVER:** the pattern to copy already exists three times in this
-  repo — near-zero design risk, mechanical implementation.
-- **FIRST STEP:** `NarrativeAtomStore`, same shape as
-  `PromotionStore`/`FlowSwitchStore`/`QuarantineStore`.
-- **PROOF:** unit tests mirroring `kpm/promotion/state_machine.py`'s own
-  test suite (self-promotion forbidden, illegal transitions absent).
-- **UNLOCK:** FRONTIER-005 (Five-Record views etc.) becomes buildable
-  against real state instead of speculative infrastructure.
-- **REUSE:** `narrative_atom.py`'s existing transition table verbatim.
-- **effort:** LOW. **risk:** LOW.
-
 ## Blocked
 
 ### FRONTIER-003 — CI workflow (`.github/workflows/`)
@@ -105,6 +88,7 @@ from the active scan path per this addendum's compaction rule.
 | ID | Capability | Commit |
 |---|---|---|
 | FRONTIER-RG | Bounded recursive execution ancestry (recursion guard) | `93b3e89` |
+| FRONTIER-004 | Narrative Atom Store (`narrative/store/narrative_atom_store.py`) | (this cycle) |
 | FRONTIER-000 | Narrative Atom schema + validator | `d14e128` |
 | FRONTIER-006 | Layer 0 Worker Contract (ABC-enforced) | `f416cd0` |
 | FRONTIER-007 | Crystalline Memory (`foundation/crystal.py`) | `7ecf615` |
