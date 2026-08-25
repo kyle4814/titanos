@@ -101,15 +101,18 @@ your own.
 
 ## Known limitations
 
-- No cross-file referential integrity is enforced anywhere in this family
-  (`bottleneck_ref`, `system_map_ref`, `automation_candidate_ref`, etc. are
-  all free-text strings). Every agent that built one of these schemas
-  independently made the same judgment call and documented the same
-  reasoning: a validator that loads and trusts arbitrary other files at
-  validation time breaks the "pure function over one document's text"
-  invariant every validator in this codebase holds. A composition-layer
-  tool that DOES check cross-file consistency (mirroring
-  `magl/composition/engine.py`) does not exist yet for this family.
+- Cross-file referential integrity is now enforced by
+  `rpa/composition/checker.py::check_chain_integrity()` (mirroring
+  `magl/composition/engine.py`), added across three later cycles: the
+  original bottleneck/candidate/pilot chain, `measurement_pilot_ref`
+  (commit `d8afa32`), and `rollback_candidate_ref` (commit `3741094`).
+  Every `_ref` field in the pilot/authorization critical path resolves
+  or fails FATAL at the composition boundary. Each schema's own
+  single-document validator still deliberately does not resolve these
+  refs itself — same "pure function over one document's text" reasoning
+  as originally documented, unchanged. Remaining unchecked: `value_flow`
+  schema's `system_map_ref` (economic side-channel, off the
+  pilot/authorization critical path, not yet picked up).
 - `rpa/gates/human_jurisdiction.py`'s `authorize_pilot()` found and worked
   around a real detail in `kpm/promotion/state_machine.py`: there is no
   direct `TESTED -> HUMAN_REVIEW` edge, only the two-hop
