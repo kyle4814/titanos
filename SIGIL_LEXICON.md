@@ -18,6 +18,36 @@ never a silent mutation. Ambiguity or collision → expand to canonical
 text, never guess. Every glyph retains an ASCII Stable_ID fallback —
 rendering failure must never make the architecture undecodable.
 
+## Representation law (when is compression earned)
+
+Before any structure becomes a compact form (integer, ordinal, glyph,
+bitfield, hash), classify it first — **type determines representation,
+representation determines valid operations, valid operations determine
+whether compression is earned**:
+
+- **Mutually exclusive states** → named enum (e.g. `taal/gate/
+  root_gate.py::VERDICTS`), never a bitmask.
+- **Ordered states where comparison is actually needed** → ordinal rank
+  via canonical-order position (e.g. `root_gate.py::_PERMISSIVENESS_
+  ORDER` + `_cap()` — already the one real instance of this in this
+  repo), not a raw magic number.
+- **Independent coexisting booleans** → bitfield, only if multiple
+  properties genuinely coexist AND a real repeated operation benefits
+  AND decode stays deterministic. No instance of this exists in this
+  repository today.
+- **Multi-dimensional measurement** → tuple/vector, never collapsed
+  into one scalar if that destroys causal information (e.g.
+  `foundation/sigil.py`'s eight dimensions stay eight fields, not one
+  packed integer).
+
+A compression is earned only when a real repeated operation benefits
+from it and the original semantics remain deterministically
+recoverable — never for elegance alone. (Established 2026-08-25,
+`STRUCTURAL_COMPRESSION_GATE_001` — audited against `root_gate.py` and
+`sigil.py`, the only two real instances of numeric/ordinal
+representation in this repository at time of writing; no bitfield use
+case has ever appeared.)
+
 ## Seeded entries (already-proven concepts only)
 
 | ID | Glyph | Name | Meaning | Class | Status | Source | Proof | Version |
