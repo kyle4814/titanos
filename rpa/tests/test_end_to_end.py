@@ -21,7 +21,11 @@ from rpa.validators.validate_pilot_simulation import validate_pilot_simulation  
 from rpa.validators.validate_rollback_contract import validate_rollback_contract  # noqa: E402
 from rpa.validators.validate_before_after_measurement import validate_before_after_measurement  # noqa: E402
 from rpa.validators.validate_value_flow import validate_value_flow  # noqa: E402
-from rpa.gates.human_jurisdiction import authorize_pilot, confirm_pilot_authorized  # noqa: E402
+from rpa.gates.human_jurisdiction import (  # noqa: E402
+    SourceRegistry,
+    authorize_pilot,
+    confirm_pilot_authorized,
+)
 from magl.validators.validate_magl import validate_magl  # noqa: E402
 from kpm.promotion.state_machine import PromotionStore  # noqa: E402
 
@@ -82,6 +86,14 @@ class TestHumanAuthorizationGate(unittest.TestCase):
     The candidate MAGL cannot reach a pilot-authorized state without
     passing through TESTED -> QUARANTINED -> HUMAN_REVIEW -> STABLE,
     and the final STABLE step cannot be self-approved.
+
+    PREVIOUSLY: this class promoted a hand-typed `magl_id` string with no
+    connection whatsoever to `TestSchemaChain`'s validation of
+    `automation_candidate.yaml` in this same file — an adversarial recon
+    pass this session found and closed exactly this gap. `authorize_pilot()`
+    now requires the real, validated candidate's content hash, closing the
+    seam between "the candidate was validated" and "the derived MAGL was
+    authorized" for real, not just by naming convention.
     """
 
     def _advance_to_tested(self, store: PromotionStore, magl_id: str,
@@ -91,13 +103,30 @@ class TestHumanAuthorizationGate(unittest.TestCase):
         store.promote(magl_id, "PROVISIONAL", reason="schema-validated")
         store.promote(magl_id, "TESTED", reason="pilot_simulation approved")
 
+    def _real_validated_candidate_hash(self, registry: SourceRegistry) -> str:
+        """Ingests the SAME real automation_candidate.yaml fixture
+        TestSchemaChain validates, into the SAME registry the
+        authorization call will recover from — the actual, real seam."""
+        rec = registry.ingest_source(
+            _read("automation_candidate.yaml").encode(),
+            source_type="yaml",
+            source_location="rpa/fixtures/automation_candidate.yaml",
+            author_or_origin="test",
+        )
+        return rec.content_hash
+
     def test_full_authorization_path_and_confirm(self):
         store = PromotionStore()
+        registry = SourceRegistry(
+            archive_dir=Path("/tmp") / "rpa_e2e_test_archive", registry_path=None,
+        )
+        content_hash = self._real_validated_candidate_hash(registry)
         magl_id = "magl-backup-approver-alert"
         self._advance_to_tested(store, magl_id, created_by="rpa-pipeline")
 
         authorize_pilot(store, magl_id, reviewed_by="finance-ops-lead",
-                        created_by="rpa-pipeline", reason="ready for human review")
+                        created_by="rpa-pipeline", reason="ready for human review",
+                        source_registry=registry, source_hashes=(content_hash,))
 
         # Not yet authorized — only queued.
         self.assertFalse(confirm_pilot_authorized(store, magl_id))
@@ -110,13 +139,40 @@ class TestHumanAuthorizationGate(unittest.TestCase):
     def test_self_approval_is_refused(self):
         from kpm.promotion.state_machine import SelfPromotionForbidden
         store = PromotionStore()
+        registry = SourceRegistry(
+            archive_dir=Path("/tmp") / "rpa_e2e_test_archive2", registry_path=None,
+        )
+        content_hash = self._real_validated_candidate_hash(registry)
         magl_id = "magl-self-approval-attempt"
         self._advance_to_tested(store, magl_id, created_by="same-person")
         authorize_pilot(store, magl_id, reviewed_by="same-person",
-                        created_by="same-person", reason="queueing myself")
+                        created_by="same-person", reason="queueing myself",
+                        source_registry=registry, source_hashes=(content_hash,))
         with self.assertRaises(SelfPromotionForbidden):
             store.promote(magl_id, "STABLE", reason="approving my own work",
                           reviewed_by="same-person")
+
+    def test_arbitrary_magl_id_with_no_validated_source_is_refused(self):
+        """The exact bypass the original adversarial recon constructed:
+        queue an id that has no connection to any validated automation
+        candidate at all. Must now be refused, not silently accepted."""
+        from rpa.gates.human_jurisdiction import NoValidatedSource
+        store = PromotionStore()
+        registry = SourceRegistry(
+            archive_dir=Path("/tmp") / "rpa_e2e_test_archive3", registry_path=None,
+        )
+        unrelated = registry.ingest_source(
+            b"this is not an automation candidate", source_type="text",
+            source_location="unrelated", author_or_origin="test",
+        )
+        magl_id = "magl-completely-unvalidated"
+        self._advance_to_tested(store, magl_id, created_by="rpa-pipeline")
+        with self.assertRaises(NoValidatedSource):
+            authorize_pilot(store, magl_id, reviewed_by="finance-ops-lead",
+                            created_by="rpa-pipeline", reason="ready for review",
+                            source_registry=registry,
+                            source_hashes=(unrelated.content_hash,))
+        self.assertFalse(confirm_pilot_authorized(store, magl_id))
 
 
 class TestMeasureAndLearn(unittest.TestCase):

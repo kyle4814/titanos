@@ -101,6 +101,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
+from typing import Sequence
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(_REPO_ROOT) not in sys.path:
@@ -113,15 +114,95 @@ from kpm.promotion.state_machine import (  # noqa: E402
     SelfPromotionForbidden,
     can_transition,
 )
+from rpa.validators.validate_automation_candidate import (  # noqa: E402
+    validate_automation_candidate,
+)
 
-__all__ = ["authorize_pilot", "confirm_pilot_authorized"]
+# kpm/source-vault/ is a hyphenated directory name -- not a legal Python
+# package identifier, and inserting it into sys.path (as several earlier
+# call sites in this repo do) creates a real collision: kpm/source-vault/
+# tests/ and rpa/tests/ are both literally a directory named "tests",
+# so a bare sys.path insert of kpm/source-vault/ shadows whichever
+# "tests" package unittest discovery is trying to resolve for whatever
+# subsystem happens to run second (found the hard way: `python3 -m
+# unittest discover -s rpa` broke after this fix's first draft added
+# exactly that insert). Loading registry.py by explicit file path via
+# importlib avoids touching sys.path at all.
+import importlib.util as _importlib_util  # noqa: E402
+
+_REGISTRY_PATH = _REPO_ROOT / "kpm" / "source-vault" / "registry.py"
+_registry_spec = _importlib_util.spec_from_file_location(
+    "kpm_source_vault_registry", _REGISTRY_PATH,
+)
+_registry_module = _importlib_util.module_from_spec(_registry_spec)
+# Registered in sys.modules under its synthetic name BEFORE exec_module,
+# same as the standard importlib recipe -- dataclasses' own type
+# resolution (`sys.modules.get(cls.__module__)`) needs to find this
+# module by that name once SourceRecord's dataclass machinery runs.
+sys.modules[_registry_spec.name] = _registry_module
+_registry_spec.loader.exec_module(_registry_module)
+SourceRegistry = _registry_module.SourceRegistry
+
+__all__ = [
+    "authorize_pilot", "confirm_pilot_authorized",
+    "NoValidatedSource", "AmbiguousValidatedSource",
+]
+
+
+class NoValidatedSource(Exception):
+    """Raised by `authorize_pilot` when none of the declared `source_hashes`
+    recover to content that passes `validate_automation_candidate()`.
+
+    This is the fix for a real, adversarially-found gap (this session's own
+    recon): `PromotionStore`'s STABLE-entry guard only checks reviewer
+    diversity and a non-empty reason — it has no way to know whether the
+    automation candidate's actual jurisdiction/failure-scenario/rollback
+    content was ever structurally validated. `confirm_pilot_authorized()`'s
+    re-derivation from history proves WHO reviewed it, never WHAT was
+    reviewed. Fresh, non-cached validation at the moment of queueing is
+    the fix — see rpa/ADOPT.md and this session's own recon for why
+    recomputation (not a durable "was validated" witness) is correct:
+    validate_automation_candidate() is pure and deterministic, so a stale
+    stored witness would be strictly weaker than checking fresh."""
+
+
+class AmbiguousValidatedSource(Exception):
+    """Raised when more than one declared source_hash independently
+    validates as a real automation candidate — this gate has no way to
+    know which one the caller actually means to authorize, and guessing
+    (e.g. "the first one") would silently reintroduce the exact
+    subject-substitution risk this fix exists to close."""
 
 
 def authorize_pilot(
     store: PromotionStore, candidate_id: str, *, reviewed_by: str,
     created_by: str, reason: str,
+    source_registry: SourceRegistry, source_hashes: Sequence[str],
 ) -> PromotionRecord:
     """Move an automation candidate from TESTED to HUMAN_REVIEW.
+
+    NEW GUARD (this session's own adversarial recon found and closed
+    this gap): before queueing anything for human review, this function
+    now recovers the exact bytes for every hash in `source_hashes` via
+    `source_registry.get_content()` (raising `KeyError`/`NoSuchContentHash`
+    unchanged if a hash doesn't resolve — fail loud, not silent) and runs
+    `validate_automation_candidate()` fresh against each. Exactly one must
+    return `VALID`:
+
+      - zero VALID results -> `NoValidatedSource` (no real, structurally
+        checked automation candidate backs this authorization request —
+        this is the exact hole the recon found: a caller could previously
+        queue *any* `candidate_id` string for review with no connection
+        to real, validated content at all).
+      - more than one VALID result -> `AmbiguousValidatedSource` (this
+        gate cannot know which one the caller means to authorize, and
+        guessing would reopen the same substitution risk).
+
+    Validation is recomputed fresh every call rather than trusting a
+    stored past result, because `validate_automation_candidate()` is pure
+    and deterministic — recomputation is strictly stronger than any
+    durable witness (immune to validator-version drift, immune to a
+    witness surviving past when it should have been invalidated).
 
     THIS IS INTENTIONALLY A THIN WRAPPER. It reuses
     kpm.promotion.state_machine's existing PromotionStore/TRANSITIONS/
@@ -162,6 +243,30 @@ def authorize_pilot(
     real state machine's real, well-understood error, not something this
     wrapper reinterpreted.
     """
+    valid_count = 0
+    for content_hash in source_hashes:
+        for record in source_registry.get_by_hash(content_hash):
+            content = source_registry.get_content(record.artifact_id)
+            result = validate_automation_candidate(content.decode("utf-8"))
+            if result.status == "VALID":
+                valid_count += 1
+
+    if valid_count == 0:
+        raise NoValidatedSource(
+            f"cannot authorize pilot for '{candidate_id}': none of the "
+            f"declared source_hashes recover to content that passes "
+            f"validate_automation_candidate(). An authorization request "
+            f"with no real validated automation-candidate content behind "
+            f"it cannot be queued for human review."
+        )
+    if valid_count > 1:
+        raise AmbiguousValidatedSource(
+            f"cannot authorize pilot for '{candidate_id}': {valid_count} "
+            f"declared source_hashes independently validate as real "
+            f"automation candidates. This gate cannot determine which one "
+            f"is the actual subject of this authorization request."
+        )
+
     store.promote(
         candidate_id, "QUARANTINED",
         reason=reason, reviewed_by=reviewed_by, created_by=created_by,

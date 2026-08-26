@@ -14,7 +14,8 @@ import sys
 import unittest
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+_REPO_ROOT = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(_REPO_ROOT))
 
 from kpm.promotion.state_machine import (  # noqa: E402
     IllegalTransition,
@@ -22,9 +23,14 @@ from kpm.promotion.state_machine import (  # noqa: E402
     SelfPromotionForbidden,
 )
 from rpa.gates.human_jurisdiction import (  # noqa: E402
+    AmbiguousValidatedSource,
+    NoValidatedSource,
+    SourceRegistry,
     authorize_pilot,
     confirm_pilot_authorized,
 )
+
+_FIXTURES_DIR = _REPO_ROOT / "rpa" / "fixtures"
 
 
 def _tested_store(candidate_id="ac-001", created_by="agent-alice"):
@@ -35,6 +41,35 @@ def _tested_store(candidate_id="ac-001", created_by="agent-alice"):
     store.promote(candidate_id, "PROVISIONAL", reason="provisional")
     store.promote(candidate_id, "TESTED", reason="tested")
     return store
+
+
+def _fresh_registry_with_valid_candidate():
+    """A real SourceRegistry with the real, valid automation_candidate.yaml
+    fixture ingested — used so these tests exercise the actual new guard
+    against real content, not a mock."""
+    import tempfile
+    tmp = tempfile.mkdtemp()
+    registry = SourceRegistry(archive_dir=tmp + "/archive", registry_path=None)
+    text = (_FIXTURES_DIR / "automation_candidate.yaml").read_bytes()
+    rec = registry.ingest_source(text, source_type="yaml",
+                                  source_location="rpa/fixtures/automation_candidate.yaml",
+                                  author_or_origin="test")
+    return registry, rec.content_hash
+
+
+def _authorize(store, candidate_id, *, reviewed_by, created_by, reason,
+               registry=None, source_hashes=None):
+    """Helper threading the new required source_registry/source_hashes
+    params through authorize_pilot, defaulting to a real valid candidate
+    fixture so existing test call sites stay close to their original
+    shape."""
+    if registry is None or source_hashes is None:
+        registry, content_hash = _fresh_registry_with_valid_candidate()
+        source_hashes = (content_hash,)
+    return authorize_pilot(
+        store, candidate_id, reviewed_by=reviewed_by, created_by=created_by,
+        reason=reason, source_registry=registry, source_hashes=source_hashes,
+    )
 
 
 class TestCannotReachStableWithoutHumanReview(unittest.TestCase):
@@ -59,7 +94,7 @@ class TestCannotReachStableWithoutHumanReview(unittest.TestCase):
 
     def test_authorize_pilot_only_reaches_human_review_not_stable(self):
         store = _tested_store()
-        rec = authorize_pilot(
+        rec = _authorize(
             store, "ac-001", reviewed_by="agent-alice",
             created_by="agent-alice", reason="queue for human review",
         )
@@ -71,7 +106,7 @@ class TestCannotReachStableWithoutHumanReview(unittest.TestCase):
 
     def test_full_authorized_path_requires_two_separate_calls(self):
         store = _tested_store()
-        authorize_pilot(
+        _authorize(
             store, "ac-001", reviewed_by="agent-alice",
             created_by="agent-alice", reason="queue for human review",
         )
@@ -95,7 +130,7 @@ class TestAuthorizePilotCannotSelfApprove(unittest.TestCase):
 
     def test_self_promotion_to_stable_raises_through_the_real_gate(self):
         store = _tested_store(created_by="agent-alice")
-        authorize_pilot(
+        _authorize(
             store, "ac-001", reviewed_by="agent-alice",
             created_by="agent-alice", reason="queue for human review",
         )
@@ -117,7 +152,7 @@ class TestAuthorizePilotCannotSelfApprove(unittest.TestCase):
 class TestConfirmPilotAuthorized(unittest.TestCase):
     def test_true_for_properly_authorized_record(self):
         store = _tested_store(created_by="agent-alice")
-        authorize_pilot(
+        _authorize(
             store, "ac-001", reviewed_by="agent-alice",
             created_by="agent-alice", reason="queue for human review",
         )
@@ -134,7 +169,7 @@ class TestConfirmPilotAuthorized(unittest.TestCase):
     def test_false_for_record_not_yet_stable(self):
         store = _tested_store()
         self.assertFalse(confirm_pilot_authorized(store, "ac-001"))
-        authorize_pilot(
+        _authorize(
             store, "ac-001", reviewed_by="agent-alice",
             created_by="agent-alice", reason="queue for human review",
         )
@@ -175,7 +210,7 @@ class TestConfirmPilotAuthorized(unittest.TestCase):
         corrupted/foreign record shape directly to prove the function
         checks history rather than merely `state == 'STABLE'`."""
         store = _tested_store(created_by="agent-alice")
-        authorize_pilot(
+        _authorize(
             store, "ac-001", reviewed_by="agent-alice",
             created_by="agent-alice", reason="queue for human review",
         )
@@ -197,6 +232,86 @@ class TestConfirmPilotAuthorized(unittest.TestCase):
                 break
         self.assertEqual(rec.state, "STABLE")
         self.assertFalse(confirm_pilot_authorized(store, "ac-001"))
+
+
+class TestSourceContentValidationGuard(unittest.TestCase):
+    """The real fix this session's own adversarial recon converged on:
+    authorize_pilot() now requires the declared source_hashes to recover
+    to exactly one real, structurally validated automation candidate
+    before queueing anything for human review."""
+
+    def test_valid_real_fixture_authorizes_normally(self):
+        store = _tested_store()
+        rec = _authorize(
+            store, "ac-001", reviewed_by="agent-alice",
+            created_by="agent-alice", reason="queue for human review",
+        )
+        self.assertEqual(rec.state, "HUMAN_REVIEW")
+
+    def test_no_validated_source_is_refused(self):
+        registry, _ = _fresh_registry_with_valid_candidate()
+        # Ingest garbage that is NOT a real automation_candidate document.
+        bad_rec = registry.ingest_source(
+            b"not: a\nreal: automation candidate\n", source_type="yaml",
+            source_location="garbage", author_or_origin="test",
+        )
+        store = _tested_store()
+        with self.assertRaises(NoValidatedSource):
+            _authorize(
+                store, "ac-001", reviewed_by="agent-alice",
+                created_by="agent-alice", reason="queue for human review",
+                registry=registry, source_hashes=(bad_rec.content_hash,),
+            )
+        # The refused attempt must not have moved the record forward.
+        self.assertEqual(store.get("ac-001").state, "TESTED")
+
+    def test_unresolvable_hash_is_refused(self):
+        registry, _ = _fresh_registry_with_valid_candidate()
+        store = _tested_store()
+        with self.assertRaises(NoValidatedSource):
+            _authorize(
+                store, "ac-001", reviewed_by="agent-alice",
+                created_by="agent-alice", reason="queue for human review",
+                registry=registry, source_hashes=("sha256:doesnotexist",),
+            )
+
+    def test_two_valid_sources_are_ambiguous_and_refused(self):
+        registry, hash_a = _fresh_registry_with_valid_candidate()
+        # A second, independently valid automation candidate.
+        second_text = (
+            (_FIXTURES_DIR / "automation_candidate.yaml").read_text()
+            .replace("candidate-backup-approver-alert", "candidate-second-one")
+        )
+        second_rec = registry.ingest_source(
+            second_text.encode(), source_type="yaml",
+            source_location="second", author_or_origin="test",
+        )
+        store = _tested_store()
+        with self.assertRaises(AmbiguousValidatedSource):
+            _authorize(
+                store, "ac-001", reviewed_by="agent-alice",
+                created_by="agent-alice", reason="queue for human review",
+                registry=registry, source_hashes=(hash_a, second_rec.content_hash),
+            )
+        self.assertEqual(store.get("ac-001").state, "TESTED")
+
+    def test_end_to_end_bypass_is_now_refused_not_just_theoretically_possible(self):
+        """This is the exact bypass the original recon constructed: queue
+        an arbitrary blueprint_id for review with content that was never
+        validated at all. It must now be refused."""
+        registry, _ = _fresh_registry_with_valid_candidate()
+        unrelated_rec = registry.ingest_source(
+            b"completely unrelated content", source_type="text",
+            source_location="unrelated", author_or_origin="test",
+        )
+        store = _tested_store(candidate_id="magl-arbitrary-unvalidated")
+        with self.assertRaises(NoValidatedSource):
+            _authorize(
+                store, "magl-arbitrary-unvalidated", reviewed_by="agent-alice",
+                created_by="agent-alice", reason="queue for human review",
+                registry=registry, source_hashes=(unrelated_rec.content_hash,),
+            )
+        self.assertFalse(confirm_pilot_authorized(store, "magl-arbitrary-unvalidated"))
 
 
 if __name__ == "__main__":

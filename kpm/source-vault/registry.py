@@ -68,7 +68,7 @@ from typing import Any
 
 __all__ = [
     "SOURCE_TYPES", "SourceRecord", "SourceRegistry",
-    "InvalidSourceType", "SourceVaultError",
+    "InvalidSourceType", "SourceVaultError", "NoSuchContentHash",
 ]
 
 # ─────────────────────────────────────────────────────────────
@@ -96,6 +96,13 @@ class InvalidSourceType(SourceVaultError):
     """Raised when source_type is outside SOURCE_TYPES. The caller gets a
     named, catchable exception — never a silent False, never a crash with
     an unrelated traceback."""
+
+
+class NoSuchContentHash(SourceVaultError):
+    """Raised by `get_content_by_hash` when no archived blob exists for the
+    given hash. Distinct from an empty result: a caller asking "give me the
+    bytes for H" deserves a loud, named failure if H was never archived,
+    not a None that could be mistaken for "empty content"."""
 
 
 # ─────────────────────────────────────────────────────────────
@@ -302,3 +309,40 @@ class SourceRegistry:
 
     def all_records(self) -> tuple[SourceRecord, ...]:
         return tuple(self._records.values())
+
+    def get_by_hash(self, content_hash: str) -> tuple[SourceRecord, ...]:
+        """Resolve a content hash back to every SourceRecord that claims it.
+
+        Deliberately returns a tuple, not a single record: `ingest_source()`
+        always mints a fresh artifact_id even for byte-identical content
+        (two ingestion events over the same bytes are two different FACTS
+        about ingestion, per this module's own house rule above — see
+        the module docstring's "two SourceRecords" paragraph), so more than
+        one record can legitimately share a hash. A caller that only cares
+        about the content itself (not which ingestion event) can safely use
+        any returned record's artifact_id with `get_content()` below, since
+        they all resolve to the identical archived bytes by construction.
+        """
+        return tuple(r for r in self._records.values() if r.content_hash == content_hash)
+
+    def get_content(self, artifact_id: str) -> bytes:
+        """Return the exact archived bytes for a registered SourceRecord.
+
+        Raises KeyError for an unknown artifact_id (same convention as
+        `get_source()`'s sibling lookups elsewhere in this codebase) and
+        NoSuchContentHash if the record exists but its archived blob is
+        missing — the same failure `verify_integrity()` detects, surfaced
+        here as a loud exception rather than silently returning nothing,
+        since a caller of this method wants the bytes, not a status report.
+        """
+        rec = self._records.get(artifact_id)
+        if rec is None:
+            raise KeyError(f"no source record for '{artifact_id}'")
+        archived_path = self._archive_dir.parent / rec.immutable_archive_reference
+        if not archived_path.exists():
+            raise NoSuchContentHash(
+                f"'{artifact_id}' is registered but its archived blob is "
+                f"missing at '{archived_path}' — run verify_integrity() to "
+                f"record this as a provenance failure."
+            )
+        return archived_path.read_bytes()

@@ -188,6 +188,43 @@ class SourceRegistryTestCase(unittest.TestCase):
         with self.assertRaises(reg.SourceVaultError):
             self.reg.ingest_source(12345, "note", "loc", "kyle")
 
+    # -- get_by_hash / get_content (added to close the RPA derivation-binding
+    # finding: authorization needs to recover exact bytes by content hash,
+    # not just look up a record by artifact_id) ------------------------------
+
+    def test_get_by_hash_resolves_to_the_ingested_record(self):
+        rec = self.reg.ingest_source(b"pinned content", "note", "loc", "kyle")
+        matches = self.reg.get_by_hash(rec.content_hash)
+        self.assertEqual(len(matches), 1)
+        self.assertEqual(matches[0].artifact_id, rec.artifact_id)
+
+    def test_get_by_hash_returns_all_records_sharing_identical_bytes(self):
+        rec1 = self.reg.ingest_source(b"same bytes", "note", "loc-a", "alice")
+        rec2 = self.reg.ingest_source(b"same bytes", "note", "loc-b", "bob")
+        self.assertNotEqual(rec1.artifact_id, rec2.artifact_id)
+        self.assertEqual(rec1.content_hash, rec2.content_hash)
+        matches = self.reg.get_by_hash(rec1.content_hash)
+        self.assertEqual({m.artifact_id for m in matches},
+                         {rec1.artifact_id, rec2.artifact_id})
+
+    def test_get_by_hash_unknown_hash_returns_empty_tuple(self):
+        self.assertEqual(self.reg.get_by_hash("sha256:doesnotexist"), ())
+
+    def test_get_content_recovers_exact_bytes(self):
+        rec = self.reg.ingest_source(b"exact bytes to recover", "note", "loc", "kyle")
+        self.assertEqual(self.reg.get_content(rec.artifact_id), b"exact bytes to recover")
+
+    def test_get_content_unknown_artifact_id_raises_keyerror(self):
+        with self.assertRaises(KeyError):
+            self.reg.get_content("SRC-nonexistent")
+
+    def test_get_content_missing_blob_raises_no_such_content_hash(self):
+        rec = self.reg.ingest_source(b"will be deleted", "note", "loc", "kyle")
+        archived_path = self.archive_dir / f"{rec.content_hash.split(':', 1)[1]}.blob"
+        archived_path.unlink()
+        with self.assertRaises(reg.NoSuchContentHash):
+            self.reg.get_content(rec.artifact_id)
+
 
 if __name__ == "__main__":
     unittest.main()
