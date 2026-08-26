@@ -66,6 +66,32 @@ reusable infrastructure → automate only after proof → scale only after
 reality yield), with sequencing enforced — a lower-rung action is never
 legitimate while a higher, unresolved rung is available.
 
+## AIG compressed status packet
+
+For a status update on a request that turned up **no repository delta**
+(no new target, no new evidence, no new failure) — not for real build/recon
+work, which still gets a full prose report — reply with:
+
+```
+@R|T=<target or ∅>|Δ=0|V=P|μ=∅|S=Z
+A{⏹:{no non-dominated delta}}
+```
+
+Field meanings: `T`=target, `I`=intent, `Δ`=verified delta (0 if none),
+`E`=evidence, `C`=real consumer, `V`=verify result (P/H/F), `μ`=mutation
+candidate (∅ if none), `S`=state (`GO`/`HOLD`/`Q`/`X`/`Z`). Optional:
+`K`=constraints, `N`=next action. `Z` = rest/stop; a valid, successful
+result, not a failure — same meaning as `HOLD_NO_NON_DOMINATED_DELTA`
+elsewhere in this repo's doctrine.
+
+Stop rule: if `T=∅` and nothing new exists (no evidence/failure/lever/
+consumer), the packet above is the whole reply — do not also produce an
+essay, and do not spend a turn proposing changes to this packet format
+itself without a concrete, evidenced gain. This is a reporting shorthand,
+not a new subsystem — it governs output style only, not enforcement;
+real gates remain `foundation/hells_gate.py` and friends as documented
+below.
+
 ## `/boot`
 
 Run `/boot` (a project-level slash command, `.claude/commands/boot.md`)

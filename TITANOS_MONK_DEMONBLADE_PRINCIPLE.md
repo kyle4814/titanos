@@ -82,3 +82,53 @@ real consumer, Gate is whichever existing enforcement point
 (`hells_gate.py`, `publication_gate.py`, a domain-specific gate) the
 finding would actually have to pass through. This is a communication
 convention, not a new enforcement layer.
+
+## ADDENDUM 2026-08-27 — DEFENSIVE-DOCTRINE RECON, NO BUILD
+
+A 5-agent recon asked whether a dedicated "defensive military doctrine"
+folder (frame admission, reality-contract refusal, power-transfer
+audit, false-urgency resistance, off-ramp doctrine, containment,
+recomputation, observer-attribution) was justified. All five agents
+converged: **no new file.** Every one of the twelve candidate concepts
+already has a real, grep-verified, tested implementation somewhere in
+this repo — `hells_gate.py`'s fail-closed admission and refusal to
+ever say "TRUSTED"; `situation_analysis.py`'s `HOLD`/
+`AMBIGUOUS_MULTIPLE`/`OFFRAMP_DECISIONS` (optionality/off-ramp);
+`crystal.py::is_current()` and `contradictions/registry.py`'s
+evidence-gated `resolve()` (historical ≠ current truth); `flow_switch.py`'s
+CT_141 panic detection (false-urgency resistance, already covered by
+this repo's own Black Ice doctrine); `human_jurisdiction.py`'s
+re-derive-from-frozen-history discipline and `SelfPromotionForbidden`
+(authority verification); `regression_engine.py`'s propose-never-execute
+boundary (already named, verbatim, "observe/propose/execute"). Building
+a parallel file for any of these would duplicate working code under new
+vocabulary — the exact anti-pattern this file's own opening section
+already forbids.
+
+Two genuinely absent things were found, both vocabulary-only, neither
+requiring a new gate or file:
+
+**Frame refusal ≠ denying a real structural finding.** A `KILLED`
+`DemonbladeVerdict` or a raised `AnalysisNotSurvived` is a structural
+finding, not "a frame" a caller can argue away rhetorically. Disputing
+one legitimately requires a fresh `demonblade_pass()` run against new
+evidence — never a reframing of the same evidence. See
+`foundation/situation_analysis.py::AnalysisNotSurvived`.
+
+**Power-transfer audit** is genuinely new vocabulary (zero prior
+occurrences anywhere in this repo) with one real, narrow, current use:
+when a future evaluator (an off-ramp/tension candidate, or any
+caller-supplied proposal) is assessed, name explicitly which of
+{agency, authority, optionality, time, identity, information,
+future-freedom} it asks the evaluated party to give up — the same
+`dimensions_scored`-style checklist shape `BottleneckCandidate` already
+uses, not a new state machine. Not adopted as code this cycle — no real
+unstructured-input caller exists yet to exercise it (the same reason a
+"universal decision router" was already rejected in `PARETO_FRONTIER.md`).
+If a real caller appears, this is the one candidate worth revisiting as
+an addition to an existing evaluator, never a new gate.
+
+No code changed. No new file created. `PARETO_FRONTIER.md` not
+touched — every entry in its Rejected section is a code/build
+candidate; there is no precedent for a pure-doctrine-addendum entry
+there, and none was added.
