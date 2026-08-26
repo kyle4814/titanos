@@ -35,10 +35,29 @@ mistaken for closed.
 | Switch Hardener (10-gate check + thin `kpm.promotion` reuse) | `foundation/switch_hardener.py` | 16 |
 | Reality Yield Ledger | `foundation/reality_yield_ledger.py` | 34 |
 | Module mapping | `foundation/MAPPING.md` | — |
+| Situation Analysis — Monk/Demonblade pass, bottleneck/tension/off-ramp hypotheses, MAGL bridge | `foundation/situation_analysis.py` | see `foundation/tests/test_situation_analysis*.py`, `test_bottleneck_hypotheses.py`, `test_tension_and_offramp.py` |
+| Historical Findings bridge (RPA validation-bypass finding → `ContradictionRegistry`, writer-to-reader only, no promotion call) | `foundation/historical_findings.py` | see `foundation/tests/test_historical_findings.py` |
+
+**2026-08-26 addendum:** `historical_findings.py` is a one-way writer
+into `ContradictionRegistry` — it deliberately does not call
+`PromotionStore.promote()` and is not wired to `demonblade_pass()`'s
+own `contradiction_candidates` output (that composition was attacked
+and rejected as semantic laundering — single-sided unsupported-claim
+findings are not the two-claims-cannot-both-be-true collisions
+`ContradictionRegistry` itself is defined around). See the module's own
+docstring for the full reasoning, and `PARETO_FRONTIER.md`'s
+`FRONTIER-SITUATION-ANALYSIS-SLICE`/`FRONTIER-WORLD-PING-SLICE`/
+`FRONTIER-TECTONIC-TENSION-SLICE`/`FRONTIER-CONTRADICTION-REGISTRY-WRITER`
+entries for the full build history. This table's original entries below
+predate this addendum and are otherwise unchanged.
 
 **95 new tests, 95 passing.** Full-repo regression in this same pass:
 **786 tests total across the whole repository, 786 passing, 0 failing**
-(95 new + 691 pre-existing re-verified).
+(95 new + 691 pre-existing re-verified). This count is now stale — the
+repository's own root `README.md` and `PARETO_FRONTIER.md` are the
+places to check for the current total, not this line; re-run
+`python3 -m unittest discover -s foundation -p "test_*.py"` rather than
+trusting either number.
 
 ## The load-bearing properties, each actually tested
 

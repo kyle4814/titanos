@@ -171,6 +171,31 @@ class CrystalStore:
         """Every crystal ever recorded, in recording order, superseded included."""
         return tuple(self._crystals[i] for i in self._order)
 
+    def is_current(self, crystal_id: str) -> bool:
+        """True iff `crystal_id` exists and no other recorded crystal
+        declares `supersedes=crystal_id`.
+
+        `supersedes` (see `Crystal.supersedes`, checked at write-time in
+        `record()`) was, before this method existed, validated on write
+        but never consulted on read — `get()`/`all_crystals()` return a
+        superseded crystal exactly as readily as a current one, with no
+        signal attached. A future reader trusting a `Crystal` as current
+        world-state without calling this first is exactly the "historical
+        lesson treated as current truth" failure mode this repository's
+        Monk/Demonblade doctrine forbids — this method exists so that
+        check is one call, not a manual scan every caller has to
+        reinvent (or forget to).
+
+        A crystal with no superseding entry is current by definition,
+        including one that was never in question — this never returns
+        True for an id that was never recorded.
+        """
+        if crystal_id not in self._crystals:
+            return False
+        return not any(
+            c.supersedes == crystal_id for c in self._crystals.values()
+        )
+
     def reusable_abstractions(self) -> tuple[str, ...]:
         """The distilled lesson text of every recorded crystal, in order.
 

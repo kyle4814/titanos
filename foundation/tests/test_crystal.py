@@ -133,5 +133,30 @@ class TestCrystalStore(unittest.TestCase):
         self.assertEqual(store.reusable_abstractions(), ())
 
 
+class TestIsCurrent(unittest.TestCase):
+    def test_unrecorded_id_is_not_current(self):
+        store = CrystalStore()
+        self.assertFalse(store.is_current("nope"))
+
+    def test_never_superseded_crystal_is_current(self):
+        store = CrystalStore()
+        store.record("C-400", **_kwargs())
+        self.assertTrue(store.is_current("C-400"))
+
+    def test_superseded_crystal_is_no_longer_current(self):
+        store = CrystalStore()
+        store.record("C-500", **_kwargs())
+        store.record("C-501", **_kwargs(supersedes="C-500"))
+        self.assertFalse(store.is_current("C-500"))
+        self.assertTrue(store.is_current("C-501"))
+
+    def test_being_superseded_does_not_remove_the_old_crystal(self):
+        store = CrystalStore()
+        store.record("C-600", **_kwargs())
+        store.record("C-601", **_kwargs(supersedes="C-600"))
+        self.assertIsNotNone(store.get("C-600"))
+        self.assertIn("C-600", [c.crystal_id for c in store.all_crystals()])
+
+
 if __name__ == "__main__":
     unittest.main()

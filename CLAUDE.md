@@ -17,6 +17,17 @@
 @TITANOS_SIGIL_CAPABILITY_INDEX.md
 @TITANOS_RECURSION_GUARD_001.md
 @TITANOS_LAUNCH_SEQUENCE_001.md
+@TITANOS_MONK_DEMONBLADE_PRINCIPLE.md
+
+Monk-Demonblade Principle (next doctrine file after Launch Sequence
+001): names, but does not newly enforce, the capability/authority
+separation this repo's code already has — Demonblade proposes/attacks,
+Monk demands the real call graph and real consumer before accepting a
+finding, Gate is whichever existing enforcement point (Hell's Gate,
+publication_gate, a domain gate) would actually apply. Pure vocabulary
+and formal-notation compression of the RPA fix + switch-hardener/TAAL/
+MAGL negative-control recon already completed this session — no new
+code.
 
 Recursion Guard (16th doctrine file): protected execution ancestry
 must survive the process boundary where recursive spawning can occur
