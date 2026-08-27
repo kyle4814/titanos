@@ -1,0 +1,33 @@
+[
+  {
+    "claim_id": "c-toolaccess-drop",
+    "text": "Fact-checking organisations reporting access to technology/tools dropped from 44.3% to 30.7%",
+    "classification": "VERIFIED_FACT",
+    "confidence": "HIGH",
+    "source": "https://www.poynter.org/wp-content/uploads/2026/03/2026-State-of-Fact-Checkers-4.pdf",
+    "subject": "factchecker-tool-access"
+  },
+  {
+    "claim_id": "c-bottleneck-is-workflow",
+    "text": "The bottleneck for misinformation response is the verification workflow (manual transcription, claim identification, multi-tab source-checking), not claim detection",
+    "classification": "SUPPORTED_INFERENCE",
+    "confidence": "MEDIUM",
+    "source": "https://gijn.org/stories/5-free-open-source-digital-tools-combat-disinformation/",
+    "subject": "factchecker-bottleneck"
+  },
+  {
+    "claim_id": "c-hybrid-trend",
+    "text": "Hybrid workflows (community + AI + expert fact-checkers with distinct roles) are a promising scalable path",
+    "classification": "OPINION_OR_TREND",
+    "confidence": "LOW",
+    "source": "https://misinforeview.hks.harvard.edu/article/fact-checking-at-a-crossroads-fact-checkers-perspectives-on-community-notes-ai-integration-and-design-recommendations/",
+    "subject": "factchecker-hybrid-model"
+  },
+  {
+    "claim_id": "c-detection-is-bottleneck",
+    "text": "Detection is the primary bottleneck for fact-checking organisations",
+    "classification": "UNVERIFIED_CLAIM",
+    "confidence": "LOW",
+    "subject": "factchecker-bottleneck"
+  }
+]

@@ -88,19 +88,36 @@ Last compiled 2026-08-25. Each item cites its source report.
 
 ## Reference — no action required unless this capability is ever wanted
 
-12. **External communication is disabled by default, on purpose.**
-    `foundation/communication_gate.py::authorize_communication()` is the
-    switch (`TITANOS_COMMUNICATION_SWITCH_001.md`) — no network
-    capability has been built behind it, and this repository still makes
-    zero network connections. If a future session ever needs bounded,
-    read-only external retrieval, the switch already exists to gate it:
-    it requires a named human (`human_authorized_by`), a declared reason
-    (`human_authorization_note`), an explicit scope (`READ_URL` /
-    `READ_API` / `RECEIVE_WEBHOOK` — none implemented), and explicit
-    `reversibility_acknowledged=True`. Nothing here is blocking; this
-    entry exists so a future session finds the switch instead of
-    re-deriving the same discipline from scratch or building a fetcher
-    without one. *(Ø_FRONTIER_PROBE_001 / EXTERNAL_COMMUNICATION_SWITCH_001.)*
+12. ~~External communication is disabled by default, on purpose.~~ —
+    **PARTIALLY RESOLVED 2026-08-27.** A HOLD→DISCOVER recon found the
+    switch (`foundation/communication_gate.py`) fully built but never
+    armed — no `CommunicationSwitch` had ever been constructed
+    representing real human authorization, only the reminder that one
+    would eventually be needed. Kyle gave explicit standing
+    authorization: `READ_URL`/`READ_API` only (never `RECEIVE_WEBHOOK`),
+    publicly accessible sources only (GitHub repos, docs, package
+    registries, public APIs), no login-required systems, private data,
+    credentials, privilege escalation, financial transactions, or paid
+    API usage without separate explicit authorization, no autonomous
+    code execution or dependency installation from discovery results, no
+    autonomous scope expansion beyond the active verified question — for
+    the specific purpose of resolving verified `INPUT_STARVED_HOLD`
+    states and verified capability gaps, never open-ended browsing.
+    Represented as real code: `foundation/discovery_authorization.py`
+    (`standing_switch_for()`, `DiscoveryPolicy`, `authorize_discovery()`
+    — objective must be concrete, budget bounded by default
+    `max_queries=5`/`max_wall_clock_seconds=60`/`max_results=10`),
+    verified against the real `communication_gate.py` two-point
+    enforcement, 11/11 tests passing. **Still not fully resolved: no
+    fetcher/adapter exists.** No concrete discovery objective is
+    currently open in `PARETO_FRONTIER.md`, so there is nothing yet for
+    this authorization to be exercised against — building a fetcher now
+    would have no real objective to serve, and this repository still
+    makes zero network connections (Obelisk Test unchanged). The next
+    real trigger is a future `INPUT_STARVED_HOLD` (see
+    `foundation/sentinel.py::classify_hold()`, built the same cycle)
+    naming a concrete objective. *(Ø_FRONTIER_PROBE_001 /
+    EXTERNAL_COMMUNICATION_SWITCH_001 / HOLD_DISCOVER_EDGE_001.)*
 
 ## Recurring theme worth naming once, not per-session
 

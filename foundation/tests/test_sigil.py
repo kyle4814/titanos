@@ -317,12 +317,18 @@ class TestComputeSigilOnRealRepo(unittest.TestCase):
     def test_deterministic_across_two_runs(self):
         self.assertEqual(self.first, self.second)
 
-    def test_real_repo_reaches_t7_with_all_suites_green(self):
-        # This repository is now actually public (kyle4814/titanos) with
-        # a real, recorded CI success (FIRST_PING.md) -- T7 is earned
-        # evidence here, not aspirational.
+    def test_real_repo_tier_reflects_the_real_network_tradeoff(self):
+        # This repository was T7 (public repo, real recorded CI success)
+        # until 2026-08-27, when foundation/mouth_pypi.py added this
+        # repo's first-ever real network call (one GET to PyPI's public
+        # RSS feed, explicitly authorized). compute_tier()'s own T3 rung
+        # ("all suites green, but zero-network no longer holds") is
+        # exactly correct here — this is the honest, evidenced price of
+        # that real capability, not a bug to patch away. If the network
+        # mouth is ever removed, this repo should recompute back to T7
+        # without any code change here.
         self.assertTrue(self.first.all_tests_green, self.first.justification["proof"])
-        self.assertEqual(self.first.tier, "T7")
+        self.assertEqual(self.first.tier, "T3")
         self.assertGreater(self.first.total_tests, 900)
 
     def test_reconcile_against_unchanged_real_repo_reports_no_change(self):

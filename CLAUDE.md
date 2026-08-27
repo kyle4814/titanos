@@ -70,12 +70,24 @@ legitimate while a higher, unresolved rung is available.
 
 For a status update on a request that turned up **no repository delta**
 (no new target, no new evidence, no new failure) — not for real build/recon
-work, which still gets a full prose report — reply with:
+work, which still gets a full prose report — reply with the two-line
+packet `T=<target or ∅>|Δ=0|V=P|μ=∅|S=Z` prefixed with `@R|`, followed by
+`A{⏹:{no non-dominated delta}}` on its own line. (Not written as a literal
+`@`-prefixed code line in this file — `foundation/sentinel.py`'s
+`check_claude_md_imports` scans every line starting with `@` as a
+doctrine-file import; a literal example broke that check on 2026-08-27,
+caught by `foundation/tests/test_sentinel.py`. Fixed by rewording, not by
+weakening the scanner.)
 
-```
-@R|T=<target or ∅>|Δ=0|V=P|μ=∅|S=Z
-A{⏹:{no non-dominated delta}}
-```
+`T=∅` means no concrete object target (repo file, external artifact) —
+it does not mean no valid work. A genuine question, a challenge to a
+prior verdict, or a real proposed change to this convention itself
+still gets answered even with `T=∅`; only a payload with no new
+claim/command/constraint/evidence relative to the last one collapses
+to the `Z` packet below. This file is `RUNTIME_LOADED` — read at every
+session boot, same as this repo's other doctrine files — but following
+it is `PROCESS_ONLY`, a judgment call each session makes, not something
+any code here enforces.
 
 Field meanings: `T`=target, `I`=intent, `Δ`=verified delta (0 if none),
 `E`=evidence, `C`=real consumer, `V`=verify result (P/H/F), `μ`=mutation
@@ -114,11 +126,22 @@ first function hard-gated under this rule: `foundation/publication_gate.py`
 (publication / private-public boundary crossing), built because it was
 the pending real-world action, not a hypothetical one. The second:
 `foundation/communication_gate.py` (external communication) — see
-`TITANOS_COMMUNICATION_SWITCH_001.md`. **The switch exists; the door
-does not** — this repository still makes zero network connections and
-still passes the Obelisk Test unchanged; `authorize_communication()`'s
-result is consumed by nothing, because no retrieval/send/receive
-mechanism has been built.
+`TITANOS_COMMUNICATION_SWITCH_001.md`. **The switch is now armed; the
+door still does not exist.** 2026-08-27: Kyle gave a standing, bounded,
+read-only discovery authorization (READ_URL/READ_API only, public
+sources only, no credentials/privilege/spend/code-execution — see
+`HUMAN_DECISIONS.md`), represented as real `CommunicationSwitch`
+instances by `foundation/discovery_authorization.py` rather than a
+prose claim a caller re-types each time. `authorize_communication()`
+now genuinely returns True for an authorized `DiscoveryPolicy` — but
+this repository still makes zero network connections and still passes
+the Obelisk Test unchanged: no fetcher/adapter consumes that True, and
+none should be built until a concrete discovery objective is actually
+open in `PARETO_FRONTIER.md` (none is, as of this entry). See also
+`foundation/sentinel.py::classify_hold()` — the HOLD_CLASSES
+(`TERMINAL_HOLD`/`BLOCKED_HOLD`/`INPUT_STARVED_HOLD`/`BUDGET_HOLD`/
+`AUTHORITY_HOLD`) this authorization made worth naming, since only
+`INPUT_STARVED_HOLD` is the state this switch is actually for.
 
 **Hell's Gate** is the general admission boundary
 (`foundation/hells_gate.py`): every artifact seeking to enter the

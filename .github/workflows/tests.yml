@@ -30,6 +30,7 @@ jobs:
           - taal
           - foundation
           - narrative
+          - legacy
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

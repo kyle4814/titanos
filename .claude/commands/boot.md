@@ -38,6 +38,32 @@ summary is not proof of anything; verified behavior is.
    discovered via `python3 -m unittest discover`) and record the real
    pass/fail count.
 
+4b. **CHECK PULSE CONTINUITY** — a real hourly cron job
+   (`foundation/cron_pulse.py`) runs `foundation/sentinel.py::pulse_sweep()`
+   independent of any Claude session and appends to
+   `foundation/pulse_log.jsonl`. Call
+   `foundation.sentinel.read_pulse_continuity(REPO_ROOT)` (read-only,
+   bounded to the last 20 records, fails soft if the log is missing or a
+   line is malformed) and report `available`, `latest_timestamp`,
+   `records_considered`, `stale` (flags if the last record is >3h old —
+   the cron clock may have stopped), and any
+   `meaningful_findings`/`warnings`. A finding here is evidence to look
+   at, not something already authorized to act on — same rule as every
+   other Sentinel finding.
+
+4c. **CHECK MOUTH + DEPENDENCY-PRESSURE CONTINUITY** — the same cron
+   entry also runs two mouths (`foundation/mouth_pypi.py`,
+   `foundation/mouth_github_releases.py`) and
+   `foundation/dependency_pressure.py`, each appending to its own jsonl
+   log. Call `foundation.mouth_common.read_mouth_log_continuity(log_path)`
+   (same bounded/fail-soft/stale-after-3h contract as 4b, independent
+   implementation — different payload shape, not shared code) against
+   `foundation/mouth_pypi_pyyaml_releases_log.jsonl`,
+   `foundation/mouth_github_pyyaml_releases_log.jsonl`, and
+   `foundation/dependency_pressure_log.jsonl` (the last one may not
+   exist yet — `available=False` there just means no dependency
+   pressure has ever fired, not a fault).
+
 5. **CHECK WHAT ALREADY EXISTS** — Read `magl/BUILD_REPORT.md`'s and
    `foundation/MAPPING.md`'s "next smallest work cell" / "genuinely
    unbuilt" sections specifically — these are the standing, named,
@@ -89,6 +115,19 @@ HIGHEST LEVER:
 NEXT MOVE:
 GO / HOLD / HUMAN DECISION:
 ```
+
+If the report is `HOLD`, name which kind, using
+`foundation.sentinel.classify_hold()` (built 2026-08-27) rather than
+leaving it undifferentiated: `TERMINAL_HOLD` (nothing is being sought),
+`BLOCKED_HOLD` (a named blocker exists), `BUDGET_HOLD`, `AUTHORITY_HOLD`,
+`SIGNAL_WAIT_HOLD` (a lawful public channel — e.g. the "Bring a
+bottleneck" issue template — is already open and the only missing thing
+is an external actor using it; not fetchable, so never INPUT_STARVED_HOLD),
+or `INPUT_STARVED_HOLD` (a concrete objective exists, internal levers
+are exhausted, and no discovery is currently authorized to look
+outside the repository for it — see `foundation/discovery_authorization.py`
+and `HUMAN_DECISIONS.md` item 12 for what bounded discovery is actually
+authorized, and note it still has no fetcher to exercise it).
 
 Do not begin a GO cycle automatically after this report — `/boot` ends at
 the report. A GO cycle begins only when the operator separately says

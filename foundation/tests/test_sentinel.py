@@ -1,4 +1,5 @@
 import inspect
+import json
 import re
 import tempfile
 import unittest
@@ -217,6 +218,318 @@ class TestFourPaths(unittest.TestCase):
         paths = FourPaths(lever=None, foundation=None, reality=None, compaction=None)
         text = format_four_paths(paths)
         self.assertEqual(text.count("NO STRONG PATH IDENTIFIED"), 4)
+
+
+class TestReadPulseContinuity(unittest.TestCase):
+    def _repo(self, tmp_path):
+        (tmp_path / "foundation").mkdir()
+        return tmp_path
+
+    def test_missing_log_fails_soft(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            repo = self._repo(Path(d))
+            result = sentinel.read_pulse_continuity(repo)
+            self.assertFalse(result.available)
+            self.assertEqual(result.records_considered, 0)
+            self.assertIn("never run", result.warnings[0])
+
+    def test_empty_log_is_valid_zero_state(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            repo = self._repo(Path(d))
+            (repo / "foundation" / "pulse_log.jsonl").write_text("")
+            result = sentinel.read_pulse_continuity(repo)
+            self.assertTrue(result.available)
+            self.assertEqual(result.records_considered, 0)
+            self.assertEqual(result.meaningful_findings, ())
+
+    def test_normal_log_surfaces_recent_evidence(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            repo = self._repo(Path(d))
+            rec = {
+                "timestamp": "2026-08-27T00:00:00+00:00",
+                "raw_finding_count": 1,
+                "compacted": False,
+                "findings": [{
+                    "observation": "x", "evidence_location": "y",
+                    "confidence": "HIGH", "interpretation": "i",
+                    "reversibility": "r", "recommended_next_action": "n",
+                }],
+            }
+            (repo / "foundation" / "pulse_log.jsonl").write_text(json.dumps(rec) + "\n")
+            from datetime import datetime, timezone
+            result = sentinel.read_pulse_continuity(
+                repo, now=datetime(2026, 8, 27, 0, 0, 0, tzinfo=timezone.utc)
+            )
+            self.assertTrue(result.available)
+            self.assertEqual(result.latest_timestamp, "2026-08-27T00:00:00+00:00")
+            self.assertEqual(result.records_considered, 1)
+            self.assertEqual(len(result.meaningful_findings), 1)
+            self.assertEqual(result.warnings, ())
+            self.assertFalse(result.stale)
+
+    def test_malformed_json_line_skipped_not_fatal(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            repo = self._repo(Path(d))
+            good = {
+                "timestamp": "2026-08-27T00:00:00+00:00",
+                "raw_finding_count": 0, "compacted": False, "findings": [],
+            }
+            (repo / "foundation" / "pulse_log.jsonl").write_text(
+                "{not valid json\n" + json.dumps(good) + "\n"
+            )
+            from datetime import datetime, timezone
+            result = sentinel.read_pulse_continuity(
+                repo, now=datetime(2026, 8, 27, 0, 0, 0, tzinfo=timezone.utc)
+            )
+            self.assertTrue(result.available)
+            self.assertEqual(result.records_considered, 1)
+            self.assertEqual(len(result.warnings), 1)
+            self.assertIn("malformed JSON", result.warnings[0])
+
+    def test_malformed_finding_skipped_not_fatal(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            repo = self._repo(Path(d))
+            rec = {
+                "timestamp": "t", "raw_finding_count": 1, "compacted": False,
+                "findings": [{"observation": "missing required fields"}],
+            }
+            (repo / "foundation" / "pulse_log.jsonl").write_text(json.dumps(rec) + "\n")
+            result = sentinel.read_pulse_continuity(repo)
+            self.assertTrue(result.available)
+            self.assertEqual(result.meaningful_findings, ())
+            self.assertTrue(any("malformed finding" in w for w in result.warnings))
+
+    def test_repeated_calls_do_not_mutate_the_log(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            repo = self._repo(Path(d))
+            log = repo / "foundation" / "pulse_log.jsonl"
+            rec = {"timestamp": "t", "raw_finding_count": 0, "compacted": False, "findings": []}
+            log.write_text(json.dumps(rec) + "\n")
+            before = log.read_text()
+            sentinel.read_pulse_continuity(repo)
+            sentinel.read_pulse_continuity(repo)
+            sentinel.read_pulse_continuity(repo)
+            self.assertEqual(log.read_text(), before)
+
+    def test_large_log_is_bounded(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            repo = self._repo(Path(d))
+            log = repo / "foundation" / "pulse_log.jsonl"
+            lines = []
+            for i in range(500):
+                lines.append(json.dumps({
+                    "timestamp": f"t{i}", "raw_finding_count": 0,
+                    "compacted": False, "findings": [],
+                }))
+            log.write_text("\n".join(lines) + "\n")
+            result = sentinel.read_pulse_continuity(repo, max_records=20)
+            self.assertEqual(result.records_considered, 20)
+            self.assertEqual(result.latest_timestamp, "t499")
+
+    def test_dedupes_meaningful_findings_across_records(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            repo = self._repo(Path(d))
+            finding = {
+                "observation": "same", "evidence_location": "same",
+                "confidence": "HIGH", "interpretation": "i",
+                "reversibility": "r", "recommended_next_action": "n",
+            }
+            rec1 = {"timestamp": "t1", "raw_finding_count": 1, "compacted": False, "findings": [finding]}
+            rec2 = {"timestamp": "t2", "raw_finding_count": 1, "compacted": False, "findings": [finding]}
+            (repo / "foundation" / "pulse_log.jsonl").write_text(
+                json.dumps(rec1) + "\n" + json.dumps(rec2) + "\n"
+            )
+            result = sentinel.read_pulse_continuity(repo)
+            self.assertEqual(len(result.meaningful_findings), 1)
+
+    def test_real_pulse_log_in_this_repo_is_readable(self):
+        # Whatever real state cron_pulse.py has left in this actual repo
+        # must parse without raising — the strongest available proof that
+        # this works against the real log format, not just a synthetic one.
+        result = sentinel.read_pulse_continuity(REPO_ROOT)
+        self.assertTrue(result.available)
+
+    def test_fresh_pulse_is_not_stale(self):
+        import tempfile
+        from datetime import datetime, timezone
+        with tempfile.TemporaryDirectory() as d:
+            repo = self._repo(Path(d))
+            now = datetime(2026, 8, 27, 12, 0, 0, tzinfo=timezone.utc)
+            rec = {
+                "timestamp": "2026-08-27T11:30:00+00:00",
+                "raw_finding_count": 0, "compacted": False, "findings": [],
+            }
+            (repo / "foundation" / "pulse_log.jsonl").write_text(json.dumps(rec) + "\n")
+            result = sentinel.read_pulse_continuity(repo, now=now)
+            self.assertFalse(result.stale)
+            self.assertEqual(result.warnings, ())
+
+    def test_old_pulse_is_flagged_stale(self):
+        import tempfile
+        from datetime import datetime, timezone
+        with tempfile.TemporaryDirectory() as d:
+            repo = self._repo(Path(d))
+            now = datetime(2026, 8, 27, 12, 0, 0, tzinfo=timezone.utc)
+            rec = {
+                "timestamp": "2026-08-27T00:00:00+00:00",  # 12h old, threshold is 3h
+                "raw_finding_count": 0, "compacted": False, "findings": [],
+            }
+            (repo / "foundation" / "pulse_log.jsonl").write_text(json.dumps(rec) + "\n")
+            result = sentinel.read_pulse_continuity(repo, now=now)
+            self.assertTrue(result.stale)
+            self.assertEqual(len(result.warnings), 1)
+            self.assertIn("stale", result.warnings[0])
+
+    def test_boundary_just_under_threshold_is_not_stale(self):
+        import tempfile
+        from datetime import datetime, timezone
+        with tempfile.TemporaryDirectory() as d:
+            repo = self._repo(Path(d))
+            now = datetime(2026, 8, 27, 3, 0, 0, tzinfo=timezone.utc)
+            rec = {
+                "timestamp": "2026-08-27T00:00:00+00:00",  # exactly 3h before `now`
+                "raw_finding_count": 0, "compacted": False, "findings": [],
+            }
+            (repo / "foundation" / "pulse_log.jsonl").write_text(json.dumps(rec) + "\n")
+            result = sentinel.read_pulse_continuity(repo, now=now)
+            self.assertFalse(result.stale)  # exactly 3h == threshold, not > threshold
+
+    def test_unparseable_timestamp_does_not_crash_and_is_not_marked_stale(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            repo = self._repo(Path(d))
+            rec = {
+                "timestamp": "not-a-real-timestamp",
+                "raw_finding_count": 0, "compacted": False, "findings": [],
+            }
+            (repo / "foundation" / "pulse_log.jsonl").write_text(json.dumps(rec) + "\n")
+            result = sentinel.read_pulse_continuity(repo)
+            self.assertFalse(result.stale)
+            self.assertTrue(any("could not be parsed" in w for w in result.warnings))
+
+    def test_real_pulse_log_staleness_is_computable_without_crashing(self):
+        # Contradiction check (§VI): does adding staleness detection to a
+        # bounded read-only report accidentally create a new failure mode
+        # against the real, currently-healthy log? It must not raise.
+        result = sentinel.read_pulse_continuity(REPO_ROOT)
+        self.assertIn(result.stale, (True, False))
+
+
+class TestClassifyHold(unittest.TestCase):
+    def test_authority_wins_over_everything_else(self):
+        result = sentinel.classify_hold(
+            has_concrete_objective=True, internal_levers_exhausted=True,
+            discovery_authorized=True, budget_exhausted=True,
+            authority_required=True,
+        )
+        self.assertEqual(result, "AUTHORITY_HOLD")
+
+    def test_budget_wins_over_blocked_and_input_starved(self):
+        result = sentinel.classify_hold(
+            has_concrete_objective=True, internal_levers_exhausted=True,
+            budget_exhausted=True, blocked_reason="waiting on X",
+        )
+        self.assertEqual(result, "BUDGET_HOLD")
+
+    def test_named_blocker_is_blocked_hold(self):
+        result = sentinel.classify_hold(
+            has_concrete_objective=True, internal_levers_exhausted=True,
+            blocked_reason="F-007 git history contamination unresolved",
+        )
+        self.assertEqual(result, "BLOCKED_HOLD")
+
+    def test_no_objective_is_terminal_hold(self):
+        result = sentinel.classify_hold(
+            has_concrete_objective=False, internal_levers_exhausted=True,
+        )
+        self.assertEqual(result, "TERMINAL_HOLD")
+
+    def test_no_objective_wins_even_if_levers_not_exhausted(self):
+        # nothing is being sought, so whether levers are exhausted is moot
+        result = sentinel.classify_hold(
+            has_concrete_objective=False, internal_levers_exhausted=False,
+        )
+        self.assertEqual(result, "TERMINAL_HOLD")
+
+    def test_objective_plus_exhausted_levers_plus_no_discovery_is_input_starved(self):
+        result = sentinel.classify_hold(
+            has_concrete_objective=True, internal_levers_exhausted=True,
+            discovery_authorized=False,
+        )
+        self.assertEqual(result, "INPUT_STARVED_HOLD")
+
+    def test_objective_but_levers_not_exhausted_is_not_a_hold_state(self):
+        with self.assertRaises(ValueError):
+            sentinel.classify_hold(
+                has_concrete_objective=True, internal_levers_exhausted=False,
+            )
+
+    def test_discovery_authorized_and_exhausted_is_not_a_hold_state(self):
+        # this is the trigger condition for a bounded discovery attempt,
+        # not a HOLD — classify_hold refuses to mislabel it
+        with self.assertRaises(ValueError):
+            sentinel.classify_hold(
+                has_concrete_objective=True, internal_levers_exhausted=True,
+                discovery_authorized=True,
+            )
+
+    def test_result_is_always_a_declared_hold_class(self):
+        for kwargs in (
+            {"has_concrete_objective": True, "internal_levers_exhausted": True, "authority_required": True},
+            {"has_concrete_objective": True, "internal_levers_exhausted": True, "budget_exhausted": True},
+            {"has_concrete_objective": True, "internal_levers_exhausted": True, "blocked_reason": "x"},
+            {"has_concrete_objective": False, "internal_levers_exhausted": True},
+            {"has_concrete_objective": True, "internal_levers_exhausted": True},
+            {"has_concrete_objective": True, "internal_levers_exhausted": True, "awaiting_external_signal": True},
+        ):
+            self.assertIn(sentinel.classify_hold(**kwargs), sentinel.HOLD_CLASSES)
+
+    def test_awaiting_external_signal_is_signal_wait_hold(self):
+        result = sentinel.classify_hold(
+            has_concrete_objective=True, internal_levers_exhausted=True,
+            awaiting_external_signal=True,
+        )
+        self.assertEqual(result, "SIGNAL_WAIT_HOLD")
+
+    def test_signal_wait_beats_terminal_even_with_no_objective(self):
+        # a live channel with nobody home yet is not "nothing being
+        # sought" -- engagement IS being sought, just not by discovery
+        result = sentinel.classify_hold(
+            has_concrete_objective=False, internal_levers_exhausted=True,
+            awaiting_external_signal=True,
+        )
+        self.assertEqual(result, "SIGNAL_WAIT_HOLD")
+
+    def test_authority_beats_signal_wait(self):
+        result = sentinel.classify_hold(
+            has_concrete_objective=True, internal_levers_exhausted=True,
+            awaiting_external_signal=True, authority_required=True,
+        )
+        self.assertEqual(result, "AUTHORITY_HOLD")
+
+    def test_blocked_beats_signal_wait(self):
+        result = sentinel.classify_hold(
+            has_concrete_objective=True, internal_levers_exhausted=True,
+            awaiting_external_signal=True, blocked_reason="waiting on X",
+        )
+        self.assertEqual(result, "BLOCKED_HOLD")
+
+    def test_signal_wait_beats_input_starved(self):
+        # waiting for a person is not a discovery objective, even though
+        # both share "levers exhausted, discovery not authorized"
+        result = sentinel.classify_hold(
+            has_concrete_objective=True, internal_levers_exhausted=True,
+            awaiting_external_signal=True, discovery_authorized=False,
+        )
+        self.assertEqual(result, "SIGNAL_WAIT_HOLD")
 
 
 if __name__ == "__main__":

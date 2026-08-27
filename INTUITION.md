@@ -80,6 +80,102 @@ however promising it looks.
   the platform limitation, or a different mitigation might become
   obvious that isn't visible yet.
 
+- **RESIDUE → DISCOVERY OBJECTIVE bridge — parked, not built.**
+  2026-08-27 recon (following the discovery-authorization cycle) asked
+  whether a mechanism should exist to derive a concrete
+  `DiscoveryObjective` from real repository residue (so a future
+  `INPUT_STARVED_HOLD`, per `foundation/sentinel.py::classify_hold()`,
+  could call `foundation/discovery_authorization.py::authorize_discovery()`
+  automatically instead of a human hand-typing an objective each time).
+  **Finding: every currently-tracked residue in this repository is
+  internally resolvable** — `PARETO_FRONTIER.md`'s two open entries
+  (FRONTIER-009: needs build effort or stays correctly unbuilt;
+  FRONTIER-005: needs more real internal ingestion cycles, not an
+  external fact), `HUMAN_DECISIONS.md`'s open items (all human policy
+  calls, not missing external facts), and every observation above —
+  none of them is shaped "we don't know a fact about the outside world
+  and an external artifact would resolve it." Building a
+  `DiscoveryObjective` extractor now would have zero real residue to
+  bind to — exactly the "dormant abstraction with no consumer" this
+  session has killed every prior time it appeared (worker swarms,
+  Chronos, a search engine). **Parked spec, if a real case ever
+  appears:** `DiscoveryObjective(objective_id, residue_ref,
+  hold_classification, exact_gap, question, expected_evidence_type,
+  authorized_scope, stop_condition)` — `residue_ref` mandatory, pointing
+  at an existing `PARETO_FRONTIER.md` entry's `GAP` field (the correct
+  existing structured-residue surface — reuse, do not duplicate);
+  reject on generic gap/question, unnamed expected evidence, scope
+  outside `READ_URL`/`READ_API`, or an ineligible `HOLD_CLASS`. Do not
+  build this speculatively — wait for a real `PARETO_FRONTIER.md` GAP
+  that is genuinely external-fact-shaped, then build the extractor
+  against that one real case, the same way `mouth_common.py` was only
+  extracted after two real duplicated mouths existed to compare.
+
+- **"ZEUS MEKANIKZ" — a possible future public-facing layer, named,
+  not built.** 2026-08-27: a brand name with zero prior occurrence
+  anywhere in this repository was proposed as a higher-level
+  pressure/bottleneck/cooperation-resolution expression sitting on top
+  of TitanOS's existing epistemic substrate (evidence, provenance,
+  admission, authority, receipts). Evaluated against real repo state,
+  not branding enthusiasm:
+  - **Rename TitanOS → ZEUS MEKANIKZ: rejected.** ~20 `TITANOS_*.md`
+    doctrine files, `README.md`, `LICENSE`, `SIGIL.md`,
+    `HUMAN_DECISIONS.md`, and the live public repo `kyle4814/titanos`
+    (real CI history attached to that name, per `FIRST_PING.md`) all
+    carry the existing identity. A rename destroys real, load-bearing
+    continuity for zero functional gain, and a public identity change
+    with no new capability behind it reads as identity laundering to
+    an external observer, not growth.
+  - **Separate ZEUS MEKANIKZ codebase: rejected.** Would duplicate
+    `hells_gate.py`, `communication_gate.py`, `SourceRegistry`,
+    `sentinel.py`, `crystal.py` — real, tested infrastructure — against
+    zero current evidence of a second audience needing separate
+    plumbing. Exactly the "empty theater" this session has killed every
+    prior time a swarm/engine/second-store was proposed with no real
+    consumer.
+  - **TitanOS stays the verified substrate; "ZEUS MEKANIKZ" is a named,
+    unbuilt architectural hypothesis for a future public-facing layer:
+    survives, as a label only.** This repository has no product, no
+    customer, no revenue surface, and no external ping — same standing
+    fact `TITANOS_REALITY_YIELD_PROFIT_ARCHITECTURE.md` already
+    establishes — so a "resolution/cooperation layer" has no real
+    consumer *yet* either. Recorded here, not promoted to
+    `PARETO_FRONTIER.md`, because it cannot answer the Frontier Gate's
+    FIRST STEP/PROOF questions honestly — there is nothing to build
+    against. **No code, no new file, no rename executed.** Promotion
+    path if a real consumer ever appears (a genuine external actor
+    asking "what does this do and can I help"): a single new
+    documentation surface reusing `PARETO_FRONTIER.md`'s Frontier Gate
+    shape and `HUMAN_DECISIONS.md`'s resolved-entry convention, not a
+    parallel identity.
+
+- **Command language / sigil→IR compiler / issue-comment bot — parked,
+  not built.** 2026-08-27: a directive proposed a layered command
+  architecture (personality → alias resolution → canonical IR →
+  authority check → primitive → execution → receipt) and a
+  `/titanos <command> CASE-N` GitHub-issue-comment bot surface.
+  **Real recon, not assumed:** no command/alias/IR mechanism exists
+  anywhere in this repository (`grep` for `Command`/`alias_resolution`/
+  `canonical_command` across all `.py` files: zero matches); no
+  issue-comment-triggered GitHub Action exists; zero cases have ever
+  been filed (the "Bring a bottleneck" issue template built the same
+  cycle is the very first case-intake surface this repo has had).
+  **Killed for now, correctly:** an issue-comment bot means parsing
+  attacker-controlled input from the public internet and mapping it to
+  execution — a real, consequential security surface — with zero
+  evidence yet that any case volume exists to justify it. A sigil→IR
+  compiler with no command ever issued is exactly the "architecturally
+  beautiful, no current consumer" pattern this session kills every time
+  it appears. Building either now would be "pre-building a mall" the
+  same directive that proposed them explicitly forbids in the same
+  breath. **Correct next trigger:** a real filed case (via the new
+  issue template) that a human actually wants to process through a
+  repeatable, inspectable step sequence — build the case object and
+  the one primitive that case needs, the same way `mouth_common.py` was
+  only extracted after two real duplicated mouths existed to compare.
+  Do not build the general architecture first and wait for cases to
+  arrive to justify it.
+
 ## Questions worth preserving, not yet answered
 
 - Does `taal/gate/root_gate.py::GateInput` actually need every field

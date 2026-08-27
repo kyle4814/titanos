@@ -1,0 +1,108 @@
+{
+  "manifest_version": "1",
+  "generated_for": "kyle4814/titanos",
+  "as_of": "2026-08-27",
+  "note": "Machine-readable index only. Each entry points at the real source of truth (a BUILD_REPORT.md or equivalent) rather than restating it -- this file is not authoritative over the code or tests it describes, and should be re-derived, not hand-edited stale, if a subsystem changes.",
+  "engagement_path": "See COOPERATION.md and .github/ISSUE_TEMPLATE/bring_a_bottleneck.yml -- identical for every capability below.",
+  "capabilities": [
+    {
+      "capability_id": "schema",
+      "status": "VERIFIED",
+      "problem_class": "Deterministic YAML artifact validation with structured, never-bare-boolean rejection reasons.",
+      "inputs": "A YAML artifact plus its declared schema.",
+      "outputs": "A structured validation result: pass, or a specific, inspectable rejection reason.",
+      "limitations": "See schema/BUILD_REPORT.md.",
+      "authority_required": "None beyond normal code review.",
+      "evidence": "schema/BUILD_REPORT.md, schema/tests/",
+      "engagement_path": "COOPERATION.md"
+    },
+    {
+      "capability_id": "firewall",
+      "status": "VERIFIED",
+      "problem_class": "Epistemic Firewall -- keeps narrative/persuasion/repetition from acquiring runtime authority; append-only quarantine and dissent records.",
+      "inputs": "A candidate artifact or claim to admit, quarantine, or reject.",
+      "outputs": "A gate decision plus, if disputed, a preserved dissent record.",
+      "limitations": "Single-reviewer release (no N-of-M requirement); reviewed_by is unauthenticated free text -- see docs/LIMITATIONS.md items 1-2.",
+      "authority_required": "A named reviewed_by to release a quarantined artifact.",
+      "evidence": "firewall/BUILD_REPORT.md, firewall/tests/, docs/LIMITATIONS.md",
+      "engagement_path": "COOPERATION.md"
+    },
+    {
+      "capability_id": "kpm",
+      "status": "VERIFIED",
+      "problem_class": "Knowledge Production Machine -- immutable source registry, 15-value epistemic classification with forbidden-transition enforcement, promotion state machine.",
+      "inputs": "Raw source content (text/bytes) plus provenance metadata; a claim to classify.",
+      "outputs": "A content-addressed SourceRecord; a classified Claim with confidence and frozen, append-only history.",
+      "limitations": "See kpm/BUILD_REPORT.md.",
+      "authority_required": "Promotion requires a reviewer distinct from the producer (SelfPromotionForbidden) -- the producer can never self-certify.",
+      "evidence": "kpm/BUILD_REPORT.md, kpm/tests/",
+      "engagement_path": "COOPERATION.md"
+    },
+    {
+      "capability_id": "magl",
+      "status": "VERIFIED",
+      "problem_class": "Modular Architecture Generation Library -- composable capability modules with explicit read/write/execute jurisdiction; a composition engine that refuses conflicting combinations with a full explanation.",
+      "inputs": "Capability module descriptors declaring their own jurisdiction.",
+      "outputs": "A composition decision (admit or refuse), with the conflicting jurisdiction named on refusal.",
+      "limitations": "See magl/BUILD_REPORT.md.",
+      "authority_required": "None beyond normal code review; see magl/BUILD_REPORT.md for any module-specific gate.",
+      "evidence": "magl/BUILD_REPORT.md, magl/tests/",
+      "engagement_path": "COOPERATION.md"
+    },
+    {
+      "capability_id": "rpa",
+      "status": "VERIFIED",
+      "problem_class": "Legacy Architecture Upgrade Library -- maps an existing organisation's systems, proposes bounded automation, requires human review before any pilot deploys.",
+      "inputs": "A description of an existing system, its bottlenecks, and a candidate automation.",
+      "outputs": "A bounded automation proposal, blocked from pilot deployment until explicitly reviewed.",
+      "limitations": "See rpa/BUILD_REPORT.md.",
+      "authority_required": "Explicit human review via rpa/gates/human_jurisdiction.py before any pilot may deploy.",
+      "evidence": "rpa/BUILD_REPORT.md, rpa/tests/",
+      "engagement_path": "COOPERATION.md"
+    },
+    {
+      "capability_id": "taal",
+      "status": "VERIFIED",
+      "problem_class": "Adversarial Archetype Library -- defensive threat taxonomy where symbolic/narrative classification is structurally prevented from becoming technical evidence; a 12-question permission root gate.",
+      "inputs": "A candidate threat classification or permission request.",
+      "outputs": "A verdict: AUTHORIZED_WITH_CONSTRAINTS, REQUIRES_HUMAN_REVIEW, or REFUSED, with the deciding question named.",
+      "limitations": "Two named judgment calls (unevidenced-authority-claim and contradictory-evidence handling) are open in HUMAN_DECISIONS.md item 5.",
+      "authority_required": "taal/gate/root_gate.py's 12-question gate; human review on ambiguous verdicts.",
+      "evidence": "taal/BUILD_REPORT.md, taal/tests/, HUMAN_DECISIONS.md",
+      "engagement_path": "COOPERATION.md"
+    },
+    {
+      "capability_id": "foundation",
+      "status": "VERIFIED",
+      "problem_class": "Shared infrastructure: panic-detection circuit breaker (information velocity vs. verification velocity), reality-yield ledger, publication/communication/admission gates, repository health sensor, capability index.",
+      "inputs": "Varies by module -- e.g. a velocity signal, a value claim, a publication/communication request, or current repository state.",
+      "outputs": "Varies by module -- e.g. a throttle recommendation, a yield/cost ledger entry, a fail-closed switch decision, a bounded finding.",
+      "limitations": "See foundation/BUILD_REPORT.md.",
+      "authority_required": "publication_gate.py and communication_gate.py both default closed and require a named human authorization to open.",
+      "evidence": "foundation/BUILD_REPORT.md, foundation/tests/",
+      "engagement_path": "COOPERATION.md"
+    },
+    {
+      "capability_id": "narrative",
+      "status": "VERIFIED",
+      "problem_class": "Akashic Narrative Engine -- consolidates raw input into inspectable, provenance-preserving atoms with an epistemic layer and falsification criteria; preserves contradictions rather than forcing resolution.",
+      "inputs": "Raw human/text input as a narrative-atom candidate.",
+      "outputs": "A classified narrative atom (RAW to OBSERVED/CLASSIFIED) with related-atom and contradiction checks.",
+      "limitations": "See narrative/BUILD_REPORT.md.",
+      "authority_required": "None beyond normal code review; see narrative/BUILD_REPORT.md for classification-specific detail.",
+      "evidence": "narrative/BUILD_REPORT.md, narrative/tests/",
+      "engagement_path": "COOPERATION.md"
+    },
+    {
+      "capability_id": "legacy",
+      "status": "VERIFIED",
+      "problem_class": "Safe two-track classifier for a large external legacy YAML corpus (conformant vs. non-conformant), built for one specific standing decision rather than as general infrastructure.",
+      "inputs": "A legacy YAML corpus file.",
+      "outputs": "A conformant/non-conformant classification.",
+      "limitations": "106 permission-denied files and 2,952 non-conformant files await a human triage decision -- see HUMAN_DECISIONS.md item 3. No BUILD_REPORT.md for this subsystem; see legacy/DECISION_PACKET.md instead.",
+      "authority_required": "A pending human decision on whether to re-scan or triage the unresolved files -- see HUMAN_DECISIONS.md item 3.",
+      "evidence": "legacy/DECISION_PACKET.md, legacy/tests/",
+      "engagement_path": "COOPERATION.md"
+    }
+  ]
+}

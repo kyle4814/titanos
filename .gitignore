@@ -7,3 +7,15 @@ __pycache__/
 # unrelated private project names/structure. Excluded from tracking for
 # public release safety -- see legacy/DECISION_PACKET.md.
 legacy/manifests/*.json
+
+# foundation/cron_pulse.py's real, live, hourly output on this machine --
+# machine-local runtime state/receipts, not source. Regenerates on its
+# own; a fresh clone correctly reports these logs as "never fired yet"
+# (foundation/sentinel.py::read_pulse_continuity(),
+# foundation/mouth_common.py::read_mouth_log_continuity()) until its own
+# cron entry runs.
+foundation/pulse_log.jsonl
+foundation/mouth_*_log.jsonl
+foundation/mouth_*_state.json
+foundation/dependency_pressure_log.jsonl
+foundation/cron_pulse.err.log

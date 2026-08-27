@@ -52,6 +52,7 @@ respond to overwhelm by generating more unverified work."
 from __future__ import annotations
 
 import ast
+import json
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -65,8 +66,13 @@ __all__ = [
     "pulse_sweep",
     "consolidate",
     "format_four_paths",
+    "PulseContinuity",
+    "read_pulse_continuity",
+    "PULSE_LOG_MAX_RECORDS",
     "SUBSYSTEMS_REQUIRING_BUILD_REPORT",
     "COMPACTION_THRESHOLD",
+    "HOLD_CLASSES",
+    "classify_hold",
 ]
 
 CONFIDENCE_VALUES = frozenset({"HIGH", "MEDIUM", "LOW"})
@@ -291,6 +297,132 @@ def check_frontier_schema(repo_root: Path) -> list[Finding]:
     return findings
 
 
+PULSE_LOG_MAX_RECORDS = 20
+
+# cron_pulse.py is scheduled hourly (see the crontab entry it was
+# installed with). 3x the expected interval is stale enough to mean
+# "the clock likely stopped," not "it just hasn't ticked yet this hour."
+PULSE_EXPECTED_INTERVAL_SECONDS = 3600
+PULSE_STALE_AFTER_SECONDS = 3 * PULSE_EXPECTED_INTERVAL_SECONDS
+
+
+@dataclass(frozen=True)
+class PulseContinuity:
+    """Bounded, read-only view of what `foundation/cron_pulse.py` observed
+    while nobody was in a session. Boot-time answer to "what happened
+    while the clock was running alone" — never more than that. A
+    non-empty `meaningful_findings` is evidence to look at, not something
+    already authorized to act on (same `finding != authorization` rule
+    as every other Finding in this module).
+
+    `stale=True` means the latest record is older than
+    `PULSE_STALE_AFTER_SECONDS` — the clock may have stopped running.
+    `stale=False` on an empty/unavailable log is not a health claim
+    (there is nothing to be stale); check `available` first.
+    """
+
+    available: bool
+    latest_timestamp: Optional[str]
+    records_considered: int
+    meaningful_findings: tuple[Finding, ...]
+    warnings: tuple[str, ...]
+    source: str
+    stale: bool = False
+
+
+def _parse_iso(ts: str) -> Optional["datetime"]:
+    from datetime import datetime
+    try:
+        return datetime.fromisoformat(ts)
+    except (ValueError, TypeError):
+        return None
+
+
+def read_pulse_continuity(
+    repo_root: Path,
+    max_records: int = PULSE_LOG_MAX_RECORDS,
+    now: Optional["datetime"] = None,
+) -> PulseContinuity:
+    """Read the tail of `foundation/pulse_log.jsonl` and summarise it.
+
+    Read-only — never writes, truncates, or rotates the log. Bounded —
+    reads at most `max_records` trailing lines regardless of file size,
+    so a large log cannot flood a caller. Fails soft at every layer: a
+    missing file, an empty file, and individual malformed JSON lines or
+    malformed Finding payloads are all reported as `warnings`, never
+    raised — a boot sequence must not fail because the heartbeat has
+    never run or because one line got corrupted mid-write.
+    """
+    log_path = repo_root / "foundation" / "pulse_log.jsonl"
+    source = str(log_path)
+
+    if not log_path.exists():
+        return PulseContinuity(
+            available=False, latest_timestamp=None, records_considered=0,
+            meaningful_findings=(),
+            warnings=("pulse_log.jsonl does not exist yet — the cron pulse has never run",),
+            source=source,
+        )
+
+    all_lines = [line for line in log_path.read_text().splitlines() if line.strip()]
+    tail = all_lines[-max_records:] if max_records > 0 else []
+
+    records: list[dict] = []
+    warnings: list[str] = []
+    for line in tail:
+        try:
+            records.append(json.loads(line))
+        except json.JSONDecodeError as exc:
+            warnings.append(f"skipped malformed JSON line: {exc}")
+
+    if not records:
+        return PulseContinuity(
+            available=True, latest_timestamp=None, records_considered=0,
+            meaningful_findings=(),
+            warnings=tuple(warnings) or ("no records in the bounded window",),
+            source=source,
+        )
+
+    meaningful: list[Finding] = []
+    for rec in records:
+        for raw_finding in rec.get("findings", []):
+            try:
+                meaningful.append(Finding(**raw_finding))
+            except (TypeError, ValueError) as exc:
+                warnings.append(f"skipped malformed finding: {exc}")
+
+    latest_timestamp = records[-1].get("timestamp")
+    stale = False
+    parsed = _parse_iso(latest_timestamp) if latest_timestamp else None
+    if parsed is not None:
+        from datetime import datetime, timezone
+        current = now if now is not None else datetime.now(timezone.utc)
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=timezone.utc)
+        if current.tzinfo is None:
+            current = current.replace(tzinfo=timezone.utc)
+        age_seconds = (current - parsed).total_seconds()
+        if age_seconds > PULSE_STALE_AFTER_SECONDS:
+            stale = True
+            warnings.append(
+                f"pulse appears stale — last observation {age_seconds / 3600:.1f}h "
+                f"ago (threshold {PULSE_STALE_AFTER_SECONDS / 3600:.0f}h); the cron "
+                f"pulse may have stopped running"
+            )
+    elif latest_timestamp:
+        warnings.append(f"latest_timestamp {latest_timestamp!r} could not be parsed as ISO-8601")
+
+    return PulseContinuity(
+        available=True,
+        latest_timestamp=latest_timestamp,
+        records_considered=len(records),
+        meaningful_findings=consolidate(meaningful),
+        warnings=tuple(warnings),
+        source=source,
+        stale=stale,
+    )
+
+
 def pulse_sweep(repo_root: Path) -> HealthReport:
     """Run every Level-1 deterministic check and return a consolidated,
     CT_141-compacted HealthReport. Read-only: touches nothing on disk."""
@@ -381,3 +513,114 @@ def format_four_paths(paths: FourPaths) -> str:
         f"    {paths.why_this_one or 'n/a'}",
     ]
     return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# HOLD classification
+#
+# WHY THIS EXISTS
+#
+# Every GO-cycle doctrine file in this repository ends a cycle with a bare
+# "GO / HOLD / HUMAN DECISION" line (`.claude/commands/boot.md` step 10,
+# `TITANOS_NEXT_LEVER_SEQUENCER.md`'s required output tail). "HOLD" alone
+# does not say WHY — a 2026-08-27 recon (see HUMAN_DECISIONS.md) found this
+# repository genuinely could not distinguish "the world has no new input"
+# from "the system has no mechanism to look for new input" from its own
+# reports, because nothing computed the distinction; every HOLD looked the
+# same. This is that missing distinction, and nothing more — a pure
+# classifier, not a scheduler, not a search trigger, not a second Sentinel.
+#
+# WHAT THIS DOES NOT DO
+#
+# `classify_hold()` never decides to search, build, or recurse — it only
+# names which kind of HOLD the caller is already in, from facts the caller
+# already knows. Same "Finding does not equal authorization" boundary as
+# the rest of this module: a HOLD_CLASS is a label for a report, not a
+# trigger for `foundation.discovery_authorization.authorize_discovery()`
+# or anything else.
+
+HOLD_CLASSES = frozenset({
+    "TERMINAL_HOLD", "BLOCKED_HOLD", "INPUT_STARVED_HOLD",
+    "BUDGET_HOLD", "AUTHORITY_HOLD", "SIGNAL_WAIT_HOLD",
+})
+
+
+def classify_hold(
+    *,
+    has_concrete_objective: bool,
+    internal_levers_exhausted: bool,
+    discovery_authorized: bool = False,
+    budget_exhausted: bool = False,
+    authority_required: bool = False,
+    blocked_reason: str = "",
+    awaiting_external_signal: bool = False,
+) -> str:
+    """Return one member of HOLD_CLASSES from facts the caller already
+    knows — pure function, no I/O, deterministic. Precedence (checked in
+    this order, first match wins, mirroring the Master Constitution's own
+    ordering — authority and budget are harder stops than input state):
+
+    1. AUTHORITY_HOLD — the next action needs a human decision regardless
+       of what input exists (`authority_required=True`).
+    2. BUDGET_HOLD — a declared resource/discovery budget is exhausted.
+    3. BLOCKED_HOLD — a precise named blocker exists (`blocked_reason`
+       non-empty) that no amount of discovery would resolve on its own
+       (e.g. a dependency, a decision, a missing credential).
+    4. SIGNAL_WAIT_HOLD — `awaiting_external_signal=True`: a lawful public
+       channel is already open (e.g. the "Bring a bottleneck" issue
+       template) and the only missing element is a qualifying external
+       signal (an issue, a PR, or another authorised event through that
+       channel) arriving through it. Distinct from both neighbors it
+       would otherwise be misreported as: not TERMINAL_HOLD (something
+       IS being sought — engagement), and not INPUT_STARVED_HOLD
+       (nothing here is a fetchable fact `authorize_discovery()` could
+       go get — waiting for a signal to arrive is not a discovery
+       objective). Added 2026-08-27 after this exact condition was
+       described, without ever invoking this function, as ad hoc prose
+       ("HOLD_SIGNAL_WAIT", "AWAITING_REAL_SIGNAL") across two prior
+       cycles — that is weaker evidence than "the deployed classifier
+       was called and returned the wrong label" and is stated honestly
+       as such, but it's still real evidence the concept was needed and
+       had no home. Like every other call, this is re-derived fresh
+       from the caller's current facts each time — there is no stored
+       state, so SIGNAL_WAIT_HOLD cannot silently persist past the
+       point where the awaited signal actually arrives or another
+       blocker becomes the real one; the exit condition is simply
+       calling this function again with updated facts.
+    5. TERMINAL_HOLD — `has_concrete_objective=False`: there is no
+       unresolved objective or residue driving further work. Nothing is
+       missing because nothing is being sought.
+    6. INPUT_STARVED_HOLD — a concrete objective exists, internal levers
+       are exhausted, but `discovery_authorized=False`: the system knows
+       what it wants and cannot get it, and has no authorized way to look
+       outside itself. This is the one this recon was built to name.
+    7. Otherwise (`internal_levers_exhausted=False`): not actually a HOLD
+       by this function's own contract — raises ValueError rather than
+       inventing a label, since a caller in this state should still be
+       working, not reporting a HOLD.
+    """
+    if authority_required:
+        return "AUTHORITY_HOLD"
+    if budget_exhausted:
+        return "BUDGET_HOLD"
+    if blocked_reason.strip():
+        return "BLOCKED_HOLD"
+    if awaiting_external_signal:
+        return "SIGNAL_WAIT_HOLD"
+    if not has_concrete_objective:
+        return "TERMINAL_HOLD"
+    if not internal_levers_exhausted:
+        raise ValueError(
+            "internal_levers_exhausted=False with a concrete objective "
+            "and no blocker/budget/authority stop — this is not a HOLD "
+            "state; classify_hold() will not fabricate a label for work "
+            "that has not actually stalled"
+        )
+    if discovery_authorized:
+        raise ValueError(
+            "discovery_authorized=True with levers exhausted and a "
+            "concrete objective is not a HOLD state either — this is the "
+            "trigger condition for a bounded discovery attempt, not a "
+            "reason to stop; classify_hold() only names HOLD states"
+        )
+    return "INPUT_STARVED_HOLD"

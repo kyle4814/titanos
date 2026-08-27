@@ -9,26 +9,27 @@ function's output, not an independent source of truth. Re-run it rather
 than trusting this file if it looks stale.
 
 ```
-TIER:T7 | IRON:10 | LATTICE:6 | PROOF:10 | SIGHT:10 | FRONTIER:10 | ORCH:10 | MEMORY:10 | REALITY:10
+TIER:T3 | IRON:10 | LATTICE:6 | PROOF:10 | SIGHT:10 | FRONTIER:10 | ORCH:10 | MEMORY:10 | REALITY:6
 ```
 
-**Computed:** 2026-08-26, commit range ending `b71982c`.
+**Computed:** 2026-08-27, after `foundation/mouth_pypi.py` was added.
 
 ## Tier justification
 
-**T7, earned, not aspirational.** All suites green, zero-network
-dependency holds, orchestration proven end to end, Sentinel reports zero
-open findings, every subsystem has a `BUILD_REPORT.md` — plus the one
-new T7 fact: a real external integration boundary has actually been
-demonstrated, not just built. `kyle4814/titanos` is a real, public
-GitHub repository (`.git/config` has a real `origin` remote), and
-`.github/workflows/tests.yml` has actually run and returned a real
-success (`FIRST_PING.md` records the specific run URL and
-`conclusion=success`, not just the workflow file's existence).
-`compute_tier()`'s new rung (`foundation/sigil.py::
-_dimension_external_integration()`) checks this with local evidence
-only — no live network call, so the sigil computation itself never
-breaks the zero-network property it's certifying.
+**T3 — an honest, evidenced drop from T7, not a bug.** This repository
+was T7 as of 2026-08-26 (see git history for that snapshot). On
+2026-08-27, `foundation/mouth_pypi.py` added this repository's
+first-ever real network call (one GET request to PyPI's public RSS feed
+for the `PyYAML` package — this repo's one real dependency), wired into
+the existing hourly cron pulse. This was explicitly authorized, not
+accidental. `compute_tier()`'s own rung
+(`if not zero_network: return "T3", ...`) is doing exactly its job:
+`_dimension_reality()` greps every `.py` file for network imports and
+correctly finds one now. All test suites remain green — the drop is
+specifically and only the zero-network property, not a regression in
+anything else. If the network mouth is ever removed, this repository
+should recompute back to T7 without needing this file or any test
+changed by hand.
 
 ## Per-dimension evidence
 
@@ -41,9 +42,9 @@ breaks the zero-network property it's certifying.
 | FRONTIER | 10 | `PARETO_FRONTIER.md` has the Frontier Gate schema and Archive table; `NEXT_MOVE.md` and `INTUITION.md` both present |
 | ORCH | 10 | Queue, worker, adapter all present, and a real worker proven end to end (not just a test double) |
 | MEMORY | 10 | `Crystal`, `MEMORY_MAP.md`, `recovery_handoff()` all present |
-| REALITY | 10 | Reality-yield ledger, Hell's Gate, publication gate all present, zero network-dependency imports found anywhere |
+| REALITY | 6 | Reality-yield ledger, Hell's Gate, publication gate all present; zero-network-dependency no longer holds (`foundation/mouth_pypi.py` imports `urllib.request`), so the +4 zero-network bonus is no longer earned |
 
-## T7's evidence, specifically
+## T7's evidence, specifically (historical — true as of 2026-08-26, superseded by the network tradeoff above, not deleted)
 
 | Fact | Status | Evidence |
 |---|---|---|

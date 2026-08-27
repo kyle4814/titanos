@@ -149,7 +149,12 @@ def _dimension_proof(repo_root: Path) -> tuple[int, str, bool, int]:
     if not guard.is_safe():
         return 0, f"guard-blocked: {guard.reason}", False, 0
 
-    subsystems = ("schema", "firewall", "kpm", "magl", "rpa", "taal", "foundation", "narrative")
+    # Reuses _dimension_iron()'s constant instead of a second hardcoded
+    # copy. `legacy` is deliberately NOT in this list — that's an
+    # already-considered, not-yet-earned policy call (does it count as
+    # a formal subsystem for IRON/PROOF scoring), not an oversight. Add
+    # it to SUBSYSTEMS_REQUIRING_BUILD_REPORT only if that call changes.
+    subsystems = SUBSYSTEMS_REQUIRING_BUILD_REPORT
     total = 0
     all_green = True
     spawn_env = guard_child_env(PROOF_OPERATION)

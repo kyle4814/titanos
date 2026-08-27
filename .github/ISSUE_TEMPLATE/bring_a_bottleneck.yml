@@ -1,0 +1,62 @@
+name: Bring a bottleneck
+description: >-
+  Bring a real, bounded problem, offer a resource, or challenge a claim
+  in this repository. This is a structured intake, not a request form —
+  read the notice below before filling it in.
+title: "[CASE] "
+labels: ["case-intake"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **This is the smallest real entry surface this repository has
+        for external interaction — see `README.md`'s "Engaging with
+        this project" section.** Filling this in does not create any
+        entitlement, payment, equity, or obligation on either side.
+        There is no bot that automatically reads or acts on this issue
+        — a human reviews it. If you're not proposing a bounded problem
+        or a concrete resource, an ordinary GitHub issue is fine too.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What's the problem or bottleneck?
+      description: >-
+        State it concretely. If it's a claim about this repository
+        specifically, point at the file/test/behavior in question.
+      placeholder: "e.g. 'X in foundation/ claims Y but I can't reproduce it because Z'"
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: What evidence do you have?
+      description: >-
+        Logs, a failing command, a link, a dataset, prior art — whatever
+        makes this inspectable rather than a claim.
+    validations:
+      required: false
+
+  - type: textarea
+    id: resource
+    attributes:
+      label: Are you offering a resource, or asking a question?
+      description: >-
+        Compute, engineering time, domain expertise, a real-world use
+        case, review, or something else — or just a question. Naming a
+        resource here is not an offer of payment and creates no
+        obligation on this repository's side either.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: acknowledgement
+    attributes:
+      label: Before submitting
+      options:
+        - label: >-
+            I understand this creates no entitlement, payment, equity,
+            or legal obligation, and that a human — not an autonomous
+            system — reviews this issue.
+          required: true
