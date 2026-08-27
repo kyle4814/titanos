@@ -83,6 +83,17 @@
       "engagement_path": "COOPERATION.md"
     },
     {
+      "capability_id": "authority_runtime",
+      "status": "VERIFIED",
+      "problem_class": "A finite, typed, scoped, budgeted, expiring, revocable authority object (ReleaseCode) with a durable, crash-hardened, replay-on-restart ledger and fail-closed, two-point-enforced evaluation -- the primitive a persistent tick loop needs to act without a human re-asked every time, without ever inheriting unlimited trust.",
+      "inputs": "A capability name, target, and an issued ReleaseCode (release_id, allowed_capabilities, allowed_targets, budget, expiry).",
+      "outputs": "An ADMIT/DENY/ERROR decision, a durable ActionRecord, and a tick receipt (foundation/authority_runtime_tick_log.jsonl, machine-local, gitignored).",
+      "limitations": "As of commit 6b181de: no ReleaseCode has ever been issued against the real default ledger, nothing is installed to cron, and the only defined authority class (ZERO_SPEND_READ_ONLY, capability RUN_PULSE_SWEEP) has no spend or external-effect authority. authority_pulse.py (the cron-shaped entry point) is proven as a real subprocess but is not wired into any scheduler.",
+      "authority_required": "issue_release() is the only way authority is created; no expand/renew/increase_budget path exists on the public surface (checked by test). Installing a real trigger or issuing a real release are each separate, not-yet-authorized decisions.",
+      "evidence": "foundation/authority_sigil.py, foundation/authority_runtime.py, foundation/authority_pulse.py, foundation/tests/test_authority_sigil.py, foundation/tests/test_authority_runtime.py, foundation/tests/test_authority_pulse.py (42/42 passing)",
+      "engagement_path": "COOPERATION.md"
+    },
+    {
       "capability_id": "narrative",
       "status": "VERIFIED",
       "problem_class": "Akashic Narrative Engine -- consolidates raw input into inspectable, provenance-preserving atoms with an epistemic layer and falsification criteria; preserves contradictions rather than forcing resolution.",
