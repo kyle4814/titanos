@@ -19,3 +19,11 @@ foundation/mouth_*_log.jsonl
 foundation/mouth_*_state.json
 foundation/dependency_pressure_log.jsonl
 foundation/cron_pulse.err.log
+
+# foundation/authority_pulse.py's real default targets -- same
+# machine-local runtime-state reasoning as above. Empty/absent on a
+# fresh checkout means "no release has ever been issued here," which is
+# the deliberately safe, inert default -- see authority_pulse.py's own
+# docstring.
+foundation/authority_ledger.jsonl
+foundation/authority_runtime_tick_log.jsonl
