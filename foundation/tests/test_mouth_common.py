@@ -117,10 +117,24 @@ class TestReadMouthLogContinuity(unittest.TestCase):
             self.assertEqual(result.records_considered, 20)
 
     def test_works_on_the_real_mouth_logs_in_this_repo(self):
+        # These logs are foundation/cron_pulse.py's real, machine-local
+        # output (gitignored -- not shipped with the repo, see
+        # .gitignore's note). A fresh checkout correctly reports
+        # available=False ("never fired yet"); a machine with real cron
+        # history correctly reports available=True. Both are valid
+        # states -- this test proves read_mouth_log_continuity() handles
+        # whichever real state this checkout has without crashing, and
+        # checks freshness only when a log is actually present. Asserting
+        # available=True unconditionally here was a real bug: it silently
+        # depended on this specific machine's local cron history and
+        # failed on a fresh CI checkout (caught 2026-08-27 when this repo
+        # was actually pushed and the real CI matrix ran it).
         for name in ("mouth_pypi_pyyaml_releases_log.jsonl", "mouth_github_pyyaml_releases_log.jsonl"):
             result = read_mouth_log_continuity(REPO_ROOT / "foundation" / name)
-            self.assertTrue(result.available)
-            self.assertFalse(result.stale, f"{name} unexpectedly stale — real clock check")
+            if result.available:
+                self.assertFalse(result.stale, f"{name} unexpectedly stale — real clock check")
+            else:
+                self.assertIn("never fired", result.warnings[0])
 
 
 if __name__ == "__main__":

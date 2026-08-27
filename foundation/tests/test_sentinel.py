@@ -351,11 +351,18 @@ class TestReadPulseContinuity(unittest.TestCase):
             self.assertEqual(len(result.meaningful_findings), 1)
 
     def test_real_pulse_log_in_this_repo_is_readable(self):
-        # Whatever real state cron_pulse.py has left in this actual repo
-        # must parse without raising — the strongest available proof that
-        # this works against the real log format, not just a synthetic one.
+        # foundation/pulse_log.jsonl is cron_pulse.py's real, machine-local
+        # output (gitignored -- not shipped with the repo). A fresh
+        # checkout correctly reports available=False ("never fired yet");
+        # asserting available=True unconditionally was a real bug that
+        # only worked by accident on a machine with real cron history and
+        # failed on a fresh CI checkout (caught 2026-08-27 on the real
+        # push). This proves read_pulse_continuity() doesn't crash against
+        # whichever real state this checkout has, matching the same
+        # tolerant pattern test_real_pulse_log_staleness_is_computable_
+        # without_crashing already uses below.
         result = sentinel.read_pulse_continuity(REPO_ROOT)
-        self.assertTrue(result.available)
+        self.assertIn(result.available, (True, False))
 
     def test_fresh_pulse_is_not_stale(self):
         import tempfile
