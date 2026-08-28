@@ -51,6 +51,27 @@ summary is not proof of anything; verified behavior is.
    at, not something already authorized to act on — same rule as every
    other Sentinel finding.
 
+   Also report `compacted`, `raw_finding_count`, and `truncated_findings`
+   (added 2026-08-28). `compacted=True` means CT_141's throttle actually
+   fired for at least one sweep in the window and `meaningful_findings`
+   is a truncated view, not the whole picture — do not report a finding
+   count from a compacted window as if it were complete.
+
+4b-ii. **CHECK THE PULSE'S FAILURE RECEIPT** — the crontab entry
+   redirects with `>> foundation/cron_pulse.err.log 2>&1`, so that file
+   is the only place a traceback lands if the one unattended process
+   this repository runs dies. `read_pulse_continuity()` can tell you
+   *that* the clock stopped (`stale=True`); this tells you *why*. Call
+   `foundation.sentinel.read_cron_stderr(REPO_ROOT)` (built 2026-08-28;
+   read-only, byte-bounded, fails soft) and report `available`, `failed`,
+   `size_bytes`, and the `tail` if `failed`. Three distinct states, do
+   not collapse them: `available=False` (no redirect configured — a fresh
+   clone, and *not* evidence the pulse is healthy), `available=True,
+   failed=False` (the redirect exists and the process has never failed —
+   the normal state), `failed=True` (real failure output, retrievable).
+   This is retrieval, not diagnosis — nothing classifies or acts on the
+   error.
+
 4c. **CHECK MOUTH + DEPENDENCY-PRESSURE CONTINUITY** — the same cron
    entry also runs two mouths (`foundation/mouth_pypi.py`,
    `foundation/mouth_github_releases.py`) and
@@ -63,6 +84,18 @@ summary is not proof of anything; verified behavior is.
    `foundation/dependency_pressure_log.jsonl` (the last one may not
    exist yet — `available=False` there just means no dependency
    pressure has ever fired, not a fault).
+
+   For `dependency_pressure_log.jsonl` specifically, that call answers
+   only "is this clock alive" — it returns `latest_status=None` for
+   every record it will ever see there, because a dependency-pressure
+   record is a `Finding` payload, not a `MouthObservation`. To see what
+   the log actually *said*, also call
+   `foundation.dependency_pressure.read_dependency_pressure_log(log_path)`
+   (built 2026-08-28 to close exactly this gap; same bounded/fail-soft
+   contract). Report `findings`, `errors`, and `actionable`. `actionable=True`
+   means at least one finding's `recommended_next_action` is not
+   `NONE_REQUIRED` — evidence for a human decision about
+   `requirements.txt`, never an authorization to change the pin.
 
 5. **CHECK WHAT ALREADY EXISTS** — Read `magl/BUILD_REPORT.md`'s and
    `foundation/MAPPING.md`'s "next smallest work cell" / "genuinely
@@ -78,7 +111,20 @@ summary is not proof of anything; verified behavior is.
    frontier. `SIGIL.md` holds the last computed capability index
    (`TIER:Tn | IRON:.. | ...`) — orientation, not authority; re-run
    `foundation/sigil.py::compute_sigil()` rather than trusting a stale
-   snapshot if it's been a while. Do not treat a capability as missing
+   snapshot if it's been a while. Retrieve the recorded snapshot
+   structurally rather than by eyeballing the markdown:
+   `foundation.sigil.read_recorded_sigil(REPO_ROOT)` (built 2026-08-28;
+   read-only, no subprocess, instant, returns `None` if nothing is
+   recorded). It returns a `RecordedSigil`, deliberately **not** a
+   `Sigil` — a stored markdown value is not measured capability, and
+   only `compute_sigil()` produces the latter. Pass it straight in as
+   `reconcile_sigil(REPO_ROOT, previous=recorded)` when a cycle actually
+   changed capability; that call runs every subsystem's test suite (~40s)
+   so it stays a deliberate step, not an every-boot default. This is the
+   mechanism that catches sigil drift — the failure mode that has already
+   occurred twice here (CLAUDE.md stuck at `TIER:T7` after the real value
+   had fallen to T3; `SIGIL.md`'s evidence table still claiming 1212
+   tests), both times caught by a human noticing, not by the machine. Do not treat a capability as missing
    without checking these first.
 
 6. **IDENTIFY ACTIVE OBJECTIVE** — From step 4-5's findings, state the

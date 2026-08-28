@@ -10,6 +10,8 @@ from unittest import mock
 
 from foundation import sentinel
 from foundation.sentinel import (
+    check_protocol_document_targets,
+    _LEVEL1_CHECKS,
     Finding, FourPaths, PathProposal, consolidate, format_four_paths,
     pulse_sweep, COMPACTION_THRESHOLD,
 )
@@ -1080,3 +1082,251 @@ class TestFrontierHashPlaceholderCheck(unittest.TestCase):
         before = path.stat().st_mtime_ns
         sentinel.check_frontier_hash_placeholders(REPO_ROOT)
         self.assertEqual(path.stat().st_mtime_ns, before)
+
+
+class TestPulseContinuitySurfacesCompaction(unittest.TestCase):
+    """Switch closed 2026-08-28. Every pulse record carries
+    `raw_finding_count` and `compacted`; `PulseContinuity` carried
+    neither, so a CT_141-throttled sweep of 45 findings truncated to 2
+    was indistinguishable from an honest sweep of 2 to `/boot` step 4b —
+    the only real consumer. The panic axiom engaging is precisely the
+    thing a boot report must not swallow silently."""
+
+    def _record(self, raw_count, compacted, n_findings, ts="2026-08-27T17:07:01+00:00"):
+        return json.dumps({
+            "timestamp": ts, "raw_finding_count": raw_count, "compacted": compacted,
+            "findings": [{
+                "observation": f"finding {i}", "evidence_location": f"loc{i}",
+                "confidence": "HIGH", "interpretation": "x",
+                "reversibility": "y", "recommended_next_action": "z",
+            } for i in range(n_findings)],
+        })
+
+    def _repo_with(self, d, *records):
+        repo = Path(d)
+        (repo / "foundation").mkdir(exist_ok=True)
+        (repo / "foundation" / "pulse_log.jsonl").write_text("\n".join(records) + "\n")
+        return repo
+
+    def test_a_compacted_sweep_is_no_longer_silent(self):
+        with tempfile.TemporaryDirectory() as d:
+            repo = self._repo_with(d, self._record(45, True, 2))
+            r = sentinel.read_pulse_continuity(repo)
+            self.assertTrue(r.compacted)
+            self.assertEqual(r.raw_finding_count, 45)
+            self.assertEqual(len(r.meaningful_findings), 2)
+            self.assertEqual(r.truncated_findings, 43)
+            self.assertTrue(any("CT_141-compacted" in w for w in r.warnings))
+
+    def test_an_honest_small_sweep_is_not_flagged(self):
+        # The discrimination that matters: 2 findings because there were
+        # only 2 is a different state from 2 findings because 43 were cut.
+        with tempfile.TemporaryDirectory() as d:
+            repo = self._repo_with(d, self._record(2, False, 2))
+            r = sentinel.read_pulse_continuity(repo)
+            self.assertFalse(r.compacted)
+            self.assertEqual(r.raw_finding_count, 2)
+            self.assertEqual(r.truncated_findings, 0)
+            self.assertFalse(any("CT_141-compacted" in w for w in r.warnings))
+
+    def test_compaction_earlier_in_the_window_is_not_hidden_by_a_clean_latest(self):
+        # Reading only records[-1] would lose this — a throttle that fired
+        # three ticks ago is still the most important thing in the window.
+        with tempfile.TemporaryDirectory() as d:
+            repo = self._repo_with(
+                d,
+                self._record(45, True, 2, ts="2026-08-27T14:07:01+00:00"),
+                self._record(0, False, 0, ts="2026-08-27T15:07:01+00:00"),
+                self._record(0, False, 0, ts="2026-08-27T16:07:01+00:00"),
+            )
+            r = sentinel.read_pulse_continuity(repo)
+            self.assertTrue(r.compacted)
+            self.assertEqual(r.raw_finding_count, 45)
+
+    def test_unparseable_raw_finding_count_is_warned_not_fatal(self):
+        with tempfile.TemporaryDirectory() as d:
+            repo = Path(d)
+            (repo / "foundation").mkdir()
+            (repo / "foundation" / "pulse_log.jsonl").write_text(json.dumps({
+                "timestamp": "2026-08-27T17:07:01+00:00",
+                "raw_finding_count": "not a number", "compacted": False, "findings": [],
+            }) + "\n")
+            r = sentinel.read_pulse_continuity(repo)
+            self.assertEqual(r.raw_finding_count, 0)
+            self.assertTrue(any("unparseable raw_finding_count" in w for w in r.warnings))
+
+    def test_the_real_live_pulse_log_reports_a_clean_uncompacted_window(self):
+        # Not a fixture: whatever the live hourly cron has actually written.
+        r = sentinel.read_pulse_continuity(REPO_ROOT)
+        if r.available and r.records_considered:
+            self.assertIsInstance(r.compacted, bool)
+            self.assertGreaterEqual(r.raw_finding_count, 0)
+            self.assertGreaterEqual(r.truncated_findings, 0)
+
+
+class TestReadCronStderr(unittest.TestCase):
+    """Switch closed 2026-08-28. The live crontab entry redirects with
+    `>> foundation/cron_pulse.err.log 2>&1`, making that file the only
+    place a traceback lands if the one unattended process this repository
+    runs dies. A grep across every .py and .md found zero readers: the
+    machine could detect THAT the pulse stopped (read_pulse_continuity's
+    stale warning) and never WHY."""
+
+    def _repo(self, d, content=None):
+        repo = Path(d)
+        (repo / "foundation").mkdir(exist_ok=True)
+        if content is not None:
+            (repo / "foundation" / "cron_pulse.err.log").write_text(content)
+        return repo
+
+    def test_absent_is_not_a_failure_and_not_a_health_claim(self):
+        with tempfile.TemporaryDirectory() as d:
+            r = sentinel.read_cron_stderr(self._repo(d))
+            self.assertFalse(r.available)
+            self.assertFalse(r.failed)
+            self.assertIn("fresh", r.warnings[0])
+            self.assertIn("not evidence that the pulse is healthy", r.warnings[0])
+
+    def test_empty_is_the_healthy_state_and_is_distinct_from_absent(self):
+        with tempfile.TemporaryDirectory() as d:
+            r = sentinel.read_cron_stderr(self._repo(d, ""))
+            self.assertTrue(r.available)   # the redirect exists
+            self.assertFalse(r.failed)     # and nothing has ever failed
+            self.assertEqual(r.size_bytes, 0)
+            self.assertEqual(r.warnings, ())
+
+    def test_content_is_real_failure_evidence_and_is_retrievable(self):
+        trace = (
+            'Traceback (most recent call last):\n'
+            '  File "foundation/cron_pulse.py", line 40, in <module>\n'
+            '    from foundation.sentinel import pulse_sweep\n'
+            'ModuleNotFoundError: No module named \'foundation.sentinel\'\n'
+        )
+        with tempfile.TemporaryDirectory() as d:
+            r = sentinel.read_cron_stderr(self._repo(d, trace))
+            self.assertTrue(r.available)
+            self.assertTrue(r.failed)
+            self.assertIn("ModuleNotFoundError", r.tail)
+            self.assertIn("cron_pulse.py", r.tail)
+            self.assertFalse(r.truncated)
+            self.assertTrue(any("retrieval, not a diagnosis" in w for w in r.warnings))
+
+    def test_a_crash_looping_process_cannot_flood_the_reader(self):
+        # A process failing every hour appends forever; a boot sequence
+        # must never read an unbounded file into memory.
+        with tempfile.TemporaryDirectory() as d:
+            repo = self._repo(d, "E" * 200_000)
+            r = sentinel.read_cron_stderr(repo, tail_bytes=8192)
+            self.assertTrue(r.failed)
+            self.assertEqual(len(r.tail), 8192)
+            self.assertTrue(r.truncated)
+            self.assertEqual(r.size_bytes, 200_000)
+            self.assertTrue(any("showing the trailing" in w for w in r.warnings))
+
+    def test_undecodable_bytes_do_not_raise(self):
+        with tempfile.TemporaryDirectory() as d:
+            repo = Path(d)
+            (repo / "foundation").mkdir()
+            (repo / "foundation" / "cron_pulse.err.log").write_bytes(b"\xff\xfe bad \xc3(")
+            r = sentinel.read_cron_stderr(repo)
+            self.assertTrue(r.failed)
+            self.assertIsInstance(r.tail, str)
+
+    def test_the_reader_never_writes_or_truncates_the_evidence(self):
+        with tempfile.TemporaryDirectory() as d:
+            repo = self._repo(d, "boom\n")
+            log = repo / "foundation" / "cron_pulse.err.log"
+            before = log.stat().st_mtime_ns
+            sentinel.read_cron_stderr(repo)
+            sentinel.read_cron_stderr(repo)
+            self.assertEqual(log.read_text(), "boom\n")
+            self.assertEqual(log.stat().st_mtime_ns, before)
+
+    def test_against_the_real_live_err_log(self):
+        # Whatever state this machine's real cron entry has left it in.
+        r = sentinel.read_cron_stderr(REPO_ROOT)
+        self.assertIsInstance(r.available, bool)
+        self.assertIsInstance(r.failed, bool)
+        if not r.available:
+            self.assertFalse(r.failed)
+
+
+class TestCheckProtocolDocumentTargets(unittest.TestCase):
+    """Clause 2 of the Consumer-Reality Contract (PARETO_FRONTIER.md
+    FRONTIER-016): a callable named by a protocol document must resolve.
+
+    Built 2026-08-28 (cycle demonblade_012) against a REPRODUCED defect:
+    cycle demonblade_010 typo'd a documented function name in
+    `.claude/commands/boot.md` and the whole suite stayed green. These
+    tests replay that mutation and its neighbours.
+    """
+
+    def _repo(self, doc_text: str, module_text: str = "def real_one():\n    pass\n"):
+        root = Path(self.tmp.name)
+        (root / ".claude" / "commands").mkdir(parents=True, exist_ok=True)
+        (root / "foundation").mkdir(parents=True, exist_ok=True)
+        (root / ".claude" / "commands" / "boot.md").write_text(doc_text)
+        (root / "foundation" / "widget.py").write_text(module_text)
+        return root
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+
+    def test_real_repository_is_currently_clean(self):
+        """Legitimate neighbours preserved: the 9 real qualified
+        references in this repo's own command set must all resolve."""
+        self.assertEqual(check_protocol_document_targets(REPO_ROOT), [])
+
+    def test_typo_in_dotted_reference_is_caught(self):
+        root = self._repo("call `foundation.widget.real_onee(x)` now")
+        findings = check_protocol_document_targets(root)
+        self.assertEqual(len(findings), 1)
+        self.assertEqual(findings[0].confidence, "HIGH")
+        self.assertIn("real_onee", findings[0].observation)
+
+    def test_typo_in_path_symbol_reference_is_caught(self):
+        root = self._repo("run `foundation/widget.py::real_onee()`")
+        self.assertEqual(len(check_protocol_document_targets(root)), 1)
+
+    def test_missing_module_is_caught_and_distinguished(self):
+        root = self._repo("call `foundation.gadget.real_one(x)`")
+        findings = check_protocol_document_targets(root)
+        self.assertEqual(len(findings), 1)
+        self.assertIn("module file does not exist", findings[0].interpretation)
+
+    def test_resolving_references_produce_no_finding(self):
+        root = self._repo(
+            "call `foundation.widget.real_one(x)` and "
+            "`foundation/widget.py::real_one()`"
+        )
+        self.assertEqual(check_protocol_document_targets(root), [])
+
+    def test_class_targets_resolve_too(self):
+        root = self._repo("see `foundation.widget.Widget(x)`",
+                          module_text="class Widget:\n    pass\n")
+        self.assertEqual(check_protocol_document_targets(root), [])
+
+    def test_bare_unqualified_call_is_not_guessed_at(self):
+        """A bare `real_onee()` names no module. Matching it would mean
+        guessing which module to resolve against — the declared scope
+        limit, asserted so a future edit cannot silently widen it."""
+        root = self._repo("then call `real_onee()` as documented")
+        self.assertEqual(check_protocol_document_targets(root), [])
+
+    def test_finding_key_is_stable_across_repeated_sweeps(self):
+        """A persisting broken reference must not mint a new key every
+        hour — the exact defect previously found in
+        check_readme_test_count."""
+        root = self._repo("call `foundation.widget.real_onee(x)`")
+        keys = {f.key() for _ in range(3)
+                for f in check_protocol_document_targets(root)}
+        self.assertEqual(len(keys), 1)
+
+    def test_missing_command_directory_is_not_a_finding(self):
+        root = Path(self.tmp.name)
+        (root / "foundation").mkdir(parents=True, exist_ok=True)
+        self.assertEqual(check_protocol_document_targets(root), [])
+
+    def test_wired_into_pulse_sweep(self):
+        self.assertIn(check_protocol_document_targets, _LEVEL1_CHECKS)

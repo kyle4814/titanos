@@ -200,11 +200,18 @@ passes. See `TITANOS_OBELISK_ZERO_DEPENDENCY_DOCTRINE.md`.
 compute_sigil()`) is historical compression — what capability has
 already been earned — distinct from the frontier's directional "what's
 next." Never manually incremented; recomputes from repository evidence
-every time, same result for the same state. Current: `TIER:T7 |
-IRON:10 | LATTICE:6 | PROOF:10 | SIGHT:10 | FRONTIER:10 | ORCH:10 |
-MEMORY:10 | REALITY:10` — T7 earned 2026-08-26 once `kyle4814/titanos`
-became a real public repo with a real recorded CI success; see
-`SIGIL.md`. **Caution if extending `foundation/sigil.py`:**
+every time, same result for the same state. **This paragraph is a
+snapshot of `SIGIL.md`'s own snapshot of `compute_sigil()`'s output --
+two layers of caching one real value. Do not trust either without
+re-running `compute_sigil()` if it matters to what you're about to
+claim** (this exact staleness was found and corrected 2026-08-28: this
+paragraph said `TIER:T7 | REALITY:10` after `SIGIL.md` itself had
+already documented the real, evidenced drop to `TIER:T3 | REALITY:6`
+following `mouth_pypi.py`'s network dependency two cycles earlier -- see
+`SIGIL.md`'s own "CORRECTION" note). As of 2026-08-28, directly
+recomputed rather than copied from either file: `TIER:T3 | IRON:10 |
+LATTICE:6 | PROOF:10 | SIGHT:10 | FRONTIER:10 | ORCH:10 | MEMORY:10 |
+REALITY:6`. **Caution if extending `foundation/sigil.py`:**
 its PROOF dimension shells out to run every subsystem's test suite,
 including `foundation`'s own — which contains this module's real-repo
 tests. `foundation/recursion_guard.py::check()`/`child_env()` prevents

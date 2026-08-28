@@ -28,7 +28,6 @@ answer these yet, it stays in `INTUITION.md`, not here.
 7. **REUSE** — what existing work this builds on rather than duplicates.
 
 ## Active
-
 ### FRONTIER-009 — Boot Context Selector for `CLAUDE.md` doctrine imports
 - **CURRENT:** `MEMORY_MAP.md` (built) measured 1,700+ lines across
   doctrine files loading unconditionally at every session boot — now
@@ -93,93 +92,214 @@ original domain" test. Moved to Archive table below.
 - Items (B)/(C)/(F) of `TITANOS_AKASHIC_NARRATIVE_ENGINE.md` §XVIII,
   deliberately deferred — "do not build everything at once."
 
-## Archive (built)
+### FRONTIER-016 — SETTLED 2026-08-28: the Consumer-Reality Contract
+- **CURRENT:** the Consumer-Reality Contract below is now this
+  repository's standard for the term "real consumer". Six functions
+  (`read_pulse_continuity`, `read_cron_stderr`,
+  `read_dependency_pressure_log`, `read_recorded_sigil`, `classify_hold`,
+  `evaluate_continuation`) are consumed by `.claude/commands/boot.md`
+  steps and qualify under it.
+- **GAP:** closed as a doctrine question; the remaining gap is
+  mechanical, not doctrinal — nothing yet checks the five clauses. That
+  residue is FRONTIER-017, not this entry.
+- **STATUS:** RESOLVED. Decided by direct human order, *not* by its own
+  objective reopen trigger (neither (i) a new NO-BUILD citing the phrase
+  nor (ii) a proposed 7th boot.md-only function had fired). Recorded so
+  the closure is not later mistaken for the trigger having fired.
+- **QUESTION:** does a documented, verified session protocol step count
+  as a real consumer?
+- **DECISION: YES — but only under the contract below.** All five clauses
+  are required; failing any one makes the reference a mention, not a
+  consumer.
 
-One line each — full reasoning lives in the commit that built it. Kept
-here, not deleted, per this file's own Archivist principle; removed
-from the active scan path per this addendum's compaction rule.
+  **CONSUMER-REALITY CONTRACT.** A documented protocol step is a real
+  consumer of a callable when: (1) the document sits on a protocol path a
+  session actually reaches; (2) the step names the exact callable and
+  that callable exists; (3) the documented invocation executes against
+  real state — signature matches and every documented outcome is
+  reproducible; (4) the step states what the reader does with each
+  outcome; and (5) the step states its own authority ceiling.
 
-| ID | Capability | Commit |
-|---|---|---|
-| FRONTIER-RG | Bounded recursive execution ancestry (recursion guard) | `93b3e89` |
-| FRONTIER-004 | Narrative Atom Store (`narrative/store/narrative_atom_store.py`) | `d5537c1` |
-| FRONTIER-MEMBRANE | Source Vault -> Narrative Atom bridge (`narrative/intake/source_vault_bridge.py`) | `4ac4ef6` |
-| FRONTIER-000 | Narrative Atom schema + validator | `d14e128` |
-| FRONTIER-006 | Layer 0 Worker Contract (ABC-enforced) | `f416cd0` |
-| FRONTIER-007 | Crystalline Memory (`foundation/crystal.py`) | `7ecf615` |
-| FRONTIER-MAP | Memory Map / boot-load tier audit | `f5c2f34` |
-| FRONTIER-010 | Sentinel_141 Level 1 Pulse Sweep | `b25b680` |
-| FRONTIER-012 | Bounded Task Queue Workflow | `f5de342` |
-| FRONTIER-013 | Queue ↔ Layer0Worker execution seam | `0b1efba` |
-| FRONTIER-014 | Closed-loop reality proof (real worker) | `190b119` |
-| FRONTIER-015 | Explicit run deferral + recovery handoff | `44c9b18` |
-| FRONTIER-011 | `BUILD_REPORT.md` for schema/firewall/narrative | `e816905` |
-| FRONTIER-001 | Reusable secret/credential scanner | `1b03480` |
-| FRONTIER-002 | `permission_request` → `GateInput` adapter | `632e774` |
-| SIGIL | Capability Sigil (`foundation/sigil.py`, `SIGIL.md`) | `e3ce475` |
-| FRONTIER-FSCHEMA | `PARETO_FRONTIER.md` structural schema validator (`foundation/sentinel.py::check_frontier_schema`) | `cbcb73f` |
-| FRONTIER-REFCHECK | RPA cross-file referential integrity checker (`rpa/composition/checker.py`) | `9a63205`, extended `d8afa32`, `3741094`, `b5cad9a` |
-| FRONTIER-CONCLUDE | Coded Conclusion Gate (`foundation/conclusion_gate.py`) | `c53411f` |
-| FRONTIER-CONCLUDE-ENFORCE | Conclusion Gate enforced at `Layer0Worker.run()` (mandatory, not optional) | `8c91b81` |
-| FRONTIER-MANIFEST | Runtime dependency manifest (`requirements.txt`, PyYAML pinned) | `b2ce4b1` |
-| FRONTIER-COMM-SWITCH | External Communication switch, prerequisite only (`foundation/communication_gate.py`) — no retrieval capability implemented | `ff7af45` |
-| FRONTIER-NARRATIVE-REFCHECK | Narrative atom cross-atom referential integrity checker (`narrative/composition/checker.py`) | `67c3507` |
-| FRONTIER-INVARIANT-SPECIMEN | First proven invariant durably registered in `SIGIL_LEXICON.md` (`SIGIL.REF_INTEGRITY`, transferred rpa->narrative) | `5fd5dc7` |
-| FRONTIER-NO-DELETE-INVARIANT | Second registered invariant (`SIGIL.NO_DELETE_SURFACE`), proven across 8 independent stores, stronger than the control specimen | `e560129` |
-| FRONTIER-ABSENT-EDGE-INVARIANT | Third registered invariant (`SIGIL.ABSENT_ILLEGAL_EDGE`), proven across 6 independent state machines, independence verified by import-check test | `e8e1cf2` |
-| FRONTIER-NO-CACHED-DECISION | Fourth registered invariant (`SIGIL.NO_CACHED_DECISION`), correctly scoped to 2 domains after recon disproved a false 3-domain claim; also fixed an audit gap in an existing test | `95906bb` |
-| FRONTIER-NO-EXECUTION-AUTHORITY | Fifth registered invariant (`SIGIL.NO_EXECUTION_AUTHORITY`): 4 independent modules (`sentinel.py`, `hells_gate.py`, `regression_engine.py`, `defusal_router.py`) share "proposes/observes, structurally forbidden from executing" -- proof re-derived directly against all 4 real modules in one test file, not just citing each module's own existing test | `82f08ea` |
-| FRONTIER-RPA-VALIDATION-BINDING | Multi-turn adversarial recon (semantic equivalence-fraud hunt) found and closed a real gap: `rpa/gates/human_jurisdiction.py::authorize_pilot()` could queue any `candidate_id` for pilot review with zero connection to real, structurally validated content. Closed via 2 new `SourceRegistry` accessors (`get_by_hash`, `get_content`) + fresh recomputed validation at authorization time (never a durable "was validated" witness -- the validator is pure, so recomputation is strictly stronger). Same recon separately proved `foundation/switch_hardener.py` does NOT share this bug (no consequential consumer exists there) -- a genuine negative control, not assumed symmetry. Found and fixed one real regression during implementation: a `sys.path` insert of the hyphenated `kpm/source-vault/` dir collided with unittest's "tests" package resolution across subsystems; fixed via `importlib` file-based loading instead. 1308/1308 full regression. | (this commit) |
-| FRONTIER-EPISTEMIC-FREEZE | Closed a real, reproduced epistemic-state collapse: froze 5 append-only record types (Claim, AtomRecord, PromotionRecord, QuarantineRecord, FlowSwitchRecord) that were bypassable via direct attribute assignment | `3dcb258` |
-| FRONTIER-HISTORY-FREEZE | Closed a real, LIVE exploit: the same 5 types' `history` field was still a mutable list under freezing -- converted to tuple, closing a forged-entry bypass of `rpa/gates/human_jurisdiction.py`'s pilot-authorization gate | `8e0e12d` |
-| FRONTIER-003 | CI workflow real and green (`kyle4814/titanos` created public, pushed, `.github/workflows/tests.yml` fired for the first time and passed, 8/8 subsystems) | `6fb29fa` (workflow) + live push 2026-08-25 |
-| FIRST-PING | First proven `WORLD -> TITANOS -> WORLD` exchange: real GitHub Actions run ingested + classified through the existing (pre-built) digestion pipeline, self-sourced not human-supplied. See `FIRST_PING.md`. No new code. | (this commit) |
-| FRONTIER-008 | Per-subsystem external packaging docs (`ADOPT.md`) for all 8 subsystems -- every quickstart independently re-run and matched, caught 3 real doc bugs before shipping | `82862e4`,`8b9d906`,`2b1fb4c`,`8c299e0`,`cb8bd84`,`3c5c87c`,`e8afcae`,`1b7793c` |
-| FRONTIER-SIGIL-T7 | T7 rung implemented (`foundation/sigil.py::_dimension_external_integration()`) -- a documented-but-never-built ceiling, closed once real evidence (public repo + recorded CI success) actually existed to check against. Local-evidence-only by design, no live network call. 7 new tests, 32/32 targeted, 1212/1212 full regression. | `23373c3` |
-| FRONTIER-4AGENT-FOUNDATION | 4 parallel agents built the 4 remaining feasible `foundation/MAPPING.md` items (`defusal_router.py`, `low_regret_engine.py`, `regression_engine.py`, `state_space_mapper.py`); independent adversarial review agent found and this session fixed: `ContradictionRecord` (kpm/contradictions/registry.py) was the ONE record type `EPISTEMIC_INTEGRITY_002`'s sweep missed -- same live forgeable-status/history exploit, now frozen+tupled like the other 5. Also fixed: `low_regret_engine.py` duplicate-name ambiguity + float-equality tie-detection trap, `MAPPING.md` test-count arithmetic. 1294/1294 full regression. | `522a6eb`,`6ee1a32` |
-| FRONTIER-KPM-E2E | `kpm/BUILD_REPORT.md`'s own named-but-never-built next step: `kpm/tests/test_end_to_end.py` proves ingest->classify->blueprint->validate->promote genuinely connects, matching the proof `magl/rpa/taal` each already had for their own subsystem. Also found and fixed: `kpm/tests/` had no `__init__.py`, so `unittest discover` was silently never running anything placed there. Also found and fixed: `rpa/BUILD_REPORT.md` and `narrative/BUILD_REPORT.md`'s own "next smallest work cell" sections were stale, describing already-completed work (`rpa/composition/checker.py`, `narrative/store/narrative_atom_store.py`) as still pending. 1295/1295 full regression. | (this commit) |
-| FRONTIER-SITUATION-ANALYSIS-SLICE | 5-parallel-agent recon (cartographer/data-model/Monk-Demonblade/MAGL-bridge/red-team) then one narrow vertical slice built: `foundation/situation_analysis.py` (`monk_pass`/`demonblade_pass` pure functions, `build_magl_candidate`, `record_situation_crystal`) proves a full cycle — situation -> structure -> adversarial attack -> SURVIVED/KILLED -> MAGL candidate -> real `register_checked()`/`authorize_pilot()`/`confirm_pilot_authorized()` gates -> one durable `Crystal` a future reader can retrieve with zero conversation history. Reused every existing primitive unchanged (Crystal, ContradictionRegistry vocabulary, PromotionStore, SourceRegistry, MAGL catalogue/composition, RPA gate) — no new store, no new gate, no Monk.py/Demonblade.py class. Real finding from the recon: MAGL's `catalogue.py`/`validate_magl.py` stack and `ContradictionRegistry.record()` had **zero real non-test callers anywhere in the repo** before this slice — this is their first real caller. `build_magl_candidate()` structurally refuses a non-SURVIVED analysis (`AnalysisNotSurvived`); a negative test proves a composition conflict is still refused even for a SURVIVED candidate. 18 new tests, 1326/1326 full regression. | (this commit) |
-| FRONTIER-WORLD-PING-SLICE | Second 5-parallel-agent recon (external-system cartographer/bottleneck engineer/red-team/corpus architect/integration engineer) extended the situation-analysis slice OUTWARD to a real external system (Acme Manufacturing's invoicing bottleneck, `rpa/fixtures/legacy_map.yaml`+`bottleneck.yaml`+`automation_candidate.yaml` — no synthetic fixture invented). Cartographer found `SituationAnalysis` needed **zero new fields** for external subjects. Added exactly two things: `find_bottleneck_hypotheses()` in `foundation/situation_analysis.py` (a `Claim`-based, never-a-bare-float bottleneck contract returning INSUFFICIENT_EVIDENCE/HOLD/SINGLE_CANDIDATE/AMBIGUOUS_MULTIPLE — never forces a fake single winner) and `CrystalStore.is_current()` in `foundation/crystal.py` (closed a real red-team finding: `supersedes` was validated on write but never consulted on read — zero real callers ever checked staleness). Full world-ping chain proven end-to-end on the real fixture through unmodified MAGL/RPA/Crystal gates. 33 new tests (52 total across the situation-analysis test files), 1341/1341 full regression. | (this commit) |
-| FRONTIER-TECTONIC-TENSION-SLICE | Third 5-parallel-agent recon (tectonic cartographer/power-topology engineer/off-ramp engineer/red-team/integration engineer) extended the world-ping slice to STRUCTURAL TENSION between two actors — deliberately distinct from a single-actor bottleneck. Added `find_tension_hypotheses()` (two-sided, `Claim`-backed, states INSUFFICIENT_EVIDENCE/NO_TENSION_IDENTIFIED/STRUCTURAL_TENSION/CONTINGENT_TENSION/AMBIGUOUS_MULTIPLE — `STRUCTURAL_TENSION` explicitly never means "inevitable"; `ACTIVE_CLASH` was deliberately NOT implemented since distinguishing "already manifested" from "merely unresolved" would require causal/temporal understanding the keyword-overlap heuristic honestly can't provide) and `evaluate_off_ramp_candidates()` (vets caller-proposed stabilisation options against real evidence — never generates one, avoiding the "recommendation engine" trap; `NO_CREDIBLE_OFF_RAMP_IDENTIFIED`/`PRECONDITIONS_UNMET` are first-class honest outputs; `affected_relationships` mandatory-non-empty and `interim_cost_if_reversible` required-unless-irreversible close the "local stability ≠ global stability" and "reversible ≠ free" traps). Real fixture: the same Acme corpus's own `jurisdictions` block (clerk's informal $5000 approval authority vs. the formally-authority-less approval workflow) — a genuine two-sided tension already latent in existing evidence, not invented. Red team's sharpest finding (K15, dead-capability risk) was resolved by wiring the new layer into the SAME real end-to-end gate chain as the existing test, not a standalone unit test alone. 24 new tests, 1362/1362 full regression. | (this commit) |
-| FRONTIER-CONTRADICTION-REGISTRY-WRITER | Fourth 5-parallel-agent recon: `ContradictionRegistry.record()` still had zero real non-test callers after three prior slices. Three independent agents (cartographer/semantics engineer/red team) converged on the same finding: `demonblade_pass()`'s `contradiction_candidates` are single-sided "unsupported dependency" findings, NOT the two-claims-that-cannot-both-be-true collision `ContradictionRegistry`'s own docstring defines — wiring them in directly would be semantic laundering, rejected as a build blocker (K3/K7). The corpus-loop engineer identified the one real subject that DOES fit: this session's own already-fixed RPA validation-transfer finding (real commit, real regression test `test_arbitrary_magl_id_with_no_validated_source_is_refused`). Built `foundation/historical_findings.py::record_rpa_validation_bypass_finding()` — one explicit, one-time, caller-invoked function recording+resolving this real historical contradiction with real evidence_refs (file paths, test name, ADOPT.md), never touching `demonblade_pass()` or `PromotionStore` directly. Proven to reach `regression_engine.check_for_regression()` as a real reader (proposes `STABLE→DEPRECATED`, never auto-executes — blueprint state confirmed unchanged after the call). Classified honestly as WRITER_TO_READER_ONLY, not a closed loop — no real external trigger outside test code exists yet. 7 new tests, 1369/1369 full regression. | `dd9a7fd` |
-| FRONTIER-GIT-DURABILITY-AND-FIRST-SEED | Fifth 5-agent cycle closed the actual durability gap: all four prior cycles above were uncommitted in the working tree (their `(this commit)` tags were false). Git cartographer confirmed a clean 14-file commit set with zero unrelated changes; Osiris auditor confirmed full fresh-clone reconstructability (all 9 test questions resolved IMPLEMENTED, reasoning for every "why not X" decision — e.g. why `demonblade_pass()`'s candidates aren't wired to `ContradictionRegistry` — lives in code docstrings, not just this conversation); red team found no commit blockers. Committed as `dd9a7fd`. Then ran ONE real internal subject (the MAGL-Ω duplication-avoidance decision — `magl/BUILD_REPORT.md`'s real finding that 9/11 required invariants already existed, verified `ACCEPTED` by `compiler/coverage.py`) through the unmodified pipeline in a scratch script: `find_bottleneck_hypotheses` → `SINGLE_CANDIDATE`; `find_tension_hypotheses` → honestly `NO_TENSION_IDENTIFIED` (the `_mentions()` heuristic found no actor-name overlap in the evidence text — refused to manufacture a tension rather than force one); `demonblade_pass` → `SURVIVED`. **Correction (same cycle, caught by a second 5-agent pass before this row was committed):** the scratch script called `record_situation_crystal()` against a `CrystalStore()` instantiated in that same process — `CrystalStore` is pure in-memory with no disk backend, so that Crystal was never durable and no longer exists; the original wording here claimed it as "recorded," which overclaimed. No `Crystal` for this seed currently exists anywhere in the repository. The pipeline run itself (bottleneck/tension/demonblade results above) is real and reproducible from `magl/BUILD_REPORT.md`'s real content; only the "recorded to Crystal" step was never actually durable. Deliberately stopped before `build_magl_candidate`/MAGL/authorization either way — a historical governance decision has nothing for those gates to validate. Zero new architecture required for the pipeline itself. | (this commit) |
+- **WHY (the property actually being protected):** "real consumer" exists
+  to stop capability being claimed for code nothing exercises — dead
+  weight that rots undetected and inflates the repo's stated ability. A
+  protocol step satisfying all five clauses does exercise the callable,
+  against live repository state, which is a *stronger* reality signal
+  than a test fixture, not a weaker one. What it does not provide is
+  *enforcement*. Those are two different properties, and this repository
+  had been conflating them.
+- **BOUNDARY — what does NOT count:** a mention, a "see also", a comment,
+  a docstring, an index or lexicon entry, a document no protocol path
+  reaches, a step naming a callable that does not exist, or a step naming
+  a call but no handling of its outcomes. **And absolutely:** a
+  protocol-step consumer NEVER satisfies a claim requiring
+  machine-enforced invocation. It consumes the output; it is not a
+  call-graph edge.
+- **COUNTEREXAMPLE (verified against source, not hypothetical):**
+  `COMMAND_LEXICON.md` documents a full execution chain
+  (recon→delta→proof→regression→doc→commit→handoff) and reads exactly
+  like a documented consumer. It fails clause 1 (referenced only as an
+  index in `CLAUDE.md` prose; no protocol step invokes it), clause 2 (its
+  one callable, `discover()`, is unittest's, not this repository's), and
+  clause 4. `CLAUDE.md` already says of it: "a specification only, no
+  runtime resolver exists or is claimed." It is a mention, not a
+  consumer.
+- **DOWNSTREAM EFFECT on future "no real consumer" claims:** such a claim
+  must now name *which* kind of consumer is absent. "No code caller" and
+  "no consumer at all" are different findings with different weight. A
+  NO-BUILD may cite the absence of any consumer; it may not cite the
+  absence of a code caller alone while this repository ships six
+  functions consumed exactly that way. The Rejected section above was
+  amended accordingly.
+- **SIGIL (the drift-preventing law):** `SIGIL.DOOR` — *a governed
+  callable has a real consumer iff a reachable protocol step names it,
+  its target resolves, its documented outcomes reproduce, its outcome
+  handling is stated, and its ceiling is stated. Consumption is not
+  enforcement; a protocol consumer never proves invocation.*
+- **CEILING, stated not papered over:** clauses 1, 2 and 4 are
+  mechanically checkable. Clauses 3 and 5 are checkable only by a session
+  executing them, as this one did. Nothing in this repository currently
+  checks any of the five — see FRONTIER-017.
 
-## Rejected / not on the frontier
+### FRONTIER-017 — BUILT 2026-08-28: clause-2 protocol target check
+- **CURRENT:** `foundation/sentinel.py::check_protocol_document_targets()`
+  is built and wired into `_LEVEL1_CHECKS`, so the hourly cron sweep now
+  runs it. It resolves every fully-qualified callable named in
+  `.claude/commands/*.md` against real source, in both forms in use
+  (`foundation.mod.name(` and `foundation/mod.py::name(`). 10 tests.
+- **GAP:** clause 2 only, and only for qualified references. Four
+  residues are recorded below rather than silently absorbed.
+- **PROOF EXECUTED:** four mutation classes each produced exactly one
+  HIGH finding — typo'd dotted name (the original demonblade_010
+  defect), typo'd path::symbol name, typo'd module, and deletion of a
+  real `def` in source. Restoring the file returned zero findings. The
+  9 real references in this repo resolve clean. `Finding.key()` stable
+  across 3 sweeps. Replayed through live `pulse_sweep()`, not only the
+  check in isolation. Full regression 1740/1740 green, 8/8 subsystems.
+- **UNLOCK:** a protocol document can no longer point at a function that
+  does not exist without the sweep saying so.
+- **REUSE:** existing `Finding`/`_LEVEL1_CHECKS`/`_run_check_safely`
+  machinery; no new module, no new authority, no scheduler change.
 
-- **Full `core/`/`workers/`/`ledgers/` directory restructure** — would
-  duplicate existing structure (`foundation/`/`magl/`/`rpa/`/`taal/`
-  already are the shapes proposed) or be empty theater (typed worker
-  directories with no code). Rejected as the *next move*, not as a
-  future possibility — if a genuine need for typed worker processes
-  emerges, build that need directly, don't pre-build scaffolding.
+**Conserved residues from this build — none are lost, none are built:**
+- **BLOCKED — unqualified references are out of scope by design.**
+  `boot.md` contains `reconcile_sigil(REPO_ROOT, previous=recorded)` with
+  no module prefix. Matching bare `name()` would require guessing which
+  module to resolve against, which manufactures false positives. Asserted
+  as a scope limit by `test_bare_unqualified_call_is_not_guessed_at` so a
+  future edit cannot widen it silently. Reopen only if a bare reference
+  is ever the ONLY form used for some callable.
+- **DEFERRED_WITH_OBJECTIVE_WAKE_CONDITION — clause 1 (reachability) and
+  clause 4 (outcome handling) checks.** Both are mechanically checkable;
+  neither has a reproduced defect, so building them now would be
+  speculative infrastructure. Reopen when a protocol document is added
+  that no path reaches, or a step is added naming a call with no outcome
+  handling.
+- **BLOCKED — clauses 3 and 5 are outside machine jurisdiction.** Whether
+  a documented invocation executes, and whether its stated ceiling is
+  honest, are only checkable by a session performing them. Named, not
+  faked.
+- **DEFERRED_WITH_OBJECTIVE_WAKE_CONDITION — archive move.** This entry
+  belongs in the Archive table, which requires a real commit hash. No
+  commit exists (committing is not authorized). Reopen when this work is
+  committed.
 
-- **"Universal decision layer" / input-topology router, and Crystal
-  cross-subject similarity retrieval** — 5-agent recon (cartographer/
-  ontology-minimalist/corpus-reuse/red-team/integration engineer),
-  2026-08-26, both candidates NO-BUILD against the same 10-point
-  checklist `FRONTIER-SITUATION-ANALYSIS-SLICE` and its two extensions
-  already used to justify prior cycles. Router fails decisively:
-  `test_situation_analysis_external_system.py` already calls
-  `find_bottleneck_hypotheses()`/`find_tension_hypotheses()` directly on
-  the same `SituationAnalysis`, back to back — "doing nothing plus
-  better composition" already dominates a dispatcher. No real
-  unstructured-input fixture exists (every fixture is already-structured
-  YAML), and it would be a fourth function whose only real caller is its
-  own test. Crystal retrieval fails independently and more sharply: no
-  mechanism anywhere judges relevance between two different Crystals
-  (confirmed zero non-test readers of `.get()`/`.all_crystals()`/
-  `.reusable_abstractions()` beyond this session's own test fixtures),
-  and stretching `_mentions()`'s same-document keyword-overlap heuristic
-  across unrelated historical subjects would silently launder a weak
-  same-session heuristic into a cross-document applicability claim it
-  was never evidenced for — "a previous solution worked there, therefore
-  it works here." The separately-attacked 9-category problem taxonomy
-  (bottleneck/tension/contradiction/coordination/resource-constraint/
-  information-deficit/risk-reversibility/dependency/opportunity-frontier)
-  was killed outright: only 2 of 9 categories have any real analysis
-  function behind them. Nothing built. If either candidate is revisited,
-  it needs a real non-test caller and a real unstructured-input fixture
-  first — not built speculatively ahead of either.
+### FRONTIER-018 — CLOSED 2026-08-28: 7 Archive rows backfilled
+- **CURRENT:** `check_frontier_hash_placeholders()` returns CLEAN. All
+  seven rows now carry real, `git show`-verified commit hashes
+  (`c7cb154`, `265531a`, `8c6e18f`, `dd9a7fd`×4). Closed in cycle
+  demonblade_013; this entry's status field was left stale until
+  2026-08-28 — the state-divergence that revealed it is recorded in
+  FRONTIER-019. Formerly: seven Archive rows (FRONTIER-RPA-VALIDATION-
+  BINDING, FIRST-PING, FRONTIER-KPM-E2E, FRONTIER-SITUATION-ANALYSIS-
+  SLICE, FRONTIER-WORLD-PING-SLICE, FRONTIER-TECTONIC-TENSION-SLICE,
+  FRONTIER-GIT-DURABILITY-AND-FIRST-SEED) still read `(this commit)`.
+- **GAP:** the string is only legitimately true mid-edit, before a commit
+  exists to name. These rows are committed (present in HEAD `cdce3df`),
+  so each tag is false — the Archive claims a provenance it does not
+  carry. Ironically FRONTIER-GIT-DURABILITY-AND-FIRST-SEED's own text
+  says the prior rows' `(this commit)` tags "were false" while carrying
+  the same false tag itself.
+- **LEVER:** the Archive is the provenance path a future operator uses to
+  find what shipped and when. Seven unresolvable pointers degrade the
+  reconstruction test this repository explicitly builds toward.
+- **FIRST STEP:** attribute each row to its real commit via `git log`,
+  then replace the placeholder.
+- **PROOF:** `check_frontier_hash_placeholders()` returns clean.
+- **UNLOCK:** the Archive becomes navigable provenance rather than prose.
+- **REUSE:** the check already exists and already fires; nothing new is
+  needed to detect it.
+- **SWEPT — closed in cycle demonblade_013**, verified by
+  `check_frontier_hash_placeholders()` returning clean and by a mutation
+  replay (reintroduce a placeholder → 1 finding; restore → 0).
+
+### FRONTIER-019 — frontier status fields can go stale without detection
+- **CURRENT:** class re-measured 2026-08-28 (cycle status_reality_001),
+  correcting this entry's own prior "n=1" claim, which had itself gone
+  stale — a small, ironic instance of exactly the failure this entry
+  describes. Two distinct claim shapes actually exist among the 8
+  entries in this file carrying a `PROOF` bullet:
+  (a) entries naming an actual `check_*()`/`pulse_sweep()` function —
+  FRONTIER-018 (`check_frontier_hash_placeholders()`) and FRONTIER-025
+  (`pulse_sweep()` CLEAN) — **N=2**, not 1;
+  (b) entries citing named unittest tests, mutation counts, or full
+  regression numbers without naming a pulse_sweep-wired function —
+  FRONTIER-020, 021/022, 023, 024 — **N=4** (5 counting sub-bullets).
+- **GAP:** the two shapes have opposite risk profiles, proven by direct
+  mutation, not assumed:
+  **Shape (a) is SAFE** — `check_frontier_hash_placeholders()` and
+  `check_ci_matrix_coverage()` (this session's own two additions) are
+  stateless: they re-scan real filesystem state on every call, ignoring
+  what any entry's prose claims. REPRODUCED: reintroduced a placeholder
+  into a real Archive row while FRONTIER-018's own "CLOSED" prose was
+  left untouched — `pulse_sweep()` fired immediately (1 finding), and
+  `foundation/cron_pulse.py` already runs `pulse_sweep()` hourly
+  (confirmed: `from foundation.sentinel import pulse_sweep` at its
+  import line, wired into `main()`). Worst case is a ~1hr lag until the
+  next tick, not silent, permanent divergence. Mutation restored;
+  `pulse_sweep()` re-confirmed clean.
+  **Shape (b) is UNSAFE — REPRODUCED LIVE:** reverted
+  `_claims_doctrine_identity()` (the exact fix FRONTIER-024 claims
+  CLOSED) back to `all()`. `pulse_sweep()` stayed at **zero findings**.
+  Ground truth: `python3 -m unittest discover -s compiler` genuinely
+  **FAILED** (1 failure, the exact regression test built to catch this).
+  FRONTIER-024's own prose still read "CLOSED" throughout. Nothing
+  local or scheduled would have caught this divergence — `pulse_sweep()`
+  contains no subprocess/test-execution checks by design (only
+  `foundation/sigil.py::compute_sigil()`'s PROOF dimension actually runs
+  subsystem test suites, and it is not wired into cron_pulse.py; it only
+  runs when manually invoked). Compounding this: `git status -sb` shows
+  this branch **3 commits ahead of `origin/master`**, so even a real
+  GitHub Actions CI run would not currently see this session's fixes —
+  CI is a real mechanism only once pushed, and nothing pushes
+  automatically. Mutation restored; compiler suite re-confirmed 16/16 OK.
+- **LEVER:** shape (a) needs nothing further — already covered by an
+  existing, already-scheduled primitive. Shape (b)'s only existing
+  primitive that could close the gap is `compute_sigil()`'s PROOF
+  dimension, which already runs every subsystem's suite — the gap is
+  purely that nothing schedules it. Scheduling it (or an equivalent) is
+  a real recurring-compute/cron-schedule change (~40-60s of subprocess
+  work per prior measurement), which this session's own standing
+  authority constraints reserve for a human decision ("do not... arm
+  dormant workers... without contention"), not something to add
+  unilaterally inside a bounded attack cycle.
+- **FIRST STEP (shape b, if authorized):** wire `compute_sigil()` (or a
+  lighter-weight targeted re-run of just the tests named in `PROOF`
+  bullets) into `cron_pulse.py`'s hourly tick.
+- **PROOF:** shape (a) — `check_frontier_hash_placeholders()` mutation
+  matrix above. Shape (b) — `_claims_doctrine_identity()` regression
+  mutation above.
+- **UNLOCK:** shape (b) fixed would make ALL frontier PROOF claims,
+  not just filesystem-predicate ones, self-correcting within an hour.
+- **REUSE:** shape (a) needs none — already reused. Shape (b)'s fix, if
+  authorized, reuses `compute_sigil()` entirely; no new test runner.
+- **DEFERRED_WITH_OBJECTIVE_WAKE_CONDITION — re-measured 2026-08-28
+  (cycle status_reality_001).** Shape (a): closed by evidence, no
+  action needed. Shape (b): real, reproduced, N=4-5, currently
+  unbounded silent-divergence window — correctly NOT built this cycle;
+  wake condition is an explicit human decision to schedule
+  `compute_sigil()` (or equivalent) into cron, given its real recurring
+  compute cost.
 
 ## How to use this file
 

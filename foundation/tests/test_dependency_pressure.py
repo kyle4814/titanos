@@ -1,9 +1,19 @@
+import json
 import tempfile
 import unittest
+from datetime import datetime, timezone
 from pathlib import Path
 
-from foundation.dependency_pressure import evaluate_dependency_pressure
-from foundation.mouth_common import MouthObservation
+from foundation.dependency_pressure import (
+    evaluate_dependency_pressure,
+    read_dependency_pressure_log,
+)
+from foundation.mouth_common import MouthObservation, read_mouth_log_continuity
+from foundation.sentinel import Finding
+
+# Fixed "now" so staleness assertions don't drift with wall-clock time --
+# the exact bug that broke two authority-runtime tests earlier this session.
+_NOW = datetime(2026, 8, 27, 18, 0, 0, tzinfo=timezone.utc)
 
 
 def _obs(status, new_items=(), mouth_id="test_mouth"):
@@ -135,3 +145,183 @@ class TestRealRepoLiveVerification(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestReadDependencyPressureLog(unittest.TestCase):
+    """The switch closed 2026-08-28: `cron_pulse.py` writes real Findings
+    to `dependency_pressure_log.jsonl`, `.claude/commands/boot.md` step 4c
+    reads that exact file every boot -- and until now the only reader it
+    named (`mouth_common.read_mouth_log_continuity`) could report that the
+    log existed but never what it said, because a Finding payload has no
+    `status` field. These tests pin both halves: the before-state is real
+    (first test), and the finding is now retrievable (rest)."""
+
+    def _record(self, finding, observed_at="2026-08-27T17:07:01+00:00"):
+        from dataclasses import asdict
+        return json.dumps({
+            "mouth_id": "pypi_pyyaml_releases", "observed_at": observed_at,
+            **asdict(finding),
+        })
+
+    def _pressure_finding(self, action="HUMAN_REVIEW_REQUIRED: decide whether to update the pin"):
+        return Finding(
+            observation="PyYAML 9.9.9 is newer than the pinned 6.0.3",
+            evidence_location="requirements.txt", confidence="HIGH",
+            interpretation="a real release is not yet reflected in requirements.txt",
+            reversibility="reversible -- informational finding only, nothing executed",
+            recommended_next_action=action,
+        )
+
+    def test_the_old_reader_still_cannot_see_the_finding(self):
+        """The reproduction of the exact open edge, kept as a regression
+        so nobody 'fixes' this by quietly changing what the mouth reader
+        returns. read_mouth_log_continuity is not wrong -- it answers a
+        different question (is the clock alive) and must keep answering
+        only that."""
+        with tempfile.TemporaryDirectory() as d:
+            log = Path(d) / "dependency_pressure_log.jsonl"
+            log.write_text(self._record(self._pressure_finding()) + "\n")
+            continuity = read_mouth_log_continuity(log)
+            self.assertTrue(continuity.available)          # the clock is legibly alive
+            self.assertIsNotNone(continuity.latest_timestamp)
+            self.assertIsNone(continuity.latest_status)    # ...and the finding is invisible
+
+    def test_a_real_pressure_finding_is_reconstructed(self):
+        with tempfile.TemporaryDirectory() as d:
+            log = Path(d) / "dependency_pressure_log.jsonl"
+            log.write_text(self._record(self._pressure_finding()) + "\n")
+            result = read_dependency_pressure_log(log, now=_NOW)
+            self.assertTrue(result.available)
+            self.assertEqual(result.records_considered, 1)
+            self.assertEqual(len(result.findings), 1)
+            self.assertEqual(result.findings[0].confidence, "HIGH")
+            self.assertIn("9.9.9", result.findings[0].observation)
+            self.assertTrue(result.actionable)
+            self.assertEqual(result.errors, ())
+
+    def test_a_none_required_finding_is_retained_but_not_actionable(self):
+        # The discrimination that matters: a receipt proving the check ran
+        # is not the same thing as pressure needing a decision.
+        with tempfile.TemporaryDirectory() as d:
+            log = Path(d) / "dependency_pressure_log.jsonl"
+            log.write_text(self._record(self._pressure_finding("NONE_REQUIRED")) + "\n")
+            result = read_dependency_pressure_log(log, now=_NOW)
+            self.assertEqual(len(result.findings), 1)
+            self.assertFalse(result.actionable)
+
+    def test_an_evaluation_error_record_is_surfaced_not_mistaken_for_a_finding(self):
+        # cron_pulse.py writes this second shape when
+        # evaluate_dependency_pressure() itself raises.
+        with tempfile.TemporaryDirectory() as d:
+            log = Path(d) / "dependency_pressure_log.jsonl"
+            log.write_text(json.dumps({
+                "mouth_id": "pypi_pyyaml_releases",
+                "observed_at": "2026-08-27T17:07:01+00:00",
+                "error": "dependency pressure evaluation raised: boom",
+            }) + "\n")
+            result = read_dependency_pressure_log(log, now=_NOW)
+            self.assertEqual(result.findings, ())
+            self.assertEqual(len(result.errors), 1)
+            self.assertIn("boom", result.errors[0])
+            self.assertFalse(result.actionable)  # a crash is not pressure
+
+    def test_missing_log_is_the_normal_state_not_a_fault(self):
+        with tempfile.TemporaryDirectory() as d:
+            result = read_dependency_pressure_log(Path(d) / "nope.jsonl")
+            self.assertFalse(result.available)
+            self.assertEqual(result.findings, ())
+            self.assertIn("has ever fired", result.warnings[0])
+
+    def test_truncated_and_malformed_lines_do_not_crash_the_read(self):
+        with tempfile.TemporaryDirectory() as d:
+            log = Path(d) / "dependency_pressure_log.jsonl"
+            log.write_text(
+                self._record(self._pressure_finding()) + "\n"
+                + '{"mouth_id": "x", "observed_at": "2026-08-27T17:07:01+00:00"\n'  # truncated
+                + json.dumps({"observed_at": "2026-08-27T17:07:01+00:00",
+                              "not_a": "finding"}) + "\n"                            # wrong payload
+            )
+            result = read_dependency_pressure_log(log, now=_NOW)
+            self.assertEqual(len(result.findings), 1)      # the good record survives
+            self.assertEqual(len(result.warnings), 2)      # both bad ones are reported
+
+    def test_duplicate_findings_are_consolidated_not_repeated(self):
+        # Reuses sentinel.consolidate() -- the same (observation,
+        # evidence_location) dedup key already used for pulse findings.
+        with tempfile.TemporaryDirectory() as d:
+            log = Path(d) / "dependency_pressure_log.jsonl"
+            log.write_text("\n".join(
+                self._record(self._pressure_finding()) for _ in range(4)
+            ) + "\n")
+            result = read_dependency_pressure_log(log, now=_NOW)
+            self.assertEqual(result.records_considered, 4)
+            self.assertEqual(len(result.findings), 1)
+
+    def test_the_read_is_bounded_to_the_trailing_window(self):
+        with tempfile.TemporaryDirectory() as d:
+            log = Path(d) / "dependency_pressure_log.jsonl"
+            log.write_text("\n".join(
+                self._record(self._pressure_finding()) for _ in range(50)
+            ) + "\n")
+            result = read_dependency_pressure_log(log, max_records=20, now=_NOW)
+            self.assertEqual(result.records_considered, 20)
+
+    def test_staleness_is_flagged_with_its_own_weaker_meaning(self):
+        with tempfile.TemporaryDirectory() as d:
+            log = Path(d) / "dependency_pressure_log.jsonl"
+            log.write_text(self._record(
+                self._pressure_finding(), observed_at="2026-08-20T00:00:00+00:00",
+            ) + "\n")
+            result = read_dependency_pressure_log(log, now=_NOW)
+            self.assertTrue(result.stale)
+            self.assertTrue(any("weak evidence" in w for w in result.warnings))
+
+    def test_reader_never_writes_to_the_log(self):
+        with tempfile.TemporaryDirectory() as d:
+            log = Path(d) / "dependency_pressure_log.jsonl"
+            body = self._record(self._pressure_finding()) + "\n"
+            log.write_text(body)
+            before = log.stat().st_mtime_ns
+            read_dependency_pressure_log(log, now=_NOW)
+            read_dependency_pressure_log(log, now=_NOW)
+            self.assertEqual(log.read_text(), body)
+            self.assertEqual(log.stat().st_mtime_ns, before)
+
+    def test_against_the_real_repository_log_whatever_state_it_is_in(self):
+        # No synthetic fixture: whatever the live cron entry has actually
+        # written (today: nothing -- the branch has never fired live).
+        repo_root = Path(__file__).resolve().parent.parent.parent
+        result = read_dependency_pressure_log(
+            repo_root / "foundation" / "dependency_pressure_log.jsonl"
+        )
+        self.assertIsInstance(result.available, bool)
+        self.assertIsInstance(result.findings, tuple)
+        if not result.available:
+            self.assertFalse(result.actionable)
+
+
+class TestReadDependencyPressureLogSurvivesNonDictLines(unittest.TestCase):
+    """Same systemic bug class found in the same 2026-08-28 hunt: a
+    valid-JSON non-dict value raised TypeError in this reader too."""
+
+    def test_a_non_dict_line_does_not_crash(self):
+        with tempfile.TemporaryDirectory() as d:
+            log = Path(d) / "dp.jsonl"
+            log.write_text('42\n"str"\n[1,2]\nnull\n')
+            result = read_dependency_pressure_log(log)
+            self.assertEqual(result.records_considered, 0)
+            self.assertTrue(any("not an object" in w for w in result.warnings))
+
+    def test_a_real_finding_still_parses_when_mixed_with_junk(self):
+        with tempfile.TemporaryDirectory() as d:
+            log = Path(d) / "dp.jsonl"
+            f = Finding(
+                observation="x", evidence_location="y", confidence="HIGH",
+                interpretation="z", reversibility="r", recommended_next_action="NONE_REQUIRED",
+            )
+            from dataclasses import asdict
+            log.write_text('99\n' + json.dumps({
+                "mouth_id": "m", "observed_at": "2026-08-27T00:00:00+00:00",
+                **asdict(f)}) + '\n')
+            result = read_dependency_pressure_log(log)
+            self.assertEqual(result.records_considered, 1)

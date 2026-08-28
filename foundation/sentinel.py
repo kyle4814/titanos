@@ -79,6 +79,11 @@ __all__ = [
     "check_readme_test_count",
     "check_sigil_snapshot_agreement",
     "check_frontier_hash_placeholders",
+    "check_protocol_document_targets",
+    "PROTOCOL_COMMAND_DIR",
+    "CRON_STDERR_TAIL_BYTES",
+    "CronStderrReport",
+    "read_cron_stderr",
 ]
 
 CONFIDENCE_VALUES = frozenset({"HIGH", "MEDIUM", "LOW"})
@@ -719,6 +724,24 @@ class PulseContinuity:
     source: str
     stale: bool = False
 
+    # Added 2026-08-28 after reproducing a real semantic hole: every
+    # pulse record on disk carries `raw_finding_count` and `compacted`
+    # (pulse_sweep() writes both, and CT_141 compaction sets
+    # compacted=True while truncating `findings` to the highest-confidence
+    # COMPACTION_THRESHOLD), but this view carried neither -- so a
+    # CT_141-throttled sweep of 45 findings and an honest sweep of 2 were
+    # indistinguishable to `/boot` step 4b, the only real consumer. The
+    # throttle firing is exactly the kind of event a boot report must not
+    # silently swallow: it is this repository's panic axiom actually
+    # engaging. `truncated_findings` is the count of findings that
+    # existed but are not in `meaningful_findings`.
+    raw_finding_count: int = 0
+    compacted: bool = False
+
+    @property
+    def truncated_findings(self) -> int:
+        return max(0, self.raw_finding_count - len(self.meaningful_findings))
+
 
 def _parse_iso(ts: str) -> Optional["datetime"]:
     from datetime import datetime
@@ -794,6 +817,33 @@ def read_pulse_continuity(
             except (TypeError, ValueError) as exc:
                 warnings.append(f"skipped malformed finding: {exc}")
 
+    # Sum across the bounded window, not just the newest record: a
+    # compaction that fired three ticks ago is still the most important
+    # thing in this window, and reading only records[-1] would hide it.
+    raw_finding_count = 0
+    for rec in records:
+        try:
+            raw_finding_count += int(rec.get("raw_finding_count", 0))
+        except (TypeError, ValueError):
+            warnings.append(
+                f"skipped unparseable raw_finding_count "
+                f"{rec.get('raw_finding_count')!r} in one record"
+            )
+    compacted = any(bool(rec.get("compacted")) for rec in records)
+    if compacted:
+        warnings.append(
+            "at least one sweep in this window was CT_141-compacted -- its "
+            "findings were truncated to the highest-confidence "
+            f"{COMPACTION_THRESHOLD}, so `meaningful_findings` is not the "
+            "whole picture. `raw_finding_count`/`truncated_findings` say HOW "
+            "MANY were dropped; the dropped findings themselves are NOT "
+            "recoverable -- pulse_sweep() discards them in memory and only "
+            "the truncated subset is ever written to pulse_log.jsonl. To see "
+            "them, re-run pulse_sweep() directly. (Corrected 2026-08-28: this "
+            "warning previously said to read pulse_log.jsonl for the rest, "
+            "which was false -- the rest was never written there.)"
+        )
+
     latest_timestamp = records[-1].get("timestamp")
     stale = False
     parsed = _parse_iso(latest_timestamp) if latest_timestamp else None
@@ -823,6 +873,8 @@ def read_pulse_continuity(
         warnings=tuple(warnings),
         source=source,
         stale=stale,
+        raw_finding_count=raw_finding_count,
+        compacted=compacted,
     )
 
 
@@ -873,11 +925,122 @@ def _run_check_safely(check_fn, repo_root: Path) -> list[Finding]:
             ),
         )]
 
+PROTOCOL_COMMAND_DIR = ".claude/commands"
+
+# Only FULLY-QUALIFIED references are treated as protocol invocations.
+# Two forms are in real use in this repository:
+#   `foundation.sentinel.evaluate_continuation(`   (dotted module path)
+#   `foundation/sigil.py::compute_sigil()`         (path::symbol)
+# A bare `classify_hold()` is deliberately NOT matched -- it is prose
+# shorthand for a qualified reference given elsewhere in the same step,
+# and matching it would guess at a module rather than resolve one.
+_PROTOCOL_DOTTED_REF = re.compile(r"\bfoundation\.((?:\w+\.)*)(\w+)\(")
+_PROTOCOL_PATH_REF = re.compile(r"\bfoundation/([\w/]+)\.py::(\w+)\(")
+
+
+def check_protocol_document_targets(repo_root: Path) -> list[Finding]:
+    """Clause 2 of the Consumer-Reality Contract: every callable a
+    protocol document names must resolve to a real definition.
+
+    THE DEFECT THIS CLOSES (reproduced 2026-08-28, cycle demonblade_010):
+    `.claude/commands/boot.md` documents nine qualified calls into
+    `foundation/`. Six of those functions have NO code caller at all --
+    a documented protocol step is their only consumer, which
+    `PARETO_FRONTIER.md` FRONTIER-016 settled as a real form of
+    consumption. But the mutation replay showed the floor was missing:
+    replacing a documented function name with a typo left the ENTIRE
+    test suite green. Nothing in this repository noticed that a protocol
+    step pointed at a function which does not exist. A reader following
+    the step would hit AttributeError on a document the repo presents as
+    verified.
+
+    This closes clause 2 and ONLY clause 2. Clause 1 (is the document
+    reachable), clause 3 (does the documented invocation execute),
+    clause 4 (is outcome handling stated) and clause 5 (is the ceiling
+    stated) are NOT checked here -- see FRONTIER-016's own recorded
+    ceiling. Resolving a name is not proving the call works.
+
+    Read-only. Emits one Finding per unresolved reference. Volatile
+    values are kept out of `observation` so `Finding.key()` stays stable
+    across sweeps -- a persisting broken reference must not spam /boot
+    with a new key every hour (the exact defect found in
+    `check_readme_test_count` earlier this same chain).
+    """
+    command_dir = repo_root / PROTOCOL_COMMAND_DIR
+    if not command_dir.is_dir():
+        return []
+
+    findings: list[Finding] = []
+    for doc in sorted(command_dir.glob("*.md")):
+        try:
+            text = doc.read_text()
+        except (OSError, UnicodeDecodeError):
+            continue
+        rel = f"{PROTOCOL_COMMAND_DIR}/{doc.name}"
+
+        refs: list[tuple[str, Path, str]] = []
+        for match in _PROTOCOL_DOTTED_REF.finditer(text):
+            prefix, name = match.group(1), match.group(2)
+            if not prefix:
+                # `foundation.something(` names no module -- not a
+                # module-qualified call, so out of this check's scope.
+                continue
+            module = repo_root / "foundation" / (prefix.replace(".", "/").rstrip("/") + ".py")
+            refs.append((f"foundation.{prefix}{name}()", module, name))
+        for match in _PROTOCOL_PATH_REF.finditer(text):
+            path, name = match.group(1), match.group(2)
+            module = repo_root / "foundation" / f"{path}.py"
+            refs.append((f"foundation/{path}.py::{name}()", module, name))
+
+        for qualified, module, name in refs:
+            if not module.exists():
+                reason = "the module file does not exist"
+            else:
+                try:
+                    source = module.read_text()
+                except (OSError, UnicodeDecodeError):
+                    continue
+                defined = re.search(
+                    rf"^(?:async +)?(?:def|class) +{re.escape(name)}\b",
+                    source, re.MULTILINE,
+                )
+                if defined:
+                    continue
+                reason = "the module exists but defines no such name"
+            findings.append(Finding(
+                observation=(
+                    f"{rel} documents {qualified} but that target does not "
+                    f"resolve"
+                ),
+                evidence_location=f"{rel} -> {module}",
+                confidence="HIGH",
+                interpretation=(
+                    f"a protocol step names this callable, and {reason}. "
+                    f"Per PARETO_FRONTIER.md FRONTIER-016, a documented "
+                    f"protocol step is a real consumer only if its target "
+                    f"is real; an unresolvable target makes the step a "
+                    f"dead reference, and a session following it would "
+                    f"fail. This check resolves the NAME only -- it does "
+                    f"not prove the documented call executes."
+                ),
+                reversibility=(
+                    "fully reversible -- observation only, no document or "
+                    "module is rewritten"
+                ),
+                recommended_next_action=(
+                    "HUMAN_REVIEW_REQUIRED: correct the protocol document to "
+                    "name the real callable, or restore the removed "
+                    "definition"
+                ),
+            ))
+    return findings
+
+
 _LEVEL1_CHECKS: tuple = (
     check_claude_md_imports, check_subsystem_build_reports, check_python_syntax,
     check_duplicate_frontier_ids, check_frontier_schema, check_mouth_health,
     check_readme_test_count, check_sigil_snapshot_agreement,
-    check_frontier_hash_placeholders,
+    check_frontier_hash_placeholders, check_protocol_document_targets,
 )
 
 
@@ -1031,10 +1194,43 @@ def classify_hold(
        signal (an issue, a PR, or another authorised event through that
        channel) arriving through it. Distinct from both neighbors it
        would otherwise be misreported as: not TERMINAL_HOLD (something
-       IS being sought — engagement), and not INPUT_STARVED_HOLD
-       (nothing here is a fetchable fact `authorize_discovery()` could
-       go get — waiting for a signal to arrive is not a discovery
-       objective). Added 2026-08-27 after this exact condition was
+       IS being sought — engagement), and not INPUT_STARVED_HOLD.
+
+       **Corrected 2026-08-28 — the original justification for that last
+       distinction was factually wrong.** It read: "nothing here is a
+       fetchable fact `authorize_discovery()` could go get." That is
+       false, and was verified false by actually going and getting it:
+       `gh issue list --repo kyle4814/titanos --state all` and
+       `gh repo view ... --json issues,stargazerCount,forkCount` both
+       return real data over a public, unauthenticated, READ_API path —
+       squarely inside Kyle's standing discovery authorization (public
+       source, no login, no credentials). The channel's state is
+       eminently fetchable. Real values, 2026-08-28: 0 issues, 0 PRs,
+       0 stars, 0 forks, 0 watchers.
+
+       The class is still correct; only the reason was wrong. The real
+       distinction is about what exists in the world, not what can be
+       reached:
+
+         INPUT_STARVED_HOLD — an external FACT exists that would resolve
+           the objective, and we have no authorized way to reach it.
+         SIGNAL_WAIT_HOLD — no external fact exists yet. We are waiting
+           for another PARTY TO ACT. Fetching would faithfully report
+           "still nothing," which is already the assumed state, so the
+           fetch buys no information.
+
+       This correction is load-bearing rather than pedantic: a future
+       session reading "not fetchable" would conclude the public channel
+       cannot be observed at all, and might therefore never build the
+       observation once traffic actually justifies one. It can be
+       observed. It is not worth observing yet, which is a different and
+       revisable claim. The event that changes it is the first real
+       inbound signal — at which point one more entry in
+       `cron_pulse.MOUTHS` (the existing "one clock, many mouths, one
+       loop" pattern, already proven twice) is the earned move, not a
+       new mechanism.
+
+       Added 2026-08-27 after this exact condition was
        described, without ever invoking this function, as ad hoc prose
        ("HOLD_SIGNAL_WAIT", "AWAITING_REAL_SIGNAL") across two prior
        cycles — that is weaker evidence than "the deployed classifier
@@ -1083,3 +1279,143 @@ def classify_hold(
             "reason to stop; classify_hold() only names HOLD states"
         )
     return "INPUT_STARVED_HOLD"
+
+
+# --------------------------------------------------------------------------
+# THE ONE LIVE PROCESS'S FAILURE RECEIPT
+#
+# THE EXACT OPEN EDGE THIS CLOSES (traced and reproduced 2026-08-28):
+# this repository's single live crontab entry is
+#
+#     7 * * * * cd <repo> && /usr/bin/python3 foundation/cron_pulse.py \
+#               >> <repo>/foundation/cron_pulse.err.log 2>&1
+#
+# The `2>&1` redirect makes `cron_pulse.err.log` a real, live failure
+# producer -- it is the ONLY place a traceback goes if the one unattended
+# process this repository has dies. `cron_pulse.py` prints nothing on the
+# happy path, so any content in that file is failure evidence by
+# construction.
+#
+# A grep across every `.py` and `.md` in this repository found ZERO
+# readers of it. The consequence is a real, specific split: if the pulse
+# dies at import (a syntax error, a missing module, a Python upgrade),
+# `read_pulse_continuity()` correctly reports `stale=True` with "the cron
+# pulse may have stopped running" -- detection works -- while the actual
+# reason sits in a file nothing looks at. The machine could see THAT it
+# stopped and never WHY.
+#
+# This is the precondition for any future automated repair, and it is
+# deliberately NOT one: no invocation, no escalation, no retry, no
+# classification of the error's meaning. It only makes an already-written
+# receipt retrievable, which is the thing that must exist before anything
+# smarter could ever be safe.
+#
+# Three states that currently collapse, and are separated here:
+#   absent  -> no redirect has ever been configured (a fresh clone)
+#   empty   -> the redirect exists and the process has never failed (the
+#              normal, healthy state on this machine today)
+#   content -> real failure output, retrievable
+# --------------------------------------------------------------------------
+
+# Bounded by BYTES, not lines: a crash-looping process appending a
+# traceback every hour makes this file grow without limit, and a boot
+# sequence must never read an unbounded file into memory.
+CRON_STDERR_TAIL_BYTES = 8192
+
+
+@dataclass(frozen=True)
+class CronStderrReport:
+    """Read-only view of the live cron entry's stderr capture.
+
+    `failed` is True iff the file exists AND has content -- because
+    `cron_pulse.py` writes nothing to stdout or stderr on success, any
+    content at all is evidence of a real failure. `available=False`
+    (absent file) is NOT a failure: it means no redirect has ever been
+    configured here, which is the correct state of a fresh clone.
+
+    Content is evidence for a human or a future session to read. This
+    module never classifies what the error means, never retries, and
+    never routes it anywhere -- same `finding != authorization` rule as
+    every other primitive here.
+    """
+
+    available: bool
+    failed: bool
+    size_bytes: int
+    tail: str
+    truncated: bool
+    warnings: tuple[str, ...]
+    source: str
+
+
+def read_cron_stderr(
+    repo_root: Path,
+    tail_bytes: int = CRON_STDERR_TAIL_BYTES,
+) -> CronStderrReport:
+    """Retrieve the tail of `foundation/cron_pulse.err.log`.
+
+    Read-only -- never writes, truncates, or rotates the file (rotation
+    is a real future question, but truncating the only evidence of a
+    failure while reading it would be exactly backwards). Bounded to the
+    trailing `tail_bytes`. Fails soft: an unreadable file is reported as
+    a warning, never raised, so a boot sequence cannot be broken by a
+    permissions problem on a log.
+    """
+    log_path = repo_root / "foundation" / "cron_pulse.err.log"
+    source = str(log_path)
+
+    if not log_path.exists():
+        return CronStderrReport(
+            available=False, failed=False, size_bytes=0, tail="", truncated=False,
+            warnings=(
+                "cron_pulse.err.log does not exist -- no stderr redirect has "
+                "ever been configured here (the correct state of a fresh "
+                "clone, not a fault, and not evidence that the pulse is healthy)",
+            ),
+            source=source,
+        )
+
+    try:
+        size = log_path.stat().st_size
+    except OSError as exc:
+        return CronStderrReport(
+            available=False, failed=False, size_bytes=0, tail="", truncated=False,
+            warnings=(f"could not stat cron_pulse.err.log: {exc}",), source=source,
+        )
+
+    if size == 0:
+        return CronStderrReport(
+            available=True, failed=False, size_bytes=0, tail="", truncated=False,
+            warnings=(), source=source,
+        )
+
+    warnings: list[str] = []
+    truncated = size > tail_bytes
+    try:
+        with open(log_path, "rb") as fh:
+            if truncated:
+                fh.seek(-tail_bytes, 2)
+            raw = fh.read()
+        tail = raw.decode("utf-8", errors="replace")
+    except OSError as exc:
+        return CronStderrReport(
+            available=True, failed=True, size_bytes=size, tail="", truncated=False,
+            warnings=(f"cron_pulse.err.log has content but could not be read: {exc}",),
+            source=source,
+        )
+
+    if truncated:
+        warnings.append(
+            f"cron_pulse.err.log is {size} bytes; showing the trailing "
+            f"{tail_bytes} only -- read the file directly for the rest"
+        )
+    warnings.append(
+        "cron_pulse.py produces no output on success, so any content here "
+        "is real failure evidence from the one unattended process this "
+        "repository runs -- this is retrieval, not a diagnosis"
+    )
+
+    return CronStderrReport(
+        available=True, failed=True, size_bytes=size, tail=tail,
+        truncated=truncated, warnings=tuple(warnings), source=source,
+    )
