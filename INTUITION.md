@@ -36,22 +36,32 @@ however promising it looks.
   that way — worth considering when FRONTIER-004 is picked up, not a
   separate frontier item on its own yet.
 
-- **Correction, verified 2026-08-26: this claim was wrong for one
-  store.** `QuarantineStore`, `PromotionStore`, `RealityYieldLedger`,
-  `CrystalStore`, `TaskQueue` genuinely are in-memory only. But
+- **Correction, verified 2026-08-26, updated 2026-08-28: this claim
+  was wrong for now two stores, not one.** `QuarantineStore`,
+  `PromotionStore`, `RealityYieldLedger`, `CrystalStore`, `TaskQueue`
+  genuinely are in-memory only. But
   `kpm/source_vault/registry.py::SourceRegistry` is NOT — by default it
   persists real, content-addressed data to
   `kpm/source-vault/registry.jsonl` + `archive/*.blob`, reloading on
   construction, and this session's own `FIRST_PING.md` work exercised
   that for real (found when the ingestion calls left real files in the
-  tracked repo, not a temp dir). So cross-session persistence DOES exist
-  for one specific store, just not the task-queue/promotion/ledger
-  family this observation was actually worried about. `RecoveryHandoff`
+  tracked repo, not a temp dir). `foundation/authority_sigil.py::
+  ReleaseLedger` (2026-08-28) is the second real exception, and
+  deliberately so this time -- its own module docstring names durability
+  as a load-bearing requirement (a persistent tick's budget consumption
+  must survive a restart), not an incidental side effect the way
+  `SourceRegistry`'s always was. Directly proven, not assumed: a
+  simulated crash mid-write (a truncated trailing ledger line) is
+  skipped on replay rather than crashing the whole ledger, and budget
+  consumption correctly survives a fresh `ReleaseLedger` object reading
+  the same file. So cross-session persistence DOES exist for two
+  specific stores, just not the task-queue/promotion/ledger family this
+  observation was actually worried about. `RecoveryHandoff`
   (`foundation/task_queue.py`) still can only recover within a single
   process's lifetime — that specific concern stands unchanged. Whether
-  this matters depends entirely on whether this repository ever needs
-  to survive a real process restart mid-queue — still no evidence that
-  it does.
+  it matters for `TaskQueue` specifically depends entirely on whether
+  this repository ever needs to survive a real process restart
+  mid-queue — still no evidence that it does.
 
 - **`foundation/secret_scanner.py`'s email/path-leakage patterns are
   LOW confidence and currently unused by anything.** Only

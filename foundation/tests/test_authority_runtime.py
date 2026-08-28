@@ -1,4 +1,7 @@
+import fcntl
+import os
 import tempfile
+import time
 import unittest
 from datetime import datetime, timezone
 from pathlib import Path
@@ -100,6 +103,12 @@ class TestExecutionFailureDoesNotPhantomConsumeBudget(unittest.TestCase):
             root = Path(d) / "repo"
             root.mkdir()
             ledger_path = Path(d) / "ledger.jsonl"
+            # Explicit temp tick log: without it these two tick() calls fall
+            # back to authority_runtime._DEFAULT_TICK_LOG -- the REAL one in
+            # foundation/ -- and every test run silently appends receipts to
+            # live machine-local authority state. Found 2026-08-28 by
+            # fingerprinting live files across a full regression run.
+            tick_log_path = Path(d) / "tick_log.jsonl"
             ledger = ReleaseLedger(ledger_path=ledger_path)
             issue_release(
                 ledger, release_id="R1", authority_class="ZERO_SPEND_READ_ONLY",
@@ -112,7 +121,7 @@ class TestExecutionFailureDoesNotPhantomConsumeBudget(unittest.TestCase):
                 "foundation.authority_runtime.pulse_sweep",
                 side_effect=RuntimeError("boom"),
             ):
-                tick(ledger, "R1", str(root))
+                tick(ledger, "R1", str(root), log_path=tick_log_path)
 
             fresh = ReleaseLedger(ledger_path=ledger_path)
             actions = fresh.all_actions()
@@ -120,7 +129,7 @@ class TestExecutionFailureDoesNotPhantomConsumeBudget(unittest.TestCase):
             self.assertEqual(actions[0].result, "ERROR")  # not ADMIT
 
             # Budget=1 was never actually spent -- a retry must succeed.
-            retry = tick(fresh, "R1", str(root))
+            retry = tick(fresh, "R1", str(root), log_path=tick_log_path)
             self.assertTrue(retry.admitted)
 
 
@@ -187,3 +196,98 @@ class TestReadTickLog(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestTickHoldsTheLedgerLockAcrossTheWholeTick(unittest.TestCase):
+    """The runtime half of the 2026-08-28 concurrency fix. tick() consumes
+    budget only after confirmed successful execution, so the window that
+    must be protected is the entire decide -> execute -> consume sequence,
+    not just the two ledger touches at its ends."""
+
+    def _issue(self, ledger, root, budget=1):
+        issue_release(
+            ledger, release_id="R1", authority_class="ZERO_SPEND_READ_ONLY",
+            allowed_capabilities=frozenset({"RUN_PULSE_SWEEP"}),
+            allowed_targets=frozenset({str(root)}),
+            max_actions_per_period=budget, period_seconds=3600,
+            issued_by="Kyle", duration_seconds=3600,
+        )
+
+    def test_a_contended_ledger_produces_a_receipted_refusal_not_a_hang(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d) / "repo"; root.mkdir()
+            ledger_path = Path(d) / "ledger.jsonl"
+            tick_log = Path(d) / "tick_log.jsonl"
+            self._issue(ReleaseLedger(ledger_path=ledger_path), root)
+
+            holder = open(ledger_path, "a", encoding="utf-8")
+            self.addCleanup(holder.close)
+            fcntl.flock(holder.fileno(), fcntl.LOCK_EX)
+
+            started = time.monotonic()
+            result = tick(ReleaseLedger(ledger_path=ledger_path), "R1", str(root), log_path=tick_log)
+            elapsed = time.monotonic() - started
+
+            self.assertFalse(result.admitted)
+            self.assertIn("ledger busy", result.reasons[0])
+            self.assertLess(elapsed, 2.0, "tick blocked on the lock instead of refusing")
+            self.assertEqual(len(read_tick_log(tick_log)), 1, "refusal left no receipt")
+
+            fcntl.flock(holder.fileno(), fcntl.LOCK_UN)
+
+    def test_a_refused_tick_does_not_consume_budget(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d) / "repo"; root.mkdir()
+            ledger_path = Path(d) / "ledger.jsonl"
+            tick_log = Path(d) / "tick_log.jsonl"
+            self._issue(ReleaseLedger(ledger_path=ledger_path), root)
+
+            holder = open(ledger_path, "a", encoding="utf-8")
+            self.addCleanup(holder.close)
+            fcntl.flock(holder.fileno(), fcntl.LOCK_EX)
+            tick(ReleaseLedger(ledger_path=ledger_path), "R1", str(root), log_path=tick_log)
+            fcntl.flock(holder.fileno(), fcntl.LOCK_UN)
+
+            # Budget of 1 must still be fully available after the refusal.
+            self.assertTrue(
+                tick(ReleaseLedger(ledger_path=ledger_path), "R1", str(root), log_path=tick_log).admitted
+            )
+
+    def test_two_sequential_ticks_cannot_exceed_a_budget_of_one(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d) / "repo"; root.mkdir()
+            ledger_path = Path(d) / "ledger.jsonl"
+            tick_log = Path(d) / "tick_log.jsonl"
+            self._issue(ReleaseLedger(ledger_path=ledger_path), root)
+
+            r1 = tick(ReleaseLedger(ledger_path=ledger_path), "R1", str(root), log_path=tick_log)
+            r2 = tick(ReleaseLedger(ledger_path=ledger_path), "R1", str(root), log_path=tick_log)
+            self.assertTrue(r1.admitted)
+            self.assertFalse(r2.admitted)
+
+            fresh = ReleaseLedger(ledger_path=ledger_path)
+            self.assertEqual(len([a for a in fresh.all_actions() if a.result == "ADMIT"]), 1)
+
+
+class TestLockAcquisitionFailureIsReceiptedNotRaised(unittest.TestCase):
+    """Adversarial review 2026-08-28: tick() caught only LedgerBusy, so an
+    OSError from opening the ledger for locking (read-only file, full disk,
+    permission drift) propagated uncaught -- crashing a cron-invoked
+    process with no receipt, contradicting this module's stated contract
+    that a tick never propagates uncaught."""
+
+    def test_a_read_only_ledger_produces_a_receipted_refusal(self):
+        with tempfile.TemporaryDirectory() as d:
+            ledger_path = Path(d) / "ledger.jsonl"
+            ledger_path.write_text("")
+            tick_log = Path(d) / "tick_log.jsonl"
+            os.chmod(ledger_path, 0o444)
+            # No addCleanup chmod: it would fire after the TemporaryDirectory
+            # is already gone. The containing dir stays writable, so unlink
+            # during teardown works regardless of the file's own mode.
+            result = tick(ReleaseLedger(ledger_path=ledger_path), "R1",
+                          str(Path(d)), log_path=tick_log)
+
+            self.assertFalse(result.admitted)
+            self.assertIn("could not acquire the ledger lock", result.reasons[0])
+            self.assertEqual(len(read_tick_log(tick_log)), 1, "refusal left no receipt")

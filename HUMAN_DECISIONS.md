@@ -119,6 +119,31 @@ Last compiled 2026-08-25. Each item cites its source report.
     naming a concrete objective. *(Ø_FRONTIER_PROBE_001 /
     EXTERNAL_COMMUNICATION_SWITCH_001 / HOLD_DISCOVER_EDGE_001.)*
 
+13. **The finite authority primitive (`foundation/authority_sigil.py`/
+    `authority_runtime.py`/`authority_pulse.py`) is built, tested, and
+    committed (as of `cdce3df`) but genuinely inert.** No `ReleaseCode`
+    has ever been issued against the real default ledger
+    (`foundation/authority_ledger.jsonl` does not exist); nothing is
+    installed to cron (`crontab -l` confirmed — only `foundation/
+    cron_pulse.py`'s unrelated, older, read-only entry is live). The
+    base primitive's own commits reached `origin/master` on 2026-08-28
+    (a durability push covering everything through `cdce3df`) — that
+    part of this entry is resolved; corrected here rather than left to
+    read as still-open, since a stale "not yet pushed" is exactly the
+    kind of claim/reality drift this repository's own tooling exists to
+    catch. Two decisions remain open, each requiring Kyle's explicit
+    answer at the time, not a standing pre-authorization:
+    (a) issue a real `ReleaseCode` (finite,
+    scoped, budgeted, expiring — see `authority_sigil.py`'s own
+    no-self-widening guarantees), (b) install `authority_pulse.py` into
+    a real crontab entry. This entry exists so a future session finds
+    the open decision here instead of re-deriving it from conversation
+    history — the exact failure mode this file's own stated purpose
+    (`CLAUDE.md`: "a future session finds out what's actually still
+    waiting on a decision, without re-deriving it from git history")
+    exists to prevent, and which this specific decision had fallen
+    through until now.
+
 ## Recurring theme worth naming once, not per-session
 
 Three consecutive build sessions (MAGL → RPA → TAAL) each independently

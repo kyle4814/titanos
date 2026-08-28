@@ -57,13 +57,16 @@ JSONL file, same pattern as `kpm/source-vault/registry.py`.
 """
 from __future__ import annotations
 
+import fcntl
 import json
+from contextlib import contextmanager
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, FrozenSet, Optional
 
 __all__ = [
+    "LedgerBusy",
     "AUTHORITY_CLASSES",
     "ReleaseCode",
     "ActionRecord",
@@ -142,6 +145,15 @@ class ActionDecision:
         return {"admitted": self.admitted, "reasons": list(self.reasons)}
 
 
+class LedgerBusy(RuntimeError):
+    """Raised when another process holds the authority ledger's exclusive
+    lock. Fail-closed and non-blocking on purpose: refusing a tick is
+    always safe, whereas waiting inside a cron-invoked process risks an
+    unbounded pile-up behind a stuck holder. Callers should receipt this
+    as a denial, never retry in a tight loop, and never fall back to an
+    unlocked decision."""
+
+
 class ReleaseLedger:
     """Append-only ledger of issued releases, revocations, and consumed
     actions. Mirrors kpm/source-vault/registry.py's shape: in-memory
@@ -203,6 +215,69 @@ class ReleaseLedger:
                 target=obj["target"], occurred_at=obj["occurred_at"],
                 result=obj["result"],
             ))
+
+    @contextmanager
+    def exclusive(self):
+        """Hold an exclusive OS-level lock on this ledger for the whole
+        read-decide-write sequence, and re-replay from disk inside the
+        lock so the decision is made against state no other process can
+        have appended to since.
+
+        THE DEFECT THIS CLOSES (found by adversarial review and directly
+        reproduced 2026-08-28, before the fix): `ReleaseLedger` replays
+        on construction and every check reads that in-memory snapshot,
+        so two processes -- two overlapping cron ticks, a slow tick plus
+        the next scheduled one, or a manual run racing cron -- each
+        replayed the SAME pre-consumption state, each independently
+        passed the budget check, and each appended an ADMIT. Reproduced
+        exactly: `max_actions_per_period=1` yielded TWO durable ADMIT
+        records on disk. No code path minted authority; two honest reads
+        of stale state were enough to bypass the budget entirely, which
+        breaks this module's central promise.
+
+        NON-BLOCKING BY DESIGN. A contended lock raises `LedgerBusy`
+        rather than waiting. A blocking acquire in a cron-invoked
+        process is a hang risk: a stuck holder would pile up waiting
+        ticks every hour with no receipt and no bound. Refusing fast and
+        receipting the refusal is the fail-closed choice, and matches
+        this repository's standing rule that a denial is a valid,
+        recorded outcome rather than an error.
+
+        An in-memory ledger (`ledger_path=None`) has no file to lock and
+        no cross-process visibility, so this is a no-op there -- there is
+        no second process that could race it.
+        """
+        if not self._ledger_path:
+            yield self
+            return
+        self._ledger_path.parent.mkdir(parents=True, exist_ok=True)
+        # Opened "a" so acquiring the lock never truncates the evidence,
+        # and the file's existence alone is not treated as a claim that
+        # anything was ever issued here.
+        with open(self._ledger_path, "a", encoding="utf-8") as lock_fh:
+            try:
+                fcntl.flock(lock_fh.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except OSError as exc:
+                raise LedgerBusy(
+                    f"the authority ledger lock on {self._ledger_path} is "
+                    f"already held -- refusing rather than deciding against "
+                    f"state that may already be stale ({exc}). NOTE: flock is "
+                    f"per-open-file-description, not per-process, so this can "
+                    f"also mean THIS process re-entered exclusive() while "
+                    f"already holding it; check for a nested call before "
+                    f"assuming external contention."
+                ) from exc
+            try:
+                # Re-read inside the lock: whatever another process
+                # committed before releasing is now visible.
+                self._releases.clear()
+                self._revoked.clear()
+                self._actions.clear()
+                if self._ledger_path.exists():
+                    self._replay()
+                yield self
+            finally:
+                fcntl.flock(lock_fh.fileno(), fcntl.LOCK_UN)
 
     def _append(self, obj: dict[str, Any]) -> None:
         if not self._ledger_path:
@@ -393,11 +468,20 @@ def authorize_action(
     Records the result (ADMIT or DENY) as a durable ActionRecord either
     way, so a denied attempt is never silently invisible. Only an ADMIT
     consumes budget (see ReleaseLedger.actions_in_window's ADMIT-only
-    filter)."""
-    decision = evaluate(ledger, release_id, capability, target, now=now)
-    occurred_at = (now or datetime.now(timezone.utc)).isoformat()
-    ledger.record_action(ActionRecord(
-        release_id=release_id, capability=capability, target=target,
-        occurred_at=occurred_at, result="ADMIT" if decision.admitted else "DENY",
-    ))
+    filter).
+
+    The evaluate-then-record sequence runs inside `ledger.exclusive()`
+    (added 2026-08-28): without it, two processes could each evaluate
+    against the same pre-consumption state and each append an ADMIT,
+    bypassing the budget entirely -- directly reproduced with
+    `max_actions_per_period=1` producing two durable ADMITs. Raises
+    `LedgerBusy` if another process holds the lock; that is a refusal to
+    decide on possibly-stale state, not a failure to enforce."""
+    with ledger.exclusive():
+        decision = evaluate(ledger, release_id, capability, target, now=now)
+        occurred_at = (now or datetime.now(timezone.utc)).isoformat()
+        ledger.record_action(ActionRecord(
+            release_id=release_id, capability=capability, target=target,
+            occurred_at=occurred_at, result="ADMIT" if decision.admitted else "DENY",
+        ))
     return decision

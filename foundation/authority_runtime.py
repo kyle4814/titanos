@@ -58,7 +58,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
-from foundation.authority_sigil import ActionRecord, ReleaseLedger, evaluate
+from foundation.authority_sigil import ActionRecord, LedgerBusy, ReleaseLedger, evaluate
 from foundation.sentinel import pulse_sweep
 
 __all__ = ["CAPABILITY_RUN_PULSE_SWEEP", "TickResult", "tick", "run_loop", "read_tick_log"]
@@ -109,6 +109,69 @@ def tick(
     pulse_sweep() returns, not before it runs."""
     current = now or datetime.now(timezone.utc)
     occurred_at = current.isoformat()
+
+    # The whole decide -> execute -> consume sequence runs under the
+    # ledger's exclusive lock (added 2026-08-28). Two overlapping ticks
+    # were otherwise each able to evaluate against the same
+    # pre-consumption state and each record an ADMIT, bypassing the
+    # budget -- reproduced directly. Holding the lock across execution
+    # (not just around the two ledger touches) is deliberate: budget is
+    # only honestly consumed after confirmed success, so the window that
+    # must be protected is the whole tick, not the bookkeeping at its
+    # ends.
+    #
+    # A contended lock is a receipted refusal, never a wait: a cron
+    # process that blocks on a stuck holder piles up silently every
+    # hour. This is the same "a denial is a valid outcome" rule the
+    # DENY path below already follows.
+    try:
+        lock = ledger.exclusive()
+        lock.__enter__()
+    except LedgerBusy as exc:
+        result = TickResult(
+            tick_at=occurred_at, release_id=release_id, target=target,
+            admitted=False,
+            reasons=(f"ledger busy, refused rather than raced: {exc}",),
+        )
+        _append_receipt(log_path, result)
+        return result
+    except OSError as exc:  # noqa: BLE001 -- see below
+        # Acquiring the lock can fail for reasons that are not contention:
+        # a read-only ledger file, a full disk, permission drift. Found by
+        # adversarial review 2026-08-28 -- only LedgerBusy was caught, so a
+        # PermissionError propagated uncaught out of tick(), crashing a
+        # cron-invoked process with no receipt at all. That directly
+        # contradicted this module's stated contract that a tick "never
+        # propagates uncaught." Fail closed, receipted, budget untouched.
+        result = TickResult(
+            tick_at=occurred_at, release_id=release_id, target=target,
+            admitted=False,
+            reasons=(f"could not acquire the ledger lock, refused: {exc}",),
+        )
+        _append_receipt(log_path, result)
+        return result
+
+    try:
+        return _tick_locked(
+            ledger, release_id, target,
+            log_path=log_path, current=current, occurred_at=occurred_at,
+        )
+    finally:
+        lock.__exit__(None, None, None)
+
+
+def _tick_locked(
+    ledger: ReleaseLedger,
+    release_id: str,
+    target: str,
+    *,
+    log_path: Optional[Path],
+    current: datetime,
+    occurred_at: str,
+) -> TickResult:
+    """The original tick body, now guaranteed to run under the ledger's
+    exclusive lock. Split out rather than nested so the locking concern
+    and the authority/execution concern each stay readable on their own."""
     decision = evaluate(ledger, release_id, CAPABILITY_RUN_PULSE_SWEEP, target, now=current)
 
     if not decision.admitted:

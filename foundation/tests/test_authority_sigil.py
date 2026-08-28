@@ -1,9 +1,12 @@
+import fcntl
 import tempfile
+import time
 import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from foundation.authority_sigil import (
+    LedgerBusy,
     AuthoritySigilError, ReleaseLedger, authorize_action, evaluate,
     issue_release, revoke_release,
 )
@@ -241,3 +244,98 @@ class TestPersistenceAcrossRestart(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestConcurrentBudgetEnforcement(unittest.TestCase):
+    """Reproduces and fixes a HIGH-severity defect found by adversarial
+    review 2026-08-28: ReleaseLedger replays on construction and every
+    check read that in-memory snapshot, so two processes -- two
+    overlapping cron ticks, a slow tick plus the next scheduled one, or a
+    manual run racing cron -- each replayed the SAME pre-consumption
+    state, each passed the budget check, and each appended an ADMIT.
+
+    Directly reproduced before the fix: max_actions_per_period=1 produced
+    TWO durable ADMIT records. No code path minted authority; two honest
+    reads of stale state bypassed the budget entirely."""
+
+    def _issue(self, ledger, budget=1):
+        issue_release(
+            ledger, release_id="R1", authority_class="ZERO_SPEND_READ_ONLY",
+            allowed_capabilities=frozenset({"RUN_PULSE_SWEEP"}),
+            allowed_targets=frozenset({"/x"}),
+            max_actions_per_period=budget, period_seconds=3600,
+            issued_by="Kyle", duration_seconds=3600,
+        )
+
+    def test_two_independent_ledgers_cannot_both_consume_a_budget_of_one(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / "ledger.jsonl"
+            self._issue(ReleaseLedger(ledger_path=path))
+
+            # Two objects that each replayed the same pre-consumption file.
+            first = ReleaseLedger(ledger_path=path)
+            second = ReleaseLedger(ledger_path=path)
+            d1 = authorize_action(first, "R1", "RUN_PULSE_SWEEP", "/x")
+            d2 = authorize_action(second, "R1", "RUN_PULSE_SWEEP", "/x")
+
+            self.assertTrue(d1.admitted)
+            self.assertFalse(d2.admitted, "budget of 1 was consumed twice")
+
+            fresh = ReleaseLedger(ledger_path=path)
+            admits = [a for a in fresh.all_actions() if a.result == "ADMIT"]
+            self.assertEqual(len(admits), 1, "more ADMITs on disk than the budget allows")
+
+    def test_a_contended_lock_refuses_fast_instead_of_hanging_or_racing(self):
+        """Non-blocking is the point: a cron process that waits on a stuck
+        holder piles up silently every hour with no receipt and no bound."""
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / "ledger.jsonl"
+            self._issue(ReleaseLedger(ledger_path=path), budget=5)
+
+            holder = open(path, "a", encoding="utf-8")
+            self.addCleanup(holder.close)
+            fcntl.flock(holder.fileno(), fcntl.LOCK_EX)
+
+            started = time.monotonic()
+            with self.assertRaises(LedgerBusy):
+                authorize_action(ReleaseLedger(ledger_path=path), "R1", "RUN_PULSE_SWEEP", "/x")
+            self.assertLess(time.monotonic() - started, 2.0, "acquire blocked instead of refusing")
+
+            fcntl.flock(holder.fileno(), fcntl.LOCK_UN)
+            # Once released, normal service resumes -- the refusal is not sticky.
+            self.assertTrue(
+                authorize_action(ReleaseLedger(ledger_path=path), "R1", "RUN_PULSE_SWEEP", "/x").admitted
+            )
+
+    def test_the_lock_re_reads_another_processs_committed_appends(self):
+        """The half that actually fixes it: acquiring the lock is useless
+        without re-replaying, or the decision still uses stale state."""
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / "ledger.jsonl"
+            self._issue(ReleaseLedger(ledger_path=path), budget=2)
+
+            stale = ReleaseLedger(ledger_path=path)          # snapshot taken now
+            other = ReleaseLedger(ledger_path=path)
+            authorize_action(other, "R1", "RUN_PULSE_SWEEP", "/x")
+            authorize_action(other, "R1", "RUN_PULSE_SWEEP", "/x")   # budget now spent
+
+            # `stale` never saw either append at construction time.
+            self.assertFalse(
+                authorize_action(stale, "R1", "RUN_PULSE_SWEEP", "/x").admitted,
+                "decided against its stale construction-time snapshot",
+            )
+
+    def test_an_in_memory_ledger_needs_no_lock_and_still_works(self):
+        ledger = ReleaseLedger(ledger_path=None)
+        self._issue(ledger)
+        self.assertTrue(authorize_action(ledger, "R1", "RUN_PULSE_SWEEP", "/x").admitted)
+        self.assertFalse(authorize_action(ledger, "R1", "RUN_PULSE_SWEEP", "/x").admitted)
+
+    def test_acquiring_the_lock_never_truncates_the_evidence(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / "ledger.jsonl"
+            self._issue(ReleaseLedger(ledger_path=path))
+            before = path.read_bytes()
+            with ReleaseLedger(ledger_path=path).exclusive():
+                pass
+            self.assertEqual(path.read_bytes(), before)
