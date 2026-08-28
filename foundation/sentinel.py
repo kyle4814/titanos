@@ -54,6 +54,7 @@ from __future__ import annotations
 import ast
 import json
 import re
+import unicodedata
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
@@ -84,6 +85,9 @@ __all__ = [
     "CRON_STDERR_TAIL_BYTES",
     "CronStderrReport",
     "read_cron_stderr",
+    "HUNT_SURFACE_STATUSES", "HuntSurface", "ContinuationDecision",
+    "evaluate_continuation", "select_one_admitted", "UnaccountedCandidates",
+    "DEFERRED_LOG_SIZE_THRESHOLD_BYTES", "check_deferred_log_size_wake_condition",
 ]
 
 CONFIDENCE_VALUES = frozenset({"HIGH", "MEDIUM", "LOW"})
@@ -749,6 +753,583 @@ def _parse_iso(ts: str) -> Optional["datetime"]:
         return datetime.fromisoformat(ts)
     except (ValueError, TypeError):
         return None
+
+
+# ---------------------------------------------------------------------------
+# THE CONTINUATION GOVERNOR
+#
+# THE GAP THIS CLOSES: nothing in this repository formalised the
+# difference between "this board found nothing" and "the accessible
+# search space is exhausted." Every prior autonomous-cycle pass in this
+# session collapsed the two informally, in prose, which meant the
+# decision to stop was never checkable -- a future reader could not tell
+# whether a stop was earned or merely convenient. This makes the eight
+# stop preconditions a pure, testable function instead of a paragraph.
+#
+# THIS IS A DECISION FUNCTION, NOT AN ACTUATOR. It classifies whether
+# governed hunting may legitimately halt. It executes nothing, schedules
+# nothing, and calls nothing. SIGIL.NO_EXECUTION_AUTHORITY is unaffected
+# by construction -- there is no code path here that performs an action,
+# only one that returns a label, exactly like `classify_hold()` above.
+# `TestSentinelCannotExecute` (this file's own structural guard) already
+# covers it: neither `HuntSurface`, `evaluate_continuation`, nor
+# `select_one_admitted` starts with a forbidden execution verb.
+# ---------------------------------------------------------------------------
+
+HUNT_SURFACE_STATUSES = frozenset({
+    "UNSWEPT", "PARTIAL", "SWEPT", "BLOCKED", "DUPLICATE",
+    "DEFERRED_WITH_OBJECTIVE_WAKE_CONDITION",
+})
+
+_STATUSES_REQUIRING_EVIDENCE = frozenset({"BLOCKED", "DUPLICATE"})
+
+
+@dataclass(frozen=True)
+class HuntSurface:
+    """One row of the governor's coverage ledger. Fail-closed at
+    construction, not merely by convention: a BLOCKED or DUPLICATE surface
+    with no stated evidence, or a DEFERRED surface with no stated reopen
+    condition, cannot be built -- 'seems subjective' or 'future work'
+    cannot enter the ledger as if it were a real evidenced block."""
+
+    name: str
+    status: str
+    evidence: str = ""
+    reopen_condition: str = ""
+    duplicate_of: str = ""
+
+    def __post_init__(self) -> None:
+        # AN IDENTITY MUST BE NAMEABLE. Reproduced 2026-08-28: `name` was
+        # the only field never validated, while `duplicate_of` -- which
+        # merely POINTS AT a name -- has always required non-blank after
+        # .strip(). That asymmetry let a blank identity onto the board:
+        #   * CONTINUE reported unresolved=('',) / ('   ',) / ('\t',),
+        #     naming "work" no worker can act on -- the paralysis failure
+        #     mode dressed as a populated tuple
+        #   * a blank-named SWEPT row plus a blank candidate certified
+        #     HARD_STOP -- FALSE CLOSURE over an unnameable identity
+        #   * '' and '   ' coexisted as DISTINCT identities, so identity
+        #     singularity cannot protect what has no legible identity
+        #
+        # .strip() is used only to decide blankness, never to normalise:
+        # ' A' and 'A' remain distinct identities, because canonicalising
+        # them was separately killed with evidence as speculative.
+        if not isinstance(self.name, str):
+            raise ValueError(
+                f"HuntSurface name must be a str, not "
+                f"{type(self.name).__name__} -- a non-string identity "
+                f"previously escaped as a raw AttributeError from .strip(), "
+                f"outside the verdict algebra entirely."
+            )
+        # Blank means "renders as nothing", not merely "is whitespace".
+        # Mutation run 2026-08-28 found U+200B, U+FEFF and U+2060 all
+        # constructing successfully: isspace() is False for them, so
+        # .strip() leaves them intact, yet an identity made only of
+        # zero-width characters is invisible and therefore exactly as
+        # unnameable as "". They are Unicode category Cf (format);
+        # every legitimate name character tested (Lu, Nd, So, Lo, Pd)
+        # is not, so Cf is a clean separator, not a heuristic.
+        # 'a\u200bb' stays lawful -- only wholly-invisible names are refused.
+        legible = "".join(
+            c for c in self.name
+            if not c.isspace() and unicodedata.category(c) != "Cf"
+        )
+        if not legible:
+            raise ValueError(
+                f"HuntSurface name {self.name!r} is blank or wholly "
+                f"invisible -- an identity that cannot be named cannot be "
+                f"adjudicated, reported as reachable work, or targeted by a "
+                f"duplicate. `duplicate_of` has always required a non-blank "
+                f"target; the identity it points at must meet the same "
+                f"standard."
+            )
+        if self.status not in HUNT_SURFACE_STATUSES:
+            raise ValueError(
+                f"HuntSurface status {self.status!r} must be one of "
+                f"{sorted(HUNT_SURFACE_STATUSES)}"
+            )
+        if self.status in _STATUSES_REQUIRING_EVIDENCE and not self.evidence.strip():
+            raise ValueError(
+                f"HuntSurface {self.name!r} is {self.status} but has no "
+                f"evidence -- a block without a stated reason is not a "
+                f"block, it is an unswept surface wearing a disguise"
+            )
+        # DUPLICATE was a trash chute: adversarial pass 2026-08-28 proved
+        # a surface could be disposed as DUPLICATE with no canonical
+        # target at all, and STOP was still certified. Reproduced four
+        # ways -- no target, nonexistent target, self-reference, and a
+        # circular B->C->B chain -- every one returned STOP while the
+        # work was really unresolved. A structural field, not prose in
+        # `evidence`, because the target is an identity that must be
+        # resolvable against the surface list, not a sentence to read.
+        if self.status == "DUPLICATE":
+            if not self.duplicate_of.strip():
+                raise ValueError(
+                    f"HuntSurface {self.name!r} is DUPLICATE but names no "
+                    f"`duplicate_of` canonical target -- DUPLICATE without a "
+                    f"target is a disposal chute, not a disposition"
+                )
+            if self.duplicate_of.strip() == self.name:
+                raise ValueError(
+                    f"HuntSurface {self.name!r} is marked DUPLICATE of itself "
+                    f"-- self-reference resolves nothing"
+                )
+        if self.status == "DEFERRED_WITH_OBJECTIVE_WAKE_CONDITION" and not self.reopen_condition.strip():
+            raise ValueError(
+                f"HuntSurface {self.name!r} is deferred but names no "
+                f"objective reopen condition -- a deferral with no wake "
+                f"condition can never legitimately be revisited"
+            )
+
+
+@dataclass(frozen=True)
+class ContinuationDecision:
+    """The governor's output. `proceed=True` means: at least one
+    HARD_STOP precondition is unmet, so ending the session now would
+    require inventing pressure rather than following evidence.
+    `proceed=False` means all eight preconditions held simultaneously."""
+
+    proceed: bool
+    reason: str
+    unresolved_surfaces: tuple[str, ...]
+    conditions: dict  # the 8 named preconditions -> bool, for audit
+
+    def to_dict(self) -> dict:
+        return {
+            "proceed": self.proceed, "reason": self.reason,
+            "unresolved_surfaces": list(self.unresolved_surfaces),
+            "conditions": dict(self.conditions),
+        }
+
+
+class UnaccountedCandidates(ValueError):
+    """Raised when a cycle reports discovering candidates that have no
+    governed representation. Fail-closed: the governor refuses to render
+    ANY decision -- not merely a STOP -- against an accounting universe
+    it can prove is incomplete."""
+
+
+def evaluate_continuation(
+    surfaces: tuple,
+    *,
+    state_revalidated: bool,
+    new_wake_evidence: bool = False,
+    candidates_found: Optional[tuple] = None,
+) -> ContinuationDecision:
+    """The eight HARD_STOP preconditions, evaluated together. STOP
+    (`proceed=False`) only when every one holds; any single unmet
+    precondition means CONTINUE, and `unresolved_surfaces` names exactly
+    what the next governed hunt cycle should target.
+
+    Pure function -- no I/O, no side effects, deterministic in its
+    inputs. The caller (a session or a future automated invocation) is
+    responsible for actually re-checking live state before setting
+    `state_revalidated=True`; this function cannot verify that claim
+    itself, the same way `classify_hold()` trusts its caller's facts."""
+    # CLOSED ACCOUNTING UNIVERSE (added 2026-08-28 after the escape was
+    # directly reproduced, not reasoned about). The predicate below
+    # validates the CONTENTS of `surfaces`, but nothing previously
+    # validated that `surfaces` ACCOUNTS FOR WHAT THE CYCLE FOUND. The
+    # exact 9-step escape, reproduced: a worker finds candidates X and Y,
+    # the one-brick limit selects Y, the worker calls X "deferred, a
+    # one-line future addition" in receipt PROSE ONLY, never builds a
+    # HuntSurface row for it, and evaluate_continuation() -- which cannot
+    # see candidates at all -- happily returns STOP while X remains real,
+    # known, ungoverned work.
+    #
+    # This is the author's own prior cycle: `harness_boot_documentation`
+    # was reported as DEFERRED with the words "not lost" and "no board
+    # created for it," and grep confirms it appeared in no source file,
+    # no test, and no durable artifact. "Not lost" was not a state.
+    #
+    # Fail-closed by raising rather than returning proceed=True: a
+    # governor that cannot prove its universe is closed must not render
+    # a verdict at all. Returning CONTINUE would let a worker treat the
+    # violation as ordinary work-remaining and quietly lose X anyway.
+    # "ZERO CANDIDATES FOUND" and "CANDIDATE ACCOUNTING NOT PROVIDED" are
+    # different states. Reproduced 2026-08-28: `candidates_found` defaulted
+    # to `()`, so simply OMITTING the argument silently disabled the whole
+    # conservation mechanism and STOP was certified with real unlisted work.
+    # That is an escape reachable by doing nothing at all -- no malformed
+    # input, no bad row, just a missing keyword. The default is now None
+    # (= not provided), which refuses a verdict; an explicit `()` remains a
+    # legitimate positive claim that the cycle genuinely found nothing.
+    # THE SAME ROOT CLASS, ON THE SIBLING PARAMETER. The previous cycle
+    # enforced a concrete-collection contract on `candidates_found` and
+    # left `surfaces` -- declared `tuple`, never checked -- unenforced.
+    # `surfaces` is iterated SEVEN times in one call (conservation,
+    # identity map, duplicate index, chain walk, unresolved scan, the
+    # evidence and reopen-condition all() checks, len()). Any input whose
+    # observation mutates its future semantics therefore reads as a
+    # DIFFERENT universe at each gate.
+    #
+    # Reproduced 2026-08-28 with an object exposing __len__ (so the
+    # non-empty gate passes) and a one-shot __iter__:
+    #   * real UNSWEPT work certified HARD_STOP with unresolved=()
+    #   * a duplicate pointing at a nonexistent target certified HARD_STOP
+    # Both are FALSE CLOSURE, not merely a crash. Plain generators and
+    # iterators additionally leaked a raw TypeError from len(), which is
+    # outside the three-verdict algebra entirely.
+    if not isinstance(surfaces, (tuple, list, set, frozenset)):
+        raise UnaccountedCandidates(
+            f"surfaces must be a concrete collection (tuple, list, set, "
+            f"frozenset), not {type(surfaces).__name__}. This function reads "
+            f"surfaces repeatedly across every jurisdiction gate; an input "
+            f"whose iteration is one-shot presents a different universe to "
+            f"each gate and can certify closure over work it already "
+            f"consumed."
+        )
+
+    # A ONE-SHOT ITERATOR IS NOT A CLAIM. Reproduced 2026-08-28: the
+    # `tuple` type contract was declared and never enforced, so a
+    # generator or iterator could be passed. Two escapes followed, both
+    # certifying HARD_STOP with real ungoverned work:
+    #
+    #   1. RETRY-AFTER-REFUSAL. The SAME iterator object yields
+    #      NO_VERDICT on call 1 (ghost detected) and HARD_STOP on call 2
+    #      (iterator now exhausted, reads as an empty claim). Retrying
+    #      after a jurisdiction denial is the natural worker response to
+    #      being refused, and it silently converted refusal into closure.
+    #
+    #   2. EMPTY GENERATOR. Generators are ALWAYS truthy, including empty
+    #      ones, so `if candidates_found:` passed while the object
+    #      asserted nothing -- defeating the omitted-vs-explicitly-empty
+    #      distinction the None default exists to protect.
+    #
+    # The corruption reached the error text itself: call 1's message read
+    # "cycle reported finding []" because the iterator was already
+    # drained by the time the message interpolated it. A guard whose own
+    # evidence is destroyed by reading it cannot be trusted.
+    #
+    # Closure is the smallest available: require a concrete, re-readable
+    # collection. No new type, no normalisation, no materialisation that
+    # would silently accept an exhausted iterator as an empty claim.
+    if candidates_found is not None and not isinstance(
+        candidates_found, (tuple, list, set, frozenset)
+    ):
+        raise UnaccountedCandidates(
+            f"candidates_found must be a concrete collection (tuple, list, "
+            f"set, frozenset), not {type(candidates_found).__name__}. A "
+            f"one-shot iterator is not a claim: it reads as its contents "
+            f"once and as empty forever after, so the same object can be "
+            f"refused and then certify closure on retry."
+        )
+    # PIN THE OBSERVATIONAL UNIVERSE. The type guards above reject
+    # one-shot inputs, but type is not stability: a `list` SUBCLASS
+    # passes isinstance() and can still override __iter__ to yield
+    # different membership on each read. `surfaces` is read seven times
+    # per call and `candidates_found` once, so without pinning, different
+    # jurisdiction gates can adjudicate DIFFERENT UNIVERSES.
+    #
+    # Reproduced 2026-08-28 against current source, both FALSE CLOSURE:
+    #   * a list subclass yielding its dirty row only on read 1 -- real
+    #     UNSWEPT work certified HARD_STOP with unresolved=()
+    #   * the same shape hiding a duplicate whose target does not exist
+    #   * candidates_found truthy via __len__ but yielding nothing --
+    #     a ghost candidate never checked, HARD_STOP issued
+    #
+    # Materialising once makes every gate read one immutable snapshot.
+    # This does NOT claim to detect a caller that lies on its first read;
+    # that is the same caller-assertion ceiling as `state_revalidated`,
+    # and is declared as such rather than papered over. What it does
+    # guarantee is that no single call can present one universe to the
+    # conservation gate and a different one to the closure gates.
+    surfaces = tuple(surfaces)
+
+    # MEMBERS MUST BE LAWFUL ROWS, NOT MERELY PRESENT. Pinning fixed WHICH
+    # objects the gates see; it never checked WHAT they are. Every
+    # invariant this governor depends on lives in HuntSurface.__post_init__
+    # -- status in the vocabulary, evidence present for BLOCKED/DUPLICATE,
+    # reopen_condition present for DEFERRED, no self-referential duplicate
+    # -- and all of them were bypassable by any duck-typed object.
+    #
+    # Reproduced 2026-08-28 against current source:
+    #   * a row with status "TOTALLY_MADE_UP", outside the entire
+    #     vocabulary, certified HARD_STOP -- unadjudicated work reported
+    #     as closure
+    #   * BLOCKED with no evidence, and DEFERRED with no reopen
+    #     condition, each produced CONTINUE with unresolved=() -- the
+    #     "continue naming no reachable work" paralysis already outlawed
+    #   * a plain str element leaked a raw AttributeError, a fourth
+    #     outcome outside the verdict algebra
+    #
+    # One isinstance check restores every bypassed construction invariant
+    # at once, because HuntSurface cannot exist without having satisfied
+    # them. Subclasses remain lawful: they still run __post_init__.
+    non_rows = tuple(
+        f"index {i}: {type(s).__name__}"
+        for i, s in enumerate(surfaces) if not isinstance(s, HuntSurface)
+    )
+    if non_rows:
+        raise UnaccountedCandidates(
+            f"surfaces must contain only HuntSurface rows; found "
+            f"{', '.join(non_rows)}. Every invariant this governor relies "
+            f"on is enforced in HuntSurface's constructor, so a duck-typed "
+            f"row bypasses status validation, evidence requirements, "
+            f"reopen conditions, and self-reference refusal simultaneously."
+        )
+
+    if candidates_found is not None:
+        candidates_found = tuple(candidates_found)
+
+    if candidates_found is None:
+        raise UnaccountedCandidates(
+            "candidate accounting was not provided. Pass candidates_found "
+            "explicitly -- `()` to positively assert this cycle discovered "
+            "nothing, or the full tuple of discovered candidate identities. "
+            "Omission is not a claim of emptiness, and the governor will not "
+            "render a verdict against an unproven universe."
+        )
+    # CANDIDATE IDENTITIES MUST BE STRINGS. The conservation gate below
+    # decides membership with `c not in named`, which delegates the
+    # question "is this candidate accounted for" to the CANDIDATE'S OWN
+    # __eq__/__hash__. An arbitrary object therefore adjudicates its own
+    # conservation.
+    #
+    # Reproduced 2026-08-28, all against current source:
+    #   * FALSE HARD_STOP -- an object with `__hash__ = hash("X")` and
+    #     `__eq__` returning True is accepted as accounted for and
+    #     certifies proceed=False, despite having no HuntSurface row at
+    #     all. Closure over a candidate that was never disposed.
+    #   * a list or dict element raises raw TypeError ("unhashable
+    #     type") from the membership test -- a fourth outcome outside
+    #     {NO_VERDICT, CONTINUE, HARD_STOP}.
+    #   * mixed int/str elements raise raw TypeError from sorted() while
+    #     BUILDING the refusal message, so the fail-closed path itself
+    #     throws the wrong exception type.
+    #
+    # A surface identity is `HuntSurface.name`, a str. Requiring the
+    # claim to speak the same type closes all three at once: membership
+    # becomes str-to-str comparison the governor can reason about, and
+    # both TypeError routes disappear because str is hashable and
+    # totally ordered against str.
+    if candidates_found is not None:
+        non_str = tuple(
+            f"index {i}: {type(c).__name__}"
+            for i, c in enumerate(candidates_found) if not isinstance(c, str)
+        )
+        if non_str:
+            raise UnaccountedCandidates(
+                f"candidates_found must contain only identity strings; found "
+                f"{', '.join(non_str)}. Membership is decided against "
+                f"HuntSurface.name (a str); allowing arbitrary objects lets a "
+                f"candidate's own __eq__ adjudicate whether it was accounted "
+                f"for, and lets unhashable or unorderable elements escape as "
+                f"raw TypeErrors outside the verdict algebra."
+            )
+
+    if candidates_found:
+        named = {s.name for s in surfaces}
+        unaccounted = tuple(c for c in candidates_found if c not in named)
+        if unaccounted:
+            raise UnaccountedCandidates(
+                f"cycle reported finding {sorted(candidates_found)} but "
+                f"{sorted(unaccounted)} has no HuntSurface row. Every "
+                f"discovered candidate must carry exactly one governed "
+                f"disposition (SWEPT/BLOCKED/DUPLICATE/DEFERRED/UNSWEPT/"
+                f"PARTIAL). 'deferred', 'weaker', 'one-line future "
+                f"addition', and 'not lost' are not states."
+            )
+
+    # SIGIL IV — IDENTITY LAW. One canonical identity may not carry
+    # contradictory governing states. Reproduced 2026-08-28 in five
+    # distinct constructions, all certifying HARD_STOP:
+    #   SWEPT+BLOCKED, BLOCKED+SWEPT (reversed), SWEPT+DUPLICATE,
+    #   SWEPT+DEFERRED, BLOCKED+DEFERRED, and a 3-row variant.
+    # Order-independent: the first row did not win, the last row did not
+    # win -- there was simply no identity check, so a clean row sat
+    # beside a dirty row and the governor certified closure anyway.
+    #
+    # SWEPT+UNSWEPT happened to return CONTINUE, but only because P3
+    # trips on the UNSWEPT row -- accidental safety from an unrelated
+    # predicate, not adjudication. That is exactly the "incidental
+    # CONTINUE != governed openness" conversion the contract forbids.
+    #
+    # Contradiction is neither work nor closure: it is loss of
+    # jurisdiction, so this raises rather than returning CONTINUE.
+    # Deliberately NOT banning repetition -- identical rows for one
+    # identity are lawful and stay lawful (proven by test); only
+    # DISTINCT dispositions for one identity are a contradiction.
+    dispositions: dict = {}
+    for surface in surfaces:
+        dispositions.setdefault(surface.name, set()).add(surface.status)
+    contradictory = {n: st for n, st in dispositions.items() if len(st) > 1}
+    if contradictory:
+        detail = "; ".join(
+            f"{n!r} holds {sorted(st)}" for n, st in sorted(contradictory.items()))
+        raise UnaccountedCandidates(
+            f"identity contradiction -- one canonical identity may not carry "
+            f"contradictory governing states: {detail}. Exactly one "
+            f"disposition per identity is required; neither the first nor "
+            f"the last row wins, and a clean row does not erase a dirty one."
+        )
+
+    # Every DUPLICATE must resolve, in finitely many hops, to a surface
+    # that is NOT itself a duplicate. Construction already blocks an
+    # empty or self-referential target; this closes the two remaining
+    # reproduced escapes -- a target that does not exist in the universe
+    # at all, and a circular chain (B->C, C->B) where no hop ever lands
+    # on real governed state.
+    by_name = {s.name: s for s in surfaces}
+    for surface in surfaces:
+        if surface.status != "DUPLICATE":
+            continue
+        seen_chain = {surface.name}
+        cursor = surface.duplicate_of.strip()
+        while True:
+            target = by_name.get(cursor)
+            if target is None:
+                raise UnaccountedCandidates(
+                    f"surface {surface.name!r} is DUPLICATE of {cursor!r}, "
+                    f"which is not present in the governed universe -- the "
+                    f"work it was folded into does not exist"
+                )
+            if cursor in seen_chain:
+                raise UnaccountedCandidates(
+                    f"DUPLICATE chain starting at {surface.name!r} is "
+                    f"circular ({' -> '.join(sorted(seen_chain))}) -- no hop "
+                    f"reaches real governed state"
+                )
+            seen_chain.add(cursor)
+            if target.status != "DUPLICATE":
+                break
+            cursor = target.duplicate_of.strip()
+
+    unresolved = tuple(
+        s.name for s in surfaces if s.status in ("UNSWEPT", "PARTIAL")
+    )
+    conditions = {
+        "1_state_revalidated": state_revalidated,
+        "2_at_least_one_surface_recorded": len(surfaces) > 0,
+        "3_no_unswept_or_partial_surface": len(unresolved) == 0,
+        "4_every_block_or_duplicate_has_evidence": all(
+            bool(s.evidence.strip())
+            for s in surfaces if s.status in _STATUSES_REQUIRING_EVIDENCE
+        ),
+        "5_every_deferral_has_objective_wake_condition": all(
+            bool(s.reopen_condition.strip())
+            for s in surfaces if s.status == "DEFERRED_WITH_OBJECTIVE_WAKE_CONDITION"
+        ),
+        "6_no_new_wake_evidence": not new_wake_evidence,
+        # Conditions 7/8 (no half-evaluated candidate; the stop itself is
+        # receipted) are properties of HOW this function is called, not
+        # of its inputs -- structurally guaranteed by HuntSurface's own
+        # closed status vocabulary (no "half-evaluated" status exists to
+        # construct) and by this function always returning a `reason`
+        # string, never a bare boolean. Recorded here so all 8 remain
+        # visible in one place, not silently 6.
+        "7_no_half_evaluated_candidate": True,
+        "8_decision_is_itself_receipted": True,
+    }
+    # SIGIL III / LAW XVII — JURISDICTION FAILURE IS NOT CONTINUATION.
+    # Reproduced 2026-08-28: P1 (state not revalidated) and P2 (empty
+    # universe) both returned proceed=True with unresolved_surfaces=(),
+    # i.e. "reachable work remains" while naming no work at all. A worker
+    # receiving that has no lawful next action -- it is CONTINUE by
+    # accident of an unrelated predicate tripping, not governed openness.
+    #
+    # These two are categorically different from P3-P6: they are not
+    # facts ABOUT the universe, they are the preconditions for having a
+    # universe to judge. Revalidation absent = the state was never
+    # checked. Zero surfaces = there is no governed universe. Neither is
+    # evidence of open work; both are loss of jurisdiction, which the
+    # constitution assigns to NO_VERDICT, never to a convenient verdict.
+    #
+    # Raised rather than returned, matching every other jurisdiction
+    # denial in this function (unaccounted candidates, identity
+    # contradiction, unresolvable duplicate chains): a governor that
+    # cannot prove it may judge must render no verdict at all.
+    jurisdiction_failures = [
+        name for name in ("1_state_revalidated", "2_at_least_one_surface_recorded")
+        if not conditions[name]
+    ]
+    if jurisdiction_failures:
+        raise UnaccountedCandidates(
+            f"jurisdiction denied -- {', '.join(jurisdiction_failures)}. "
+            f"These are preconditions for having a governed universe at "
+            f"all, not facts about one: an unrevalidated state was never "
+            f"checked, and an empty surface set is not an open universe. "
+            f"Neither is evidence of reachable work, so neither may be "
+            f"reported as CONTINUE."
+        )
+
+    hard_stop = all(conditions.values())
+    if hard_stop:
+        return ContinuationDecision(
+            proceed=False,
+            reason=(
+                "all 8 HARD_STOP preconditions held: state revalidated, "
+                "every recorded surface is SWEPT/BLOCKED/DUPLICATE/"
+                "DEFERRED with evidence, no unswept surface remains, no "
+                "new wake evidence"
+            ),
+            unresolved_surfaces=(), conditions=conditions,
+        )
+    failed = [k for k, v in conditions.items() if not v]
+    return ContinuationDecision(
+        proceed=True,
+        reason=f"HARD_STOP unproven -- failed precondition(s): {', '.join(failed)}",
+        unresolved_surfaces=unresolved, conditions=conditions,
+    )
+
+
+def select_one_admitted(candidate_ids: tuple) -> object:
+    """The one-brick-limit, enforced structurally rather than by
+    discipline alone: given any number of admitted candidates, returns
+    exactly one (the first, by caller-supplied priority order) or None.
+    A caller that builds more than one candidate from a single governed
+    cycle is not calling this function correctly -- it exists so that
+    fact is checkable, not just documented."""
+    return candidate_ids[0] if candidate_ids else None
+
+
+# The one real DEFERRED_WITH_OBJECTIVE_WAKE_CONDITION item currently on
+# the governor's board (see foundation/sentinel.py's own history) names
+# a numeric threshold in free text: "any tracked JSONL log exceeds 1MB
+# on disk." Condition 6 of evaluate_continuation() (no_new_wake_evidence)
+# was being verified by a human reading `ls -la` each cycle -- the exact
+# hand-checked-snapshot shape this session already proved costly twice
+# (README test count, CLAUDE.md/SIGIL.md tier disagreement).
+#
+# Deliberately NOT a parser of `reopen_condition` prose -- that would be
+# the English-string-as-machine-authority trap this session's own
+# doctrine forbids for recommended_next_action. Instead, the one real
+# threshold is a hardcoded constant, the same pattern
+# mouth_common.MAX_FEED_BYTES already uses for its own real limit.
+DEFERRED_LOG_SIZE_THRESHOLD_BYTES = 1_000_000
+
+# The tracked JSONL logs this repository's conveyor actually writes.
+# Fixed list, not a glob, for the same reason LIVE_MOUTH_IDS and
+# SUBSYSTEMS_REQUIRING_BUILD_REPORT are fixed -- a stray or orphaned
+# .jsonl file becoming "tracked" is a human decision, not automatic.
+_TRACKED_JSONL_LOGS = (
+    "pulse_log.jsonl",
+    "mouth_pypi_pyyaml_releases_log.jsonl",
+    "mouth_github_pyyaml_releases_log.jsonl",
+    "authority_ledger.jsonl",
+    "authority_runtime_tick_log.jsonl",
+    "dependency_pressure_log.jsonl",
+)
+
+
+def check_deferred_log_size_wake_condition(repo_root: Path) -> bool:
+    """Mechanically answer the one real deferred wake condition on the
+    governor's board: has any tracked JSONL log exceeded
+    `DEFERRED_LOG_SIZE_THRESHOLD_BYTES`? Read-only (`stat()` only, never
+    opens or reads file content), bounded (a fixed file list, not a
+    directory walk), fails soft (a missing file is not oversized).
+
+    Returns True iff the "unbounded_log_read_before_slicing" surface
+    should be reopened -- a future governor invocation can call this
+    once instead of a human re-deriving it from `ls -la` by eye."""
+    for name in _TRACKED_JSONL_LOGS:
+        path = repo_root / "foundation" / name
+        try:
+            if path.stat().st_size > DEFERRED_LOG_SIZE_THRESHOLD_BYTES:
+                return True
+        except OSError:
+            continue
+    return False
 
 
 def read_pulse_continuity(

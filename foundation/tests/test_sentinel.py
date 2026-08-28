@@ -1330,3 +1330,1110 @@ class TestCheckProtocolDocumentTargets(unittest.TestCase):
 
     def test_wired_into_pulse_sweep(self):
         self.assertIn(check_protocol_document_targets, _LEVEL1_CHECKS)
+
+
+class TestContinuationGovernor(unittest.TestCase):
+    """The harness: formalises the difference between 'this board found
+    nothing' and 'the accessible search space is exhausted', which every
+    prior autonomous-cycle pass in this session decided in prose. Pure
+    decision function -- executes nothing, SIGIL.NO_EXECUTION_AUTHORITY
+    unaffected by construction (TestSentinelCannotExecute already scans
+    every public callable in this module by name)."""
+
+    def _swept(self, name):
+        return sentinel.HuntSurface(name=name, status="SWEPT")
+
+    def _blocked(self, name, evidence="stated reason"):
+        return sentinel.HuntSurface(name=name, status="BLOCKED", evidence=evidence)
+
+    def _deferred(self, name, wake="a named threshold crossing"):
+        return sentinel.HuntSurface(
+            name=name, status="DEFERRED_WITH_OBJECTIVE_WAKE_CONDITION",
+            evidence="deferred pending real pressure", reopen_condition=wake)
+
+    def _unswept(self, name):
+        return sentinel.HuntSurface(name=name, status="UNSWEPT")
+
+    # TEST 1 — empty board does not imply stop
+    def test_unswept_surface_forces_continue(self):
+        surfaces = (self._swept("A"), self._blocked("B"), self._unswept("C"))
+        d = sentinel.evaluate_continuation(
+            surfaces, state_revalidated=True, candidates_found=())
+        self.assertTrue(d.proceed)
+        self.assertIn("C", d.unresolved_surfaces)
+
+    # TEST 2 — a blocked item alone does not imply stop while another
+    # eligible (unswept) surface remains
+    def test_blocked_item_with_remaining_unswept_forces_continue(self):
+        surfaces = (self._blocked("A"), self._unswept("B"))
+        d = sentinel.evaluate_continuation(
+            surfaces, state_revalidated=True, candidates_found=())
+        self.assertTrue(d.proceed)
+
+    # TEST 3 — all 8 conditions required; any single miss rejects stop
+    def test_missing_state_revalidation_alone_blocks_stop(self):
+        """Intent preserved (this must never certify STOP); mechanism
+        corrected 2026-08-28. It previously asserted proceed=True, which
+        pinned a real escape: CONTINUE with unresolved_surfaces=() means
+        "work remains" while naming none. Absent revalidation is a
+        jurisdiction failure, not governed openness."""
+        surfaces = (self._swept("A"), self._blocked("B"), self._deferred("C"))
+        with self.assertRaises(sentinel.UnaccountedCandidates) as ctx:
+            sentinel.evaluate_continuation(
+                surfaces, state_revalidated=False, candidates_found=())
+        self.assertIn("1_state_revalidated", str(ctx.exception))
+
+    def test_new_wake_evidence_alone_blocks_stop(self):
+        surfaces = (self._swept("A"), self._blocked("B"))
+        d = sentinel.evaluate_continuation(
+            surfaces, state_revalidated=True, new_wake_evidence=True,
+            candidates_found=())
+        self.assertTrue(d.proceed)
+
+    def test_zero_recorded_surfaces_cannot_stop(self):
+        """Intent preserved (an empty universe must never certify STOP);
+        mechanism corrected 2026-08-28 -- it is jurisdiction denial, not
+        CONTINUE. An empty surface set is not an open universe."""
+        with self.assertRaises(sentinel.UnaccountedCandidates) as ctx:
+            sentinel.evaluate_continuation(
+                (), state_revalidated=True, candidates_found=())
+        self.assertIn("2_at_least_one_surface_recorded", str(ctx.exception))
+
+    # TEST 4 — true exhaustion can stop
+    def test_full_coverage_with_no_new_evidence_allows_stop(self):
+        surfaces = (
+            self._swept("A"), self._swept("B"),
+            self._blocked("C"), self._deferred("D"),
+        )
+        d = sentinel.evaluate_continuation(
+            surfaces, state_revalidated=True, candidates_found=())
+        self.assertFalse(d.proceed)
+        self.assertEqual(d.unresolved_surfaces, ())
+        self.assertTrue(all(d.conditions.values()))
+
+    # A block or deferral without evidence cannot even be constructed —
+    # fail-closed at the ledger row, not just at evaluation time.
+    def test_blocked_surface_without_evidence_is_rejected_at_construction(self):
+        with self.assertRaises(ValueError):
+            sentinel.HuntSurface(name="X", status="BLOCKED", evidence="")
+
+    def test_deferred_surface_without_wake_condition_is_rejected_at_construction(self):
+        with self.assertRaises(ValueError):
+            sentinel.HuntSurface(
+                name="X", status="DEFERRED_WITH_OBJECTIVE_WAKE_CONDITION",
+                evidence="why", reopen_condition="")
+
+    def test_unknown_status_is_rejected(self):
+        with self.assertRaises(ValueError):
+            sentinel.HuntSurface(name="X", status="MAYBE")
+
+    # TEST 5 — one-brick limit, enforced structurally
+    def test_select_one_admitted_returns_exactly_one_of_many(self):
+        result = sentinel.select_one_admitted(("cand-1", "cand-2", "cand-3"))
+        self.assertEqual(result, "cand-1")
+
+    def test_select_one_admitted_returns_none_when_empty(self):
+        self.assertIsNone(sentinel.select_one_admitted(()))
+
+    # TEST 6 — no constitutional authority expansion (governor never
+    # executes; already covered structurally by TestSentinelCannotExecute
+    # scanning this module's public callables, re-asserted here directly
+    # against the new names)
+    def test_governor_functions_are_not_named_as_actions(self):
+        for name in ("evaluate_continuation", "select_one_admitted", "HuntSurface",
+                     "ContinuationDecision"):
+            first_word = re.split(r"[_A-Z]", name)[0].lower() or name.lower()
+            self.assertNotIn(first_word, FORBIDDEN_VERBS)
+
+    def test_decision_object_carries_no_executable_payload(self):
+        surfaces = (self._swept("A"), self._blocked("B"))
+        d = sentinel.evaluate_continuation(
+            surfaces, state_revalidated=True, candidates_found=())
+        payload = d.to_dict()
+        self.assertIsInstance(payload["proceed"], bool)
+        # No field is a callable, a code string, or anything an actuator
+        # could interpret as an instruction to execute.
+        for v in payload.values():
+            self.assertNotIsInstance(v, type(lambda: None))
+
+    # Realistic composite scenario matching this session's own history:
+    # several surfaces genuinely swept/blocked, one adjacent surface
+    # never checked -- must continue, and must name it.
+    def test_realistic_partial_coverage_continues_and_names_the_gap(self):
+        surfaces = (
+            self._swept("sensor_conveyor"), self._swept("jsonl_reader_crash_class"),
+            self._swept("orchestration_isolation"), self._blocked("dormant_organs",
+                evidence="zero non-test callers, deletion blocked on open human decision item 13"),
+            self._deferred("unbounded_log_read", wake="pulse_log.jsonl exceeds 1MB"),
+            self._unswept("cross_subsystem_contradictions_beyond_sigil_pair"),
+        )
+        d = sentinel.evaluate_continuation(
+            surfaces, state_revalidated=True, candidates_found=())
+        self.assertTrue(d.proceed)
+        self.assertEqual(d.unresolved_surfaces, ("cross_subsystem_contradictions_beyond_sigil_pair",))
+
+
+class TestDeferredLogSizeWakeCondition(unittest.TestCase):
+    """Closes the gap in evaluate_continuation()'s own contract: condition
+    6 (no_new_wake_evidence) for the one real DEFERRED surface on the
+    board was being verified by a human reading `ls -la` each cycle --
+    the exact hand-checked-snapshot shape already proven costly twice
+    this session (README test count, sigil tier disagreement)."""
+
+    def test_all_logs_under_threshold_is_false(self):
+        with tempfile.TemporaryDirectory() as d:
+            repo = Path(d); (repo / "foundation").mkdir()
+            (repo / "foundation" / "pulse_log.jsonl").write_text("x" * 100)
+            self.assertFalse(sentinel.check_deferred_log_size_wake_condition(repo))
+
+    def test_one_oversized_tracked_log_triggers_true(self):
+        with tempfile.TemporaryDirectory() as d:
+            repo = Path(d); (repo / "foundation").mkdir()
+            (repo / "foundation" / "authority_ledger.jsonl").write_bytes(
+                b"x" * (sentinel.DEFERRED_LOG_SIZE_THRESHOLD_BYTES + 1))
+            self.assertTrue(sentinel.check_deferred_log_size_wake_condition(repo))
+
+    def test_exactly_at_threshold_is_not_yet_triggered(self):
+        with tempfile.TemporaryDirectory() as d:
+            repo = Path(d); (repo / "foundation").mkdir()
+            (repo / "foundation" / "pulse_log.jsonl").write_bytes(
+                b"x" * sentinel.DEFERRED_LOG_SIZE_THRESHOLD_BYTES)
+            self.assertFalse(sentinel.check_deferred_log_size_wake_condition(repo))
+
+    def test_an_untracked_large_file_does_not_trigger(self):
+        """Fixed list, not a glob -- a stray file becoming 'tracked' is a
+        human decision, matching LIVE_MOUTH_IDS' own discipline."""
+        with tempfile.TemporaryDirectory() as d:
+            repo = Path(d); (repo / "foundation").mkdir()
+            (repo / "foundation" / "some_other_file.jsonl").write_bytes(
+                b"x" * (sentinel.DEFERRED_LOG_SIZE_THRESHOLD_BYTES + 1))
+            self.assertFalse(sentinel.check_deferred_log_size_wake_condition(repo))
+
+    def test_missing_files_do_not_crash(self):
+        with tempfile.TemporaryDirectory() as d:
+            self.assertFalse(sentinel.check_deferred_log_size_wake_condition(Path(d)))
+
+    def test_never_reads_file_content(self):
+        """Read-only means stat only -- never opens the file, so a huge
+        file's cost is O(1), not O(size)."""
+        with tempfile.TemporaryDirectory() as d:
+            repo = Path(d); (repo / "foundation").mkdir()
+            path = repo / "foundation" / "pulse_log.jsonl"
+            path.write_bytes(b"\xff" * 100)  # would crash a .read_text() call
+            self.assertFalse(sentinel.check_deferred_log_size_wake_condition(repo))
+
+    def test_writes_nothing(self):
+        before = {n: (REPO_ROOT / "foundation" / n).stat().st_mtime_ns
+                  for n in sentinel._TRACKED_JSONL_LOGS
+                  if (REPO_ROOT / "foundation" / n).exists()}
+        sentinel.check_deferred_log_size_wake_condition(REPO_ROOT)
+        for n, mtime in before.items():
+            self.assertEqual((REPO_ROOT / "foundation" / n).stat().st_mtime_ns, mtime)
+
+    def test_the_real_repository_has_not_crossed_the_threshold(self):
+        self.assertFalse(sentinel.check_deferred_log_size_wake_condition(REPO_ROOT))
+
+
+class TestClosedAccountingUniverse(unittest.TestCase):
+    """The escape hatch, reproduced before it was closed (2026-08-28):
+    evaluate_continuation() validated the CONTENTS of `surfaces` but
+    never that `surfaces` ACCOUNTED FOR WHAT THE CYCLE FOUND. A worker
+    could find candidates X and Y, build Y under the one-brick limit,
+    call X 'deferred / a one-line future addition' in receipt prose only,
+    never create a HuntSurface row, and receive STOP while X remained
+    real, known, ungoverned work.
+
+    This was the author's own prior cycle -- `harness_boot_documentation`
+    was reported DEFERRED with the words 'not lost' and 'no board created
+    for it', and grep confirmed it appeared in no source file, no test,
+    and no durable artifact."""
+
+    def _swept(self, n): return sentinel.HuntSurface(name=n, status="SWEPT")
+
+    # CASE 1 — the exact prior failure
+    def test_the_exact_prior_escape_now_fails_closed(self):
+        surfaces = (self._swept("Y_wake_check"),)
+        with self.assertRaises(sentinel.UnaccountedCandidates):
+            sentinel.evaluate_continuation(
+                surfaces, state_revalidated=True,
+                candidates_found=("Y_wake_check", "X_boot_documentation"))
+
+    # CASE 2 — silent drop
+    def test_found_two_disposed_one_fails_closed(self):
+        surfaces = (self._swept("A"),)
+        with self.assertRaises(sentinel.UnaccountedCandidates):
+            sentinel.evaluate_continuation(
+                surfaces, state_revalidated=True, candidates_found=("A", "B"))
+
+    # CASE 3 — fake deferral (no wake condition) still blocked at construction
+    def test_deferral_without_wake_condition_still_fails_closed(self):
+        with self.assertRaises(ValueError):
+            sentinel.HuntSurface(name="X",
+                status="DEFERRED_WITH_OBJECTIVE_WAKE_CONDITION",
+                evidence="why", reopen_condition="")
+
+    # CASE 4 — block without unblocker
+    def test_block_without_evidence_still_fails_closed(self):
+        with self.assertRaises(ValueError):
+            sentinel.HuntSurface(name="X", status="BLOCKED", evidence="")
+
+    # CASE 5 — legitimate duplicate merge, canonical target named
+    def test_a_candidate_merged_as_duplicate_is_accounted(self):
+        # `duplicate_of` is structural, not prose: this test originally
+        # named the canonical target inside `evidence`, which the
+        # 2026-08-28 adversarial pass proved was unenforceable.
+        surfaces = (self._swept("A"),
+                    sentinel.HuntSurface(name="B", status="DUPLICATE",
+                        evidence="same producer/consumer path", duplicate_of="A"))
+        d = sentinel.evaluate_continuation(
+            surfaces, state_revalidated=True, candidates_found=("A", "B"))
+        self.assertFalse(d.proceed)
+
+    # CASE 6 — killed with evidence (recorded as BLOCKED with the kill reason)
+    def test_a_killed_candidate_with_evidence_is_accounted(self):
+        surfaces = (self._swept("A"),
+                    sentinel.HuntSurface(name="B", status="BLOCKED",
+                        evidence="killed: no mechanical ground truth; prose only"))
+        d = sentinel.evaluate_continuation(
+            surfaces, state_revalidated=True, candidates_found=("A", "B"))
+        self.assertFalse(d.proceed)
+
+    # CASE 7 — one-brick limit: survivors must all remain governed
+    def test_unselected_survivors_must_still_be_accounted(self):
+        found = ("A", "B", "C")
+        self.assertEqual(sentinel.select_one_admitted(found), "A")
+        # B and C were not selected -- they may not vanish.
+        surfaces = (self._swept("A"),)
+        with self.assertRaises(sentinel.UnaccountedCandidates):
+            sentinel.evaluate_continuation(
+                surfaces, state_revalidated=True, candidates_found=found)
+        # Properly governed, the same cycle stops legitimately.
+        governed = (self._swept("A"),
+                    sentinel.HuntSurface(name="B", status="DEFERRED_WITH_OBJECTIVE_WAKE_CONDITION",
+                        evidence="real but unselected", reopen_condition="next cycle"),
+                    sentinel.HuntSurface(name="C", status="BLOCKED", evidence="killed: duplicate of A"))
+        self.assertFalse(sentinel.evaluate_continuation(
+            governed, state_revalidated=True, candidates_found=found).proceed)
+
+    # CASE 8 — the most important: HARD STOP refused with open work
+    def test_hard_stop_is_refused_when_known_work_is_ungoverned(self):
+        surfaces = (self._swept("A"), self._swept("B"))
+        # Without accounting this returns STOP...
+        self.assertFalse(sentinel.evaluate_continuation(
+            surfaces, state_revalidated=True, candidates_found=()).proceed)
+        # ...but declaring the real find makes STOP impossible.
+        with self.assertRaises(sentinel.UnaccountedCandidates):
+            sentinel.evaluate_continuation(
+                surfaces, state_revalidated=True,
+                candidates_found=("A", "B", "known_but_untracked"))
+
+    # Backward compatibility: omitting candidates_found preserves prior behaviour
+    def test_explicit_empty_accounting_preserves_existing_behaviour(self):
+        """Was `test_omitting_candidates_found_preserves_existing_behaviour`
+        -- it pinned the ATTACK B escape (omission silently disabling
+        conservation). Omission now refuses a verdict; an explicit `()`
+        is the honest way to claim a cycle found nothing."""
+        surfaces = (self._swept("A"),)
+        d = sentinel.evaluate_continuation(
+            surfaces, state_revalidated=True, candidates_found=())
+        self.assertFalse(d.proceed)
+
+    def test_fully_accounted_cycle_proceeds_normally(self):
+        surfaces = (self._swept("A"),
+                    sentinel.HuntSurface(name="B", status="UNSWEPT"))
+        d = sentinel.evaluate_continuation(
+            surfaces, state_revalidated=True, candidates_found=("A", "B"))
+        self.assertTrue(d.proceed)
+        self.assertEqual(d.unresolved_surfaces, ("B",))
+
+
+class TestDuplicateDispositionMustResolve(unittest.TestCase):
+    """Termination-assassination pass 2026-08-28: DUPLICATE was a trash
+    chute. Four reproduced escapes -- no canonical target, a nonexistent
+    target, self-reference, and a circular B->C->B chain -- every one
+    certified HARD_STOP while the work was really unresolved. A
+    disposition that resolves to nothing is not a disposition."""
+
+    def _swept(self, n): return sentinel.HuntSurface(name=n, status="SWEPT")
+
+    def test_duplicate_without_target_cannot_be_constructed(self):
+        with self.assertRaises(ValueError):
+            sentinel.HuntSurface(name="B", status="DUPLICATE", evidence="dupe")
+
+    def test_self_referential_duplicate_cannot_be_constructed(self):
+        with self.assertRaises(ValueError):
+            sentinel.HuntSurface(name="B", status="DUPLICATE",
+                                 evidence="e", duplicate_of="B")
+
+    def test_duplicate_of_a_nonexistent_target_refuses_verdict(self):
+        surfaces = (self._swept("A"),
+                    sentinel.HuntSurface(name="B", status="DUPLICATE",
+                                         evidence="e", duplicate_of="Z_absent"))
+        with self.assertRaises(sentinel.UnaccountedCandidates):
+            sentinel.evaluate_continuation(surfaces, state_revalidated=True)
+
+    def test_circular_duplicate_chain_refuses_verdict(self):
+        surfaces = (self._swept("A"),
+                    sentinel.HuntSurface(name="B", status="DUPLICATE", evidence="e", duplicate_of="C"),
+                    sentinel.HuntSurface(name="C", status="DUPLICATE", evidence="e", duplicate_of="B"))
+        with self.assertRaises(sentinel.UnaccountedCandidates):
+            sentinel.evaluate_continuation(surfaces, state_revalidated=True)
+
+    def test_three_hop_circular_chain_also_refuses(self):
+        """Mutated replay: longer cycle, not the canned 2-hop input."""
+        surfaces = (self._swept("A"),
+                    sentinel.HuntSurface(name="B", status="DUPLICATE", evidence="e", duplicate_of="C"),
+                    sentinel.HuntSurface(name="C", status="DUPLICATE", evidence="e", duplicate_of="D"),
+                    sentinel.HuntSurface(name="D", status="DUPLICATE", evidence="e", duplicate_of="B"))
+        with self.assertRaises(sentinel.UnaccountedCandidates):
+            sentinel.evaluate_continuation(surfaces, state_revalidated=True)
+
+    def test_a_legitimate_duplicate_chain_still_resolves_and_stops(self):
+        """Mutated replay: a valid multi-hop chain B->C->A must PASS, so
+        the fix rejects only unresolvable chains, not all chains."""
+        surfaces = (self._swept("A"),
+                    sentinel.HuntSurface(name="C", status="DUPLICATE", evidence="e", duplicate_of="A"),
+                    sentinel.HuntSurface(name="B", status="DUPLICATE", evidence="e", duplicate_of="C"))
+        d = sentinel.evaluate_continuation(surfaces, state_revalidated=True,
+                                           candidates_found=("A", "B", "C"))
+        self.assertFalse(d.proceed)
+
+    def test_duplicate_pointing_at_an_unswept_surface_still_forces_continue(self):
+        """A duplicate may resolve to real state that is itself unresolved
+        -- that must CONTINUE, not STOP."""
+        surfaces = (sentinel.HuntSurface(name="A", status="UNSWEPT"),
+                    sentinel.HuntSurface(name="B", status="DUPLICATE", evidence="e", duplicate_of="A"))
+        d = sentinel.evaluate_continuation(
+            surfaces, state_revalidated=True, candidates_found=())
+        self.assertTrue(d.proceed)
+        self.assertEqual(d.unresolved_surfaces, ("A",))
+
+
+class TestAccountingCannotBeSilentlyOmitted(unittest.TestCase):
+    """Termination-assassination 2026-08-28, ATTACK B: `candidates_found`
+    defaulted to `()`, so simply OMITTING the argument disabled the entire
+    conservation mechanism and certified HARD_STOP with real unlisted
+    work. An escape reachable by doing nothing -- no malformed input, no
+    bad row, just a missing keyword.
+
+    'zero candidates found' and 'candidate accounting not provided' are
+    different states and must not be represented identically."""
+
+    def _swept(self, n): return sentinel.HuntSurface(name=n, status="SWEPT")
+
+    def test_omitting_accounting_refuses_a_verdict(self):
+        with self.assertRaises(sentinel.UnaccountedCandidates):
+            sentinel.evaluate_continuation((self._swept("A"),), state_revalidated=True)
+
+    def test_explicit_empty_tuple_is_a_valid_positive_claim(self):
+        """`()` means 'this cycle genuinely discovered nothing' -- a real
+        assertion a worker can be held to, unlike silence."""
+        d = sentinel.evaluate_continuation(
+            (self._swept("A"),), state_revalidated=True, candidates_found=())
+        self.assertFalse(d.proceed)
+
+    def test_omission_refuses_even_when_everything_else_is_clean(self):
+        surfaces = (self._swept("A"),
+                    sentinel.HuntSurface(name="B", status="BLOCKED", evidence="real reason"))
+        with self.assertRaises(sentinel.UnaccountedCandidates):
+            sentinel.evaluate_continuation(surfaces, state_revalidated=True)
+
+    def test_omission_refuses_even_when_it_would_have_said_continue(self):
+        """Fail-closed applies to CONTINUE too -- a governor that cannot
+        prove its universe must render no verdict at all, not a
+        convenient one."""
+        surfaces = (sentinel.HuntSurface(name="A", status="UNSWEPT"),)
+        with self.assertRaises(sentinel.UnaccountedCandidates):
+            sentinel.evaluate_continuation(surfaces, state_revalidated=True)
+
+    def test_accounted_path_is_unaffected(self):
+        d = sentinel.evaluate_continuation(
+            (self._swept("A"),), state_revalidated=True, candidates_found=("A",))
+        self.assertFalse(d.proceed)
+
+
+class TestIdentityLaw(unittest.TestCase):
+    """SIGIL IV. Reproduced 2026-08-28 in five distinct constructions, all
+    certifying HARD_STOP: SWEPT+BLOCKED, the reversed order, SWEPT+
+    DUPLICATE, SWEPT+DEFERRED, BLOCKED+DEFERRED, and a 3-row variant.
+    There was no identity check at all -- a clean row sat beside a dirty
+    row and the governor certified closure.
+
+    SWEPT+UNSWEPT returned CONTINUE beforehand, but only because P3 trips
+    on the UNSWEPT row: accidental safety from an unrelated predicate, not
+    adjudication. Contradiction is neither work nor closure -- it is loss
+    of jurisdiction, so it raises rather than returning CONTINUE."""
+
+    def _ev(self, surfaces, **kw):
+        kw.setdefault("state_revalidated", True)
+        kw.setdefault("candidates_found", ())
+        return sentinel.evaluate_continuation(surfaces, **kw)
+
+    def test_swept_plus_blocked_denies_jurisdiction(self):
+        with self.assertRaises(sentinel.UnaccountedCandidates):
+            self._ev((sentinel.HuntSurface(name="X", status="SWEPT"),
+                      sentinel.HuntSurface(name="X", status="BLOCKED", evidence="e")))
+
+    def test_order_does_not_change_the_result(self):
+        """Neither the first nor the last row may win."""
+        pair = (sentinel.HuntSurface(name="X", status="BLOCKED", evidence="e"),
+                sentinel.HuntSurface(name="X", status="SWEPT"))
+        with self.assertRaises(sentinel.UnaccountedCandidates):
+            self._ev(pair)
+        with self.assertRaises(sentinel.UnaccountedCandidates):
+            self._ev(tuple(reversed(pair)))
+
+    def test_swept_plus_deferred_denies_jurisdiction(self):
+        with self.assertRaises(sentinel.UnaccountedCandidates):
+            self._ev((sentinel.HuntSurface(name="X", status="SWEPT"),
+                      sentinel.HuntSurface(name="X",
+                          status="DEFERRED_WITH_OBJECTIVE_WAKE_CONDITION",
+                          evidence="e", reopen_condition="t")))
+
+    def test_blocked_plus_deferred_denies_jurisdiction(self):
+        with self.assertRaises(sentinel.UnaccountedCandidates):
+            self._ev((sentinel.HuntSurface(name="X", status="BLOCKED", evidence="e"),
+                      sentinel.HuntSurface(name="X",
+                          status="DEFERRED_WITH_OBJECTIVE_WAKE_CONDITION",
+                          evidence="e", reopen_condition="t")))
+
+    def test_swept_plus_duplicate_denies_jurisdiction(self):
+        with self.assertRaises(sentinel.UnaccountedCandidates):
+            self._ev((sentinel.HuntSurface(name="A", status="SWEPT"),
+                      sentinel.HuntSurface(name="X", status="SWEPT"),
+                      sentinel.HuntSurface(name="X", status="DUPLICATE",
+                                           evidence="e", duplicate_of="A")),
+                     candidates_found=("A", "X"))
+
+    def test_swept_plus_unswept_is_now_adjudicated_not_accidental(self):
+        """Previously CONTINUE via P3 -- an unrelated predicate happening
+        to catch it. Now denied as the contradiction it always was."""
+        with self.assertRaises(sentinel.UnaccountedCandidates):
+            self._ev((sentinel.HuntSurface(name="X", status="SWEPT"),
+                      sentinel.HuntSurface(name="X", status="UNSWEPT")))
+
+    def test_three_rows_one_identity_denies_jurisdiction(self):
+        with self.assertRaises(sentinel.UnaccountedCandidates):
+            self._ev((sentinel.HuntSurface(name="X", status="SWEPT"),
+                      sentinel.HuntSurface(name="X", status="BLOCKED", evidence="e"),
+                      sentinel.HuntSurface(name="X", status="SWEPT")))
+
+    def test_the_error_names_every_contradictory_identity(self):
+        with self.assertRaises(sentinel.UnaccountedCandidates) as ctx:
+            self._ev((sentinel.HuntSurface(name="X", status="SWEPT"),
+                      sentinel.HuntSurface(name="X", status="BLOCKED", evidence="e"),
+                      sentinel.HuntSurface(name="Y", status="SWEPT"),
+                      sentinel.HuntSurface(name="Y", status="UNSWEPT")))
+        msg = str(ctx.exception)
+        self.assertIn("'X'", msg)
+        self.assertIn("'Y'", msg)
+
+    # LEGITIMATE NEIGHBOURS -- must NOT be banned
+    def test_identical_repeated_rows_remain_lawful(self):
+        """Repetition is not contradiction. Only DISTINCT dispositions for
+        one identity are unlawful."""
+        d = self._ev((sentinel.HuntSurface(name="X", status="SWEPT"),
+                      sentinel.HuntSurface(name="X", status="SWEPT")))
+        self.assertFalse(d.proceed)
+
+    def test_distinct_identities_with_distinct_dispositions_are_lawful(self):
+        d = self._ev((sentinel.HuntSurface(name="A", status="SWEPT"),
+                      sentinel.HuntSurface(name="B", status="BLOCKED", evidence="e")),
+                     candidates_found=("A", "B"))
+        self.assertFalse(d.proceed)
+
+    def test_a_lawful_open_universe_still_continues(self):
+        d = self._ev((sentinel.HuntSurface(name="A", status="SWEPT"),
+                      sentinel.HuntSurface(name="B", status="UNSWEPT")),
+                     candidates_found=("A", "B"))
+        self.assertTrue(d.proceed)
+
+
+class TestJurisdictionFailureIsNotContinuation(unittest.TestCase):
+    """SIGIL III / LAW XVII, reproduced 2026-08-28. P1 (state not
+    revalidated) and P2 (empty universe) both returned proceed=True with
+    unresolved_surfaces=() -- "reachable work remains" while naming no
+    work. A worker receiving that had no lawful next action: CONTINUE by
+    accident of an unrelated predicate tripping, not governed openness.
+
+    These two are categorically unlike P3-P6. They are not facts ABOUT a
+    universe; they are the preconditions for having one to judge."""
+
+    def test_absent_revalidation_denies_jurisdiction(self):
+        with self.assertRaises(sentinel.UnaccountedCandidates):
+            sentinel.evaluate_continuation(
+                (sentinel.HuntSurface(name="A", status="SWEPT"),),
+                state_revalidated=False, candidates_found=())
+
+    def test_empty_universe_denies_jurisdiction(self):
+        with self.assertRaises(sentinel.UnaccountedCandidates):
+            sentinel.evaluate_continuation((), state_revalidated=True, candidates_found=())
+
+    def test_both_failures_deny_jurisdiction(self):
+        with self.assertRaises(sentinel.UnaccountedCandidates) as ctx:
+            sentinel.evaluate_continuation((), state_revalidated=False, candidates_found=())
+        msg = str(ctx.exception)
+        self.assertIn("1_state_revalidated", msg)
+        self.assertIn("2_at_least_one_surface_recorded", msg)
+
+    def test_absent_revalidation_denies_even_with_open_work_present(self):
+        """Mutation: jurisdiction is checked regardless of whether the
+        universe would otherwise have said CONTINUE."""
+        with self.assertRaises(sentinel.UnaccountedCandidates):
+            sentinel.evaluate_continuation(
+                (sentinel.HuntSurface(name="A", status="UNSWEPT"),),
+                state_revalidated=False, candidates_found=())
+
+    def test_absent_revalidation_denies_even_with_full_accounting(self):
+        with self.assertRaises(sentinel.UnaccountedCandidates):
+            sentinel.evaluate_continuation(
+                (sentinel.HuntSurface(name="A", status="SWEPT"),),
+                state_revalidated=False, candidates_found=("A",))
+
+    # LEGITIMATE NEIGHBOURS -- must be untouched
+    def test_genuine_open_work_still_continues_and_names_the_surface(self):
+        d = sentinel.evaluate_continuation(
+            (sentinel.HuntSurface(name="A", status="SWEPT"),
+             sentinel.HuntSurface(name="B", status="UNSWEPT")),
+            state_revalidated=True, candidates_found=())
+        self.assertTrue(d.proceed)
+        self.assertEqual(d.unresolved_surfaces, ("B",))
+
+    def test_genuine_closure_still_stops(self):
+        d = sentinel.evaluate_continuation(
+            (sentinel.HuntSurface(name="A", status="SWEPT"),),
+            state_revalidated=True, candidates_found=("A",))
+        self.assertFalse(d.proceed)
+
+    def test_wake_evidence_is_a_fact_not_a_jurisdiction_failure(self):
+        """P6 firing is a real fact about a VALID universe -- it must stay
+        an ordinary CONTINUE, not be swept into the jurisdiction denial."""
+        d = sentinel.evaluate_continuation(
+            (sentinel.HuntSurface(name="A", status="SWEPT"),),
+            state_revalidated=True, new_wake_evidence=True, candidates_found=())
+        self.assertTrue(d.proceed)
+
+    def test_a_continue_verdict_always_names_at_least_one_surface_or_a_real_fact(self):
+        """The property the escape violated: proceed=True must never mean
+        'work remains' while naming no work AND no universe-level fact."""
+        d = sentinel.evaluate_continuation(
+            (sentinel.HuntSurface(name="A", status="UNSWEPT"),),
+            state_revalidated=True, candidates_found=())
+        self.assertTrue(d.proceed)
+        self.assertTrue(d.unresolved_surfaces)
+
+
+class TestOneShotIteratorIsNotAClaim(unittest.TestCase):
+    """Reproduced 2026-08-28. `candidates_found` was typed `Optional[tuple]`
+    and never enforced, so a generator or iterator could be passed. Two
+    escapes followed, both certifying HARD_STOP with real ungoverned work:
+
+    1. RETRY-AFTER-REFUSAL: the SAME iterator yields NO_VERDICT on call 1
+       (ghost detected) and HARD_STOP on call 2 (now exhausted, reads as
+       an empty claim). Retrying after a refusal is the natural worker
+       response, and it converted refusal into closure.
+    2. EMPTY GENERATOR: generators are always truthy, so the guard passed
+       while the object asserted nothing -- defeating the
+       omitted-vs-explicitly-empty distinction the None default protects.
+
+    The corruption reached the error text: call 1 read "cycle reported
+    finding []" because the iterator was drained building the message."""
+
+    S = (sentinel.HuntSurface(name="A", status="SWEPT"),)
+
+    def _ev(self, cf):
+        return sentinel.evaluate_continuation(
+            self.S, state_revalidated=True, candidates_found=cf)
+
+    def test_retry_after_refusal_cannot_become_closure(self):
+        it = iter(["A", "ghost"])
+        with self.assertRaises(sentinel.UnaccountedCandidates):
+            self._ev(it)
+        with self.assertRaises(sentinel.UnaccountedCandidates):
+            self._ev(it)   # previously: HARD_STOP with 'ghost' ungoverned
+
+    def test_empty_generator_is_not_an_empty_claim(self):
+        with self.assertRaises(sentinel.UnaccountedCandidates):
+            self._ev(x for x in ())
+
+    def test_generator_with_real_candidates_is_refused(self):
+        with self.assertRaises(sentinel.UnaccountedCandidates):
+            self._ev(x for x in ("A", "ghost"))
+
+    def test_generator_that_would_have_been_fully_accounted_is_still_refused(self):
+        """Mutation: even a 'correct' generator is refused -- the class is
+        one-shot readability, not whether this particular instance
+        happened to be complete."""
+        with self.assertRaises(sentinel.UnaccountedCandidates):
+            self._ev(x for x in ("A",))
+
+    def test_map_and_filter_objects_are_refused(self):
+        """Mutation: other one-shot iterator forms, not just generators."""
+        for one_shot in (map(str, ["A"]), filter(None, ["A"]), iter(("A",))):
+            with self.assertRaises(sentinel.UnaccountedCandidates):
+                self._ev(one_shot)
+
+    def test_the_refusal_names_the_actual_type(self):
+        with self.assertRaises(sentinel.UnaccountedCandidates) as ctx:
+            self._ev(iter(["A"]))
+        self.assertIn("one-shot iterator is not a claim", str(ctx.exception))
+
+    # LEGITIMATE NEIGHBOURS -- concrete re-readable collections
+    def test_tuple_list_set_frozenset_all_remain_lawful(self):
+        for cf in (("A",), ["A"], {"A"}, frozenset({"A"})):
+            self.assertFalse(self._ev(cf).proceed, f"{type(cf).__name__} rejected")
+
+    def test_explicit_empty_forms_remain_lawful_claims(self):
+        for cf in ((), [], set(), frozenset()):
+            self.assertFalse(self._ev(cf).proceed, f"empty {type(cf).__name__} rejected")
+
+    def test_omission_still_denies_jurisdiction(self):
+        with self.assertRaises(sentinel.UnaccountedCandidates):
+            sentinel.evaluate_continuation(self.S, state_revalidated=True)
+
+    def test_a_concrete_collection_can_be_read_twice_identically(self):
+        """The property the escape violated: the same claim object must
+        produce the same verdict every time it is evaluated."""
+        cf = ("A", "ghost")
+        for _ in range(3):
+            with self.assertRaises(sentinel.UnaccountedCandidates):
+                self._ev(cf)
+        clean = ("A",)
+        self.assertEqual([self._ev(clean).proceed for _ in range(3)], [False] * 3)
+
+
+class _OneShotSized:
+    """__len__ passes the non-empty gate; __iter__ yields only once."""
+    def __init__(self, items): self._items = list(items); self._used = False
+    def __len__(self): return len(self._items)
+    def __iter__(self):
+        if self._used: return iter([])
+        self._used = True
+        return iter(self._items)
+
+
+class TestSurfacesMustBeARereadableCollection(unittest.TestCase):
+    """Same root class as the candidates_found brick, on the sibling
+    parameter. `surfaces` was declared `tuple` and never enforced, while
+    being iterated SEVEN times per call (conservation, identity map,
+    duplicate index, chain walk, unresolved scan, evidence/reopen all()
+    checks, len()). A one-shot input therefore presented a DIFFERENT
+    universe to each gate.
+
+    Reproduced 2026-08-28 -- these are FALSE CLOSURE, not crashes:
+      * real UNSWEPT work certified HARD_STOP with unresolved=()
+      * a duplicate pointing at a nonexistent target certified HARD_STOP
+    Plain generators/iterators additionally leaked a raw TypeError from
+    len(), outside the three-verdict algebra entirely."""
+
+    def test_one_shot_input_cannot_hide_unswept_work(self):
+        with self.assertRaises(sentinel.UnaccountedCandidates):
+            sentinel.evaluate_continuation(
+                _OneShotSized([sentinel.HuntSurface(name="A", status="SWEPT"),
+                               sentinel.HuntSurface(name="B", status="UNSWEPT")]),
+                state_revalidated=True, candidates_found=())
+
+    def test_one_shot_input_cannot_hide_an_unresolvable_duplicate(self):
+        with self.assertRaises(sentinel.UnaccountedCandidates):
+            sentinel.evaluate_continuation(
+                _OneShotSized([sentinel.HuntSurface(name="A", status="SWEPT"),
+                               sentinel.HuntSurface(name="B", status="DUPLICATE",
+                                                    evidence="e", duplicate_of="GHOST")]),
+                state_revalidated=True, candidates_found=())
+
+    def test_generator_surfaces_are_refused_not_crashed(self):
+        """Previously leaked TypeError from len() -- a fourth outcome."""
+        with self.assertRaises(sentinel.UnaccountedCandidates):
+            sentinel.evaluate_continuation(
+                (s for s in [sentinel.HuntSurface(name="A", status="SWEPT")]),
+                state_revalidated=True, candidates_found=("A",))
+
+    def test_iterator_surfaces_are_refused_not_crashed(self):
+        with self.assertRaises(sentinel.UnaccountedCandidates):
+            sentinel.evaluate_continuation(
+                iter([sentinel.HuntSurface(name="A", status="SWEPT")]),
+                state_revalidated=True, candidates_found=("A",))
+
+    def test_map_and_filter_surfaces_are_refused(self):
+        base = [sentinel.HuntSurface(name="A", status="SWEPT")]
+        for one_shot in (map(lambda x: x, base), filter(None, base)):
+            with self.assertRaises(sentinel.UnaccountedCandidates):
+                sentinel.evaluate_continuation(
+                    one_shot, state_revalidated=True, candidates_found=("A",))
+
+    def test_the_refusal_explains_the_repeated_read(self):
+        with self.assertRaises(sentinel.UnaccountedCandidates) as ctx:
+            sentinel.evaluate_continuation(
+                iter([]), state_revalidated=True, candidates_found=())
+        self.assertIn("reads surfaces repeatedly", str(ctx.exception))
+
+    # LEGITIMATE NEIGHBOURS
+    def test_concrete_collections_all_remain_lawful(self):
+        row = sentinel.HuntSurface(name="A", status="SWEPT")
+        for coll in ((row,), [row], {row}, frozenset({row})):
+            d = sentinel.evaluate_continuation(
+                coll, state_revalidated=True, candidates_found=("A",))
+            self.assertFalse(d.proceed, f"{type(coll).__name__} rejected")
+
+    def test_real_open_work_still_continues_and_names_it(self):
+        d = sentinel.evaluate_continuation(
+            (sentinel.HuntSurface(name="A", status="SWEPT"),
+             sentinel.HuntSurface(name="B", status="UNSWEPT")),
+            state_revalidated=True, candidates_found=())
+        self.assertTrue(d.proceed)
+        self.assertEqual(d.unresolved_surfaces, ("B",))
+
+    def test_the_same_concrete_universe_verdicts_identically_on_replay(self):
+        surfaces = (sentinel.HuntSurface(name="A", status="SWEPT"),
+                    sentinel.HuntSurface(name="B", status="UNSWEPT"))
+        results = [sentinel.evaluate_continuation(
+            surfaces, state_revalidated=True, candidates_found=()).unresolved_surfaces
+            for _ in range(3)]
+        self.assertEqual(results, [("B",)] * 3)
+
+
+class _MutatingList(list):
+    """Passes isinstance(list) but yields different membership per read."""
+    def __init__(self, items, clean_after):
+        super().__init__(items); self._n = 0; self._clean_after = clean_after
+    def __iter__(self):
+        self._n += 1
+        if self._n > self._clean_after:
+            return iter([x for x in list.__iter__(self)
+                         if getattr(x, "status", "") == "SWEPT"])
+        return list.__iter__(self)
+
+
+class _EmptyYieldingList(list):
+    """Truthy via list.__len__, but __iter__ yields nothing."""
+    def __iter__(self): return iter([])
+
+
+class TestObservationalUniverseIsPinned(unittest.TestCase):
+    """The type guards reject one-shot inputs, but type is not stability:
+    a list SUBCLASS passes isinstance() and can still change membership
+    between reads. `surfaces` is read seven times per call, so without
+    pinning, different jurisdiction gates adjudicated DIFFERENT UNIVERSES.
+
+    Reproduced 2026-08-28, all FALSE CLOSURE:
+      * dirty row yielded only on read 1 -> real UNSWEPT work certified
+        HARD_STOP with unresolved=()
+      * same shape hiding a duplicate whose target does not exist
+      * candidates_found truthy via __len__ but yielding nothing -> a
+        ghost candidate never checked, HARD_STOP issued"""
+
+    def test_mutating_surfaces_cannot_hide_unswept_work(self):
+        d = sentinel.evaluate_continuation(
+            _MutatingList([sentinel.HuntSurface(name="A", status="SWEPT"),
+                           sentinel.HuntSurface(name="B", status="UNSWEPT")], 1),
+            state_revalidated=True, candidates_found=())
+        self.assertTrue(d.proceed)
+        self.assertEqual(d.unresolved_surfaces, ("B",))
+
+    def test_mutating_surfaces_cannot_hide_an_unresolvable_duplicate(self):
+        with self.assertRaises(sentinel.UnaccountedCandidates):
+            sentinel.evaluate_continuation(
+                _MutatingList([sentinel.HuntSurface(name="A", status="SWEPT"),
+                               sentinel.HuntSurface(name="B", status="DUPLICATE",
+                                                    evidence="e", duplicate_of="GHOST")], 1),
+                state_revalidated=True, candidates_found=())
+
+    def test_mutating_surfaces_cannot_hide_an_identity_contradiction(self):
+        with self.assertRaises(sentinel.UnaccountedCandidates):
+            sentinel.evaluate_continuation(
+                _MutatingList([sentinel.HuntSurface(name="X", status="SWEPT"),
+                               sentinel.HuntSurface(name="X", status="BLOCKED",
+                                                    evidence="e")], 1),
+                state_revalidated=True, candidates_found=())
+
+    def test_a_claim_that_lies_on_its_first_read_is_the_declared_ceiling(self):
+        """HONEST LIMIT, not a closed hole. Pinning guarantees every gate
+        reads ONE snapshot; it cannot make a caller tell the truth on the
+        read it does get. An object truthy via __len__ but yielding
+        nothing materialises to () and is then treated exactly as an
+        explicit empty claim -- consistently, not accidentally.
+
+        This is the same caller-assertion ceiling as `state_revalidated`,
+        and is asserted here as a limit rather than papered over."""
+        lying = _EmptyYieldingList(["A", "ghost"])
+        d = sentinel.evaluate_continuation(
+            (sentinel.HuntSurface(name="A", status="SWEPT"),),
+            state_revalidated=True, candidates_found=lying)
+        explicit_empty = sentinel.evaluate_continuation(
+            (sentinel.HuntSurface(name="A", status="SWEPT"),),
+            state_revalidated=True, candidates_found=())
+        # Identical outcome: the lie is indistinguishable from an honest
+        # empty claim, which is precisely why it is a declared ceiling.
+        self.assertEqual(d.proceed, explicit_empty.proceed)
+
+    def test_every_gate_reads_the_same_snapshot(self):
+        """The invariant directly: a universe that would differ per read
+        must produce the verdict of the pinned snapshot, not a blend."""
+        m = _MutatingList([sentinel.HuntSurface(name="A", status="SWEPT"),
+                           sentinel.HuntSurface(name="B", status="UNSWEPT")], 1)
+        first = sentinel.evaluate_continuation(
+            m, state_revalidated=True, candidates_found=()).unresolved_surfaces
+        self.assertEqual(first, ("B",))
+
+    # LEGITIMATE NEIGHBOURS
+    def test_plain_collections_are_unaffected(self):
+        row = sentinel.HuntSurface(name="A", status="SWEPT")
+        for coll in ((row,), [row], {row}, frozenset({row})):
+            self.assertFalse(sentinel.evaluate_continuation(
+                coll, state_revalidated=True, candidates_found=("A",)).proceed)
+
+    def test_one_shot_inputs_are_still_refused_not_silently_materialised(self):
+        """Pinning must not weaken the earlier law: an exhausted iterator
+        is still not a lawful empty claim."""
+        with self.assertRaises(sentinel.UnaccountedCandidates):
+            sentinel.evaluate_continuation(
+                iter([sentinel.HuntSurface(name="A", status="SWEPT")]),
+                state_revalidated=True, candidates_found=())
+        with self.assertRaises(sentinel.UnaccountedCandidates):
+            sentinel.evaluate_continuation(
+                (sentinel.HuntSurface(name="A", status="SWEPT"),),
+                state_revalidated=True, candidates_found=iter(["A"]))
+
+    def test_ghost_candidates_and_empty_universe_still_deny(self):
+        with self.assertRaises(sentinel.UnaccountedCandidates):
+            sentinel.evaluate_continuation(
+                (sentinel.HuntSurface(name="A", status="SWEPT"),),
+                state_revalidated=True, candidates_found=("A", "ghost"))
+        with self.assertRaises(sentinel.UnaccountedCandidates):
+            sentinel.evaluate_continuation((), state_revalidated=True, candidates_found=())
+
+
+class _DuckSurface:
+    """Duck-typed row that never runs HuntSurface.__post_init__, so every
+    construction-time invariant is bypassed."""
+    def __init__(self, name, status, evidence="", reopen_condition="", duplicate_of=""):
+        self.name = name; self.status = status; self.evidence = evidence
+        self.reopen_condition = reopen_condition; self.duplicate_of = duplicate_of
+
+
+class TestSurfaceMembersMustBeLawfulRows(unittest.TestCase):
+    """Pinning fixed WHICH objects the gates see; it never checked WHAT
+    they are. Every invariant this governor relies on lives in
+    HuntSurface.__post_init__, and all were bypassable by duck typing.
+
+    Reproduced 2026-08-28 against current source:
+      * status "TOTALLY_MADE_UP", outside the entire vocabulary,
+        certified HARD_STOP -- unadjudicated work reported as closure
+      * BLOCKED with no evidence and DEFERRED with no reopen condition
+        each produced CONTINUE with unresolved=() -- continue naming no
+        reachable work
+      * a plain str element leaked a raw AttributeError, a fourth
+        outcome outside the verdict algebra"""
+
+    CLEAN = sentinel.HuntSurface(name="A", status="SWEPT")
+
+    def _ev(self, surfaces, candidates_found=()):
+        return sentinel.evaluate_continuation(
+            surfaces, state_revalidated=True, candidates_found=candidates_found)
+
+    def test_a_status_outside_the_vocabulary_cannot_certify_closure(self):
+        with self.assertRaises(sentinel.UnaccountedCandidates):
+            self._ev((self.CLEAN, _DuckSurface("B", "TOTALLY_MADE_UP")))
+
+    def test_blocked_without_evidence_cannot_slip_in_duck_typed(self):
+        with self.assertRaises(sentinel.UnaccountedCandidates):
+            self._ev((self.CLEAN, _DuckSurface("B", "BLOCKED")))
+
+    def test_deferred_without_reopen_condition_cannot_slip_in_duck_typed(self):
+        with self.assertRaises(sentinel.UnaccountedCandidates):
+            self._ev((self.CLEAN, _DuckSurface(
+                "B", "DEFERRED_WITH_OBJECTIVE_WAKE_CONDITION", evidence="e")))
+
+    def test_self_referential_duplicate_cannot_slip_in_duck_typed(self):
+        with self.assertRaises(sentinel.UnaccountedCandidates):
+            self._ev((self.CLEAN, _DuckSurface(
+                "B", "DUPLICATE", evidence="e", duplicate_of="B")))
+
+    def test_a_non_row_element_is_refused_not_crashed(self):
+        """Previously leaked AttributeError -- an unclassified fourth
+        outcome outside {NO_VERDICT, CONTINUE, HARD_STOP}."""
+        with self.assertRaises(sentinel.UnaccountedCandidates):
+            self._ev((self.CLEAN, "not_a_surface"))
+
+    def test_the_refusal_names_the_offending_index_and_type(self):
+        with self.assertRaises(sentinel.UnaccountedCandidates) as ctx:
+            self._ev((self.CLEAN, 42))
+        msg = str(ctx.exception)
+        self.assertIn("index 1", msg)
+        self.assertIn("int", msg)
+
+    # LEGITIMATE NEIGHBOURS
+    def test_real_rows_are_unaffected(self):
+        self.assertFalse(self._ev((self.CLEAN,), candidates_found=("A",)).proceed)
+
+    def test_real_open_work_still_continues_and_names_it(self):
+        d = self._ev((self.CLEAN, sentinel.HuntSurface(name="B", status="UNSWEPT")))
+        self.assertTrue(d.proceed)
+        self.assertEqual(d.unresolved_surfaces, ("B",))
+
+    def test_a_lawful_duplicate_chain_still_closes(self):
+        self.assertFalse(self._ev(
+            (self.CLEAN, sentinel.HuntSurface(name="B", status="DUPLICATE",
+                                              evidence="e", duplicate_of="A"))).proceed)
+
+    def test_huntsurface_subclasses_remain_lawful(self):
+        """Subclasses still run __post_init__, so their invariants hold."""
+        class Sub(sentinel.HuntSurface): pass
+        self.assertFalse(
+            self._ev((Sub(name="A", status="SWEPT"),), candidates_found=("A",)).proceed)
+
+
+class _LiarEq:
+    """Lies about equality; __hash__ collides with a real surface name."""
+    def __hash__(self): return hash("X")
+    def __eq__(self, other): return True
+
+
+class TestCandidateIdentitiesMustBeStrings(unittest.TestCase):
+    """The conservation gate decides membership with `c not in named`,
+    delegating "is this candidate accounted for" to the CANDIDATE'S OWN
+    __eq__/__hash__. An arbitrary object adjudicated its own conservation.
+
+    Reproduced 2026-08-28 against current source:
+      * FALSE HARD_STOP -- an object with __hash__ = hash("X") and __eq__
+        returning True was accepted as accounted for and certified
+        proceed=False, with no HuntSurface row for it at all
+      * list/dict elements raised raw TypeError ("unhashable type") from
+        the membership test -- a fourth outcome outside the algebra
+      * mixed int/str raised raw TypeError from sorted() while BUILDING
+        the refusal message, so the fail-closed path threw the wrong type"""
+
+    S = (sentinel.HuntSurface(name="X", status="SWEPT"),)
+
+    def _ev(self, cf):
+        return sentinel.evaluate_continuation(
+            self.S, state_revalidated=True, candidates_found=cf)
+
+    def test_a_lying_eq_cannot_certify_closure(self):
+        with self.assertRaises(sentinel.UnaccountedCandidates):
+            self._ev((_LiarEq(),))
+
+    def test_unhashable_elements_are_refused_not_crashed(self):
+        for bad in (["x"], {"k": 1}, {1, 2}):
+            with self.assertRaises(sentinel.UnaccountedCandidates):
+                self._ev((bad,))
+
+    def test_unorderable_mixed_types_do_not_break_the_refusal_path(self):
+        """The fail-closed path itself previously threw TypeError from
+        sorted() while building its own error message."""
+        with self.assertRaises(sentinel.UnaccountedCandidates):
+            self._ev((1, "a"))
+
+    def test_none_element_is_refused(self):
+        with self.assertRaises(sentinel.UnaccountedCandidates):
+            self._ev((None,))
+
+    def test_the_refusal_names_the_offending_index_and_type(self):
+        with self.assertRaises(sentinel.UnaccountedCandidates) as ctx:
+            self._ev(("X", 42))
+        msg = str(ctx.exception)
+        self.assertIn("index 1", msg)
+        self.assertIn("int", msg)
+
+    def test_an_object_whose_hash_collides_with_a_real_name_is_still_refused(self):
+        """Mutation: hash collision alone must not buy membership."""
+        class HashOnly:
+            def __hash__(self): return hash("X")
+        with self.assertRaises(sentinel.UnaccountedCandidates):
+            self._ev((HashOnly(),))
+
+    # LEGITIMATE NEIGHBOURS
+    def test_string_identities_remain_lawful_in_every_container(self):
+        for cf in (("X",), ["X"], {"X"}, frozenset({"X"})):
+            self.assertFalse(self._ev(cf).proceed, f"{type(cf).__name__} rejected")
+
+    def test_explicit_empty_claim_still_lawful(self):
+        self.assertFalse(self._ev(()).proceed)
+
+    def test_a_genuine_ghost_string_is_still_refused(self):
+        with self.assertRaises(sentinel.UnaccountedCandidates):
+            self._ev(("X", "ghost"))
+
+
+class TestIdentitiesMustBeNameable(unittest.TestCase):
+    """`name` was the only HuntSurface field never validated, while
+    `duplicate_of` -- which merely POINTS AT a name -- has always required
+    non-blank after .strip(). Reproduced 2026-08-28, all from that one
+    asymmetry:
+
+      * CONTINUE reported unresolved=('',) / ('   ',) / ('\\t',) --
+        naming "work" no worker can act on
+      * a blank-named SWEPT row plus a blank candidate certified
+        HARD_STOP -- FALSE CLOSURE over an unnameable identity
+      * '' and '   ' coexisted as DISTINCT identities, so identity
+        singularity cannot protect what has no legible identity"""
+
+    def test_every_blank_form_is_refused_at_construction(self):
+        for blank in ("", "   ", "\t", "\n", "\r\n  ", " \t\n "):
+            with self.assertRaises(ValueError, msg=f"{blank!r} constructed"):
+                sentinel.HuntSurface(name=blank, status="UNSWEPT")
+
+    def test_non_string_names_are_refused_not_crashed(self):
+        """Previously escaped as a raw AttributeError from .strip() --
+        a fourth outcome outside {NO_VERDICT, CONTINUE, HARD_STOP}."""
+        for bad in (None, 42, ["A"], object(), 3.5):
+            with self.assertRaises(ValueError, msg=f"{type(bad).__name__} constructed"):
+                sentinel.HuntSurface(name=bad, status="UNSWEPT")
+
+    def test_unicode_whitespace_names_are_refused(self):
+        for ws in ("\xa0", "\u3000", "\u2003", "\u2009", "\u00a0\u3000"):
+            with self.assertRaises(ValueError, msg=f"{ws!r} constructed"):
+                sentinel.HuntSurface(name=ws, status="UNSWEPT")
+
+    def test_wholly_invisible_format_character_names_are_refused(self):
+        """isspace() is False for zero-width chars, so .strip() left them
+        intact -- but a name made only of them is invisible, and therefore
+        exactly as unnameable as "". Unicode category Cf is the separator:
+        every legitimate name character tested (Lu/Nd/So/Lo/Pd) is not Cf."""
+        for zw in ("\u200b", "\ufeff", "\u2060", "\u200b\ufeff", "\u200b \u2060"):
+            with self.assertRaises(ValueError, msg=f"{zw!r} constructed"):
+                sentinel.HuntSurface(name=zw, status="UNSWEPT")
+
+    def test_an_invisible_character_inside_a_real_name_stays_lawful(self):
+        """Only WHOLLY invisible names are refused -- the character itself
+        is not banned."""
+        sentinel.HuntSurface(name="a\u200bb", status="SWEPT")
+
+    def test_a_blank_identity_can_no_longer_reach_unresolved_surfaces(self):
+        """The paralysis mode: proceed=True naming a target nobody can act on."""
+        with self.assertRaises(ValueError):
+            sentinel.HuntSurface(name="", status="UNSWEPT")
+
+    def test_a_blank_identity_can_no_longer_certify_closure(self):
+        """The rank-1 form: FALSE HARD_STOP over an unnameable row."""
+        with self.assertRaises(ValueError):
+            sentinel.HuntSurface(name="   ", status="SWEPT")
+
+    def test_the_refusal_explains_the_duplicate_of_asymmetry(self):
+        with self.assertRaises(ValueError) as ctx:
+            sentinel.HuntSurface(name=" ", status="SWEPT")
+        self.assertIn("duplicate_of", str(ctx.exception))
+
+    # LEGITIMATE NEIGHBOURS -- strip() decides blankness only, never normalises
+    def test_ordinary_names_remain_lawful(self):
+        for name in ("A", " A", "A ", "my surface", "FRONTIER-009",
+                     "x" * 200, "ünïcödé", "0", "-", "surface_001",
+                     "\U0001F525", "\u65e5\u672c\u8a9e", " X "):
+            sentinel.HuntSurface(name=name, status="SWEPT")   # must not raise
+
+    def test_leading_and_trailing_space_names_stay_distinct_identities(self):
+        """No canonicalisation: ' A' and 'A' are still two identities.
+        Normalising them was separately killed with evidence."""
+        d = sentinel.evaluate_continuation(
+            (sentinel.HuntSurface(name=" A", status="SWEPT"),
+             sentinel.HuntSurface(name="A", status="UNSWEPT")),
+            state_revalidated=True, candidates_found=())
+        self.assertTrue(d.proceed)
+        self.assertEqual(d.unresolved_surfaces, ("A",))
+
+    def test_a_whitespace_padded_name_is_not_a_contradiction_with_its_bare_form(self):
+        d = sentinel.evaluate_continuation(
+            (sentinel.HuntSurface(name=" A", status="SWEPT"),
+             sentinel.HuntSurface(name="A", status="BLOCKED", evidence="e")),
+            state_revalidated=True, candidates_found=())
+        self.assertFalse(d.proceed)   # two lawful distinct identities, both closed

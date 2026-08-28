@@ -175,6 +175,41 @@ outside the repository for it — see `foundation/discovery_authorization.py`
 and `HUMAN_DECISIONS.md` item 12 for what bounded discovery is actually
 authorized, and note it still has no fetcher to exercise it).
 
+10b. **ADJUDICATE THE BOARD (optional; only if this cycle built one)** —
+   if the cycle produced a governed surface board, call
+   `foundation.sentinel.evaluate_continuation(surfaces,
+   state_revalidated=..., new_wake_evidence=..., candidates_found=...)`
+   to decide whether governed work remains. Pure function, no I/O,
+   ~0.02 ms — never a reason to skip it, and never a reason to invent a
+   board just to have something to call it with. Distinct from
+   `classify_hold()`, which names WHICH KIND of hold; this decides
+   whether the board is closed at all.
+
+   You prepare the snapshot; the governor never invents it. Pass
+   `candidates_found` explicitly — `()` positively asserts the cycle
+   found nothing; omitting it is refused, because silence is not a claim.
+
+   Exactly three outcomes, none of which authorises anything:
+   - **raises `UnaccountedCandidates`** = NO_VERDICT. The board is not
+     lawfully formed. Report the missing proof. Do **not** report GO and
+     do **not** report HOLD — neither is earned.
+   - **`proceed=True`** = CONTINUE. `unresolved_surfaces` names the open
+     work; that becomes the `NEXT MOVE` line above.
+   - **`proceed=False`** = HARD_STOP. No governed work remains; report
+     HOLD and name the wake conditions that would reopen it.
+
+   A verdict is a report, never an authorisation. Nothing is built,
+   committed, pushed, installed, armed, or scheduled as a consequence.
+
+   **What this step is, precisely:** a documented session protocol, the
+   same kind as steps 4b/4b-ii/4c/5 and the `classify_hold()` branch
+   below. It is *not* a code-level call: nothing in the codebase enforces
+   that a session performs it, and no test goes red if it is skipped.
+   That limit is real and is stated here rather than papered over --
+   see `PARETO_FRONTIER.md`'s own stricter "real consumer" standard,
+   which this repository's practice and its written doctrine have not
+   yet reconciled.
+
 Do not begin a GO cycle automatically after this report — `/boot` ends at
 the report. A GO cycle begins only when the operator separately says
 `GO`.
