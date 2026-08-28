@@ -5,6 +5,7 @@ from pathlib import Path
 
 from foundation.sigil import (
     Sigil, PROOF_OPERATION, compute_sigil, compute_tier, format_sigil, reconcile_sigil,
+    RecordedSigil, parse_sigil, read_recorded_sigil, DIMENSION_NAMES,
     _dimension_iron, _dimension_lattice, _dimension_frontier,
     _dimension_memory, _dimension_sight, _dimension_reality, _dimension_orchestration,
     _dimension_external_integration,
@@ -340,3 +341,79 @@ class TestComputeSigilOnRealRepo(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestRecordedSigilRetrieval(unittest.TestCase):
+    """Switch closed 2026-08-28. `format_sigil()` writes the canonical
+    snapshot and SIGIL.md stores it; `reconcile_sigil(repo_root,
+    previous)` is its designated consumer, named in three separate real
+    documents (SIGIL.md, .claude/commands/boot.md, CLAUDE.md). There was
+    no parser, so `previous` could only be obtained by hand-retyping nine
+    values -- and the drift that mechanism exists to catch has already
+    happened twice (CLAUDE.md stuck at TIER:T7 after the real value fell
+    to T3; SIGIL.md's evidence table still claiming 1212 tests)."""
+
+    LINE = ("TIER:T3 | IRON:10 | LATTICE:6 | PROOF:10 | SIGHT:10 | "
+            "FRONTIER:10 | ORCH:10 | MEMORY:10 | REALITY:6")
+
+    def test_format_then_parse_round_trips_every_compared_field(self):
+        # The exact contract that matters: reconcile_sigil() compares
+        # DIMENSION_NAMES + tier and nothing else, so those must survive.
+        s = Sigil(
+            tier="T5", tier_reason="whatever", iron=1, lattice=2, proof=3, sight=4,
+            frontier=5, orchestration=6, memory=7, reality=8,
+            justification={}, all_tests_green=True, total_tests=99,
+        )
+        parsed = parse_sigil(format_sigil(s))
+        self.assertIsNotNone(parsed)
+        self.assertEqual(parsed.tier, s.tier)
+        for name in DIMENSION_NAMES:
+            self.assertEqual(getattr(parsed, name), getattr(s, name), name)
+
+    def test_a_parsed_snapshot_is_not_a_measured_sigil(self):
+        """The load-bearing invariant: compute_sigil() stays the only way
+        to produce a Sigil. A hand-edited markdown value must never be
+        mistakable for measured capability."""
+        parsed = parse_sigil(self.LINE)
+        self.assertIsInstance(parsed, RecordedSigil)
+        self.assertNotIsInstance(parsed, Sigil)
+
+    def test_a_parsed_snapshot_works_as_reconcile_sigils_previous(self):
+        """The whole point of the switch: the stored line can now reach
+        the consumer that was always documented for it."""
+        parsed = parse_sigil(self.LINE)
+        rec = reconcile_sigil(REPO_ROOT, previous=parsed)
+        self.assertIsNotNone(rec.current)
+        self.assertIsInstance(rec.changed, bool)
+        # Whatever the real answer is today, it must be a real comparison,
+        # not the "no previous sigil recorded" degenerate path.
+        self.assertNotEqual(rec.reason, "no previous sigil recorded")
+
+    def test_it_finds_the_line_embedded_in_real_surrounding_prose(self):
+        text = "# Capability Sigil\n\nsome prose\n\n```\n" + self.LINE + "\n```\n\nmore prose\n"
+        self.assertIsNotNone(parse_sigil(text))
+
+    def test_absent_snapshot_is_a_valid_state_not_an_error(self):
+        self.assertIsNone(parse_sigil("no sigil anywhere in this text"))
+        with tempfile.TemporaryDirectory() as d:
+            self.assertIsNone(read_recorded_sigil(Path(d)))
+
+    def test_a_malformed_or_partial_line_is_not_half_parsed(self):
+        # Fail closed: a truncated line must yield nothing rather than a
+        # RecordedSigil with invented zeros.
+        self.assertIsNone(parse_sigil("TIER:T3 | IRON:10 | LATTICE:6"))
+
+    def test_reading_the_real_repository_snapshot(self):
+        parsed = read_recorded_sigil(REPO_ROOT)
+        self.assertIsNotNone(parsed, "SIGIL.md should carry a recorded sigil line")
+        self.assertTrue(parsed.tier.startswith("T"))
+        self.assertIn("SIGIL.md", parsed.source)
+        for name in DIMENSION_NAMES:
+            self.assertGreaterEqual(getattr(parsed, name), 0)
+            self.assertLessEqual(getattr(parsed, name), 10)
+
+    def test_the_reader_never_writes(self):
+        before = (REPO_ROOT / "SIGIL.md").stat().st_mtime_ns
+        read_recorded_sigil(REPO_ROOT)
+        read_recorded_sigil(REPO_ROOT)
+        self.assertEqual((REPO_ROOT / "SIGIL.md").stat().st_mtime_ns, before)

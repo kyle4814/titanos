@@ -56,6 +56,7 @@ from foundation.recursion_guard import GuardDecision, check as guard_check, chil
 
 __all__ = [
     "Sigil", "SigilReconciliation", "compute_sigil", "reconcile_sigil", "format_sigil",
+    "RecordedSigil", "parse_sigil", "read_recorded_sigil", "RECORDED_SIGIL_PATTERN",
     "PROOF_OPERATION",
 ]
 
@@ -472,3 +473,115 @@ def reconcile_sigil(repo_root: Path, previous: Optional[Sigil]) -> SigilReconcil
         previous=previous, current=current, changed=changed,
         changed_dimensions=changed_dims, reason=reason,
     )
+
+
+# --------------------------------------------------------------------------
+# READING BACK THE RECORDED SIGIL
+#
+# THE EXACT OPEN EDGE THIS CLOSES (traced and reproduced 2026-08-28):
+# `format_sigil()` writes the canonical one-line snapshot, and `SIGIL.md`
+# durably stores it. `reconcile_sigil(repo_root, previous)` is the
+# designated consumer of that snapshot -- and three separate real
+# documents instruct a session to use it:
+#
+#   SIGIL.md              "Run reconcile_sigil(repo_root, previous) after
+#                          any cycle that changes capability"
+#   .claude/commands/boot.md  "re-run compute_sigil() rather than trusting
+#                          a stale snapshot if it's been a while"
+#   CLAUDE.md             "two layers of caching one real value -- do not
+#                          trust either without re-running compute_sigil()"
+#
+# But nothing could turn the stored line back into an object, so
+# `previous` was obtainable only by a human hand-retyping nine values.
+# A `format_*` with no matching parser and a real designated reader is
+# the same open-retrieval shape already found and closed twice on the
+# pulse/dependency-pressure circuits.
+#
+# THE CONSEQUENCE IS NOT HYPOTHETICAL -- it has already happened twice in
+# this repository, both caught by a human eyeballing prose rather than by
+# the reconciliation mechanism that exists for exactly this:
+#   * CLAUDE.md carried "TIER:T7 ... REALITY:10" long after the real value
+#     had dropped to T3/REALITY:6 (the network mouth was added).
+#   * SIGIL.md's own evidence table still claims "1212 tests" against a
+#     real current count of ~1527.
+#
+# WHY THIS RETURNS A DIFFERENT TYPE THAN `Sigil`
+#
+# `compute_sigil()` is documented as "the only public way to produce a
+# Sigil -- never accepts a caller-supplied score," and that invariant is
+# load-bearing: a hand-edited markdown file must never become something a
+# caller can mistake for measured capability. So parsing yields a
+# `RecordedSigil`, not a `Sigil`. It carries exactly the nine fields
+# `reconcile_sigil()` actually compares (the eight DIMENSION_NAMES plus
+# `tier`), so it works as `previous` by structure, and it is impossible
+# to pass off as a computed one -- `isinstance(parsed, Sigil)` is False,
+# checked by test. Everything `format_sigil()` does not encode
+# (tier_reason, per-dimension justification, all_tests_green,
+# total_tests) is genuinely unrecoverable from the snapshot and is not
+# invented here.
+# --------------------------------------------------------------------------
+
+RECORDED_SIGIL_PATTERN = re.compile(
+    r"TIER:\s*(?P<tier>T\d+)\s*\|\s*IRON:\s*(?P<iron>\d+)\s*\|\s*"
+    r"LATTICE:\s*(?P<lattice>\d+)\s*\|\s*PROOF:\s*(?P<proof>\d+)\s*\|\s*"
+    r"SIGHT:\s*(?P<sight>\d+)\s*\|\s*FRONTIER:\s*(?P<frontier>\d+)\s*\|\s*"
+    r"ORCH:\s*(?P<orchestration>\d+)\s*\|\s*MEMORY:\s*(?P<memory>\d+)\s*\|\s*"
+    r"REALITY:\s*(?P<reality>\d+)"
+)
+
+
+@dataclass(frozen=True)
+class RecordedSigil:
+    """A previously-recorded sigil snapshot, parsed from text.
+
+    Deliberately NOT a `Sigil`: a Sigil is measured evidence produced only
+    by `compute_sigil()`, while this is whatever a markdown file happens
+    to say. It exists to be passed as `reconcile_sigil()`'s `previous`
+    argument -- the one place a historical, possibly-stale, possibly
+    hand-edited value legitimately belongs, because reconcile always
+    recomputes `current` itself and never trusts `previous` as truth.
+    """
+
+    tier: str
+    iron: int
+    lattice: int
+    proof: int
+    sight: int
+    frontier: int
+    orchestration: int
+    memory: int
+    reality: int
+    source: str
+
+
+def parse_sigil(text: str, source: str = "<string>") -> Optional[RecordedSigil]:
+    """Recover a RecordedSigil from `format_sigil()` output embedded in
+    arbitrary text. Returns None if no sigil line is present -- an absent
+    snapshot is a valid state (nothing has ever been recorded), not an
+    error. The first match wins, matching this repository's existing
+    first-occurrence-wins convention (`consolidate()`)."""
+    match = RECORDED_SIGIL_PATTERN.search(text)
+    if match is None:
+        return None
+    fields = match.groupdict()
+    return RecordedSigil(
+        tier=fields["tier"],
+        source=source,
+        **{name: int(fields[name]) for name in DIMENSION_NAMES},
+    )
+
+
+def read_recorded_sigil(repo_root: Path) -> Optional[RecordedSigil]:
+    """Read `SIGIL.md`'s recorded snapshot. Read-only, fails soft: a
+    missing or unreadable file returns None (nothing recorded yet), never
+    raises -- a boot sequence must not break because a snapshot is absent.
+
+    Cheap by design: no subprocess, no test run. Getting the recorded
+    value is now free; `reconcile_sigil()` remains the expensive step
+    that actually measures reality, and stays a deliberate decision."""
+    path = repo_root / "SIGIL.md"
+    try:
+        text = path.read_text()
+    except OSError:
+        return None
+    return parse_sigil(text, source=str(path))
