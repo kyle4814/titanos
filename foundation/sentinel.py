@@ -423,15 +423,69 @@ def read_pulse_continuity(
     )
 
 
+def _run_check_safely(check_fn, repo_root: Path) -> list[Finding]:
+    """Isolate one check's failure from every other check and from the
+    sweep itself.
+
+    THE DEFECT THIS CLOSES (found by a fresh hunt-surface rotation
+    2026-08-28, after the identical failure-physics class was already
+    fixed twice this chain for JSONL readers): every check in
+    `pulse_sweep()` was called bare, in sequence, with no isolation.
+    Several of them call `.read_text()` on CLAUDE.md/README.md/
+    PARETO_FRONTIER.md with no guard -- reproduced directly: one
+    undecodable byte or one permission-denied file crashed the ENTIRE
+    hourly sweep, not just the one check reading that file. Worse blast
+    radius than any prior fix in this chain: a mouth-log crash lost only
+    mouth-related findings; this loses every finding from every check,
+    every tick, until the offending byte is fixed by a human who first
+    has to notice the pulse stopped (via `read_pulse_continuity()`'s
+    staleness warning) and then has to dig through `cron_pulse.err.log`
+    to find out why -- exactly the two-hop diagnosis this repository's
+    own conveyor exists to shortcut.
+
+    A crashed check becomes a receipted Finding, not silence -- the same
+    "never silent, always receipted" discipline `cron_pulse.py`'s own
+    per-mouth isolation already uses. Observation text names only the
+    check and exception TYPE (stable across ticks); the exception message
+    -- which could contain a byte offset or other per-run detail --
+    lives in `interpretation`, never in the dedupe key.
+    """
+    try:
+        return check_fn(repo_root)
+    except Exception as exc:  # noqa: BLE001 — a check's own failure must
+        # never sink the sweep or any other check; see docstring above.
+        return [Finding(
+            observation=f"Level-1 check {check_fn.__name__!r} failed to run",
+            evidence_location=str(repo_root),
+            confidence="HIGH",
+            interpretation=(
+                f"{type(exc).__name__}: {exc}. This check's own findings "
+                f"are unavailable this tick, but every other check still "
+                f"ran -- see pulse_sweep()/_run_check_safely()'s isolation."
+            ),
+            reversibility="fully reversible -- observation only, nothing is rewritten",
+            recommended_next_action=(
+                "HUMAN_REVIEW_REQUIRED: inspect the file this check reads "
+                "for encoding, permission, or corruption issues"
+            ),
+        )]
+
+_LEVEL1_CHECKS: tuple = (
+    check_claude_md_imports, check_subsystem_build_reports, check_python_syntax,
+    check_duplicate_frontier_ids, check_frontier_schema,
+)
+
+
 def pulse_sweep(repo_root: Path) -> HealthReport:
     """Run every Level-1 deterministic check and return a consolidated,
-    CT_141-compacted HealthReport. Read-only: touches nothing on disk."""
+    CT_141-compacted HealthReport. Read-only: touches nothing on disk.
+
+    Each check runs isolated via `_run_check_safely()` -- one check's
+    crash must never prevent any other check, or the sweep itself, from
+    completing and producing a receipt."""
     raw: list[Finding] = []
-    raw.extend(check_claude_md_imports(repo_root))
-    raw.extend(check_subsystem_build_reports(repo_root))
-    raw.extend(check_python_syntax(repo_root))
-    raw.extend(check_duplicate_frontier_ids(repo_root))
-    raw.extend(check_frontier_schema(repo_root))
+    for check_fn in _LEVEL1_CHECKS:
+        raw.extend(_run_check_safely(check_fn, repo_root))
 
     consolidated = consolidate(raw)
     raw_count = len(consolidated)

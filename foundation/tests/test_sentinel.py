@@ -1,5 +1,6 @@
 import inspect
 import json
+import os
 import re
 import tempfile
 import unittest
@@ -541,3 +542,67 @@ class TestClassifyHold(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestOneCheckFailureNeverSinksTheWholeSweep(unittest.TestCase):
+    """Fresh hunt-surface rotation 2026-08-28: pulse_sweep() called every
+    check bare, in sequence, with no isolation. Several checks call
+    .read_text() with no guard -- one undecodable byte or one
+    permission-denied file in CLAUDE.md/README.md/PARETO_FRONTIER.md
+    crashed the ENTIRE hourly sweep, losing every finding from every
+    check that tick. Worse blast radius than the mouth-log crash class
+    fixed earlier this chain (which only lost mouth-related findings)."""
+
+    def test_undecodable_bytes_do_not_crash_the_sweep(self):
+        with tempfile.TemporaryDirectory() as d:
+            repo = Path(d)
+            (repo / "CLAUDE.md").write_bytes(b"\xff\xfe garbage")
+            report = sentinel.pulse_sweep(repo)  # must not raise
+            self.assertTrue(any(
+                "Level-1 check" in f.observation and "failed to run" in f.observation
+                for f in report.findings
+            ))
+
+    def test_a_permission_denied_file_does_not_crash_the_sweep(self):
+        with tempfile.TemporaryDirectory() as d:
+            repo = Path(d)
+            path = repo / "CLAUDE.md"
+            path.write_text("@nonexistent.md\n")
+            os.chmod(path, 0o000)
+            # No addCleanup chmod: it would fire after the TemporaryDirectory
+            # is gone. The containing dir stays writable, so teardown works
+            # regardless of this file's own mode.
+            report = sentinel.pulse_sweep(repo)
+            self.assertTrue(any("failed to run" in f.observation for f in report.findings))
+
+    def test_other_checks_still_produce_their_real_findings(self):
+        """The actual point: a broken CLAUDE.md must not silence an
+        unrelated real defect elsewhere, like a genuine Python syntax
+        error."""
+        with tempfile.TemporaryDirectory() as d:
+            repo = Path(d)
+            (repo / "CLAUDE.md").write_bytes(b"\xff\xfe garbage")
+            (repo / "broken.py").write_text("def f(:\n    pass\n")
+            report = sentinel.pulse_sweep(repo)
+            self.assertTrue(any("syntax error" in f.observation for f in report.findings))
+            self.assertTrue(any("failed to run" in f.observation for f in report.findings))
+
+    def test_the_failure_finding_key_is_stable_across_different_exception_messages(self):
+        """The exception message (which can vary -- byte offsets, etc.)
+        must live in interpretation, never in the dedupe key."""
+        f1 = sentinel._run_check_safely(
+            lambda r: (_ for _ in ()).throw(ValueError("message A")), Path("/x"))[0]
+        f2 = sentinel._run_check_safely(
+            lambda r: (_ for _ in ()).throw(ValueError("message B, totally different")), Path("/x"))[0]
+        # Different callables (lambdas) legitimately get different names in
+        # a real scenario every check is a distinct named function, so
+        # compare the shape: observation never contains the message.
+        self.assertNotIn("message A", f1.observation)
+        self.assertNotIn("message B", f2.observation)
+        self.assertIn("message A", f1.interpretation)
+
+    def test_a_healthy_repo_is_unaffected(self):
+        report = sentinel.pulse_sweep(REPO_ROOT)
+        self.assertFalse(any("failed to run" in f.observation for f in report.findings))
+
+
