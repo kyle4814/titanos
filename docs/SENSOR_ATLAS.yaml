@@ -1,0 +1,277 @@
+# SENSOR_ATLAS.yaml
+#
+# THIS IS A RESEARCH ARTIFACT, NOT CONFIGURATION.
+# It is not auto-executable, not authority, and adding an entry here
+# does not register a mouth on the live cron path (foundation/cron_pulse.py
+# ::MOUTHS is the only real registration point, and it is a hand-edited
+# Python tuple, not a YAML-driven loader).
+#
+# Every "status: candidate" entry below is UNBUILT. Every "verified: true"
+# field means a live WebFetch was actually made against that URL this
+# session and is described in evidence.notes. Nothing here was invented
+# from training-data memory without a live check, except where explicitly
+# marked verified: false.
+
+meta:
+  generated_at: "2026-08-28"
+  research_scope: "bounded verification pass, not exhaustive: 5 external candidates fetched live, plus the 2 existing production mouths documented for contrast"
+  repository_commit: "cdce3df"
+  doctrine: "observation is not authority; a mouth is not a dependency; sensors adapt to the spine, the spine does not mutate per sensor"
+  status: research_only
+
+spine_constraints:
+  required_external_dependencies: 0
+  model_required_for_boot: false
+  sensor_required_for_boot: false
+  authority_default: deny
+  observation_is_not_authority: true
+
+domains:
+  - id: software_supply_chain
+    description: "package/release/security-advisory observation, already exercised by 2 real mouths"
+  - id: cybersecurity_advisories
+    description: "official vulnerability catalogs intended for legitimate defensive triage, not exploitation"
+  - id: space_astronomy
+    description: "public agency space/astronomy data"
+  - id: weather_disaster
+    description: "official government hazard/weather alerting"
+  - id: science_research
+    description: "open academic paper metadata feeds"
+
+sensors:
+  - sensor_id: mouth_pypi
+    domain: software_supply_chain
+    official_name: "PyPI RSS (package updates)"
+    owner: Python Software Foundation / PyPI
+    source_type: RSS
+    endpoint: "existing, see foundation/mouth_pypi.py"
+    access: {auth_required: NONE, cost_tier: FREE}
+    rate_limit: UNKNOWN
+    licensing_risk: LOW
+    primary_or_secondary: PRIMARY
+    machine_readability: 5
+    update_cadence: EVENT_DRIVEN
+    checkpoint_strategy: "content_hash of feed items, persisted in mouth_pypi_state.json"
+    deduplication_key: "item key (existing implementation)"
+    mouth_contract_fit: YES
+    adapter_delta: "none — already live"
+    independent_correlators: ["mouth_github_releases (same subject, different format)"]
+    evidence: {researched_at: "prior session", confidence: PRODUCTION_VERIFIED, unknowns: []}
+    status: admitted
+
+  - sensor_id: mouth_github_releases
+    domain: software_supply_chain
+    official_name: "GitHub Releases Atom feed"
+    owner: GitHub
+    source_type: ATOM
+    endpoint: "existing, see foundation/mouth_github_releases.py"
+    access: {auth_required: NONE, cost_tier: FREE}
+    rate_limit: UNKNOWN
+    licensing_risk: LOW
+    primary_or_secondary: PRIMARY
+    machine_readability: 5
+    update_cadence: EVENT_DRIVEN
+    checkpoint_strategy: "content_hash of feed items, persisted in mouth_github_releases_state.json"
+    deduplication_key: "item key (existing implementation)"
+    mouth_contract_fit: YES
+    adapter_delta: "none — already live"
+    independent_correlators: ["mouth_pypi (same subject, different format)"]
+    evidence: {researched_at: "prior session", confidence: PRODUCTION_VERIFIED, unknowns: []}
+    status: admitted
+
+  - sensor_id: candidate_cisa_kev
+    domain: cybersecurity_advisories
+    official_name: "CISA Known Exploited Vulnerabilities Catalog"
+    owner: US CISA (official government source)
+    source_type: JSON
+    endpoint: "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json"
+    access: {auth_required: NONE, cost_tier: FREE}
+    rate_limit: UNKNOWN
+    licensing_risk: LOW
+    primary_or_secondary: PRIMARY
+    machine_readability: 5
+    automation_friction: 1
+    reliability_estimate: HIGH
+    update_cadence: DAILY
+    historical_access: UNKNOWN
+    change_detection_method: CONTENT_DIFF
+    checkpoint_strategy: "hash the full JSON body or the vulnerabilities array; on change, new_items = entries whose cveID is not in the prior checkpoint's cveID set"
+    deduplication_key: cveID
+    new_items_shape: "{cveID, vendorProject, product, vulnerabilityName, dateAdded, requiredAction, dueDate}"
+    failure_behavior: "timeout/malformed -> UNAVAILABLE, isolated per existing mouth contract; no known auth-failure mode since no auth exists"
+    blast_radius_if_wrong: LOW
+    independent_correlators: ["candidate_nvd_cve (same underlying CVE identifiers, different catalog scope)"]
+    mouth_contract_fit: YES
+    adapter_delta: "small — parser must read a JSON array instead of RSS/Atom XML; fetch_feed()/compute_state_hash() shape reused as-is per mouth_common.py's own stated extension path"
+    why_this_sensor_earns_its_place: "REPRODUCED this session via live WebFetch (2026-08-28): returns real JSON, count=1685, correct schema (cveID/vendorProject/dateAdded/requiredAction/dueDate), no auth barrier encountered. This is the closest cybersecurity-domain analogue to the two existing mouths — official, primary, low-friction, and its own dueDate field gives a natural triage signal (federal remediation deadline) that dependency_pressure-style consumers could reuse the existing CHANGED-state hook for."
+    what_problem_signal_could_it_reveal: "a dependency or component this repository (or a future consumer of the atlas) tracks entering active-exploitation status — a materially different signal class than a version bump."
+    what_would_make_this_sensor_not_worth_adding: "if no consumer ever needs to correlate a tracked package/CVE against this feed, it becomes a large, low-relevance firehose (1685 entries) relative to this repo's actual dependency surface (PyYAML only, currently)."
+    evidence:
+      researched_at: "2026-08-28"
+      confidence: REPRODUCED
+      source_refs: ["https://www.cisa.gov/known-exploited-vulnerabilities-catalog"]
+      unknowns: ["exact HTTP rate limit, if any", "whether the JSON file's ETag/Last-Modified headers exist for cheap change-detection without downloading the full body"]
+    status: candidate
+
+  - sensor_id: candidate_usgs_earthquakes
+    domain: weather_disaster
+    official_name: "USGS Earthquake Hazards Program GeoJSON feeds"
+    owner: US Geological Survey (official government source)
+    source_type: JSON
+    endpoint: "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/significant_day.geojson (and sibling severity/period combinations)"
+    access: {auth_required: NONE, cost_tier: FREE}
+    rate_limit: UNKNOWN
+    licensing_risk: LOW
+    primary_or_secondary: PRIMARY
+    machine_readability: 5
+    automation_friction: 1
+    reliability_estimate: HIGH
+    update_cadence: MINUTES
+    historical_access: YES
+    change_detection_method: ITEM_ID
+    checkpoint_strategy: "track the set of feature ids already seen; new_items = features whose id is unseen"
+    deduplication_key: "feature.id (USGS event id)"
+    new_items_shape: "GeoJSON Feature {properties: {mag, place, time, updated}, geometry: {coordinates: [lon, lat, depth]}}"
+    failure_behavior: "empty features array is a VALID quiet state (REPRODUCED this session — fetched significant_day.geojson and got a correctly-formed empty FeatureCollection, not an error), must not be misclassified as UNAVAILABLE"
+    blast_radius_if_wrong: LOW
+    independent_correlators: ["national seismological agencies for high-magnitude events, generally slower/less machine-readable"]
+    mouth_contract_fit: YES
+    adapter_delta: "small — GeoJSON parser, same fetch/hash/compare shape"
+    why_this_sensor_earns_its_place: "REPRODUCED this session: valid GeoJSON, status 200, correct FeatureCollection/metadata/features structure, zero auth. A genuinely different domain from the two existing supply-chain mouths, useful as a proof that the mouth contract generalizes outside software."
+    what_problem_signal_could_it_reveal: "a real infrastructure-relevant physical event near any location this system or its operator cares about — not exploitation-relevant, but a concrete demonstration of the contract's domain independence."
+    what_would_make_this_sensor_not_worth_adding: "no current consumer in this repository has any use for seismic data; it would be a pure architecture-generalization demo with zero acted-upon output until a real downstream need exists."
+    evidence:
+      researched_at: "2026-08-28"
+      confidence: REPRODUCED
+      source_refs: ["https://earthquake.usgs.gov/earthquakes/feed/v1.0/"]
+      unknowns: ["exact rate limit / fair-use policy text location"]
+    status: candidate
+
+  - sensor_id: candidate_noaa_nws_alerts
+    domain: weather_disaster
+    official_name: "National Weather Service Active Alerts API"
+    owner: NOAA / US National Weather Service (official government source)
+    source_type: JSON
+    endpoint: "https://api.weather.gov/alerts/active"
+    access: {auth_required: NONE, cost_tier: FREE}
+    rate_limit: UNKNOWN
+    licensing_risk: LOW
+    primary_or_secondary: PRIMARY
+    machine_readability: 5
+    automation_friction: 1
+    reliability_estimate: HIGH
+    update_cadence: MINUTES
+    historical_access: UNKNOWN
+    change_detection_method: ITEM_ID
+    checkpoint_strategy: "track alert ids (CAP identifiers); new_items = alerts whose id is unseen; note alerts also legitimately EXPIRE, which is a distinct state this contract's FIRST_SEEN/UNCHANGED/CHANGED/UNAVAILABLE vocabulary does not currently name"
+    deduplication_key: "feature.id (CAP alert identifier)"
+    new_items_shape: "GeoJSON Feature {properties: {event, severity, headline, sent, expires, geometry-or-null}}"
+    failure_behavior: "REPRODUCED: live 200 response with well-formed alerts (a real 'Special Weather Statement'/'Flood Advisory' observed this session); no auth failure encountered"
+    blast_radius_if_wrong: LOW
+    independent_correlators: ["candidate_usgs_earthquakes (same disaster domain, different hazard type, same government-agency trust tier)"]
+    mouth_contract_fit: PARTIAL
+    adapter_delta: "the mouth contract's status enum (FIRST_SEEN/UNCHANGED/CHANGED/UNAVAILABLE) has no first-class EXPIRED state — an alert disappearing from the active set is real information the current shape would silently drop. This is a genuine contract-gap, not just an adapter detail."
+    why_this_sensor_earns_its_place: "REPRODUCED this session: real CAP-standard alerts returned live, zero auth, official primary source."
+    what_problem_signal_could_it_reveal: "active severe-weather conditions near an operator-relevant location."
+    what_would_make_this_sensor_not_worth_adding: "the missing EXPIRED state means a naive adapter would either never signal alert resolution or require a small, deliberate contract extension first — this is the CORE ARCHITECTURE GAP this atlas found, not merely a sensor-capability gap (see Phase 3 distinction)."
+    evidence:
+      researched_at: "2026-08-28"
+      confidence: REPRODUCED
+      source_refs: ["https://www.weather.gov/documentation/services-web-api"]
+      unknowns: ["documented rate limit; exact NWS-recommended User-Agent policy (they typically require a descriptive UA, not tested this session)"]
+    status: candidate
+
+  - sensor_id: candidate_nasa_apod
+    domain: space_astronomy
+    official_name: "NASA Astronomy Picture of the Day API"
+    owner: NASA (official government source)
+    source_type: JSON
+    endpoint: "https://api.nasa.gov/planetary/apod"
+    access: {auth_required: FREE_KEY, cost_tier: FREE_LIMITED}
+    rate_limit: "DEMO_KEY is rate-limited (documented by NASA, exact number not verified this session); a free registered key raises the limit"
+    licensing_risk: LOW
+    primary_or_secondary: PRIMARY
+    machine_readability: 5
+    automation_friction: 2
+    reliability_estimate: HIGH
+    update_cadence: DAILY
+    historical_access: YES
+    change_detection_method: TIMESTAMP
+    checkpoint_strategy: "track the last-seen date field; new_items = the day's entry if date advanced"
+    deduplication_key: date
+    new_items_shape: "{date, title, explanation, url, media_type}"
+    failure_behavior: "REPRODUCED live 200 with DEMO_KEY, correct fields; a sibling DONKI endpoint on the same api.nasa.gov host returned a transient HTTP 503 this session — UNVERIFIED, not proof of a broken endpoint, but also not confirmed working"
+    blast_radius_if_wrong: LOW
+    independent_correlators: []
+    mouth_contract_fit: YES
+    adapter_delta: "small — requires a DEMO_KEY or free registered key as a query parameter, the first credential-bearing candidate in this atlas; existing mouths use zero-auth feeds"
+    why_this_sensor_earns_its_place: "REPRODUCED this session with the shared public DEMO_KEY, no registration performed. Lowest-value candidate in this set for THIS repository's actual purpose (no plausible consumer), included mainly to test the auth-required class."
+    what_problem_signal_could_it_reveal: "essentially none relevant to this repository's current domains — included for contract-generalization testing only."
+    what_would_make_this_sensor_not_worth_adding: "no real consumer need; DEMO_KEY rate limits are shared across all unregistered users globally, making it fragile for any real cadence."
+    evidence:
+      researched_at: "2026-08-28"
+      confidence: REPRODUCED
+      source_refs: ["https://api.nasa.gov/"]
+      unknowns: ["exact DEMO_KEY rate limit number"]
+    status: candidate
+
+  - sensor_id: candidate_nasa_donki
+    domain: space_astronomy
+    official_name: "NASA DONKI space weather notifications"
+    owner: NASA
+    source_type: JSON
+    endpoint: "https://api.nasa.gov/DONKI/notifications"
+    access: {auth_required: FREE_KEY, cost_tier: FREE_LIMITED}
+    evidence:
+      researched_at: "2026-08-28"
+      confidence: UNVERIFIED
+      source_refs: []
+      unknowns: ["endpoint returned HTTP 503 this session — could not confirm live shape or auth behavior; not rejected, simply unverified"]
+    status: deferred
+
+  - sensor_id: candidate_arxiv_cs_cr
+    domain: science_research
+    official_name: "arXiv API (cs.CR category feed)"
+    owner: Cornell University / arXiv (academic/nonprofit source)
+    source_type: ATOM
+    endpoint: "http://export.arxiv.org/api/query?search_query=cat:cs.CR&sortBy=submittedDate&sortOrder=descending"
+    access: {auth_required: NONE, cost_tier: FREE}
+    rate_limit: "arXiv publishes a documented courtesy rate-limit policy (not re-verified this session); confidence: UNKNOWN exact number"
+    licensing_risk: LOW
+    primary_or_secondary: PRIMARY
+    machine_readability: 5
+    automation_friction: 1
+    reliability_estimate: HIGH
+    update_cadence: DAILY
+    historical_access: YES
+    change_detection_method: ITEM_ID
+    checkpoint_strategy: "track entry ids already seen (arXiv paper URLs are stable ids); new_items = unseen ids"
+    deduplication_key: "entry.id (arXiv URL)"
+    new_items_shape: "Atom entry {id, title, published, updated, summary, authors}"
+    failure_behavior: "REPRODUCED live valid Atom feed, zero auth"
+    blast_radius_if_wrong: LOW
+    independent_correlators: []
+    mouth_contract_fit: YES
+    adapter_delta: "none beyond existing Atom parsing already used by mouth_github_releases — closest-fit candidate of the whole set"
+    why_this_sensor_earns_its_place: "REPRODUCED this session: real Atom XML, correct entry shape, zero auth, and it uses EXACTLY the same feed format (Atom) as an already-production mouth — the lowest-friction addition in this entire atlas if a consumer need existed."
+    what_problem_signal_could_it_reveal: "new published research in a tracked category — currently no consumer in this repository would act on it."
+    what_would_make_this_sensor_not_worth_adding: "no current repository need references arXiv content at all; would be architecture-generalization only, same objection as the astronomy candidates."
+    evidence:
+      researched_at: "2026-08-28"
+      confidence: REPRODUCED
+      source_refs: ["https://info.arxiv.org/help/api/index.html"]
+      unknowns: ["exact courtesy rate-limit interval"]
+    status: candidate
+
+rejection_log:
+  - sensor_id: mass_unverified_source_list
+    reason: "the requesting directive asked for dozens of sources across ~10 domains; only 6 were actually fetched live this session (5 succeeded, 1 transient-failed). Listing 30+ additional 'known' sources from training-data memory without live verification would violate this document's own evidence.confidence taxonomy (REPRODUCED vs CALLER_ASSERTED) and this repository's standing no-invented-endpoints rule."
+    evidence: "explicit scope decision, not a rejected sensor"
+
+research_unknowns:
+  - question: "does the mouth contract's four-state enum (FIRST_SEEN/UNCHANGED/CHANGED/UNAVAILABLE) need a fifth EXPIRED/RESOLVED state for time-bounded alert sources (e.g. NWS)?"
+    why_it_matters: "without it, an adapter for any expiring-alert source silently drops resolution information — a real, evidenced contract gap, not sensor-specific"
+    cheapest_probe: "write one adapter (NWS candidate) against the current four-state contract and observe exactly what information is lost on alert expiry, before proposing a contract change"
+  - question: "what are the exact documented rate limits for CISA KEV, USGS, NWS, and arXiv for unauthenticated automated polling?"
+    why_it_matters: "hourly cron polling of 4+ new sources could exceed courtesy limits without this being known"
+    cheapest_probe: "read each source's documented usage policy page directly (not fetched this session — scope-limited to functional verification only)"
