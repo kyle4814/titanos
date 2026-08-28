@@ -4,6 +4,7 @@ import os
 import re
 import tempfile
 import unittest
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from foundation import sentinel
@@ -606,3 +607,146 @@ class TestOneCheckFailureNeverSinksTheWholeSweep(unittest.TestCase):
         self.assertFalse(any("failed to run" in f.observation for f in report.findings))
 
 
+class TestMouthHealthSensor(unittest.TestCase):
+    """The blind spot, reproduced before it was closed: five consecutive
+    UNAVAILABLE mouth observations produced ZERO mouth-related findings,
+    so the hourly sweep reported raw_finding_count=0 -- indistinguishable
+    from perfect health -- while the organism's only sensory organ was
+    dead. Silent sensory loss reported as health."""
+
+    def _log(self, repo, mouth_id, statuses, now=None, spacing_hours=1):
+        now = now or datetime.now(timezone.utc)
+        (repo / "foundation").mkdir(exist_ok=True)
+        path = repo / "foundation" / f"mouth_{mouth_id}_log.jsonl"
+        n = len(statuses)
+        path.write_text("\n".join(json.dumps({
+            "mouth_id": mouth_id,
+            "observed_at": (now - timedelta(hours=(n - i) * spacing_hours)).isoformat(),
+            "status": s, "content_hash": None, "item_count": 0, "new_items": [],
+            "error": "name resolution failure" if s == "UNAVAILABLE" else None,
+        }) for i, s in enumerate(statuses)) + "\n")
+        return path
+
+    def test_a_persistent_failure_is_detected(self):
+        with tempfile.TemporaryDirectory() as d:
+            repo = Path(d)
+            self._log(repo, "pypi_pyyaml_releases", ["UNAVAILABLE"] * 5)
+            findings = sentinel.check_mouth_health(repo)
+            self.assertEqual(len(findings), 1)
+            self.assertIn("persistent fetch failure", findings[0].observation)
+            self.assertEqual(findings[0].confidence, "HIGH")
+
+    def test_a_single_transient_blip_is_not_reported(self):
+        """The false-positive bound: one failed fetch is normal network
+        variation, and prior state is preserved untouched by design."""
+        with tempfile.TemporaryDirectory() as d:
+            repo = Path(d)
+            self._log(repo, "pypi_pyyaml_releases", ["UNCHANGED", "UNCHANGED", "UNAVAILABLE", "UNCHANGED"])
+            self.assertEqual(sentinel.check_mouth_health(repo), [])
+
+    def test_a_failure_that_recovered_is_not_reported(self):
+        with tempfile.TemporaryDirectory() as d:
+            repo = Path(d)
+            self._log(repo, "pypi_pyyaml_releases", ["UNAVAILABLE", "UNAVAILABLE", "UNCHANGED"])
+            self.assertEqual(sentinel.check_mouth_health(repo), [])
+
+    def test_healthy_mouths_produce_nothing(self):
+        with tempfile.TemporaryDirectory() as d:
+            repo = Path(d)
+            self._log(repo, "pypi_pyyaml_releases", ["UNCHANGED"] * 5)
+            self._log(repo, "github_pyyaml_releases", ["UNCHANGED"] * 5)
+            self.assertEqual(sentinel.check_mouth_health(repo), [])
+
+    def test_the_finding_is_stable_so_it_dedupes_across_ticks(self):
+        """A streak counter in the observation would change Finding.key()
+        every tick and spam the boot report."""
+        with tempfile.TemporaryDirectory() as d:
+            repo = Path(d)
+            self._log(repo, "pypi_pyyaml_releases", ["UNAVAILABLE"] * 2)
+            first = sentinel.check_mouth_health(repo)[0]
+            self._log(repo, "pypi_pyyaml_releases", ["UNAVAILABLE"] * 9)
+            later = sentinel.check_mouth_health(repo)[0]
+            self.assertEqual(first.key(), later.key())
+            self.assertEqual(len(consolidate([first, later])), 1)
+
+    def test_a_stopped_clock_is_distinct_from_a_failing_fetch(self):
+        with tempfile.TemporaryDirectory() as d:
+            repo = Path(d)
+            # Healthy statuses, but the newest record is days old.
+            self._log(repo, "pypi_pyyaml_releases", ["UNCHANGED"] * 3,
+                      now=datetime.now(timezone.utc) - timedelta(days=3))
+            findings = sentinel.check_mouth_health(repo)
+            self.assertEqual(len(findings), 1)
+            self.assertIn("stopped writing", findings[0].observation)
+            self.assertIn("cron", findings[0].interpretation)
+
+    def test_a_missing_log_is_not_a_finding(self):
+        with tempfile.TemporaryDirectory() as d:
+            (Path(d) / "foundation").mkdir()
+            self.assertEqual(sentinel.check_mouth_health(Path(d)), [])
+
+    def test_malformed_lines_do_not_crash_the_sensor(self):
+        with tempfile.TemporaryDirectory() as d:
+            repo = Path(d)
+            path = self._log(repo, "pypi_pyyaml_releases", ["UNAVAILABLE"] * 2)
+            path.write_text(path.read_text() + '{"truncated": \n')
+            self.assertEqual(len(sentinel.check_mouth_health(repo)), 1)
+
+    def test_the_orphan_log_is_not_globbed_and_reported_forever(self):
+        """foundation/mouth_pypi_log.jsonl is a real orphan from an older
+        MOUTH_ID naming. A glob would report it stale eternally with no
+        remedy but deletion -- a static fact re-reported forever."""
+        with tempfile.TemporaryDirectory() as d:
+            repo = Path(d)
+            (repo / "foundation").mkdir()
+            (repo / "foundation" / "mouth_pypi_log.jsonl").write_text(json.dumps({
+                "mouth_id": "pypi", "observed_at": "2026-01-01T00:00:00+00:00",
+                "status": "UNCHANGED"}) + "\n")
+            self.assertEqual(sentinel.check_mouth_health(repo), [])
+
+    def test_it_is_wired_into_the_hourly_sweep(self):
+        with tempfile.TemporaryDirectory() as d:
+            repo = Path(d)
+            self._log(repo, "pypi_pyyaml_releases", ["UNAVAILABLE"] * 3)
+            report = sentinel.pulse_sweep(repo)
+            self.assertTrue(any("persistent fetch failure" in f.observation
+                                for f in report.findings),
+                            "the live cron would never run this sensor")
+
+    def test_the_real_repository_mouths_are_currently_healthy(self):
+        self.assertEqual(sentinel.check_mouth_health(REPO_ROOT), [])
+
+    def test_the_sensor_writes_nothing(self):
+        path = REPO_ROOT / "foundation" / "mouth_pypi_pyyaml_releases_log.jsonl"
+        before = path.stat().st_mtime_ns
+        sentinel.check_mouth_health(REPO_ROOT)
+        self.assertEqual(path.stat().st_mtime_ns, before)
+
+
+class TestReadPulseContinuitySurvivesNonDictLines(unittest.TestCase):
+    """Systemic hunt 2026-08-28: the same class of bug fixed once in
+    check_mouth_health() (a valid-JSON non-dict line crashing `.get()`)
+    was unsearched in the CENTRAL consumer every sensor on the conveyor
+    feeds through /boot. One malformed line anywhere would have taken
+    down the whole boot report, not just one check's findings."""
+
+    def test_a_non_dict_line_does_not_crash_and_is_reported(self):
+        with tempfile.TemporaryDirectory() as d:
+            repo = Path(d)
+            (repo / "foundation").mkdir()
+            (repo / "foundation" / "pulse_log.jsonl").write_text('42\n"str"\n[1,2]\nnull\n')
+            result = sentinel.read_pulse_continuity(repo)
+            self.assertEqual(result.records_considered, 0)
+            self.assertTrue(any("not an object" in w for w in result.warnings))
+
+    def test_a_real_record_still_parses_when_mixed_with_junk(self):
+        with tempfile.TemporaryDirectory() as d:
+            repo = Path(d)
+            (repo / "foundation").mkdir()
+            (repo / "foundation" / "pulse_log.jsonl").write_text(
+                '99\n' + json.dumps({
+                    "timestamp": "2026-08-27T00:00:00+00:00",
+                    "raw_finding_count": 0, "compacted": False, "findings": [],
+                }) + '\n')
+            result = sentinel.read_pulse_continuity(repo)
+            self.assertEqual(result.records_considered, 1)

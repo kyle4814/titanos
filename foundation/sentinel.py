@@ -73,6 +73,8 @@ __all__ = [
     "COMPACTION_THRESHOLD",
     "HOLD_CLASSES",
     "classify_hold",
+    "check_mouth_health",
+    "LIVE_MOUTH_IDS",
 ]
 
 CONFIDENCE_VALUES = frozenset({"HIGH", "MEDIUM", "LOW"})
@@ -245,6 +247,150 @@ def check_duplicate_frontier_ids(repo_root: Path) -> list[Finding]:
 _FRONTIER_ENTRY_SECTIONS = ("## Active", "## Blocked")
 
 
+
+# THE BLIND SPOT THIS CLOSES (reproduced 2026-08-28 before building):
+# `cron_pulse.py` writes an `UNAVAILABLE` record whenever a mouth's fetch
+# fails, and that per-mouth try/except is deliberate -- one mouth's
+# failure must never sink the tick. But nothing ever converted those
+# records into a Finding, so the hourly sweep reported
+# `raw_finding_count=0` -- indistinguishable from perfect health -- while
+# a mouth had failed five consecutive times. Directly reproduced: five
+# UNAVAILABLE records in a row produced zero mouth-related findings.
+#
+# That is the worst shape a monitoring failure can take: silent loss of
+# the organism's only sensory organs, reported as health. Every other
+# check in this module inspects the repository as a set of documents;
+# this is the first that inspects whether the live sensing apparatus is
+# still working. That is a genuinely new information channel, not a
+# second name for something already reported.
+#
+# WHY TWO CONSECUTIVE FAILURES, NOT ONE: a single failed fetch is normal
+# variation for network I/O -- PyPI and GitHub will occasionally 503,
+# rate-limit, or lose a DNS lookup, and a blip that recovers on the next
+# tick is the system working as designed (prior state is preserved
+# untouched). Requiring the two most recent observations to BOTH be
+# UNAVAILABLE is what separates a real persistent failure from weather.
+# This is the "distinguish transient from repeated" distinction that was
+# correctly killed twice in earlier cycles for having no consumer; it is
+# earned now only because `Finding` -> `pulse_log.jsonl` ->
+# `read_pulse_continuity()` -> `/boot` was subsequently proven complete
+# end to end.
+#
+# The observation text is deliberately STABLE -- no counts, no
+# timestamps -- so `Finding.key()` collapses a persistent failure to one
+# finding for as long as it lasts, and it disappears by itself on the
+# first successful fetch. A streak counter in the text would change the
+# key every tick and spam the boot report, which is the exact failure
+# this repository's dedupe discipline exists to prevent.
+#
+# Fixed list, not a glob, for the same reason
+# SUBSYSTEMS_REQUIRING_BUILD_REPORT is fixed: `foundation/` still
+# contains `mouth_pypi_log.jsonl`, an orphan from an earlier MOUTH_ID
+# naming that nothing writes any more. A glob would report it stale
+# forever with no remedy but deletion -- a static fact re-reported
+# eternally, which is a kill criterion, not a finding.
+LIVE_MOUTH_IDS: tuple[str, ...] = ("pypi_pyyaml_releases", "github_pyyaml_releases")
+
+
+def check_mouth_health(repo_root: Path, now: Optional["datetime"] = None) -> list[Finding]:
+    """Convert persistent mouth failure or a stopped mouth clock into
+    Findings. Read-only, bounded (at most LOG_MAX_RECORDS lines per
+    mouth, two mouths), fail-soft on malformed lines.
+
+    A missing log is NOT a finding: on a fresh clone the mouths have
+    simply never run, which is the correct initial state."""
+    from foundation.mouth_common import LOG_MAX_RECORDS, LOG_STALE_AFTER_SECONDS
+
+    findings: list[Finding] = []
+    for mouth_id in LIVE_MOUTH_IDS:
+        log_path = repo_root / "foundation" / f"mouth_{mouth_id}_log.jsonl"
+        if not log_path.exists():
+            continue
+        try:
+            lines = [l for l in log_path.read_text(encoding="utf-8").splitlines() if l.strip()]
+        except OSError:
+            continue
+
+        records = []
+        for line in lines[-LOG_MAX_RECORDS:]:
+            try:
+                obj = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            # A line can be valid JSON and still not be a record (a bare
+            # number or string from a truncated/partial write). Found by
+            # adversarial review 2026-08-28: `.get()` on such a value raised
+            # AttributeError out of this check and out of pulse_sweep(),
+            # taking down EVERY other check's findings with it -- one
+            # malformed byte disabling the whole hourly sweep.
+            if not isinstance(obj, dict):
+                continue
+            records.append(obj)
+        if not records:
+            continue
+
+        recent = records[-2:]
+        if len(recent) == 2 and all(r.get("status") == "UNAVAILABLE" for r in recent):
+            findings.append(Finding(
+                observation=(
+                    f"mouth {mouth_id!r} failed its two most recent observations "
+                    f"-- persistent fetch failure, not a transient blip"
+                ),
+                evidence_location=str(log_path),
+                confidence="HIGH",
+                interpretation=(
+                    "this repository's only sensory organs are its two mouths. "
+                    "A persistently failing mouth means external change is no "
+                    "longer being observed at all, while the pulse otherwise "
+                    "reports normally -- silent sensory loss. Prior state is "
+                    "preserved untouched by design, so nothing is corrupted; "
+                    "the cost is blindness, not damage. Most recent error: "
+                    + str(records[-1].get("error", "not recorded"))[:200]
+                ),
+                reversibility=(
+                    "fully reversible -- observation only; the finding clears "
+                    "itself on the first successful fetch"
+                ),
+                recommended_next_action=(
+                    "HUMAN_REVIEW_REQUIRED: check network reachability and "
+                    "whether the feed URL still resolves"
+                ),
+            ))
+            continue
+
+        latest_ts = records[-1].get("observed_at") or records[-1].get("timestamp")
+        parsed = _parse_iso(latest_ts) if latest_ts else None
+        if parsed is None:
+            continue
+        from datetime import datetime as _dt, timezone as _tz
+        current = now if now is not None else _dt.now(_tz.utc)
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=_tz.utc)
+        if current.tzinfo is None:
+            current = current.replace(tzinfo=_tz.utc)
+        if (current - parsed).total_seconds() > LOG_STALE_AFTER_SECONDS:
+            findings.append(Finding(
+                observation=(
+                    f"mouth {mouth_id!r} has stopped writing observations "
+                    f"(newest record older than the staleness threshold)"
+                ),
+                evidence_location=str(log_path),
+                confidence="MEDIUM",
+                interpretation=(
+                    "the mouth is not failing -- it is not running at all. "
+                    "Distinct from a fetch failure: no UNAVAILABLE records are "
+                    "being written either, which points at the clock (the cron "
+                    "entry) rather than the network. See "
+                    "foundation/cron_pulse.err.log via read_cron_stderr()."
+                ),
+                reversibility="fully reversible -- observation only",
+                recommended_next_action=(
+                    "HUMAN_REVIEW_REQUIRED: confirm the cron entry is still "
+                    "installed and check cron_pulse.err.log"
+                ),
+            ))
+    return findings
+
 def check_frontier_schema(repo_root: Path) -> list[Finding]:
     frontier_md = repo_root / "PARETO_FRONTIER.md"
     if not frontier_md.exists():
@@ -371,9 +517,22 @@ def read_pulse_continuity(
     warnings: list[str] = []
     for line in tail:
         try:
-            records.append(json.loads(line))
+            obj = json.loads(line)
         except json.JSONDecodeError as exc:
             warnings.append(f"skipped malformed JSON line: {exc}")
+            continue
+        # A line can be valid JSON and not be a record (a bare number,
+        # string, or array from a truncated/partial write). Found by a
+        # fresh systemic hunt 2026-08-28 after the identical class of bug
+        # was found and fixed once already in check_mouth_health():
+        # `.get()` on such a value crashed this function -- the central
+        # consumer every sensor on the conveyor feeds through /boot --
+        # so one malformed line anywhere upstream took down the whole
+        # boot report, not just one check's findings.
+        if not isinstance(obj, dict):
+            warnings.append(f"skipped non-record JSON line (not an object): {obj!r}"[:200])
+            continue
+        records.append(obj)
 
     if not records:
         return PulseContinuity(
@@ -472,7 +631,7 @@ def _run_check_safely(check_fn, repo_root: Path) -> list[Finding]:
 
 _LEVEL1_CHECKS: tuple = (
     check_claude_md_imports, check_subsystem_build_reports, check_python_syntax,
-    check_duplicate_frontier_ids, check_frontier_schema,
+    check_duplicate_frontier_ids, check_frontier_schema, check_mouth_health,
 )
 
 

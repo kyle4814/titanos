@@ -32,6 +32,7 @@ __all__ = [
     "FetchError",
     "MouthObservation",
     "fetch_feed",
+    "MAX_FEED_BYTES",
     "compute_state_hash",
     "observe",
     "MouthLogContinuity",
@@ -39,6 +40,11 @@ __all__ = [
 ]
 
 DEFAULT_TIMEOUT_SECONDS = 10
+
+# Hard ceiling on a single feed response. The two real feeds are a few
+# kilobytes; 5 MB is ~1000x headroom while still bounding memory. See
+# fetch_feed()'s docstring for why a timeout alone does not bound this.
+MAX_FEED_BYTES = 5 * 1024 * 1024
 DEFAULT_USER_AGENT = "titanos-cosmic-library-mouth/1 (+https://github.com/kyle4814/titanos)"
 
 # Same cadence/threshold policy as foundation/sentinel.py's read_pulse_continuity —
@@ -58,13 +64,39 @@ class FetchError(Exception):
 def fetch_feed(url: str, timeout: int = DEFAULT_TIMEOUT_SECONDS,
                 user_agent: str = DEFAULT_USER_AGENT) -> bytes:
     """One GET request, real network I/O, no retry loop here — the
-    caller's own schedule (cron) is the backoff policy."""
+    caller's own schedule (cron) is the backoff policy.
+
+    Hard byte cap added 2026-08-28 after adversarial review. The previous
+    `response.read()` was unbounded: `timeout` bounds a single stalled
+    socket operation, NOT total transfer size or total transfer time, so
+    a source that trickles bytes just under the idle timeout can stream
+    indefinitely, and any large response is read fully into memory
+    regardless of size. TLS certificate validation (urllib's default)
+    makes a classic MITM hard but does nothing to bound what a
+    legitimate-but-compromised endpoint returns. These are release feeds
+    measured in kilobytes; a cap of `MAX_FEED_BYTES` is far above any
+    honest response and turns a memory-exhaustion vector into an
+    ordinary, receipted `FetchError` → `UNAVAILABLE`, which `observe()`
+    already handles without touching prior state.
+
+    Reads one byte past the cap specifically so exceeding it is
+    detectable rather than silently truncating a feed into a corrupt
+    parse — a truncated feed would look like "items disappeared," which
+    `observe()` could otherwise record as a real CHANGED observation.
+    """
     request = urllib.request.Request(url, headers={"User-Agent": user_agent})
     try:
         with urllib.request.urlopen(request, timeout=timeout) as response:
-            return response.read()
+            payload = response.read(MAX_FEED_BYTES + 1)
     except (urllib.error.URLError, TimeoutError, OSError) as exc:
         raise FetchError(f"could not fetch {url!r}: {exc}") from exc
+    if len(payload) > MAX_FEED_BYTES:
+        raise FetchError(
+            f"response from {url!r} exceeds MAX_FEED_BYTES ({MAX_FEED_BYTES}) "
+            f"— refusing to buffer an unbounded remote response; treated as "
+            f"UNAVAILABLE, prior state left untouched"
+        )
+    return payload
 
 
 def compute_state_hash(items: tuple[dict, ...]) -> str:
@@ -191,9 +223,17 @@ def read_mouth_log_continuity(
     warnings: list[str] = []
     for line in tail:
         try:
-            records.append(json.loads(line))
+            obj = json.loads(line)
         except json.JSONDecodeError as exc:
             warnings.append(f"skipped malformed JSON line: {exc}")
+            continue
+        # Same fix as sentinel.py::read_pulse_continuity() -- a valid-JSON
+        # non-dict line (bare number/string/array from a truncated write)
+        # crashed `.get()` two lines below. Found by systemic hunt 2026-08-28.
+        if not isinstance(obj, dict):
+            warnings.append(f"skipped non-record JSON line (not an object): {obj!r}"[:200])
+            continue
+        records.append(obj)
 
     if not records:
         return MouthLogContinuity(

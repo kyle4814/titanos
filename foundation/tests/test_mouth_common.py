@@ -1,11 +1,13 @@
 import json
 import tempfile
 import unittest
+from unittest import mock
 from datetime import datetime, timezone
 from pathlib import Path
 
 from foundation.mouth_common import (
-    FetchError, compute_state_hash, observe, read_mouth_log_continuity,
+    FetchError, MAX_FEED_BYTES, compute_state_hash, fetch_feed, observe,
+    read_mouth_log_continuity,
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -139,3 +141,98 @@ class TestReadMouthLogContinuity(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestFetchFeedIsByteBounded(unittest.TestCase):
+    """Adversarial review 2026-08-28: fetch_feed() used an unbounded
+    response.read(). `timeout` bounds a stalled socket operation, not
+    total transfer size, so a compromised or redirected feed endpoint
+    could stream an arbitrarily large body straight into memory."""
+
+    class _FakeResponse:
+        def __init__(self, payload): self._payload = payload
+        def read(self, n=-1): return self._payload[:n] if n and n > 0 else self._payload
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+
+    def _patched(self, payload):
+        return mock.patch("urllib.request.urlopen", return_value=self._FakeResponse(payload))
+
+    def test_an_oversized_response_is_refused_as_a_fetch_error(self):
+        with self._patched(b"A" * (MAX_FEED_BYTES + 10)):
+            with self.assertRaises(FetchError) as ctx:
+                fetch_feed("https://example.invalid/feed")
+        self.assertIn("MAX_FEED_BYTES", str(ctx.exception))
+
+    def test_a_normal_sized_response_is_returned_intact(self):
+        payload = b"<rss>ok</rss>"
+        with self._patched(payload):
+            self.assertEqual(fetch_feed("https://example.invalid/feed"), payload)
+
+    def test_a_response_exactly_at_the_cap_is_still_accepted(self):
+        payload = b"B" * MAX_FEED_BYTES
+        with self._patched(payload):
+            self.assertEqual(len(fetch_feed("https://example.invalid/feed")), MAX_FEED_BYTES)
+
+    def test_an_oversized_feed_becomes_UNAVAILABLE_and_preserves_prior_state(self):
+        """The consequence that matters: a refused fetch must never look
+        like 'the items disappeared', which observe() would otherwise
+        record as a real CHANGED observation."""
+        with tempfile.TemporaryDirectory() as d:
+            state = Path(d) / "state.json"
+            observe("m", state, lambda: b"v1", lambda raw: ({"key": "a"},))
+            before = state.read_text()
+
+            def oversized():
+                raise FetchError("response exceeds MAX_FEED_BYTES")
+
+            obs = observe("m", state, oversized, lambda raw: ())
+            self.assertEqual(obs.status, "UNAVAILABLE")
+            self.assertEqual(state.read_text(), before, "prior baseline was destroyed")
+
+    def test_pure_removal_is_CHANGED_with_empty_new_items_not_a_bug(self):
+        """Documents current, deliberate behavior after a real cycle
+        demonstrated it (2026-08-28 GH Pulse recursive payload): a
+        removed item is NOT surfaced in `new_items` (which reports only
+        additions relative to the immediately prior checkpoint), but the
+        removal IS visible via a `item_count` decrease and a changed
+        `content_hash`. This is not a defect for the current sole
+        consumer, dependency_pressure.py, which explicitly treats
+        CHANGED-with-empty-new_items as "no finding" -- it only cares
+        about new releases, never removals. A future consumer wanting
+        first-class removal semantics would need to diff item_count or
+        add a dedicated field; this test locks in the current behavior
+        so any future change to it is a deliberate, visible decision."""
+        with tempfile.TemporaryDirectory() as d:
+            state = Path(d) / "state.json"
+            observe("m", state, lambda: b"v1",
+                     lambda raw: ({"key": "A"}, {"key": "B"}))
+            obs = observe("m", state, lambda: b"v2",
+                           lambda raw: ({"key": "A"},))
+            self.assertEqual(obs.status, "CHANGED")
+            self.assertEqual(obs.new_items, ())
+            self.assertEqual(obs.item_count, 1, "the drop from 2 to 1 is "
+                              "the only currently-persisted removal signal")
+
+
+class TestReadMouthLogContinuitySurvivesNonDictLines(unittest.TestCase):
+    """Same systemic bug class as sentinel.py::read_pulse_continuity(),
+    found in the same 2026-08-28 hunt: `.get()` on a non-dict JSON value
+    crashed this reader too."""
+
+    def test_a_non_dict_line_does_not_crash(self):
+        with tempfile.TemporaryDirectory() as d:
+            log = Path(d) / "m.jsonl"
+            log.write_text('42\n"str"\n[1,2]\nnull\n')
+            result = read_mouth_log_continuity(log)
+            self.assertEqual(result.records_considered, 0)
+            self.assertTrue(any("not an object" in w for w in result.warnings))
+
+    def test_a_real_record_still_parses_when_mixed_with_junk(self):
+        with tempfile.TemporaryDirectory() as d:
+            log = Path(d) / "m.jsonl"
+            log.write_text('99\n' + json.dumps({
+                "mouth_id": "x", "observed_at": "2026-08-27T00:00:00+00:00",
+                "status": "UNCHANGED"}) + '\n')
+            result = read_mouth_log_continuity(log)
+            self.assertEqual(result.records_considered, 1)
