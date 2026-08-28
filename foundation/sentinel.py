@@ -75,6 +75,10 @@ __all__ = [
     "classify_hold",
     "check_mouth_health",
     "LIVE_MOUTH_IDS",
+    "count_real_tests",
+    "check_readme_test_count",
+    "check_sigil_snapshot_agreement",
+    "check_frontier_hash_placeholders",
 ]
 
 CONFIDENCE_VALUES = frozenset({"HIGH", "MEDIUM", "LOW"})
@@ -391,6 +395,246 @@ def check_mouth_health(repo_root: Path, now: Optional["datetime"] = None) -> lis
             ))
     return findings
 
+# README's headline test count is the single most-repeated stale claim in
+# this repository's history. It has been corrected by hand at least twice
+# for README specifically (`cdce3df`: claimed 1,461, actual 1,508 -- whose
+# own commit message calls it "second real drift instance found"), and the
+# same mechanism has bitten CAPABILITY_MANIFEST.json (`f75a418`), CLAUDE.md's
+# sigil paragraph (TIER:T7 long after the real value fell to T3), and two
+# BUILD_REPORTs (`8c6e18f`, `289c2e1`). Every one of those was caught by a
+# human re-running the real count by hand.
+#
+# That is the exact profile this sweep exists for: a mechanical, verifiable
+# claim about the repository that drifts silently and has repeatedly cost
+# human attention. It is deliberately a `Finding`, not an error -- README
+# being briefly behind during active development is normal and expected;
+# what was missing was any mechanism that noticed at all.
+_README_TEST_COUNT_PATTERN = re.compile(r"\*\*([\d,]+)\s+tests\s+across", re.I)
+_TEST_DEF_PATTERN = re.compile(r"^\s*def\s+test_\w+\s*\(", re.M)
+
+
+def count_real_tests(repo_root: Path) -> int:
+    """Count `def test_*` across every tests/ directory. Deliberately a
+    static count, not a test run: this must stay cheap enough for the
+    hourly pulse (no subprocess), unlike sigil.py's PROOF dimension which
+    genuinely executes the suites and costs ~40s."""
+    total = 0
+    for path in repo_root.rglob("test_*.py"):
+        if any(part in _EXCLUDED_DIRS for part in path.parts):
+            continue
+        try:
+            total += len(_TEST_DEF_PATTERN.findall(path.read_text(encoding="utf-8")))
+        except OSError:
+            continue
+    return total
+
+
+def check_readme_test_count(repo_root: Path) -> list[Finding]:
+    readme = repo_root / "README.md"
+    if not readme.exists():
+        return []
+    try:
+        text = readme.read_text(encoding="utf-8")
+    except OSError:
+        return []
+    match = _README_TEST_COUNT_PATTERN.search(text)
+    if match is None:
+        return []
+    claimed = int(match.group(1).replace(",", ""))
+    actual = count_real_tests(repo_root)
+    if claimed == actual:
+        return []
+    return [Finding(
+        # STABLE observation -- no counts, no delta. Found by adversarial
+        # review 2026-08-28: the original text interpolated `actual` and the
+        # delta, so Finding.key() changed on every tick where the real count
+        # moved while README stayed stale -- i.e. on exactly the normal
+        # development lag this check's own interpretation calls expected.
+        # Reproduced: three ticks of a single persisting condition produced
+        # three distinct keys, which spams /boot instead of deduping. The
+        # numbers belong in `interpretation`, which is not part of the key.
+        observation="README.md's declared test count disagrees with a real count of `def test_`",
+        evidence_location=str(readme),
+        confidence="HIGH",
+        interpretation=(
+            f"README.md claims {claimed:,}; a real count of `def test_` across "
+            f"every tests/ directory finds {actual:,} ({actual - claimed:+,}). "
+            "a hand-maintained numeric claim has drifted from recomputed "
+            "ground truth -- the single most-repeated stale-claim class in "
+            "this repository's history (see this function's own comment for "
+            "the commits). Not necessarily wrong to leave: README is "
+            "expected to lag during active development, and the static "
+            "`def test_` count is not identical to the number unittest "
+            "reports (parameterised or skipped tests differ). It is the "
+            "silence that was the defect, not the lag."
+        ),
+        reversibility="fully reversible -- observation only, nothing is rewritten",
+        recommended_next_action=(
+            "HUMAN_REVIEW_REQUIRED: re-run the real suites and update "
+            "README.md's count, or confirm the lag is intentional"
+        ),
+    )]
+
+
+# SECOND MEMBER OF THE SAME DRIFT FAMILY, and deliberately NOT a generic
+# "declared vs observed" framework -- the shared abstraction is `Finding`,
+# which already exists; two small checks that both emit one need no third
+# layer between them.
+#
+# THE REAL, PROVEN OCCURRENCE: CLAUDE.md's inline Capability Sigil
+# paragraph carried `TIER:T7 | ... | REALITY:10` after SIGIL.md had
+# already recorded the real, evidenced drop to `TIER:T3 | ... |
+# REALITY:6` (the network mouth was added, so the zero-network bonus was
+# no longer earned). Two hand-maintained snapshots of ONE computed value
+# disagreed, and a session booting off the stale one would orient from a
+# capability index four tiers too high. Caught by a human reading prose,
+# 2026-08-28 -- the same way every other member of this family was caught.
+#
+# WHAT THIS CHECK HONESTLY IS: a cheap disagreement detector, not an
+# authority. Comparing two documents tells you they disagree; it does NOT
+# tell you which is right, because neither is ground truth --
+# `compute_sigil()` is, and it costs ~40s because it genuinely runs every
+# subsystem's test suite. That asymmetry is the whole point: this is a
+# sub-second Level-0 detector for when the expensive Level-1 recomputation
+# is actually warranted. It reuses `sigil.parse_sigil()` exactly as built
+# (already proven to find the line embedded in surrounding prose, and to
+# fail closed on a partial line rather than invent zeros) and adds no new
+# parsing of its own.
+_SIGIL_SNAPSHOT_FILES = ("CLAUDE.md", "SIGIL.md")
+
+
+def check_sigil_snapshot_agreement(repo_root: Path) -> list[Finding]:
+    """Compare every recorded sigil snapshot in the repository against
+    every other. Read-only, no subprocess, no test execution.
+
+    A file with no sigil line contributes nothing (absence is a valid
+    state -- not every document must carry a snapshot). Fewer than two
+    snapshots means there is nothing to disagree, so no finding."""
+    from foundation.sigil import DIMENSION_NAMES, parse_sigil
+
+    snapshots = []
+    for name in _SIGIL_SNAPSHOT_FILES:
+        path = repo_root / name
+        if not path.exists():
+            continue
+        try:
+            text = path.read_text(encoding="utf-8")
+        except OSError:
+            continue
+        recorded = parse_sigil(text, source=str(path))
+        if recorded is not None:
+            snapshots.append((name, recorded))
+
+    if len(snapshots) < 2:
+        return []
+
+    base_name, base = snapshots[0]
+    findings: list[Finding] = []
+    for other_name, other in snapshots[1:]:
+        differing = [
+            n for n in DIMENSION_NAMES if getattr(base, n) != getattr(other, n)
+        ]
+        if base.tier != other.tier:
+            differing.append("tier")
+        if not differing:
+            continue
+        findings.append(Finding(
+            observation=(
+                f"recorded sigil snapshots disagree between {base_name} and "
+                f"{other_name} on: {', '.join(sorted(differing))}"
+            ),
+            evidence_location=str(repo_root / other_name),
+            confidence="HIGH",
+            interpretation=(
+                "two hand-maintained snapshots of one computed value have "
+                "diverged, so at least one is stale. This check cannot say "
+                "which -- neither document is ground truth. Only "
+                "foundation/sigil.py::compute_sigil() is, and it costs ~40s "
+                "because it really runs every subsystem's suite. This is the "
+                "cheap detector for when that expensive recomputation is "
+                "warranted. Proven to have happened: CLAUDE.md read TIER:T7 "
+                "long after SIGIL.md recorded the real drop to TIER:T3."
+            ),
+            reversibility="fully reversible -- observation only, nothing is rewritten",
+            recommended_next_action=(
+                "HUMAN_REVIEW_REQUIRED: run compute_sigil()/reconcile_sigil() "
+                "and update whichever snapshot is stale -- never reconcile the "
+                "two documents to each other without recomputing"
+            ),
+        ))
+    return findings
+
+
+# THE BLIND SPOT THIS CLOSES (reproduced 2026-08-28 before building): a
+# session adding a PARETO_FRONTIER.md Archive row mid-cycle writes the
+# literal string "(this commit)" as a hash placeholder, intending to
+# backfill the real hash after committing -- and repeatedly forgets.
+# `5a9ca9f` fixed one row and named the pattern recurring; that very fix's
+# own message records that "all four prior cycles above were uncommitted
+# in the working tree (their (this commit) tags were false)". Confirmed
+# live and current, not historical: `git diff --stat PARETO_FRONTIER.md`
+# shows the working tree matches HEAD exactly, so the 7 placeholder rows
+# on disk right now are genuinely committed, stale content -- not an
+# in-progress edit `pulse_sweep()` is catching mid-keystroke.
+#
+# Mechanical ground truth needs no git history: the literal substring
+# "(this commit)" can only be true transiently, during the act of
+# authoring, and is unconditionally wrong in anything already on disk
+# for a scheduled sweep to read.
+#
+# Observation text is deliberately STABLE (no count) -- the same
+# discipline check_readme_test_count() was found to violate this same
+# shift (a count in the key spams /boot on every tick the count moves
+# while the condition persists). The row count belongs in
+# `interpretation`.
+# Matches only an actual table-cell placeholder (bounded by pipes), not a
+# prose MENTION of the phrase. Found and fixed before shipping: line 145
+# of the real PARETO_FRONTIER.md discusses this exact historical bug in
+# its own text ("their `(this commit)` tags were false"), which a bare
+# substring count would double-count as a second live placeholder on a
+# row that only has one. Same false-positive class already found once
+# this shift in sigil.py::parse_sigil() (CLAUDE.md's own correction
+# narrative mentions "TIER:T7" in prose) -- structural matching, not
+# substring containment, is the fix both times.
+_ARCHIVE_HASH_PLACEHOLDER_CELL = re.compile(r"\|\s*\(this commit\)\s*\|")
+
+
+def check_frontier_hash_placeholders(repo_root: Path) -> list[Finding]:
+    """Detect PARETO_FRONTIER.md Archive rows still carrying the literal
+    hash placeholder. Read-only, no subprocess, no git call."""
+    path = repo_root / "PARETO_FRONTIER.md"
+    if not path.exists():
+        return []
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return []
+    count = len(_ARCHIVE_HASH_PLACEHOLDER_CELL.findall(text))
+    if count == 0:
+        return []
+    return [Finding(
+        observation="PARETO_FRONTIER.md has unresolved Archive hash placeholder(s)",
+        evidence_location=str(path),
+        confidence="HIGH",
+        interpretation=(
+            f"{count} unresolved Archive table cell(s) still reading "
+            f"'(this commit)'. This string is only ever "
+            f"legitimately true during active mid-edit authoring, before a "
+            f"commit exists to name -- anything already on disk for a "
+            f"scheduled sweep to read is either a real backfill gap or a "
+            f"currently-open edit. See commit `5a9ca9f` for the one prior "
+            f"fix and its own note that this class has recurred at least "
+            f"four times before that."
+        ),
+        reversibility="fully reversible -- observation only, nothing is rewritten",
+        recommended_next_action=(
+            "HUMAN_REVIEW_REQUIRED: backfill the real commit hash for each "
+            "placeholder row, or confirm the row is mid-edit and not yet "
+            "committed"
+        ),
+    )]
+
+
 def check_frontier_schema(repo_root: Path) -> list[Finding]:
     frontier_md = repo_root / "PARETO_FRONTIER.md"
     if not frontier_md.exists():
@@ -632,6 +876,8 @@ def _run_check_safely(check_fn, repo_root: Path) -> list[Finding]:
 _LEVEL1_CHECKS: tuple = (
     check_claude_md_imports, check_subsystem_build_reports, check_python_syntax,
     check_duplicate_frontier_ids, check_frontier_schema, check_mouth_health,
+    check_readme_test_count, check_sigil_snapshot_agreement,
+    check_frontier_hash_placeholders,
 )
 
 

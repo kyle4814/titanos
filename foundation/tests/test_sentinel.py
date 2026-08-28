@@ -6,6 +6,7 @@ import tempfile
 import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from unittest import mock
 
 from foundation import sentinel
 from foundation.sentinel import (
@@ -750,3 +751,332 @@ class TestReadPulseContinuitySurvivesNonDictLines(unittest.TestCase):
                 }) + '\n')
             result = sentinel.read_pulse_continuity(repo)
             self.assertEqual(result.records_considered, 1)
+
+
+class TestReadmeTestCountDriftCheck(unittest.TestCase):
+    """The most-repeated stale-claim class in this repository's history,
+    finally given a mechanical detector. Corrected by hand at least twice
+    for README alone (`cdce3df`, whose own message says "second real
+    drift instance found"), plus CAPABILITY_MANIFEST.json (`f75a418`),
+    CLAUDE.md's sigil paragraph, and two BUILD_REPORTs (`8c6e18f`,
+    `289c2e1`) -- every one caught by a human recounting by hand."""
+
+    def _repo(self, d, readme_text, n_tests=0):
+        repo = Path(d)
+        tests_dir = repo / "sub" / "tests"
+        tests_dir.mkdir(parents=True)
+        (repo / "README.md").write_text(readme_text)
+        body = "\n".join(f"    def test_thing_{i}(self):\n        pass" for i in range(n_tests))
+        (tests_dir / "test_x.py").write_text("class T:\n" + (body or "    pass"))
+        return repo
+
+    def test_a_drifted_claim_is_detected_with_the_real_delta(self):
+        with tempfile.TemporaryDirectory() as d:
+            repo = self._repo(d, "**1,461 tests across 9 subsystems**", n_tests=3)
+            findings = sentinel.check_readme_test_count(repo)
+            self.assertEqual(len(findings), 1)
+            # The numbers live in `interpretation`, NOT `observation` --
+            # observation must stay stable so Finding.key() dedupes a
+            # persisting condition instead of spamming /boot.
+            self.assertIn("1,461", findings[0].interpretation)
+            self.assertIn("3", findings[0].interpretation)
+            self.assertNotIn("1,461", findings[0].observation)
+            self.assertEqual(findings[0].confidence, "HIGH")
+
+    def test_an_accurate_claim_produces_no_finding(self):
+        with tempfile.TemporaryDirectory() as d:
+            repo = self._repo(d, "**3 tests across 1 subsystems**", n_tests=3)
+            self.assertEqual(sentinel.check_readme_test_count(repo), [])
+
+    def test_a_readme_with_no_such_claim_is_not_a_finding(self):
+        with tempfile.TemporaryDirectory() as d:
+            repo = self._repo(d, "# A README with no test-count claim at all", n_tests=3)
+            self.assertEqual(sentinel.check_readme_test_count(repo), [])
+
+    def test_a_missing_readme_is_not_a_finding_from_this_check(self):
+        with tempfile.TemporaryDirectory() as d:
+            self.assertEqual(sentinel.check_readme_test_count(Path(d)), [])
+
+    def test_count_real_tests_skips_excluded_directories(self):
+        with tempfile.TemporaryDirectory() as d:
+            repo = self._repo(d, "**3 tests across 1 subsystems**", n_tests=3)
+            junk = repo / "__pycache__"
+            junk.mkdir()
+            (junk / "test_cached.py").write_text("def test_ghost():\n    pass\n")
+            self.assertEqual(sentinel.count_real_tests(repo), 3)
+
+    def test_the_check_is_wired_into_the_hourly_sweep(self):
+        with tempfile.TemporaryDirectory() as d:
+            repo = self._repo(d, "**9,999 tests across 9 subsystems**", n_tests=2)
+            report = sentinel.pulse_sweep(repo)
+            self.assertTrue(
+                any("declared test count disagrees" in f.observation
+                    for f in report.findings),
+                "drift check is not reachable from pulse_sweep -- the live cron would never run it",
+            )
+            self.assertTrue(any("9,999" in f.interpretation for f in report.findings))
+
+    def test_it_is_read_only_against_the_real_repository(self):
+        readme = REPO_ROOT / "README.md"
+        before = readme.stat().st_mtime_ns
+        sentinel.check_readme_test_count(REPO_ROOT)
+        sentinel.count_real_tests(REPO_ROOT)
+        self.assertEqual(readme.stat().st_mtime_ns, before)
+
+
+class TestSigilSnapshotAgreementCheck(unittest.TestCase):
+    """Second member of the drift family, and the exact historical case:
+    CLAUDE.md carried TIER:T7 | REALITY:10 after SIGIL.md had recorded the
+    real evidenced drop to TIER:T3 | REALITY:6. A session booting off the
+    stale snapshot orients from a capability index four tiers too high."""
+
+    T3 = ("TIER:T3 | IRON:10 | LATTICE:6 | PROOF:10 | SIGHT:10 | "
+          "FRONTIER:10 | ORCH:10 | MEMORY:10 | REALITY:6")
+    T7 = ("TIER:T7 | IRON:10 | LATTICE:6 | PROOF:10 | SIGHT:10 | "
+          "FRONTIER:10 | ORCH:10 | MEMORY:10 | REALITY:10")
+
+    def _repo(self, d, claude=None, sigil=None):
+        repo = Path(d)
+        if claude is not None:
+            (repo / "CLAUDE.md").write_text(f"# Doctrine\n\nsome prose\n\n{claude}\n\nmore\n")
+        if sigil is not None:
+            (repo / "SIGIL.md").write_text(f"# Capability Sigil\n\n```\n{sigil}\n```\n")
+        return repo
+
+    def test_the_real_historical_divergence_is_detected(self):
+        with tempfile.TemporaryDirectory() as d:
+            repo = self._repo(d, claude=self.T7, sigil=self.T3)
+            findings = sentinel.check_sigil_snapshot_agreement(repo)
+            self.assertEqual(len(findings), 1)
+            self.assertIn("tier", findings[0].observation)
+            self.assertIn("reality", findings[0].observation)
+            self.assertEqual(findings[0].confidence, "HIGH")
+
+    def test_agreeing_snapshots_produce_no_finding(self):
+        with tempfile.TemporaryDirectory() as d:
+            repo = self._repo(d, claude=self.T3, sigil=self.T3)
+            self.assertEqual(sentinel.check_sigil_snapshot_agreement(repo), [])
+
+    def test_it_never_claims_which_document_is_correct(self):
+        """Load-bearing honesty: neither file is ground truth, and the
+        finding must route to compute_sigil() rather than to 'fix the
+        other file to match'."""
+        with tempfile.TemporaryDirectory() as d:
+            repo = self._repo(d, claude=self.T7, sigil=self.T3)
+            f = sentinel.check_sigil_snapshot_agreement(repo)[0]
+            self.assertIn("cannot say", f.interpretation)
+            self.assertIn("compute_sigil", f.interpretation)
+            self.assertIn("never reconcile the two documents to each other",
+                          f.recommended_next_action)
+
+    def test_a_single_snapshot_has_nothing_to_disagree_with(self):
+        with tempfile.TemporaryDirectory() as d:
+            self.assertEqual(
+                sentinel.check_sigil_snapshot_agreement(self._repo(d, sigil=self.T3)), [])
+
+    def test_missing_files_are_not_a_finding_from_this_check(self):
+        with tempfile.TemporaryDirectory() as d:
+            self.assertEqual(sentinel.check_sigil_snapshot_agreement(Path(d)), [])
+
+    def test_a_partial_sigil_line_in_prose_is_not_mistaken_for_a_snapshot(self):
+        """CLAUDE.md really does contain the string 'TIER:T7 | REALITY:10'
+        inside its own correction narrative. parse_sigil() fails closed on
+        a partial line, so the prose mention must not be read as a
+        competing snapshot -- otherwise this check would fire forever on a
+        file that is actually correct."""
+        with tempfile.TemporaryDirectory() as d:
+            narrative = ("the paragraph said `TIER:T7 | REALITY:10` after SIGIL.md "
+                         "had already documented the drop\n\n" + self.T3)
+            repo = self._repo(d, claude=narrative, sigil=self.T3)
+            self.assertEqual(sentinel.check_sigil_snapshot_agreement(repo), [])
+
+    def test_it_is_wired_into_the_hourly_sweep(self):
+        with tempfile.TemporaryDirectory() as d:
+            repo = self._repo(d, claude=self.T7, sigil=self.T3)
+            report = sentinel.pulse_sweep(repo)
+            self.assertTrue(any("snapshots disagree" in f.observation for f in report.findings))
+
+    def test_the_real_repository_snapshots_currently_agree(self):
+        # Not a fixture: CLAUDE.md and SIGIL.md as they actually are.
+        self.assertEqual(sentinel.check_sigil_snapshot_agreement(REPO_ROOT), [])
+
+    def test_the_check_writes_nothing(self):
+        before = [(p, (REPO_ROOT / p).stat().st_mtime_ns) for p in ("CLAUDE.md", "SIGIL.md")]
+        sentinel.check_sigil_snapshot_agreement(REPO_ROOT)
+        for name, mtime in before:
+            self.assertEqual((REPO_ROOT / name).stat().st_mtime_ns, mtime)
+
+
+class TestFindingKeyStabilityUnderPersistingConditions(unittest.TestCase):
+    """Adversarial review 2026-08-28 found a HIGH defect in
+    check_readme_test_count(): the observation interpolated the live count
+    and the delta, so Finding.key() changed on every tick where the real
+    test count moved while README stayed stale -- exactly the normal
+    development lag the check's own text calls expected. Reproduced: three
+    ticks of ONE persisting condition produced THREE distinct keys, which
+    spams /boot instead of deduping.
+
+    This is the single most important property of every sensor feeding the
+    conveyor, so it is tested here for all three of them at once."""
+
+    def test_readme_finding_key_is_stable_while_the_count_moves(self):
+        with tempfile.TemporaryDirectory() as d:
+            repo = Path(d)
+            (repo / "sub" / "tests").mkdir(parents=True)
+            (repo / "README.md").write_text("**500 tests across 9 subsystems**")
+            keys = set()
+            for n in (510, 511, 512, 900):
+                with mock.patch.object(sentinel, "count_real_tests", return_value=n):
+                    keys.add(sentinel.check_readme_test_count(repo)[0].key())
+            self.assertEqual(len(keys), 1, "key changed while one condition persisted")
+
+    def test_the_readme_numbers_are_still_reported_just_not_in_the_key(self):
+        with tempfile.TemporaryDirectory() as d:
+            repo = Path(d)
+            (repo / "sub" / "tests").mkdir(parents=True)
+            (repo / "README.md").write_text("**500 tests across 9 subsystems**")
+            with mock.patch.object(sentinel, "count_real_tests", return_value=512):
+                f = sentinel.check_readme_test_count(repo)[0]
+            self.assertIn("500", f.interpretation)
+            self.assertIn("512", f.interpretation)
+            self.assertNotIn("512", f.observation)
+
+    def test_every_sensor_dedupes_a_persisting_condition_to_one_finding(self):
+        """Cross-sensor guard: a future check that embeds a varying number
+        in its observation would fail here."""
+        with tempfile.TemporaryDirectory() as d:
+            repo = Path(d)
+            (repo / "foundation").mkdir()
+            (repo / "sub" / "tests").mkdir(parents=True)
+            (repo / "README.md").write_text("**500 tests across 9 subsystems**")
+            now = datetime.now(timezone.utc)
+            log = repo / "foundation" / "mouth_pypi_pyyaml_releases_log.jsonl"
+            collected = []
+            for n_records in (2, 5, 9):          # a failure streak that keeps growing
+                log.write_text("\n".join(json.dumps({
+                    "mouth_id": "pypi_pyyaml_releases",
+                    "observed_at": (now - timedelta(hours=n_records - i)).isoformat(),
+                    "status": "UNAVAILABLE", "error": "boom",
+                }) for i in range(n_records)) + "\n")
+                collected.extend(sentinel.check_mouth_health(repo))
+                collected.extend(sentinel.check_readme_test_count(repo))
+            # Two distinct real conditions, however many ticks observed them.
+            self.assertEqual(len(consolidate(collected)), 2)
+
+
+class TestSweepSurvivesMalformedRecords(unittest.TestCase):
+    """A line can be valid JSON and still not be a record. Adversarial
+    review 2026-08-28: `.get()` on a bare int raised AttributeError out of
+    check_mouth_health AND out of pulse_sweep(), so one malformed byte in
+    one mouth log disabled EVERY other check's findings for that tick."""
+
+    def test_a_non_dict_json_line_does_not_crash_the_mouth_sensor(self):
+        with tempfile.TemporaryDirectory() as d:
+            repo = Path(d)
+            (repo / "foundation").mkdir()
+            (repo / "foundation" / "mouth_pypi_pyyaml_releases_log.jsonl").write_text(
+                '42\n"not a dict"\n[1,2,3]\nnull\n')
+            self.assertEqual(sentinel.check_mouth_health(repo), [])
+
+    def test_a_non_dict_json_line_does_not_take_down_the_whole_sweep(self):
+        with tempfile.TemporaryDirectory() as d:
+            repo = Path(d)
+            (repo / "foundation").mkdir()
+            (repo / "foundation" / "mouth_pypi_pyyaml_releases_log.jsonl").write_text('42\n')
+            report = sentinel.pulse_sweep(repo)   # must not raise
+            self.assertIsInstance(report.raw_finding_count, int)
+
+    def test_real_records_still_parse_when_mixed_with_junk(self):
+        with tempfile.TemporaryDirectory() as d:
+            repo = Path(d)
+            (repo / "foundation").mkdir()
+            now = datetime.now(timezone.utc)
+            good = [json.dumps({
+                "mouth_id": "pypi_pyyaml_releases",
+                "observed_at": (now - timedelta(hours=2 - i)).isoformat(),
+                "status": "UNAVAILABLE", "error": "boom"}) for i in range(2)]
+            (repo / "foundation" / "mouth_pypi_pyyaml_releases_log.jsonl").write_text(
+                "99\n" + "\n".join(good) + "\n")
+            self.assertEqual(len(sentinel.check_mouth_health(repo)), 1)
+
+
+class TestFrontierHashPlaceholderCheck(unittest.TestCase):
+    """The recurring class: PARETO_FRONTIER.md Archive rows carry a
+    literal "(this commit)" hash placeholder pending backfill, and this
+    repo's own history shows it repeatedly forgotten (5a9ca9f fixed one
+    row, naming 4 prior occurrences). Confirmed live 2026-08-28: 7 real
+    unresolved cells on disk, working tree matching HEAD exactly (not a
+    mid-edit false positive)."""
+
+    def _frontier(self, d, body):
+        (Path(d) / "PARETO_FRONTIER.md").write_text(body)
+        return Path(d)
+
+    def test_a_real_placeholder_cell_is_detected(self):
+        with tempfile.TemporaryDirectory() as d:
+            repo = self._frontier(d, "| FRONTIER-X | did a thing | (this commit) |\n")
+            findings = sentinel.check_frontier_hash_placeholders(repo)
+            self.assertEqual(len(findings), 1)
+            self.assertIn("7", "7")  # placeholder assertion below is the real one
+            self.assertIn("1 unresolved", findings[0].interpretation)
+
+    def test_a_real_backfilled_hash_produces_no_finding(self):
+        with tempfile.TemporaryDirectory() as d:
+            repo = self._frontier(d, "| FRONTIER-X | did a thing | `dd9a7fd` |\n")
+            self.assertEqual(sentinel.check_frontier_hash_placeholders(repo), [])
+
+    def test_a_prose_mention_of_the_phrase_is_not_a_false_positive(self):
+        """The real bug found and fixed before shipping: PARETO_FRONTIER.md
+        itself discusses this exact historical class using the phrase
+        'their `(this commit)` tags were false' -- a bare substring count
+        would double-count that discussion as a second live placeholder."""
+        with tempfile.TemporaryDirectory() as d:
+            repo = self._frontier(d, (
+                "| FRONTIER-Y | fixed rows above (their `(this commit)` "
+                "tags were false) | `dd9a7fd` |\n"
+            ))
+            self.assertEqual(sentinel.check_frontier_hash_placeholders(repo), [])
+
+    def test_a_row_with_both_a_real_placeholder_and_a_prose_mention_counts_once(self):
+        with tempfile.TemporaryDirectory() as d:
+            repo = self._frontier(d, (
+                "| FRONTIER-Z | discusses `(this commit)` in prose | (this commit) |\n"
+            ))
+            findings = sentinel.check_frontier_hash_placeholders(repo)
+            self.assertEqual(len(findings), 1)
+            self.assertIn("1 unresolved", findings[0].interpretation)
+
+    def test_the_observation_is_stable_regardless_of_count(self):
+        with tempfile.TemporaryDirectory() as d:
+            repo = self._frontier(d, "| A | x | (this commit) |\n")
+            key1 = sentinel.check_frontier_hash_placeholders(repo)[0].key()
+            repo = self._frontier(d, "\n".join(
+                f"| R{i} | x | (this commit) |" for i in range(5)))
+            key2 = sentinel.check_frontier_hash_placeholders(repo)[0].key()
+        self.assertEqual(key1, key2)
+
+    def test_a_missing_file_is_not_a_finding(self):
+        with tempfile.TemporaryDirectory() as d:
+            self.assertEqual(sentinel.check_frontier_hash_placeholders(Path(d)), [])
+
+    def test_it_is_wired_into_the_hourly_sweep(self):
+        with tempfile.TemporaryDirectory() as d:
+            repo = self._frontier(d, "| A | x | (this commit) |\n")
+            report = sentinel.pulse_sweep(repo)
+            self.assertTrue(any("Archive hash placeholder" in f.observation
+                                for f in report.findings))
+
+    def test_the_real_repository_is_now_clean(self):
+        """Was `test_the_real_repository_currently_has_seven`, pinned to
+        7 unresolved placeholders. Closed 2026-08-28 (FRONTIER-018,
+        cycle demonblade_013): all 7 attributed to real commits via
+        `git show`-verified diff evidence, none guessed. See
+        PARETO_FRONTIER.md FRONTIER-018."""
+        f = sentinel.check_frontier_hash_placeholders(REPO_ROOT)
+        self.assertEqual(f, [])
+
+    def test_it_writes_nothing(self):
+        path = REPO_ROOT / "PARETO_FRONTIER.md"
+        before = path.stat().st_mtime_ns
+        sentinel.check_frontier_hash_placeholders(REPO_ROOT)
+        self.assertEqual(path.stat().st_mtime_ns, before)

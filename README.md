@@ -16,10 +16,13 @@ tests.
 
 No runtime dependency beyond PyYAML. Pure `unittest`, no test framework
 dependency. **1,508 tests across 9 subsystems, all passing as of
-2026-08-28** (run `python3 -m unittest discover` in any subsystem's
-`tests/` directory to verify — do not trust this count once this file
-goes stale; re-run it; this repo's own CI, `.github/workflows/tests.yml`,
-runs the same invocation on every push and is the authoritative check).
+2026-08-28** (a static count of `def test_*` definitions, checked
+against real state by `foundation/sentinel.py::check_readme_test_count()`
+— run `python3 -m unittest discover` in any subsystem's `tests/`
+directory to verify the count executes and passes; do not trust this
+number once this file goes stale, re-run it; this repo's own CI,
+`.github/workflows/tests.yml`, runs the same invocation on every push
+and is the authoritative check).
 
 ## What's here
 
