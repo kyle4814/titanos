@@ -15,7 +15,7 @@ against real, unmodified filesystem data rather than only synthetic
 tests.
 
 No runtime dependency beyond PyYAML. Pure `unittest`, no test framework
-dependency. **1,508 tests across 9 subsystems, all passing as of
+dependency. **1,806 tests across 11 subsystems, all passing as of
 2026-08-28** (a static count of `def test_*` definitions, checked
 against real state by `foundation/sentinel.py::check_readme_test_count()`
 — run `python3 -m unittest discover` in any subsystem's `tests/`
@@ -98,7 +98,7 @@ specific technical problem.
 python3 -m unittest discover -s schema -p "test_*.py"
 
 # everything (matches .github/workflows/tests.yml's real CI matrix)
-for d in schema firewall kpm magl rpa taal foundation narrative legacy; do
+for d in schema firewall kpm magl rpa taal foundation narrative legacy compiler gems/claim_ledger; do
   python3 -m unittest discover -s "$d" -p "test_*.py"
 done
 ```

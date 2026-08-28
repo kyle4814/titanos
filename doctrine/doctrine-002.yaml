@@ -10,6 +10,14 @@
 
 id: DOCTRINE-002
 version: "2"
+# Root that every `enforced_at`/`test` path below is relative to,
+# interpreted relative to THIS FILE's directory. The invariants this
+# doctrine governs live in a sibling repository
+# (titanos_launch/titanos-obelisk/), not in cosmic-library. Recorded
+# 2026-08-28 after running the compiler with the obvious-but-wrong
+# root produced 5 false STALE_CLAIMs -- see compiler/coverage.py
+# ::resolve_workspace_root.
+workspace_root: "../.."
 status: ACTIVE
 effective_from: "2026-08-24"
 supersedes: DOCTRINE-001

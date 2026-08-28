@@ -32,6 +32,13 @@
 # narrower, checkable claim than "hostile takeover is prevented."
 
 id: DOCTRINE-POLE-REVERSAL-001
+# Root that every `enforced_at`/`test` path below is relative to,
+# interpreted relative to THIS FILE's directory. This doctrine's paths
+# are `cosmic-library/`-prefixed, so the root is this repo's parent.
+# Declared 2026-08-28 (cycle config_generalization_001): three doctrine
+# files used three different implicit root conventions and none recorded
+# it. See compiler/coverage.py::resolve_workspace_root.
+workspace_root: "../.."
 version: "1"
 status: ACTIVE
 effective_from: "2026-08-25"

@@ -169,11 +169,53 @@ def check_doctrine(doctrine_path: Path, root: Path) -> dict[str, Any]:
     }
 
 
+def resolve_workspace_root(doctrine_path: Path, override: Path | None = None) -> Path:
+    """Determine the root that `enforced_at` paths are relative to.
+
+    THE DEFECT THIS CLOSES (reproduced 2026-08-28): every `enforced_at`
+    path in doctrine-002.yaml is relative to `/home/tech2`, the PARENT of
+    this repository, because the invariants it governs live in a sibling
+    repo (`titanos_launch/titanos-obelisk/`). Nothing recorded that. Run
+    with the obvious-looking root -- this repository -- the compiler
+    returns REFUSED with 5 STALE_CLAIM, which reads exactly like real
+    doctrine drift. It is not: run against the correct root it returns
+    ACCEPTED, 5/5 CONSISTENT. Both results were reproduced directly.
+
+    A checker whose correct invocation is undocumented tribal knowledge
+    produces false REFUSALs, and a false REFUSAL is worse than no checker
+    -- it trains readers to ignore the tool. So the doctrine now declares
+    its own root via an optional top-level `workspace_root` key,
+    interpreted relative to the doctrine file's own directory.
+
+    Precedence: explicit CLI argument > declared `workspace_root` >
+    the doctrine file's own directory. The CLI override stays first so
+    this remains testable against a fixture tree, and so a caller who
+    genuinely knows better is never blocked by a stale declaration.
+    """
+    if override is not None:
+        return override
+    try:
+        doc = yaml.safe_load(doctrine_path.read_text(encoding="utf-8")) or {}
+    except (OSError, yaml.YAMLError):
+        return doctrine_path.parent
+    declared = doc.get("workspace_root") if isinstance(doc, dict) else None
+    if not declared or not isinstance(declared, str):
+        return doctrine_path.parent
+    return (doctrine_path.parent / declared).resolve()
+
+
 def main(argv: list[str]) -> int:
-    if len(argv) < 3:
-        print("usage: coverage.py <doctrine.yaml> <workspace-root>", file=sys.stderr)
+    if len(argv) < 2:
+        print("usage: coverage.py <doctrine.yaml> [workspace-root]", file=sys.stderr)
         return 2
-    report = check_doctrine(Path(argv[1]), Path(argv[2]))
+    doctrine_path = Path(argv[1])
+    override = Path(argv[2]) if len(argv) >= 3 else None
+    root = resolve_workspace_root(doctrine_path, override)
+    report = check_doctrine(doctrine_path, root)
+    report["workspace_root"] = str(root)
+    report["workspace_root_source"] = (
+        "cli" if override is not None else "declared_or_default"
+    )
     print(json.dumps(report, indent=2))
     return 0 if report["result"] == "ACCEPTED" else 1
 

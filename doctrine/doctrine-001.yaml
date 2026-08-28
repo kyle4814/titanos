@@ -9,11 +9,25 @@
 # bytes, so any alteration is detectable by anyone, without our tooling.
 
 id: DOCTRINE-001
+# Root for `enforced_at`/`test` paths, relative to THIS FILE's dir.
+# Declared 2026-08-28 (cycle config_generalization_001) — same
+# convention as doctrine-002. NOTE: this file remains readable
+# forever by design, but see superseded_by below.
+workspace_root: "../.."
 version: "1"
-status: ACTIVE
+status: SUPERSEDED
 effective_from: "2026-08-24"
 supersedes: null
-superseded_by: null
+superseded_by: DOCTRINE-002
+# Corrected 2026-08-28 (cycle config_generalization_001). This file
+# declared status: ACTIVE / superseded_by: null while doctrine-002.yaml
+# declared `supersedes: DOCTRINE-001` — a two-file contradiction that
+# stood because nothing ever ran the compiler against this file. Its
+# one remaining STALE_CLAIM (I-06, PARTIAL, pointing at a path that
+# moved) is the exact defect doctrine-002's own amendment_record cites
+# as the reason 002 was authored. That claim is historical and is
+# deliberately NOT edited — this file remains readable forever by
+# design; only its lifecycle metadata was wrong.
 
 principles:
   - id: P-01

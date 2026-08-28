@@ -10,6 +10,7 @@ from unittest import mock
 
 from foundation import sentinel
 from foundation.sentinel import (
+    check_ci_matrix_coverage,
     check_protocol_document_targets,
     _LEVEL1_CHECKS,
     Finding, FourPaths, PathProposal, consolidate, format_four_paths,
@@ -2437,3 +2438,98 @@ class TestIdentitiesMustBeNameable(unittest.TestCase):
              sentinel.HuntSurface(name="A", status="BLOCKED", evidence="e")),
             state_revalidated=True, candidates_found=())
         self.assertFalse(d.proceed)   # two lawful distinct identities, both closed
+
+
+class TestCheckCiMatrixCoverage(unittest.TestCase):
+    """CI-matrix reachability (PARETO_FRONTIER.md FRONTIER-025/cycle
+    ci_escape_001): every `test_*.py` file must be contained under at
+    least one `-s <subsystem>` entry in `.github/workflows/tests.yml`'s
+    matrix, or it silently never runs in CI.
+
+    REPRODUCED 2026-08-28: `gems/claim_ledger/test_claim_ledger.py` (14
+    real, passing tests) sat outside every matrix entry's reach — the
+    whole 10-subsystem CI-equivalent run stayed green with zero mentions
+    of it. This class proves the check catches that shape and does not
+    false-positive on the real, now-fixed repository.
+    """
+
+    def _repo(self, subsystems, test_files):
+        root = Path(self.tmp.name)
+        (root / ".github" / "workflows").mkdir(parents=True, exist_ok=True)
+        matrix_yaml = "\n".join(f"          - {s}" for s in subsystems)
+        (root / ".github" / "workflows" / "tests.yml").write_text(f"""\
+jobs:
+  test:
+    strategy:
+      matrix:
+        subsystem:
+{matrix_yaml}
+""")
+        for rel in test_files:
+            f = root / rel
+            f.parent.mkdir(parents=True, exist_ok=True)
+            f.write_text("import unittest\n")
+        return root
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+
+    def test_real_repository_is_currently_clean(self):
+        """The actual fix this cycle made to tests.yml: gems/claim_ledger
+        added as its own matrix entry. Must produce zero findings now."""
+        self.assertEqual(check_ci_matrix_coverage(REPO_ROOT), [])
+
+    def test_reproduces_the_real_escape_shape(self):
+        """THE DISCRIMINATING MUTATION. A matrix missing the containing
+        directory of a real test file must be caught -- this is the
+        exact shape gems/claim_ledger regressed from before this cycle's
+        fix. Fails against the pre-fix matrix, passes against the
+        post-fix one (see test_real_repository_is_currently_clean)."""
+        root = self._repo(
+            subsystems=["schema", "compiler"],
+            test_files=[
+                "schema/tests/test_a.py",
+                "compiler/tests/test_b.py",
+                "gems/claim_ledger/test_claim_ledger.py",
+            ],
+        )
+        findings = check_ci_matrix_coverage(root)
+        self.assertEqual(len(findings), 1)
+        self.assertIn("gems/claim_ledger", findings[0].observation)
+
+    def test_a_file_reachable_via_a_leaf_matrix_entry_is_not_flagged(self):
+        """The fix's own shape: a matrix entry naming the leaf directory
+        directly (gems/claim_ledger, not gems) must satisfy reachability."""
+        root = self._repo(
+            subsystems=["schema", "gems/claim_ledger"],
+            test_files=[
+                "schema/tests/test_a.py",
+                "gems/claim_ledger/test_claim_ledger.py",
+            ],
+        )
+        self.assertEqual(check_ci_matrix_coverage(root), [])
+
+    def test_a_naive_parent_only_entry_does_not_launder_a_nested_escape(self):
+        """A matrix entry for a PARENT directory does cover files nested
+        under it -- containment is real, not name-matching -- but a
+        SIBLING directory with no matrix entry of its own is still
+        flagged. Distinguishes real path containment from string
+        prefix-matching bugs (e.g. 'gems' wrongly matching 'gems2')."""
+        root = self._repo(
+            subsystems=["schema"],
+            test_files=[
+                "schema/tests/nested/deep/test_a.py",  # covered: real containment
+                "schema2/tests/test_b.py",             # NOT covered: distinct sibling dir
+            ],
+        )
+        findings = check_ci_matrix_coverage(root)
+        self.assertEqual(len(findings), 1)
+        self.assertIn("schema2", findings[0].observation)
+
+    def test_missing_workflow_file_is_a_finding_not_a_crash(self):
+        root = Path(self.tmp.name)
+        self.assertEqual(len(check_ci_matrix_coverage(root)), 1)
+
+    def test_wired_into_pulse_sweep(self):
+        self.assertIn(check_ci_matrix_coverage, _LEVEL1_CHECKS)

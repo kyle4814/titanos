@@ -17,6 +17,14 @@
 # addressed by magl/composition/engine.py and magl/registry/catalogue.py.
 
 id: MAGL-OBELISK-001
+# Root that every `enforced_at`/`test` path below is relative to,
+# interpreted relative to THIS FILE's directory. Paths here are
+# `cosmic-library/`-prefixed, so the root is this repo's parent.
+# Declared 2026-08-28 (cycle identity_classifier_001): this file has
+# the exact compiler schema (invariants[].enforced_at/status/test) but
+# lived outside doctrine/ and had NEVER been validated. At the correct
+# root it is 11/11 CONSISTENT -- it was never stale, just unchecked.
+workspace_root: "../../.."
 version: "1"
 status: ACTIVE
 effective_from: "2026-08-25"

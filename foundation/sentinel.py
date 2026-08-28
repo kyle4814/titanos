@@ -59,6 +59,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
+import yaml
+
 __all__ = [
     "Finding",
     "HealthReport",
@@ -88,6 +90,7 @@ __all__ = [
     "HUNT_SURFACE_STATUSES", "HuntSurface", "ContinuationDecision",
     "evaluate_continuation", "select_one_admitted", "UnaccountedCandidates",
     "DEFERRED_LOG_SIZE_THRESHOLD_BYTES", "check_deferred_log_size_wake_condition",
+    "check_ci_matrix_coverage",
 ]
 
 CONFIDENCE_VALUES = frozenset({"HIGH", "MEDIUM", "LOW"})
@@ -202,6 +205,84 @@ def check_subsystem_build_reports(repo_root: Path) -> list[Finding]:
                 ),
                 reversibility="fully reversible — adding a document has no side effects",
                 recommended_next_action="candidate for PARETO_FRONTIER.md, not auto-created",
+            ))
+    return findings
+
+
+def check_ci_matrix_coverage(repo_root: Path) -> list[Finding]:
+    """Every `test_*.py` file in this repository must be reachable by at
+    least one `-s <subsystem>` entry in `.github/workflows/tests.yml`'s
+    matrix -- reachable meaning the file's path is contained under
+    `repo_root / subsystem`, the exact containment `python3 -m unittest
+    discover -s <subsystem>` relies on.
+
+    THE DEFECT THIS CLOSES (reproduced 2026-08-28, cycle ci_escape_001):
+    the matrix is a hand-maintained explicit list, no discovery. A real,
+    git-tracked, independently-tested unit -- `gems/claim_ledger/
+    test_claim_ledger.py`, 14 real tests -- sat outside every matrix
+    entry's reach. Simulating the exact CI invocation for all ten
+    entries and grepping the verbose output confirmed zero executions
+    of it; run directly it passes 14/14. Not a hypothetical: this check
+    would have caught it the moment it was added.
+
+    DELIBERATELY NOT a subsystem-discovery mechanism: this does not
+    decide what counts as a "subsystem" (that stays a human decision --
+    see `SUBSYSTEMS_REQUIRING_BUILD_REPORT`'s own comment) and does not
+    infer a required matrix entry from directory structure. It only
+    checks pure path containment against the matrix as currently
+    declared -- a fact, not a judgment call -- so it cannot itself
+    become a second competing subsystem registry."""
+    workflow = repo_root / ".github" / "workflows" / "tests.yml"
+    if not workflow.exists():
+        return [Finding(
+            observation=".github/workflows/tests.yml is missing",
+            evidence_location=str(workflow),
+            confidence="HIGH",
+            interpretation="the CI matrix this check validates does not exist",
+            reversibility="reversible — file can be restored from git history",
+            recommended_next_action="HUMAN_REVIEW_REQUIRED",
+        )]
+    try:
+        workflow_doc = yaml.safe_load(workflow.read_text(encoding="utf-8")) or {}
+    except yaml.YAMLError as exc:
+        return [Finding(
+            observation="tests.yml is not valid YAML",
+            evidence_location=str(workflow),
+            confidence="HIGH",
+            interpretation=f"{type(exc).__name__}: {exc}",
+            reversibility="reversible — fix the YAML syntax",
+            recommended_next_action="HUMAN_REVIEW_REQUIRED",
+        )]
+    matrix = (
+        workflow_doc.get("jobs", {}).get("test", {}).get("strategy", {})
+        .get("matrix", {}).get("subsystem", [])
+    )
+    reachable_prefixes = [
+        (repo_root / str(s)).resolve() for s in matrix if isinstance(s, str)
+    ]
+    findings: list[Finding] = []
+    for path in sorted(repo_root.rglob("test_*.py")):
+        if any(part in _EXCLUDED_DIRS for part in path.parts):
+            continue
+        resolved = path.resolve()
+        if not any(
+            resolved == prefix or prefix in resolved.parents
+            for prefix in reachable_prefixes
+        ):
+            findings.append(Finding(
+                observation=f"test file not reachable by any CI matrix entry: "
+                            f"{path.relative_to(repo_root)}",
+                evidence_location=str(path),
+                confidence="HIGH",
+                interpretation=(
+                    "this file contains real tests that never run in CI -- "
+                    "no `-s <subsystem>` matrix entry's directory contains it"
+                ),
+                reversibility="fully reversible — observation only, nothing is rewritten",
+                recommended_next_action=(
+                    "add the containing directory as a matrix entry, or "
+                    "record an explicit, mechanically-visible exclusion"
+                ),
             ))
     return findings
 
@@ -1622,6 +1703,7 @@ _LEVEL1_CHECKS: tuple = (
     check_duplicate_frontier_ids, check_frontier_schema, check_mouth_health,
     check_readme_test_count, check_sigil_snapshot_agreement,
     check_frontier_hash_placeholders, check_protocol_document_targets,
+    check_ci_matrix_coverage,
 )
 
 
