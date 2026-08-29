@@ -51,7 +51,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
-from foundation.sentinel import SUBSYSTEMS_REQUIRING_BUILD_REPORT, pulse_sweep
+from foundation.sentinel import (
+    SUBSYSTEMS_REQUIRING_BUILD_REPORT, has_substantive_build_report, pulse_sweep,
+)
 from foundation.recursion_guard import GuardDecision, check as guard_check, child_env as guard_child_env
 
 __all__ = [
@@ -146,9 +148,12 @@ def _defines(module_path: Path, *symbols: str) -> bool:
 def _dimension_iron(repo_root: Path) -> tuple[int, str]:
     """Durable code foundation: subsystems with a real BUILD_REPORT.md
     audit trail (`sentinel.py`'s own fixed list, not re-derived here)."""
+    # Reuses sentinel's own predicate rather than a second copy of the
+    # rule -- these two surfaces scoring the same claim by different
+    # standards is exactly how the hollow-BUILD_REPORT.md gap survived.
     present = sum(
         1 for name in SUBSYSTEMS_REQUIRING_BUILD_REPORT
-        if (repo_root / name / "BUILD_REPORT.md").exists()
+        if has_substantive_build_report(repo_root / name)
     )
     total = len(SUBSYSTEMS_REQUIRING_BUILD_REPORT)
     score = round(10 * present / total) if total else 0

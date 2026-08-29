@@ -50,7 +50,9 @@ class _FixtureRepo:
         # reports(), a real check reacting correctly to a fixture
         # artifact that doesn't exist in the real repo.
         (self.root / "foundation").mkdir()
-        (self.root / "foundation" / "BUILD_REPORT.md").write_text("# report\n")
+        (self.root / "foundation" / "BUILD_REPORT.md").write_text(
+            "# report\n\nheading plus body: a bare heading is a stub, not an\n"
+            "audit trail, and has been rejected since 2026-08-29.\n")
         (self.root / ".github" / "workflows").mkdir(parents=True)
         (self.root / ".github" / "workflows" / "tests.yml").write_text(_WORKFLOW)
         (self.root / ".gitignore").write_text(

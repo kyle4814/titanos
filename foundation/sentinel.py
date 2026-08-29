@@ -186,15 +186,60 @@ def check_claude_md_imports(repo_root: Path) -> list[Finding]:
     return findings
 
 
+def has_substantive_build_report(subsystem_dir: Path) -> bool:
+    """True only if this subsystem's BUILD_REPORT.md exists AND carries
+    actual audit content: at least one markdown heading plus real body
+    text under it.
+
+    WHY THIS IS NOT `.exists()` (reproduced defect, 2026-08-29)
+
+    Both this check and `foundation/sigil.py::_dimension_iron()` scored
+    on bare existence. REPRODUCED: eight EMPTY `BUILD_REPORT.md` files
+    scored `IRON:10` ("8/8 subsystems have BUILD_REPORT.md") and this
+    check returned zero findings -- while `_dimension_iron`'s score is a
+    required conjunct for tier T6 in `compute_tier()`. So eight `touch`ed
+    files could buy a tier.
+
+    This check's own finding text already claimed the report carries
+    "limitations/human-decisions/next-work-cell sections" -- it asserted
+    more than it verified. That gap is what closes here.
+
+    CEILING, stated rather than papered over: this verifies the report is
+    a document rather than a stub. It does NOT verify the sections are
+    honest, complete, current, or accurate -- none of which is machine
+    checkable, and claiming otherwise would be exactly the semantic
+    laundering this repository rejects elsewhere. Specific section NAMES
+    are deliberately not required: the eight real reports carry 8-12
+    headings with differing names, so a fixed-name rule would encode this
+    week's phrasing as law.
+    """
+    report = subsystem_dir / "BUILD_REPORT.md"
+    if not report.exists():
+        return False
+    try:
+        text = report.read_text(encoding="utf-8", errors="ignore")
+    except OSError:
+        return False
+    lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
+    has_heading = any(ln.startswith("#") for ln in lines)
+    has_body = any(not ln.startswith("#") for ln in lines)
+    return has_heading and has_body
+
+
 def check_subsystem_build_reports(repo_root: Path) -> list[Finding]:
     findings: list[Finding] = []
     for name in SUBSYSTEMS_REQUIRING_BUILD_REPORT:
         subsystem_dir = repo_root / name
         if not subsystem_dir.is_dir():
             continue
-        if not (subsystem_dir / "BUILD_REPORT.md").exists():
+        if not has_substantive_build_report(subsystem_dir):
+            exists = (subsystem_dir / "BUILD_REPORT.md").exists()
             findings.append(Finding(
-                observation=f"subsystem '{name}' has no BUILD_REPORT.md",
+                observation=(
+                    f"subsystem '{name}' has no BUILD_REPORT.md"
+                    if not exists else
+                    f"subsystem '{name}' has a BUILD_REPORT.md with no audit content"
+                ),
                 evidence_location=str(subsystem_dir),
                 confidence="MEDIUM",
                 interpretation=(
@@ -202,6 +247,13 @@ def check_subsystem_build_reports(repo_root: Path) -> list[Finding]:
                     "limitations/human-decisions/next-work-cell sections; "
                     "this one does not, which may mean the audit trail for "
                     "this subsystem lives only in commit messages"
+                    if not exists else
+                    "the file is present but carries no heading-plus-body "
+                    "content, so it is a placeholder rather than an audit "
+                    "trail. This distinction matters because "
+                    "foundation/sigil.py::_dimension_iron() scores this "
+                    "subsystem as covered, and that score is a required "
+                    "conjunct for tier T6 -- an empty file would buy a tier"
                 ),
                 reversibility="fully reversible — adding a document has no side effects",
                 recommended_next_action="candidate for PARETO_FRONTIER.md, not auto-created",

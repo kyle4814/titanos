@@ -11,6 +11,8 @@ from unittest import mock
 from foundation import sentinel
 from foundation.sentinel import (
     check_ci_matrix_coverage,
+    check_subsystem_build_reports, has_substantive_build_report,
+    SUBSYSTEMS_REQUIRING_BUILD_REPORT,
     check_protocol_document_targets,
     _LEVEL1_CHECKS,
     Finding, FourPaths, PathProposal, consolidate, format_four_paths,
@@ -2533,3 +2535,66 @@ jobs:
 
     def test_wired_into_pulse_sweep(self):
         self.assertIn(check_ci_matrix_coverage, _LEVEL1_CHECKS)
+
+
+class TestBuildReportSubstanceNotJustExistence(unittest.TestCase):
+    """REPRODUCED 2026-08-29: eight EMPTY BUILD_REPORT.md files scored
+    IRON:10 and produced zero findings, while _dimension_iron()'s score
+    is a required conjunct for tier T6 -- eight touched files could buy
+    a tier. This check's own finding text already claimed the report
+    carried limitations/human-decisions sections; it asserted more than
+    it verified."""
+
+    def _repo(self, content):
+        d = tempfile.mkdtemp()
+        root = Path(d)
+        for name in SUBSYSTEMS_REQUIRING_BUILD_REPORT:
+            (root / name).mkdir()
+            (root / name / "BUILD_REPORT.md").write_text(content)
+        return root
+
+    def test_empty_report_is_now_a_finding_not_silence(self):
+        findings = check_subsystem_build_reports(self._repo(""))
+        self.assertEqual(len(findings), len(SUBSYSTEMS_REQUIRING_BUILD_REPORT))
+        self.assertIn("no audit content", findings[0].observation)
+
+    def test_heading_only_stub_is_rejected(self):
+        # A bare "# report" is a placeholder, not an audit trail.
+        self.assertEqual(
+            len(check_subsystem_build_reports(self._repo("# report\n"))),
+            len(SUBSYSTEMS_REQUIRING_BUILD_REPORT),
+        )
+
+    def test_body_without_any_heading_is_rejected(self):
+        self.assertEqual(
+            len(check_subsystem_build_reports(self._repo("just prose, no heading\n"))),
+            len(SUBSYSTEMS_REQUIRING_BUILD_REPORT),
+        )
+
+    def test_minimal_real_report_is_accepted(self):
+        self.assertEqual(
+            len(check_subsystem_build_reports(self._repo("# Report\n\nWhat was built: x\n"))), 0)
+
+    def test_missing_and_hollow_produce_distinguishable_observations(self):
+        # The two states are different problems and must not be conflated.
+        d = tempfile.mkdtemp()
+        root = Path(d)
+        names = list(SUBSYSTEMS_REQUIRING_BUILD_REPORT)
+        (root / names[0]).mkdir()  # missing entirely
+        (root / names[1]).mkdir()
+        (root / names[1] / "BUILD_REPORT.md").write_text("")  # present but hollow
+        observations = [f.observation for f in check_subsystem_build_reports(root)]
+        self.assertIn(f"subsystem '{names[0]}' has no BUILD_REPORT.md", observations)
+        self.assertIn(
+            f"subsystem '{names[1]}' has a BUILD_REPORT.md with no audit content",
+            observations)
+
+    def test_the_real_repository_still_passes_unchanged(self):
+        # The other half of the proof: a stricter rule must not penalise
+        # the eight real reports (each 2.5-9.2KB, 8-12 headings).
+        self.assertEqual(len(check_subsystem_build_reports(REPO_ROOT)), 0)
+        for name in SUBSYSTEMS_REQUIRING_BUILD_REPORT:
+            self.assertTrue(has_substantive_build_report(REPO_ROOT / name), name)
+
+    def test_wired_into_pulse_sweep(self):
+        self.assertIn(check_subsystem_build_reports, _LEVEL1_CHECKS)

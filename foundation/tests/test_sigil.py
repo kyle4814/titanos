@@ -101,7 +101,8 @@ class TestDimensionsOnSyntheticRepo(unittest.TestCase):
             for name in SUBSYSTEMS_REQUIRING_BUILD_REPORT:
                 d = root / name
                 d.mkdir()
-                (d / "BUILD_REPORT.md").write_text("# report\n")
+                (d / "BUILD_REPORT.md").write_text(
+                    "# report\n\nheading plus body -- a bare heading no longer counts.\n")
             score, justification = _dimension_iron(root)
             self.assertEqual(score, 10)
 
