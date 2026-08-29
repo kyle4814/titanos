@@ -1,8 +1,17 @@
 # TitanOS — Failure Archive
 
-**Generation:** 001
+**Generation:** 002
 **Status:** OPEN — this archive is never closed
-**Scope:** failures observed in the TitanOS build sessions of 2026-08-19 → 2026-08-24
+**Scope:** Generation 001 covers 2026-08-19 → 2026-08-24 (F-001…F-010).
+Generation 002 covers 2026-08-28 → 2026-08-29 (F-011…F-014).
+
+**Gap disclosed rather than hidden:** this file went unwritten between
+2026-08-25 and 2026-08-29 while the repository kept producing real,
+reproduced, fixed defects. Those four are recorded below, recovered from
+git history. An archive that claims to be "never closed" and then stops
+being written is itself the failure class this repository hunts — a
+claim outliving its evidence — so the lapse is stated here rather than
+quietly backfilled.
 
 This archive exists because an architecture that only records its successes
 is an advertisement, not a record. Every entry below is a real defect in
@@ -269,6 +278,163 @@ directly from this incident).
 4. **Green tests coexisted with a non-deterministic pipeline (F-004) and a
    false central security claim (F-006).** Suite-green is not
    system-correct.
+
+---
+
+---
+
+# Generation 002 — 2026-08-28 → 2026-08-29
+
+Every entry below was **reproduced before it was fixed**, and the fix was
+verified by mutation (inject the defect → an independent check fires →
+restore → it passes) rather than by a green suite alone. Commit hashes
+are real and `git show`-verifiable.
+
+## F-011 — Capability scored by file existence, so six empty files scored full marks
+
+**Status:** FIXED · **Severity:** high · **Found by:** attacking the
+measurement instead of trusting it
+
+`foundation/sigil.py`'s capability dimensions awarded points on
+`Path.exists()`. A scratch directory containing six EMPTY files with the
+right names, plus two trivial marker strings, scored
+`ORCH:10 | MEMORY:10` — byte-identical to the real repository.
+
+**Why it matters:** `TITANOS_SIGIL_CAPABILITY_INDEX.md` requires each
+dimension be "derived from a concrete, inspectable fact — never a
+caller-supplied number." File existence is effectively caller-suppliable.
+The index that reports what this repository can do could be satisfied by
+`touch`.
+
+**Fix:** `_defines(path, *symbols)` — the module must exist AND define
+every named symbol. Deliberately not applied to markdown documents, where
+existence genuinely is the signal. Two-sided proof: real repo scores
+unchanged; hollow fixture collapses. A real bug in the first draft (a
+`^` anchor that reported a fully-populated TestCase file as empty) was
+caught by the real-repo half of that same two-sided check.
+Commit `55af138`.
+
+## F-012 — Eight empty BUILD_REPORT.md files could buy a tier
+
+**Status:** FIXED · **Severity:** high · **Found by:** generalising F-011
+
+Same defect class, strictly worse consequence: `_dimension_iron()` and
+`check_subsystem_build_reports()` both scored on bare existence. Eight
+EMPTY `BUILD_REPORT.md` files scored `IRON:10` and produced ZERO
+findings — and `iron_score` is a required conjunct for tier T6 in
+`compute_tier()`.
+
+**Why it matters:** the live hourly check's own finding text already
+claimed the report carried "limitations/human-decisions/next-work-cell
+sections". It asserted more than it verified.
+
+**Fix:** `has_substantive_build_report()` (heading AND body), shared by
+both surfaces so they cannot drift apart. Specific section *names* were
+deliberately not required — the eight real reports carry 8–12 headings
+with differing names, so a fixed-name rule would encode one week's
+phrasing as law. Commit `49ef042`.
+
+## F-013 — A load-bearing safety claim enforced by nothing
+
+**Status:** FIXED · **Severity:** high · **Found by:** asking which
+execution path a capability could take, not whether it was permitted
+
+`foundation/autonomy_loop.py` "never pushes" was claimed in FOUR places —
+its module docstring, the commit message it writes, `.claude/commands/
+boot.md`, and `HUMAN_DECISIONS.md` item 14, whose entire argument that
+scheduling is comparatively low-risk *rests* on it. It was enforced by
+ZERO tests. `_git()` forwards arbitrary arguments to `git`; the only
+thing preventing a push was that no call site passed one.
+
+**Why it matters:** this repository's own Critical Function Switch-Gate
+doctrine states that a reminder is not an enforcement mechanism. A
+safety property that four documents depend on was resting on the absence
+of a call site.
+
+**Fix:** `TestGitCapabilityIsStructurallyConfined` — AST-based, not
+grep-based, so a mention in a docstring is not mistaken for a call. All
+three bypass routes proven caught by mutation: an injected literal
+`push`; a runtime-computed verb evading static analysis; a second
+`subprocess.run` routing around the wrapper entirely. Commit `b943dc0`.
+
+## F-014 — A safe-looking STOPPED result concealing a staged mutation
+
+**Status:** FIXED · **Severity:** high · **Found by:** auditing the
+trajectory instead of the terminal state
+
+With a rejecting pre-commit hook, `run_one_cycle()` returned
+`STOPPED_FIX_VERIFICATION_FAILED` — a result that reads as "nothing
+happened, human must intervene" — while `git status --porcelain` showed
+`M  README.md`. Column 1 means **staged**. The loop had written the fix
+AND staged it, then reported a stop.
+
+**Why it matters:** the loop invoked via `run_one_cycle()` writes no
+receipt-log entry, so there was no durable record either. A human's next
+unrelated `git commit` would have silently absorbed an autonomous edit
+into their own authorship. Every existing test asserted the terminal
+`CycleResult`; none asserted the trajectory. A safe final state is not a
+safe trajectory.
+
+**Fix, which narrowed capability rather than widening it:** `git add` was
+removed entirely in favour of a pathspec commit, which leaves the index
+untouched when the commit fails (verified directly: failed pathspec
+commit yields ` M`, never `M `). Every post-write failure path now
+restores README.md byte-for-byte by plain file write — deliberately not
+`git checkout`/`restore`/`reset`, since undoing damage must not require
+widening the capability set that bounds the loop. The authorized verb set
+narrowed from `{status, add, commit}` to `{status, commit}`.
+Mutation proof: reverting to the old shape tripped TWO independent gates
+at once — F-013's capability test fired on `['add']` and the new
+trajectory test fired on the dirty tree. Commit `64d1aee`.
+
+## Measured yield — the one before/after this generation actually has
+
+README test-count drift had been repaired **by hand 7 times** across this
+repository's real git history, three of them in a single session, while a
+built, tested, authorized actuator for exactly that repair sat unreached
+because no protocol step named it.
+
+*How to re-derive that number, stated precisely because a vaguer version
+of this line was itself already drifting when written:*
+`git log -p --follow README.md | grep -c "^+.*tests across"` returns
+**9** as of commit `6adba6e` — 7 hand edits plus the 2 autonomous ones
+below. Subtract the commits whose SUBJECT begins `[autonomy-loop]`:
+`git log --oneline | grep -c "\\[autonomy-loop\\]"` returns **2**.
+(Use `--oneline | grep`, not `git log --grep`, which also matches message
+bodies and returns 3 here — commit `3b697e3` discusses the actuator
+without being one of its commits. That off-by-one was found while
+writing this line, which is the third time in this generation that a
+stated verification method disagreed with the number it was supposed to
+support.) Both integers move as the file changes; the method is the
+durable part.
+
+After the actuator was routed into `.claude/commands/boot.md` (commit
+`3b697e3`), it fired in production twice — commits `474cd2a` and
+`6adba6e` — each time recomputing the real count, rewriting only the
+verbatim span, re-running the detector to verify, and committing itself.
+Hand edits since routing: **zero**.
+
+This is a within-repository measurement, not a claim about other
+systems. It is recorded because the before-count (7) and after-count (0)
+are both independently recoverable from git history by anyone.
+
+## Cross-cutting observations — Generation 002
+
+5. **Four of four defects this generation were defects in
+   SELF-MEASUREMENT, not in features.** F-011 and F-012 were claims about
+   capability that the measurement did not check; F-013 was a safety
+   claim with no enforcement; F-014 was a result that misreported what
+   the trajectory had done. Generation 001's lesson was "running it finds
+   what reading it misses." Generation 002's is narrower and sharper:
+   **the thing most likely to be wrong is what the system says about
+   itself.**
+6. **Two independent gates caught one regression** (F-014's mutation
+   tripped F-013's capability test as well). Redundant enforcement is
+   not redundant.
+7. **Every fix this generation either preserved or reduced authority.**
+   F-014 removed a git verb. None added a capability, and the one
+   candidate that would have (scheduling the loop unattended) was
+   recorded as an open human decision instead of taken.
 
 ---
 
