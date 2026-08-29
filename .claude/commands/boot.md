@@ -102,11 +102,30 @@ summary is not proof of anything; verified behavior is.
    unbuilt" sections specifically — these are the standing, named,
    not-yet-closed gaps from prior GO cycles. Read `PARETO_FRONTIER.md`
    (ranked candidate moves, some already scoped in full — Active/Blocked
-   sections only; the Archive table is history, not the scan path) and
+   for what is open; the Archive table is history, not the scan path) and
    `NEXT_MOVE.md` (the single standing recommendation from the last
    cycle) — do not re-derive a frontier from scratch if one is already
    recorded and still fresh; do re-verify it rather than trust it blindly
-   if its `added` date is old. `INTUITION.md` holds unproven observations
+   if its `added` date is old.
+
+   **Then read `PARETO_FRONTIER.md`'s "Rejected / not on the frontier"
+   section — it is part of the scan path, not history.** This step used
+   to say "Active/Blocked sections only", which routed a fresh worker
+   around the entire killed-idea register. That register is where prior
+   cycles record what was already prosecuted and killed AND the exact
+   evidence that would reopen each one (e.g. a second `autonomy_loop.py`
+   actuator; new external mouths/sensors, all blocked on the same
+   missing in-repository consumer). Without it a fresh worker cannot
+   tell "not yet considered" from "considered and killed on evidence",
+   so it re-litigates settled work and spends a cycle rediscovering a
+   conclusion the repository already paid for.
+
+   The Rejected entries are not vetoes on your judgement — each one
+   names its own re-entry condition. Reopening a killed candidate is
+   legitimate exactly when its stated condition is met by new evidence,
+   and not merely because it seems appealing again. Check the condition
+   before proposing; if it is met, say so explicitly and cite the new
+   evidence. `INTUITION.md` holds unproven observations
    with no authority — worth a glance, never a substitute for the
    frontier. `SIGIL.md` holds the last computed capability index
    (`TIER:Tn | IRON:.. | ...`) — orientation, not authority; re-run
