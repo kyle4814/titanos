@@ -580,7 +580,16 @@ class TestGuardRejectsBeforeAnySubprocessSpawns(unittest.TestCase):
         # Positive control: without this, lens A would pass trivially if
         # _dimension_proof stopped spawning altogether. subprocess.run is
         # mocked so no real suites run.
+        #
+        # MUST CLEAR THE GUARD ANCESTRY EXPLICITLY. Found by running this
+        # suite the way compute_sigil() actually runs it -- inside its own
+        # PROOF_OPERATION-stamped child process. There the guard correctly
+        # blocks, nothing spawns, and a version of this test that merely
+        # INHERITED the ambient environment failed, breaking the real-repo
+        # sigil computation. A test asserting "the unblocked path spawns"
+        # must establish that it is unblocked rather than assume it.
         from foundation import sigil as sigil_mod
+        from foundation.recursion_guard import _OPERATION_ENV, _DEPTH_ENV
         calls = []
 
         class _Fake:
@@ -592,8 +601,14 @@ class TestGuardRejectsBeforeAnySubprocessSpawns(unittest.TestCase):
             calls.append(a)
             return _Fake()
 
-        with mock.patch.object(sigil_mod.subprocess, "run", side_effect=_fake_run):
-            sigil_mod._dimension_proof(REPO_ROOT)
+        clean_env = {k: v for k, v in os.environ.items()
+                     if k not in (_OPERATION_ENV, _DEPTH_ENV)}
+        with mock.patch.dict(os.environ, clean_env, clear=True):
+            self.assertTrue(
+                guard_check(PROOF_OPERATION).is_safe(),
+                "precondition: this control requires an unblocked ancestry")
+            with mock.patch.object(sigil_mod.subprocess, "run", side_effect=_fake_run):
+                sigil_mod._dimension_proof(REPO_ROOT)
         self.assertTrue(
             calls, "the unblocked path must still spawn -- otherwise the "
                    "rejected-path assertion proves nothing")
