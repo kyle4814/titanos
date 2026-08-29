@@ -49,6 +49,7 @@ from __future__ import annotations
 import json
 import re
 import subprocess
+import sys
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -57,7 +58,19 @@ from typing import Optional
 
 import yaml
 
-from foundation.sentinel import pulse_sweep, count_real_tests
+# Same convention as foundation/cron_pulse.py -- the one other script in
+# this repository actually invoked as `python3 foundation/<name>.py`
+# rather than `python3 -m foundation.<name>`. Reproduced directly before
+# this fix: without this, plain script invocation failed at import time
+# with `ModuleNotFoundError: No module named 'foundation'`, because
+# Python only puts the SCRIPT's own directory on sys.path, not the repo
+# root -- `-m` invocation works without this, but a bare script
+# invocation (the form this file's own __main__ block is written for)
+# does not.
+REPO_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(REPO_ROOT))
+
+from foundation.sentinel import pulse_sweep, count_real_tests  # noqa: E402
 
 __all__ = [
     "AUTONOMY_STOP_FILENAME", "RECEIPT_LOG_NAME", "README_DRIFT_OBSERVATION",
@@ -298,8 +311,7 @@ def run_loop(
 
 
 if __name__ == "__main__":
-    import sys
-    root = Path(__file__).resolve().parents[1]
-    print(f"autonomy_loop starting against {root}; drop {root / AUTONOMY_STOP_FILENAME} "
-          f"to stop it at the next cycle boundary or during sleep.", file=sys.stderr)
-    run_loop(root)
+    print(f"autonomy_loop starting against {REPO_ROOT}; drop "
+          f"{REPO_ROOT / AUTONOMY_STOP_FILENAME} to stop it at the next "
+          f"cycle boundary or during sleep.", file=sys.stderr)
+    run_loop(REPO_ROOT)
