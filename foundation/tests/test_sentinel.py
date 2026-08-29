@@ -723,10 +723,42 @@ class TestMouthHealthSensor(unittest.TestCase):
         self.assertEqual(sentinel.check_mouth_health(REPO_ROOT), [])
 
     def test_the_sensor_writes_nothing(self):
-        path = REPO_ROOT / "foundation" / "mouth_pypi_pyyaml_releases_log.jsonl"
-        before = path.stat().st_mtime_ns
-        sentinel.check_mouth_health(REPO_ROOT)
-        self.assertEqual(path.stat().st_mtime_ns, before)
+        """The read-only property, checked WITHOUT depending on machine-local
+        runtime state.
+
+        This test used to stat() the real
+        `foundation/mouth_pypi_pyyaml_releases_log.jsonl`. That file is
+        UNTRACKED -- it exists only on a machine whose cron has actually run
+        a mouth. On every fresh clone it is absent, so `path.stat()` raised
+        FileNotFoundError and the exact CI step
+        (`python3 -m unittest discover -s foundation -p "test_*.py"`) failed,
+        which in turn made `sigil._dimension_proof()` see a non-green suite
+        and failed `test_real_repo_tier_reflects_the_real_network_tradeoff`
+        as a cascade. Reproduced 2026-08-29 in a real `git clone` of this
+        repository at this exact HEAD, not in a simulation of one.
+
+        The read-only property does not need the real file -- only a
+        real-shaped one. `self._log()` writes the same record shape the
+        producer writes, so this now exercises the same sensor behaviour on
+        every machine instead of only on the one that happened to have run
+        cron. The existence assertion below is a PRECONDITION, not decoration:
+        without it a fixture that silently failed to write would make the
+        mtime comparison trivially true and the test would pass vacuously.
+
+        Deliberately NOT fixed with `skipTest` on a missing log. That would
+        have turned a red CI green by not testing, which is the failure mode
+        this whole cycle was hunting.
+        """
+        with tempfile.TemporaryDirectory() as d:
+            repo = Path(d)
+            self._log(repo, "pypi_pyyaml_releases", ["UNCHANGED", "UNCHANGED"])
+            path = repo / "foundation" / "mouth_pypi_pyyaml_releases_log.jsonl"
+            self.assertTrue(path.exists(), "precondition: the fixture must exist")
+            before = path.stat().st_mtime_ns
+            digest_before = path.read_bytes()
+            sentinel.check_mouth_health(repo)
+            self.assertEqual(path.stat().st_mtime_ns, before, "sensor touched the log")
+            self.assertEqual(path.read_bytes(), digest_before, "sensor altered the log")
 
 
 class TestReadPulseContinuitySurvivesNonDictLines(unittest.TestCase):
