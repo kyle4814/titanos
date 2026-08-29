@@ -214,7 +214,36 @@ def run_one_cycle(repo_root: Path) -> CycleResult:
     """One bounded unit of work. Never raises on ordinary drift/absence
     conditions -- every real failure mode is a `CycleResult`, not an
     exception, so `run_loop()` never needs its own except-clause around
-    this call to stay receipted."""
+    this call to stay receipted.
+
+    EVERY outcome is receipted here, by the function that produces it.
+
+    Previously only `run_loop()` wrote receipts, so a cycle invoked
+    directly -- which is exactly what `.claude/commands/boot.md` step 4b
+    routes an operator to do -- left no durable record. REPRODUCED
+    2026-08-29: a cycle that wrote README.md, failed to commit, and
+    correctly rolled back left HEAD unmoved, the tree byte-identical, and
+    no log file. A real mutation was attempted and reverted with ZERO
+    durable evidence anywhere that it had happened.
+
+    That made two very different states indistinguishable to any later
+    reader: "the loop never ran" and "the loop ran, attempted a repair,
+    failed verification, and recovered". The second means the repair path
+    is broken and needs a human; the first means nothing happened. Fifty
+    silent failures looked identical to none.
+
+    The rollback (the recovery half) was already correct. This closes the
+    attribution half: an attempt that leaves no trace cannot be audited,
+    counted, or noticed when it starts recurring."""
+    result = _run_one_cycle_uncounted(repo_root)
+    _append_receipt(repo_root / "foundation" / RECEIPT_LOG_NAME, result)
+    return result
+
+
+def _run_one_cycle_uncounted(repo_root: Path) -> CycleResult:
+    """The decision logic itself. Split out so `run_one_cycle()` can
+    guarantee exactly one receipt per cycle at a single point, rather
+    than every early-return remembering to write one."""
     now = datetime.now(timezone.utc).isoformat()
     stop_file = repo_root / AUTONOMY_STOP_FILENAME
 
@@ -323,9 +352,12 @@ def run_loop(
     cycles = 0
 
     while max_cycles is None or cycles < max_cycles:
+        # No _append_receipt here: run_one_cycle() now writes its own
+        # receipt, so doing it again would double-log every cycle. The
+        # mid-sleep kill-switch below is NOT produced by run_one_cycle(),
+        # so that one still records itself.
         result = run_one_cycle(repo_root)
         results.append(result)
-        _append_receipt(log_path, result)
         cycles += 1
 
         if result.is_stop():

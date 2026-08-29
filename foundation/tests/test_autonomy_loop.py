@@ -1,4 +1,5 @@
 import ast
+import json
 import stat
 import subprocess
 import tempfile
@@ -8,6 +9,7 @@ from pathlib import Path
 from foundation import autonomy_loop
 from foundation.autonomy_loop import (
     AUTONOMY_STOP_FILENAME,
+    RECEIPT_LOG_NAME,
     CycleResult,
     run_loop,
     run_one_cycle,
@@ -413,3 +415,88 @@ class TestStoppedResultLeavesNoMutation(unittest.TestCase):
             self.assertEqual(result.action, "FIXED_README_DRIFT")
             self.assertTrue(fx.is_clean())
             self.assertIn("[autonomy-loop]", fx.last_commit_message())
+
+
+class TestEveryCycleIsReceipted(unittest.TestCase):
+    """Attribution, the half that recovery does not cover.
+
+    REPRODUCED 2026-08-29: a cycle that wrote README.md, failed to commit,
+    and correctly rolled back left HEAD unmoved, the tree byte-identical,
+    and NO receipt file -- zero durable evidence that a real mutation had
+    been attempted and reverted. `git` cannot carry this fact by
+    construction: a correct rollback restores the exact prior bytes, so
+    there is nothing for git to show.
+
+    That made "never ran" and "ran, attempted, failed, recovered"
+    indistinguishable to any later reader."""
+
+    def _receipts(self, root):
+        log = root / "foundation" / RECEIPT_LOG_NAME
+        if not log.exists():
+            return []
+        return [json.loads(line) for line in log.read_text().splitlines() if line.strip()]
+
+    def _failing_commit_repo(self, tmp):
+        fx = _FixtureRepo(tmp, _DRIFTED_README)
+        hook = fx.root / ".git" / "hooks" / "pre-commit"
+        hook.write_text("#!/bin/sh\nexit 1\n")
+        hook.chmod(hook.stat().st_mode | stat.S_IEXEC)
+        return fx
+
+    def test_rolled_back_attempt_leaves_a_durable_receipt(self):
+        # The exact reproduced gap: git shows nothing, so the receipt is
+        # the ONLY possible record.
+        with tempfile.TemporaryDirectory() as d:
+            fx = self._failing_commit_repo(d)
+            head_before = _git(fx.root, "rev-parse", "HEAD").stdout.strip()
+            result = run_one_cycle(fx.root)
+            self.assertEqual(result.action, "STOPPED_FIX_VERIFICATION_FAILED")
+            # git genuinely carries nothing
+            self.assertEqual(head_before,
+                             _git(fx.root, "rev-parse", "HEAD").stdout.strip())
+            self.assertTrue(fx.is_clean())
+            # ...so the receipt must
+            receipts = self._receipts(fx.root)
+            self.assertEqual(len(receipts), 1)
+            self.assertEqual(receipts[0]["action"], "STOPPED_FIX_VERIFICATION_FAILED")
+            self.assertIn("restored", receipts[0]["detail"])
+
+    def test_every_outcome_class_is_receipted(self):
+        with tempfile.TemporaryDirectory() as d:
+            fx = _FixtureRepo(d, _CLEAN_README)
+            run_one_cycle(fx.root)                       # CLEAN_IDLE
+            (fx.root / AUTONOMY_STOP_FILENAME).write_text("")
+            run_one_cycle(fx.root)                       # STOPPED_KILL_SWITCH
+            (fx.root / AUTONOMY_STOP_FILENAME).unlink()
+            (fx.root / "untracked.txt").write_text("x")
+            run_one_cycle(fx.root)                       # STOPPED_DIRTY_TREE
+            actions = [r["action"] for r in self._receipts(fx.root)]
+            self.assertEqual(
+                actions,
+                ["CLEAN_IDLE", "STOPPED_KILL_SWITCH", "STOPPED_DIRTY_TREE"])
+
+    def test_run_loop_does_not_double_log(self):
+        # run_one_cycle now receipts itself; run_loop must not write a
+        # second entry for the same cycle.
+        with tempfile.TemporaryDirectory() as d:
+            fx = _FixtureRepo(d, _CLEAN_README)
+            run_loop(fx.root, sleep_seconds=0, sleep_slice_seconds=0, max_cycles=3)
+            actions = [r["action"] for r in self._receipts(fx.root)]
+            self.assertEqual(actions, ["CLEAN_IDLE"] * 3)
+
+    def test_mid_sleep_kill_switch_is_still_receipted_exactly_once(self):
+        # That receipt is NOT produced by run_one_cycle, so it must still
+        # be written by run_loop itself.
+        with tempfile.TemporaryDirectory() as d:
+            fx = _FixtureRepo(d, _CLEAN_README)
+            (fx.root / AUTONOMY_STOP_FILENAME).write_text("")
+            run_loop(fx.root, sleep_seconds=5, sleep_slice_seconds=1)
+            actions = [r["action"] for r in self._receipts(fx.root)]
+            self.assertEqual(actions.count("STOPPED_KILL_SWITCH"), 1)
+
+    def test_a_successful_fix_is_receipted_as_well_as_committed(self):
+        with tempfile.TemporaryDirectory() as d:
+            fx = _FixtureRepo(d, _DRIFTED_README)
+            run_one_cycle(fx.root)
+            receipts = self._receipts(fx.root)
+            self.assertEqual(receipts[-1]["action"], "FIXED_README_DRIFT")
