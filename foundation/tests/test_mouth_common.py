@@ -236,3 +236,94 @@ class TestReadMouthLogContinuitySurvivesNonDictLines(unittest.TestCase):
                 "status": "UNCHANGED"}) + '\n')
             result = read_mouth_log_continuity(log)
             self.assertEqual(result.records_considered, 1)
+
+
+class TestAFailedLatestObservationIsNotSilent(unittest.TestCase):
+    """The state-collapse this closes, reproduced 2026-08-29 with NO
+    mutation -- every world below is ordinary shipped behaviour.
+
+    `read_mouth_log_continuity()` is boundary 4's SECOND consumer (the
+    first is `sentinel.py::check_mouth_health()`, and the two partition
+    the same records differently). Its real consumer is the operator
+    following `.claude/commands/boot.md` step 4c.
+
+    Step 4b -- the sibling reader in the very same boot step -- spells
+    out three states and instructs "do not collapse them". Step 4c
+    routes THIS function with no enumeration at all, so an operator
+    reading `available`/`stale`/`warnings` (exactly the fields 4b
+    teaches) saw the identical clean result whether the mouth was
+    perfectly healthy or had never once succeeded.
+
+    NO THRESHOLD IS ASSERTED BY THESE TESTS. They constrain only the
+    single most recent observation. How much INTERMITTENT failure
+    deserves an alarm is a human judgment, open as HUMAN_DECISIONS item
+    15, and `test_a_mouth_that_recovered_is_still_quiet` below pins that
+    this brick did not silently answer it.
+    """
+
+    def _log(self, d, statuses):
+        now = datetime.now(timezone.utc)
+        log = Path(d) / "m.jsonl"
+        log.write_text("".join(json.dumps({
+            "mouth_id": "m", "observed_at": now.isoformat(), "status": s,
+        }) + "\n" for s in statuses))
+        return log, now
+
+    def test_a_failed_latest_observation_is_reported(self):
+        with tempfile.TemporaryDirectory() as d:
+            log, now = self._log(d, ["UNCHANGED", "UNCHANGED", "UNAVAILABLE"])
+            result = read_mouth_log_continuity(log, now=now)
+            self.assertEqual(result.latest_status, "UNAVAILABLE")
+            self.assertTrue(
+                any("most recent observation FAILED" in w for w in result.warnings),
+                f"a failed latest fetch must not read as clean: {result.warnings}")
+
+    def test_the_worse_world_is_never_quieter_than_the_better_one(self):
+        """The reality-inversion guard. A mouth that has NEVER succeeded
+        must not present a quieter surface than one that always has."""
+        with tempfile.TemporaryDirectory() as d:
+            healthy, now = self._log(d, ["UNCHANGED"] * 5)
+            good = read_mouth_log_continuity(healthy, now=now)
+        with tempfile.TemporaryDirectory() as d:
+            broken, now = self._log(d, ["UNAVAILABLE"] * 5)
+            bad = read_mouth_log_continuity(broken, now=now)
+
+        self.assertEqual(len(good.warnings), 0, "control: healthy must be silent")
+        self.assertGreater(
+            len(bad.warnings), len(good.warnings),
+            "a mouth whose every observation failed reported no more than a "
+            "perfectly healthy one -- the operator cannot tell them apart")
+
+    def test_a_healthy_mouth_stays_silent(self):
+        """Positive control: this must not simply raise alarm volume."""
+        with tempfile.TemporaryDirectory() as d:
+            for statuses in (["UNCHANGED"] * 5, ["FIRST_SEEN"], ["CHANGED", "UNCHANGED"]):
+                log, now = self._log(d, statuses)
+                result = read_mouth_log_continuity(log, now=now)
+                self.assertEqual(result.warnings, (), f"{statuses} must stay quiet")
+
+    def test_a_mouth_that_recovered_is_still_quiet(self):
+        """Proves this brick did NOT answer HUMAN_DECISIONS item 15. Four
+        of five observations failed -- an 80% failure rate -- and because
+        the latest one succeeded this reader stays silent, exactly as
+        `check_mouth_health`'s own deliberate contracts do. If a future
+        cycle makes this test fail, it has chosen a tolerance threshold
+        and owes that choice an explicit human authorization."""
+        with tempfile.TemporaryDirectory() as d:
+            log, now = self._log(d, ["UNAVAILABLE"] * 4 + ["UNCHANGED"])
+            result = read_mouth_log_continuity(log, now=now)
+            self.assertEqual(result.warnings, ())
+
+    def test_the_real_repository_mouths_are_unaffected(self):
+        """Blast radius. Both live mouths currently end on a success, so
+        this brick fires on no real data today."""
+        for name in ("mouth_pypi_pyyaml_releases_log.jsonl",
+                     "mouth_github_pyyaml_releases_log.jsonl"):
+            log = REPO_ROOT / "foundation" / name
+            if not log.exists():
+                self.skipTest(f"{name} has never been written")
+            result = read_mouth_log_continuity(log)
+            self.assertTrue(
+                any("most recent observation FAILED" in w for w in result.warnings)
+                or result.latest_status != "UNAVAILABLE",
+                f"{name}: a failed latest status must carry its warning")

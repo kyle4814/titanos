@@ -247,6 +247,36 @@ def read_mouth_log_continuity(
     latest_timestamp = latest.get("observed_at") or latest.get("timestamp")
     latest_status = latest.get("status")
 
+    # THE COLLAPSE THIS CLOSES (reproduced 2026-08-29, no mutation
+    # required -- both worlds are ordinary shipped behaviour):
+    #
+    #   5 observations, all UNCHANGED  -> available=True stale=False warnings=()
+    #   5 observations, all UNAVAILABLE-> available=True stale=False warnings=()
+    #
+    # A mouth whose every observation has failed was indistinguishable
+    # from a perfectly healthy one on `available`/`stale`/`warnings` --
+    # and those three are exactly the fields `.claude/commands/boot.md`
+    # step 4b teaches the operator to read as "the normal state". Step 4c
+    # routes this function without enumerating its states at all, so
+    # nothing told the operator to also inspect `latest_status`.
+    # `available` means "the log file could be read", never "the mouth is
+    # available"; the name invites precisely that misreading.
+    #
+    # NO THRESHOLD IS CHOSEN HERE, deliberately. This looks only at the
+    # single most recent observation -- no window, no rate, no tolerance.
+    # The neighbouring question of how much INTERMITTENT failure deserves
+    # an alarm is a human judgment and stays open as HUMAN_DECISIONS item
+    # 15; it is not smuggled in here as a constant. A mouth that failed
+    # and recovered still returns silently from this reader, which is the
+    # same deliberate noise-suppression choice
+    # `sentinel.py::check_mouth_health()`'s own tests already encode.
+    if latest_status == "UNAVAILABLE":
+        warnings.append(
+            "most recent observation FAILED (status=UNAVAILABLE) -- "
+            "`available=True` here means the log was readable, not that "
+            "the mouth is reachable"
+        )
+
     stale = False
     if latest_timestamp:
         try:
