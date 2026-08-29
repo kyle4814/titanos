@@ -27,3 +27,13 @@ foundation/cron_pulse.err.log
 # docstring.
 foundation/authority_ledger.jsonl
 foundation/authority_runtime_tick_log.jsonl
+
+# foundation/autonomy_loop.py's kill switch and receipt log -- same
+# machine-local runtime-state reasoning as above. The kill switch must
+# never be tracked (dropping it to stop the loop must never itself
+# require a commit or dirty the tree the loop's own fail-closed check
+# inspects), and the receipt log would otherwise make every cycle after
+# the first look like a dirty working tree to the very check meant to
+# catch real ambiguity.
+.autonomy_stop
+foundation/autonomy_loop_log.jsonl
