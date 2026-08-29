@@ -197,6 +197,9 @@ class MouthLogContinuity:
     source: str
 
 
+MOUTH_STATUSES = ("FIRST_SEEN", "UNCHANGED", "CHANGED", "UNAVAILABLE")
+
+
 def read_mouth_log_continuity(
     log_path: Path,
     max_records: int = LOG_MAX_RECORDS,

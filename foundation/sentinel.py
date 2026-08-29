@@ -445,7 +445,8 @@ def check_mouth_health(repo_root: Path, now: Optional["datetime"] = None) -> lis
 
     A missing log is NOT a finding: on a fresh clone the mouths have
     simply never run, which is the correct initial state."""
-    from foundation.mouth_common import LOG_MAX_RECORDS, LOG_STALE_AFTER_SECONDS
+    from foundation.mouth_common import (
+        LOG_MAX_RECORDS, LOG_STALE_AFTER_SECONDS, MOUTH_STATUSES)
 
     findings: list[Finding] = []
     for mouth_id in LIVE_MOUTH_IDS:
@@ -474,6 +475,42 @@ def check_mouth_health(repo_root: Path, now: Optional["datetime"] = None) -> lis
             records.append(obj)
         if not records:
             continue
+
+        uninterpretable = sum(
+            1 for r in records if r.get("status") not in MOUTH_STATUSES)
+        if uninterpretable:
+            findings.append(Finding(
+                observation=(
+                    f"mouth {mouth_id!r} wrote records this check cannot "
+                    f"interpret -- their status is absent or outside the "
+                    f"producer's own vocabulary"
+                ),
+                evidence_location=str(log_path),
+                confidence="HIGH",
+                interpretation=(
+                    "COMMON-MODE BLINDNESS. Both consumers of this log key on "
+                    "the same `status` field: this check compares it against "
+                    "UNAVAILABLE, and mouth_common.read_mouth_log_continuity() "
+                    "reports it as `latest_status`. A producer that renames or "
+                    "drops that one key therefore silences BOTH guards at once "
+                    "-- they are independent implementations, not independent "
+                    "observers. Until this finding existed, a mouth failing "
+                    "every single fetch under a renamed key was indistinguish"
+                    "able from a perfectly healthy one on the entire operator "
+                    "surface /boot step 4c actually reports."
+                ),
+                reversibility=(
+                    "fully reversible -- observation only; nothing is written "
+                    "or discarded, and the finding clears when the producer "
+                    "and this vocabulary agree again"
+                ),
+                recommended_next_action=(
+                    "HUMAN_REVIEW_REQUIRED: reconcile mouth_common.MOUTH_STATUSES "
+                    "with what the producer actually writes. Do NOT assume the "
+                    "mouth is healthy while this finding stands -- its health is "
+                    "UNKNOWN, not good"
+                ),
+            ))
 
         recent = records[-2:]
         if len(recent) == 2 and all(r.get("status") == "UNAVAILABLE" for r in recent):

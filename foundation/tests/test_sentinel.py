@@ -2598,3 +2598,102 @@ class TestBuildReportSubstanceNotJustExistence(unittest.TestCase):
 
     def test_wired_into_pulse_sweep(self):
         self.assertIn(check_subsystem_build_reports, _LEVEL1_CHECKS)
+
+
+class TestOneProducerRenameCannotBlindBothObservers(unittest.TestCase):
+    """COMMON-MODE BLINDNESS, reproduced 2026-08-29 in shipped behaviour.
+
+    Boundary 4's two consumers looked like diverse redundancy: separate
+    modules, separate partitions, neither refining the other, and last
+    cycle that diversity legitimately ACQUITTED the system on a different
+    attack. But codiagnosability requires each observer to have its own
+    SENSORS -- independent implementations are not independent evidence.
+
+    Both consumers key on the same one field:
+        sentinel.check_mouth_health          -> r.get("status") == "UNAVAILABLE"
+        mouth_common.read_mouth_log_continuity -> latest.get("status")
+
+    So a producer that renames or drops `status` silences BOTH at once.
+    The joint operator surface then could not separate:
+
+        W_H  10 healthy observations
+        W_F' 10 FAILED observations under a renamed key
+
+    Both gave 0 findings, available=True, stale=False, warnings=(),
+    identical records_considered. The only differing field was
+    `latest_status` (None vs 'UNCHANGED') -- and `.claude/commands/boot.md`
+    step 4c names NO fields to report for the mouth logs, while the one
+    place it does define `latest_status` tells the operator that None is
+    expected and benign (true for dependency_pressure_log, which shares
+    this reader). Field exposed, never instructed, and its only documented
+    meaning normalises the failing value.
+
+    NO THRESHOLD IS INTRODUCED. The guard fires on any record whose status
+    is outside the producer's own vocabulary -- a zero/non-zero boundary,
+    not a tolerance. HUMAN_DECISIONS item 15 is untouched, and
+    `test_the_item_15_recovered_world_is_still_quiet` below pins that.
+    """
+
+    def _repo(self, statuses, key="status"):
+        d = tempfile.mkdtemp()
+        repo = Path(d)
+        (repo / "foundation").mkdir()
+        now = datetime.now(timezone.utc)
+        for mouth_id in sentinel.LIVE_MOUTH_IDS:
+            (repo / "foundation" / f"mouth_{mouth_id}_log.jsonl").write_text(
+                "".join(json.dumps({
+                    "mouth_id": mouth_id, "observed_at": now.isoformat(), key: s,
+                }) + "\n" for s in statuses))
+        return repo, now
+
+    def test_a_renamed_status_key_does_not_silence_the_sensor(self):
+        repo, now = self._repo(["UNAVAILABLE"] * 10, key="state")
+        self.assertTrue(
+            sentinel.check_mouth_health(repo, now=now),
+            "a producer rename silenced the last guard that could see failure")
+
+    def test_the_failing_renamed_world_is_not_quieter_than_the_healthy_one(self):
+        """The joint-surface inversion guard. Compares COUNTS, so it cannot
+        be satisfied by rewording a message."""
+        healthy_repo, hn = self._repo(["UNCHANGED"] * 10)
+        renamed_repo, rn = self._repo(["UNAVAILABLE"] * 10, key="state")
+        healthy = sentinel.check_mouth_health(healthy_repo, now=hn)
+        renamed = sentinel.check_mouth_health(renamed_repo, now=rn)
+        self.assertEqual(len(healthy), 0, "control: a healthy mouth must be silent")
+        self.assertGreater(
+            len(renamed), len(healthy),
+            "10 failed observations under a renamed key reported no more than "
+            "10 healthy ones -- the operator cannot tell them apart")
+
+    def test_a_healthy_mouth_stays_silent(self):
+        """Positive control: this must not simply raise alarm volume."""
+        for statuses in (["UNCHANGED"] * 10, ["FIRST_SEEN"], ["CHANGED", "UNCHANGED"]):
+            repo, now = self._repo(statuses)
+            self.assertEqual(
+                sentinel.check_mouth_health(repo, now=now), [],
+                f"{statuses} is ordinary producer output and must stay quiet")
+
+    def test_the_item_15_recovered_world_is_still_quiet(self):
+        """Proves this brick did NOT answer HUMAN_DECISIONS item 15. Four of
+        five observations failed and the sensor stays silent because the
+        latest succeeded. If a future cycle makes this fail, it has chosen a
+        tolerance threshold and owes that choice explicit authorization."""
+        repo, now = self._repo(["UNAVAILABLE"] * 4 + ["UNCHANGED"])
+        self.assertEqual(sentinel.check_mouth_health(repo, now=now), [])
+
+    def test_the_guard_uses_the_producers_own_vocabulary(self):
+        """The vocabulary must live beside the producer, not be re-typed in
+        the consumer -- a second hand-maintained copy would drift apart and
+        rebuild the very blindness this closes."""
+        from foundation import mouth_common
+        self.assertEqual(
+            set(mouth_common.MOUTH_STATUSES),
+            {"FIRST_SEEN", "UNCHANGED", "CHANGED", "UNAVAILABLE"})
+        for status in mouth_common.MOUTH_STATUSES:
+            repo, now = self._repo([status])
+            self.assertEqual(
+                sentinel.check_mouth_health(repo, now=now), [],
+                f"{status} is emitted by the real producer and must not alarm")
+
+    def test_the_real_repository_is_unaffected(self):
+        self.assertEqual(sentinel.check_mouth_health(REPO_ROOT), [])
