@@ -1002,3 +1002,99 @@ class TestProducerAndReaderAgreeEndToEnd(unittest.TestCase):
             result = run_one_cycle(fx.root)
             self.assertEqual(result.action, "CLEAN_IDLE")
             self.assertEqual(read_autonomy_receipts(fx.root).attempted_and_recovered, 0)
+
+
+class TestUnrecoveredFailureIsNotCountedAsZeroFailures(unittest.TestCase):
+    """SHAPE D: an unrepresented producer state collapsing into the
+    opposite operator meaning.
+
+    Not a rename (A), not an addition (B), not an omission (C). Both
+    producer states below are valid, current, intentional outputs of
+    run_one_cycle(). The reader simply had NO CATEGORY for the worse one
+    and filed it under the fallback, which carried the opposite meaning.
+
+    run_one_cycle() emits BOTH outcomes of a rollback attempt under the
+    SAME action, distinguished only by the rollback marker:
+      recovered   -> "... (README.md restored to its pre-fix contents)"
+      unrecovered -> "... WARNING: rollback FAILED, README.md is left
+                      modified and requires human cleanup"
+
+    REPRODUCED 2026-08-29, a MONOTONICITY INVERSION:
+      rollback SUCCEEDED -> attempted_and_recovered=1, bound=None
+                            ("failures observed")
+      rollback FAILED    -> attempted_and_recovered=0, bound=3.00
+                            (rule of three, as if ZERO failures)
+
+    The system reported BETTER reliability evidence for the WORSE
+    outcome -- the one that leaves a real mutation on disk requiring
+    human cleanup. `outcome_counts` was identical for both, so nothing
+    else distinguished them, and the bound feeds
+    HUMAN_DECISIONS.md item 14.
+
+    The zero-failure precondition of the rule of three is ALL observed
+    failures, not merely the recovered ones."""
+
+    def _read(self, detail):
+        d = tempfile.mkdtemp()
+        root = Path(d)
+        (root / "foundation").mkdir()
+        (root / "foundation" / RECEIPT_LOG_NAME).write_text(json.dumps({
+            "action": "STOPPED_FIX_VERIFICATION_FAILED",
+            "detail": detail, "occurred_at": "t1"}) + "\n")
+        return read_autonomy_receipts(root)
+
+    RECOVERED = "git commit failed (README.md restored to its pre-fix contents)"
+    UNRECOVERED = ("git commit failed -- WARNING: rollback FAILED, README.md "
+                   "is left modified and requires human cleanup")
+
+    def test_unrecovered_attempt_is_counted_as_an_observed_failure(self):
+        r = self._read(self.UNRECOVERED)
+        self.assertEqual(r.attempted_not_recovered, 1)
+        self.assertIsNone(
+            r.failure_rate_upper_bound_95,
+            "a failed rollback is an OBSERVED FAILURE -- the worst one. "
+            "Computing a zero-failure rule-of-three bound for it reports "
+            "cleaner evidence for a cycle that left a mutation on disk than "
+            "for one that recovered correctly.")
+
+    def test_the_worse_outcome_never_yields_a_cleaner_bound(self):
+        # The inversion itself, stated as a relation between the two real
+        # producer states rather than as two independent assertions.
+        recovered = self._read(self.RECOVERED)
+        unrecovered = self._read(self.UNRECOVERED)
+        self.assertIsNone(recovered.failure_rate_upper_bound_95)
+        self.assertIsNone(
+            unrecovered.failure_rate_upper_bound_95,
+            "the unrecovered state produced a numeric bound while the "
+            "recovered state produced None -- better evidence for the worse "
+            "outcome")
+        self.assertFalse(unrecovered.evidence_is_sufficient_for(0.99))
+
+    def test_the_operator_line_surfaces_the_unrecovered_count(self):
+        line = self._read(self.UNRECOVERED).format_reliability_line()
+        self.assertIn("attempted_NOT_recovered=1", line)
+        self.assertIn("human cleanup required", line)
+
+    def test_the_two_states_are_distinguishable_at_all(self):
+        # outcome_counts alone collapses them; something must not.
+        recovered = self._read(self.RECOVERED)
+        unrecovered = self._read(self.UNRECOVERED)
+        self.assertEqual(recovered.outcome_counts, unrecovered.outcome_counts)
+        self.assertNotEqual(
+            (recovered.attempted_and_recovered, recovered.attempted_not_recovered),
+            (unrecovered.attempted_and_recovered, unrecovered.attempted_not_recovered),
+            "two materially different producer states collapsed into one "
+            "consumer state")
+
+    def test_a_clean_history_still_earns_its_bound(self):
+        # Positive control with its own precondition: the fix must not
+        # suppress the bound when there genuinely are no failures.
+        d = tempfile.mkdtemp()
+        root = Path(d)
+        (root / "foundation").mkdir()
+        (root / "foundation" / RECEIPT_LOG_NAME).write_text("".join(
+            json.dumps({"action": "CLEAN_IDLE", "detail": "x",
+                        "occurred_at": f"t{i}"}) + "\n" for i in range(6)))
+        r = read_autonomy_receipts(root)
+        self.assertEqual(r.attempted_not_recovered, 0)
+        self.assertAlmostEqual(r.failure_rate_upper_bound_95, 0.5)

@@ -418,6 +418,7 @@ class AutonomyReceipts:
     fixes_applied: int
     attempted_and_recovered: int
     consecutive_stops_at_tail: int
+    attempted_not_recovered: int
     failure_rate_upper_bound_95: Optional[float]
     warnings: tuple
     source: str
@@ -468,8 +469,15 @@ class AutonomyReceipts:
             return (f"autonomy actuator: log present but n=0 usable records "
                     f"-- no reliability claim is supportable")
         if self.failure_rate_upper_bound_95 is None:
+            unrecovered = ""
+            if self.attempted_not_recovered:
+                unrecovered = (
+                    f", attempted_NOT_recovered="
+                    f"{self.attempted_not_recovered} (mutation left on disk, "
+                    f"human cleanup required)")
             return (f"autonomy actuator: n={self.records_considered}, "
-                    f"attempted_and_recovered={self.attempted_and_recovered} "
+                    f"attempted_and_recovered={self.attempted_and_recovered}"
+                    f"{unrecovered} "
                     f"(failures observed, so the zero-failure rule of three "
                     f"does not apply); NOT sufficient for a "
                     f"<{target_failure_rate:.0%} failure-rate test")
@@ -511,7 +519,7 @@ def read_autonomy_receipts(
             available=False, records_considered=0, latest_timestamp=None,
             outcome_counts=empty_counts, fixes_applied=0,
             attempted_and_recovered=0, consecutive_stops_at_tail=0,
-            failure_rate_upper_bound_95=None,
+            attempted_not_recovered=0, failure_rate_upper_bound_95=None,
             warnings=(
                 f"{RECEIPT_LOG_NAME} does not exist -- this actuator has "
                 f"never run in this working copy",
@@ -526,7 +534,7 @@ def read_autonomy_receipts(
             available=False, records_considered=0, latest_timestamp=None,
             outcome_counts=empty_counts, fixes_applied=0,
             attempted_and_recovered=0, consecutive_stops_at_tail=0,
-            failure_rate_upper_bound_95=None,
+            attempted_not_recovered=0, failure_rate_upper_bound_95=None,
             warnings=(f"could not read {RECEIPT_LOG_NAME}: {exc}",),
             source=source,
         )
@@ -560,7 +568,7 @@ def read_autonomy_receipts(
             available=True, records_considered=0, latest_timestamp=None,
             outcome_counts=empty_counts, fixes_applied=0,
             attempted_and_recovered=0, consecutive_stops_at_tail=0,
-            failure_rate_upper_bound_95=None,
+            attempted_not_recovered=0, failure_rate_upper_bound_95=None,
             warnings=tuple(warnings) or ("no usable records in the bounded window",),
             source=source,
         )
@@ -579,6 +587,24 @@ def read_autonomy_receipts(
         and "restored" in str(rec.get("detail", ""))
     )
 
+    # The state the reader previously had NO CATEGORY FOR: a cycle that
+    # wrote, failed, AND FAILED TO ROLL BACK -- leaving a real mutation on
+    # disk requiring human cleanup. run_one_cycle() emits it under the
+    # same action as a recovered cycle, distinguished only by the absence
+    # of the rollback marker.
+    #
+    # REPRODUCED 2026-08-29: because `recovered` counted only the RESTORED
+    # case, an unrecovered failure produced attempted_and_recovered=0, and
+    # the rule of three below then treated it as ZERO OBSERVED FAILURES --
+    # reporting a CLEANER bound (3.00) for the WORSE outcome than for the
+    # recovered one (None, "failures observed"). The reliability evidence
+    # improved precisely when the loop left damage behind.
+    attempted_not_recovered = sum(
+        1 for rec in records
+        if rec["action"] == "STOPPED_FIX_VERIFICATION_FAILED"
+        and "restored" not in str(rec.get("detail", ""))
+    )
+
     trailing_stops = 0
     for rec in reversed(records):
         if str(rec["action"]).startswith("STOPPED_"):
@@ -593,7 +619,11 @@ def read_autonomy_receipts(
     # "attempted_and_recovered: 0" is exactly the number a reader would
     # over-trust. When failures HAVE been observed the rule does not
     # apply, so the bound is None and the raw counts stand on their own.
-    if recovered == 0 and len(records) > 0:
+    # The zero-failure precondition is ALL observed failures, not merely
+    # the recovered ones. An unrecovered attempt is still an observed
+    # failure -- the worst one.
+    observed_failures = recovered + attempted_not_recovered
+    if observed_failures == 0 and len(records) > 0:
         upper_bound: Optional[float] = 3.0 / len(records)
     else:
         upper_bound = None
@@ -606,6 +636,7 @@ def read_autonomy_receipts(
         fixes_applied=counts.get("FIXED_README_DRIFT", 0),
         attempted_and_recovered=recovered,
         consecutive_stops_at_tail=trailing_stops,
+        attempted_not_recovered=attempted_not_recovered,
         failure_rate_upper_bound_95=upper_bound,
         warnings=tuple(warnings),
         source=source,
