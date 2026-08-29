@@ -679,6 +679,40 @@ from the active scan path per this addendum's compaction rule.
   if that verification gap is closed first, not by trusting `git blame`
   alone.
 
+- **New external mouth/sensor (Omega Food-Source Prosecution, cycle
+  demonblade_015, 2026-08-29)** — before researching anything new, found
+  `docs/SENSOR_ATLAS.yaml` already exists (commit `2172692`, one day
+  prior) and already answers this exact question: 5 external candidates
+  were live-fetched (`candidate_cisa_kev`, `candidate_usgs_earthquakes`,
+  `candidate_noaa_nws_alerts`, `candidate_nasa_apod`,
+  `candidate_arxiv_cs_cr` — all `confidence: REPRODUCED`, real WebFetch
+  evidence, not training-data recall) plus the 2 existing production
+  mouths (`mouth_pypi`, `mouth_github_releases`) documented for
+  contrast. **Every single one of the 5 candidates carries the same
+  disqualifying finding: no real consumer.** Checked directly rather
+  than trusting the atlas's own prose: `foundation/dependency_pressure.py`
+  — the one real consumer of the two existing mouths — explicitly
+  states "No vulnerability database, no CVE lookup, no risk scoring" as
+  a deliberate non-goal, which independently confirms
+  `candidate_cisa_kev`'s atlas verdict (its only plausible in-repo
+  consumer already refuses the job) rather than merely repeating it.
+  This repository's real dependency surface remains PyYAML alone. This
+  entry exists because the atlas itself was **orphaned** — nothing in
+  `PARETO_FRONTIER.md`/`NEXT_MOVE.md`/`HUMAN_DECISIONS.md` referenced
+  it, so a fresh cycle asking "what food source should the Demon chomp
+  next" had no way to discover the live research already answered it,
+  and would otherwise re-spend a live-fetch pass reproducing the same
+  five verdicts. **Re-entry condition:** a real in-repository consumer
+  need emerges for one of the five candidate domains (software supply
+  chain beyond PyYAML, cybersecurity advisories, space/astronomy,
+  weather/disaster, or academic research feeds) — not "the domain looks
+  interesting," a named function or workflow that would actually act on
+  the observation. Also open per the atlas's own `research_unknowns`:
+  the mouth contract's 4-state enum (FIRST_SEEN/UNCHANGED/CHANGED/
+  UNAVAILABLE) has no first-class EXPIRED state, found via the NWS
+  alerts candidate — a real, still-unclosed contract gap, but not
+  worth fixing speculatively ahead of a sensor that would need it.
+
 ## How to use this file
 
 1. Check here before proposing new work — an entry may already exist
