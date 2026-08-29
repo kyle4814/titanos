@@ -306,6 +306,66 @@ class TestPulseLogIsReadableByItsRealReader(unittest.TestCase):
                                Path("requirements.txt").resolve()):
             return cron_pulse.main()
 
+    def test_producer_emits_every_field_the_reader_semantically_defaults(self):
+        """FOURTH instance, THIRD distinct attack shape: omission /
+        default-collapse. This one breaks a boundary previously declared
+        BOUND, convicting that claim.
+
+        The reader is a TOLERANT READER: it does
+        `rec.get("compacted")` and `rec.get("raw_finding_count", 0)`.
+        A tolerant reader's default for an ABSENT field is
+        indistinguishable from that same value having been intentionally
+        written -- which is exactly how a tolerant reader turns a
+        producer omission into a silent semantic loss.
+
+        REPRODUCED 2026-08-29: deleting the `compacted` key from the
+        producer left the FULL foundation suite at 1028/1028 OK --
+        including this file's own crossing test, which asserts records
+        parse with no warnings. An omitted key parses perfectly. The
+        reader then reported `compacted=False` for a genuinely
+        CT_141-throttled window, and `.claude/commands/boot.md` instructs
+        the operator that `compacted=True` is what signals a truncated
+        view, telling them: "do not report a finding count from a
+        compacted window as if it were complete."
+
+        So the operator is handed a truncated window presented as a
+        complete picture -- the precise failure the `compacted` field was
+        added on 2026-08-28 to prevent.
+
+        WHY THE EXISTING CROSSING TESTS MISS IT: they verify records are
+        PARSED and findings SURVIVE. Omission breaks neither. Parse
+        success is not semantic completeness.
+
+        ORACLE: the keys present in the record the real producer wrote.
+        PRECONDITION INDEPENDENCE: the guard counts RAW LINES, which
+        cannot go false when a key is removed -- the property under
+        attack."""
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_dir = Path(tmp)
+            result = self._run_main_in_production_layout(tmp_dir)
+            self.assertEqual(result, 0, "precondition: main() must have run")
+
+            pulse_log = tmp_dir / "foundation" / "pulse_log.jsonl"
+            raw = [json.loads(ln) for ln in pulse_log.read_text().splitlines()
+                   if ln.strip()]
+            self.assertTrue(raw, "precondition: producer must have written a record")
+
+            # Fields the reader silently defaults, and whose default
+            # carries a DIFFERENT operator meaning than absence.
+            semantically_defaulted = ("compacted", "raw_finding_count")
+            for i, rec in enumerate(raw):
+                for key in semantically_defaulted:
+                    self.assertIn(
+                        key, rec,
+                        f"record {i} written by cron_pulse.main() omits "
+                        f"{key!r}. read_pulse_continuity() applies a silent "
+                        f"default for it, so an omission is indistinguishable "
+                        f"from an intentional value -- a CT_141-throttled "
+                        f"window would be reported to the operator as a "
+                        f"complete one. Parse success is not semantic "
+                        f"completeness.",
+                    )
+
     def test_real_pressure_findings_survive_their_real_reader(self):
         """THIRD reproduced instance of the producer -> representation ->
         reader false-green geometry, with a DIFFERENT attack shape.
