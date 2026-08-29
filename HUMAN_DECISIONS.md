@@ -172,6 +172,22 @@ Last compiled 2026-08-25. Each item cites its source report.
     answered from impressions. It is reporting only: these counts are
     evidence to weigh, never an authorization to schedule anything.
 
+    **Do not read `attempted_and_recovered: 0` as "it is reliable".**
+    That is the exact false-confidence path this entry must survive. With
+    n observations and zero observed failures, the 95% upper bound on the
+    true failure rate is 3/n (statistical rule of three). As of
+    2026-08-29 the real log held **4 cycles**, so the bound was **0.75** —
+    formally consistent with a loop that fails three quarters of the
+    time. The reader now returns this as
+    `failure_rate_upper_bound_95` alongside the count, and
+    `evidence_is_sufficient_for(rate)` answers the question directly
+    rather than leaving a reader to eyeball a zero.
+    Reaching a 5% upper bound would need roughly **60** recorded cycles.
+    **Any reliability threshold proposed at today's n would be numerology
+    dressed as engineering.** This does not argue for or against
+    scheduling; it states what the current evidence can and cannot
+    support, which is a separate question from whether Kyle wants it.
+
     **What is actually being asked:** running it on a schedule would
     create a standing, unattended, commit-capable process — the first in
     this repository. That is an authority change (execution with no human

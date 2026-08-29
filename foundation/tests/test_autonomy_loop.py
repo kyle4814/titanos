@@ -602,3 +602,75 @@ class TestReceiptsHaveAReader(unittest.TestCase):
     def test_reads_the_real_repository_without_raising(self):
         r = read_autonomy_receipts(REPO_ROOT)
         self.assertIsInstance(r.outcome_counts, dict)
+
+
+class TestZeroFailuresIsNotEvidenceOfReliability(unittest.TestCase):
+    """The misreading this reader invited, closed at the source.
+
+    `attempted_and_recovered == 0` reads as "no failures, looks
+    reliable". It is not. With n observations and zero observed failures
+    the 95% upper bound on the true failure rate is 3/n (statistical rule
+    of three). At the real n on 2026-08-29 -- FOUR recorded cycles -- the
+    bound was 0.75: consistent with a loop that fails three quarters of
+    the time.
+
+    HUMAN_DECISIONS item 14 (schedule this loop unattended?) is exactly
+    the decision that could be answered from that false confidence, and
+    the previous cycle had just made the zero visible without its bound."""
+
+    def _write(self, root, records):
+        d = root / "foundation"
+        d.mkdir(parents=True, exist_ok=True)
+        (d / RECEIPT_LOG_NAME).write_text(
+            "".join(json.dumps(r) + "\n" for r in records))
+
+    def _clean(self, n):
+        return [{"action": "CLEAN_IDLE", "detail": "x", "occurred_at": f"t{i}"}
+                for i in range(n)]
+
+    def test_bound_is_three_over_n_when_no_failures_observed(self):
+        with tempfile.TemporaryDirectory() as d:
+            self._write(Path(d), self._clean(4))
+            r = read_autonomy_receipts(Path(d))
+            self.assertEqual(r.attempted_and_recovered, 0)
+            self.assertAlmostEqual(r.failure_rate_upper_bound_95, 0.75)
+
+    def test_bound_tightens_only_with_more_observations(self):
+        with tempfile.TemporaryDirectory() as d:
+            self._write(Path(d), self._clean(60))
+            r = read_autonomy_receipts(Path(d), max_records=100)
+            self.assertAlmostEqual(r.failure_rate_upper_bound_95, 0.05)
+
+    def test_four_clean_cycles_do_not_support_a_five_percent_claim(self):
+        with tempfile.TemporaryDirectory() as d:
+            self._write(Path(d), self._clean(4))
+            r = read_autonomy_receipts(Path(d))
+            self.assertFalse(r.evidence_is_sufficient_for(0.05))
+
+    def test_no_observations_can_never_satisfy_a_reliability_claim(self):
+        # Absence of data must not read as evidence of reliability.
+        with tempfile.TemporaryDirectory() as d:
+            r = read_autonomy_receipts(Path(d))
+            self.assertIsNone(r.failure_rate_upper_bound_95)
+            self.assertFalse(r.evidence_is_sufficient_for(0.99))
+
+    def test_bound_is_absent_once_real_failures_are_observed(self):
+        # The rule of three applies only to the zero-failure case; with
+        # observed failures the raw counts stand on their own.
+        with tempfile.TemporaryDirectory() as d:
+            self._write(Path(d), [
+                {"action": "STOPPED_FIX_VERIFICATION_FAILED",
+                 "detail": "boom (README.md restored to its pre-fix contents)",
+                 "occurred_at": "t1"},
+            ] + self._clean(3))
+            r = read_autonomy_receipts(Path(d))
+            self.assertEqual(r.attempted_and_recovered, 1)
+            self.assertIsNone(r.failure_rate_upper_bound_95)
+            self.assertFalse(r.evidence_is_sufficient_for(0.05))
+
+    def test_the_real_repository_bound_is_reported(self):
+        r = read_autonomy_receipts(REPO_ROOT)
+        if r.available and r.records_considered and r.attempted_and_recovered == 0:
+            self.assertIsNotNone(r.failure_rate_upper_bound_95)
+            self.assertAlmostEqual(
+                r.failure_rate_upper_bound_95, 3.0 / r.records_considered)

@@ -418,8 +418,25 @@ class AutonomyReceipts:
     fixes_applied: int
     attempted_and_recovered: int
     consecutive_stops_at_tail: int
+    failure_rate_upper_bound_95: Optional[float]
     warnings: tuple
     source: str
+
+    def evidence_is_sufficient_for(self, target_failure_rate: float) -> bool:
+        """Would this observation window support a claim that the true
+        failure rate is below `target_failure_rate`?
+
+        This is the guard against the exact misreading this dataclass
+        invites. `attempted_and_recovered == 0` reads as "no failures,
+        looks reliable"; it is not. With n observations and zero
+        failures, the 95% upper bound on the true failure rate is 3/n
+        (the statistical rule of three), which is large until n is large.
+
+        Returns False when the bound is unknown (no observations), so
+        absence of data can never satisfy a reliability claim."""
+        if self.failure_rate_upper_bound_95 is None:
+            return False
+        return self.failure_rate_upper_bound_95 < target_failure_rate
 
 
 def read_autonomy_receipts(
@@ -450,6 +467,7 @@ def read_autonomy_receipts(
             available=False, records_considered=0, latest_timestamp=None,
             outcome_counts=empty_counts, fixes_applied=0,
             attempted_and_recovered=0, consecutive_stops_at_tail=0,
+            failure_rate_upper_bound_95=None,
             warnings=(
                 f"{RECEIPT_LOG_NAME} does not exist -- this actuator has "
                 f"never run in this working copy",
@@ -464,6 +482,7 @@ def read_autonomy_receipts(
             available=False, records_considered=0, latest_timestamp=None,
             outcome_counts=empty_counts, fixes_applied=0,
             attempted_and_recovered=0, consecutive_stops_at_tail=0,
+            failure_rate_upper_bound_95=None,
             warnings=(f"could not read {RECEIPT_LOG_NAME}: {exc}",),
             source=source,
         )
@@ -497,6 +516,7 @@ def read_autonomy_receipts(
             available=True, records_considered=0, latest_timestamp=None,
             outcome_counts=empty_counts, fixes_applied=0,
             attempted_and_recovered=0, consecutive_stops_at_tail=0,
+            failure_rate_upper_bound_95=None,
             warnings=tuple(warnings) or ("no usable records in the bounded window",),
             source=source,
         )
@@ -522,6 +542,18 @@ def read_autonomy_receipts(
         else:
             break
 
+    # Statistical rule of three: with n observations and zero observed
+    # failures, the 95% upper bound on the true failure rate is 3/n.
+    # Computed HERE rather than left to each caller, so the count and its
+    # confidence bound cannot become separated -- a bare
+    # "attempted_and_recovered: 0" is exactly the number a reader would
+    # over-trust. When failures HAVE been observed the rule does not
+    # apply, so the bound is None and the raw counts stand on their own.
+    if recovered == 0 and len(records) > 0:
+        upper_bound: Optional[float] = 3.0 / len(records)
+    else:
+        upper_bound = None
+
     return AutonomyReceipts(
         available=True,
         records_considered=len(records),
@@ -530,6 +562,7 @@ def read_autonomy_receipts(
         fixes_applied=counts.get("FIXED_README_DRIFT", 0),
         attempted_and_recovered=recovered,
         consecutive_stops_at_tail=trailing_stops,
+        failure_rate_upper_bound_95=upper_bound,
         warnings=tuple(warnings),
         source=source,
     )

@@ -713,6 +713,35 @@ from the active scan path per this addendum's compaction rule.
   alerts candidate — a real, still-unclosed contract gap, but not
   worth fixing speculatively ahead of a sensor that would need it.
 
+- **OPEN SURFACE (located, not built) — `sigil.py`'s guard-ordering
+  claim is unenforced.** Mapped 2026-08-29 rather than pattern-copying
+  `autonomy_loop`'s git-verb confinement test, because the capability is
+  different: sigil's risk is PROCESS SPAWNING, not git verbs. What was
+  actually measured: its one `subprocess.run` has a fully constant argv
+  shape (`sys.executable -m unittest discover -s <name> -p test_*.py`),
+  `<name>` comes from the fixed `SUBSYSTEMS_REQUIRING_BUILD_REPORT`
+  tuple, with no `shell=True`, `cwd` pinned to `repo_root`, and
+  `timeout=120`. So arguments are already bounded — **no gap there.**
+  The real gap is one specific claim in `_dimension_proof`'s docstring:
+  "`guard_check()` is called FIRST, before any subprocess is created …
+  **no subprocess is spawned at all for the repeat entry**". Nothing
+  asserts that ordering. `test_recursion_guard.py` proves the guard
+  function returns `BLOCKED_REPEAT` in isolation; `test_sigil.py` uses
+  `guard_check` only to skip ITSELF. Neither asserts that
+  `_dimension_proof` spawns ZERO subprocesses when blocked — so moving
+  the guard call below the loop, or ignoring its result, would keep every
+  test green. This is the F-013 class (claim with no enforcement) on a
+  different capability, and the failure it prevents is not hypothetical:
+  this repository's own history records 50+ forked `unittest` processes
+  in under three minutes when the guard was absent.
+  **Minimum brick when taken:** patch `foundation.sigil.subprocess.run`
+  with a counter, force a blocked ancestry via
+  `recursion_guard.child_env()`, assert zero spawns AND a guard-blocked
+  result; plus the real case (unblocked → spawns occur) so the test can
+  tell the two apart. **Re-entry:** next cycle, or sooner if `sigil.py`
+  gains another shell-out path. Not built this cycle under the one-brick
+  law; `select_one_admitted()` returned the item-14 candidate.
+
 ## How to use this file
 
 1. Check here before proposing new work — an entry may already exist
