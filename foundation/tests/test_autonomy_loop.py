@@ -1,14 +1,23 @@
+import ast
 import subprocess
 import tempfile
 import unittest
 from pathlib import Path
 
+from foundation import autonomy_loop
 from foundation.autonomy_loop import (
     AUTONOMY_STOP_FILENAME,
     CycleResult,
     run_loop,
     run_one_cycle,
 )
+
+# The complete set of git verbs this module is permitted to reach.
+# `status` reads, `add`/`commit` write LOCALLY. Anything that publishes
+# (push), rewrites history (reset/rebase/filter-branch), destroys work
+# (clean/checkout), or reaches the network (fetch/pull/remote) is outside
+# the authorized envelope and must never appear.
+AUTHORIZED_GIT_VERBS = frozenset({"status", "add", "commit"})
 
 _WORKFLOW = """\
 jobs:
@@ -224,3 +233,101 @@ class TestRunLoop(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestGitCapabilityIsStructurallyConfined(unittest.TestCase):
+    """The 'never pushes' claim, enforced instead of merely asserted.
+
+    THE GAP THIS CLOSES (found 2026-08-29). `never pushes` was claimed in
+    FOUR places -- this module's docstring, the commit message it writes,
+    `.claude/commands/boot.md`, and `HUMAN_DECISIONS.md` item 14, whose
+    entire argument that scheduling is comparatively low-risk RESTS on
+    it -- and was enforced by ZERO tests. `_git()` is a generic wrapper
+    that forwards arbitrary arguments to `git`, so the only thing
+    preventing a push was that no call site happened to pass one. That is
+    discipline, not a gate.
+
+    This repository's own Critical Function Switch-Gate doctrine says a
+    reminder is not an enforcement mechanism, and its Two-Point rule says
+    a load-bearing invariant needs enforcement independent of the code
+    path that honours it. Same structural-assertion pattern as
+    `test_sentinel.py::TestSentinelCannotExecute`, reused rather than
+    reinvented."""
+
+    def _git_call_verbs(self):
+        """Every literal verb passed to `_git()`, extracted from the AST
+        rather than by grepping strings -- a grep would also match the
+        word inside a docstring or comment."""
+        tree = ast.parse(Path(autonomy_loop.__file__).read_text())
+        verbs, dynamic = [], []
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            if not (isinstance(node.func, ast.Name) and node.func.id == "_git"):
+                continue
+            # args[0] is repo_root; args[1] is the git verb.
+            if len(node.args) < 2:
+                dynamic.append(ast.dump(node))
+                continue
+            verb = node.args[1]
+            if isinstance(verb, ast.Constant) and isinstance(verb.value, str):
+                verbs.append(verb.value)
+            else:
+                dynamic.append(ast.dump(node))
+        return verbs, dynamic
+
+    def test_every_git_verb_reached_is_authorized(self):
+        verbs, _ = self._git_call_verbs()
+        self.assertTrue(verbs, "expected to find real _git() call sites")
+        unauthorized = sorted(set(verbs) - AUTHORIZED_GIT_VERBS)
+        self.assertEqual(
+            unauthorized, [],
+            f"autonomy_loop reached unauthorized git verb(s) {unauthorized}. "
+            f"Only {sorted(AUTHORIZED_GIT_VERBS)} are inside this loop's "
+            f"authorized envelope. Widening this set is an AUTHORITY "
+            f"CHANGE and belongs in HUMAN_DECISIONS.md, not in a code edit.",
+        )
+
+    def test_no_git_verb_is_computed_at_runtime(self):
+        # A dynamic verb (a variable, f-string, or *args splat) would let
+        # a value chosen at runtime escape the static check above -- the
+        # alternate-execution-path bypass this test exists to prevent.
+        _, dynamic = self._git_call_verbs()
+        self.assertEqual(
+            dynamic, [],
+            "every _git() call must pass a literal string verb so the "
+            "authorized set is statically checkable",
+        )
+
+    def test_push_appears_nowhere_in_executable_code(self):
+        # Independent second point, per the Two-Point Enforcement Rule:
+        # even if the AST walk above were somehow evaded, no executable
+        # line may contain the token. Docstrings/comments are stripped so
+        # the module may still DOCUMENT that it never pushes.
+        tree = ast.parse(Path(autonomy_loop.__file__).read_text())
+        offenders = []
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Constant) and isinstance(node.value, str):
+                continue  # string literals incl. docstrings handled below
+            if isinstance(node, ast.Attribute) and "push" in node.attr.lower():
+                offenders.append(node.attr)
+            if isinstance(node, ast.Name) and "push" in node.id.lower():
+                offenders.append(node.id)
+        self.assertEqual(offenders, [], f"push-like identifiers found: {offenders}")
+
+    def test_the_only_subprocess_entry_point_is_the_git_wrapper(self):
+        # If a second subprocess call existed, confining _git() would not
+        # confine the module -- the capability could flow around it.
+        tree = ast.parse(Path(autonomy_loop.__file__).read_text())
+        subprocess_calls = [
+            node for node in ast.walk(tree)
+            if isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and isinstance(node.func.value, ast.Name)
+            and node.func.value.id == "subprocess"
+        ]
+        self.assertEqual(
+            len(subprocess_calls), 1,
+            "exactly one subprocess call may exist (inside _git); a second "
+            "one would be an unconfined execution path",
+        )
