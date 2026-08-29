@@ -147,37 +147,67 @@ def _subsystem_count(repo_root: Path) -> Optional[int]:
     return len(matrix) if isinstance(matrix, list) else None
 
 
-def _attempt_readme_fix(repo_root: Path) -> tuple[bool, str]:
+def _attempt_readme_fix(repo_root: Path) -> tuple[bool, str, Optional[str]]:
     """Narrow, verbatim string-replace only -- never a general rewrite.
-    Returns (applied, detail). Refuses (applied=False) rather than
-    guessing if the exact expected pattern isn't present, or if the
-    computed replacement can't be determined."""
+    Returns (applied, detail, original_text). Refuses (applied=False)
+    rather than guessing if the exact expected pattern isn't present, or
+    if the computed replacement can't be determined.
+
+    `original_text` is the file's exact prior contents when a write
+    actually happened, so the caller can roll the working tree back if a
+    later step fails. It is None when nothing was written."""
     readme = repo_root / "README.md"
     try:
         text = readme.read_text(encoding="utf-8")
     except OSError as exc:
-        return False, f"could not read README.md: {exc}"
+        return False, f"could not read README.md: {exc}", None
 
     match = _README_COUNT_PATTERN.search(text)
     if match is None:
-        return False, "expected README pattern not found verbatim"
+        return False, "expected README pattern not found verbatim", None
 
     new_count = count_real_tests(repo_root)
     new_subsystems = _subsystem_count(repo_root)
     if new_subsystems is None:
-        return False, "could not determine subsystem count from tests.yml"
+        return False, "could not determine subsystem count from tests.yml", None
 
     old_snippet = match.group(0)
     new_snippet = f"**{new_count:,} tests across {new_subsystems} subsystems"
     if old_snippet == new_snippet:
-        return False, "computed replacement identical to current text -- nothing to fix"
+        return (False,
+                "computed replacement identical to current text -- nothing to fix",
+                None)
 
     new_text = text.replace(old_snippet, new_snippet, 1)
     try:
         readme.write_text(new_text, encoding="utf-8")
     except OSError as exc:
-        return False, f"could not write README.md: {exc}"
-    return True, f"{old_snippet!r} -> {new_snippet!r}"
+        return False, f"could not write README.md: {exc}", None
+    return True, f"{old_snippet!r} -> {new_snippet!r}", text
+
+
+def _rollback_readme(repo_root: Path, original_text: Optional[str]) -> bool:
+    """Restore README.md to exactly its pre-fix contents.
+
+    TRAJECTORY LAW (added 2026-08-29 after direct reproduction): a
+    `STOPPED_*` result must mean the repository is as the cycle found it.
+    Previously the fix was written to disk BEFORE verification, so any
+    later failure returned a terminal state that reads as "nothing
+    happened" while leaving a real mutation behind -- a safe-looking
+    outcome concealing an unsafe trajectory.
+
+    Restores by plain file write, deliberately NOT by `git checkout`/
+    `restore`/`reset`. Those are destructive verbs outside this module's
+    authorized envelope (see AUTHORIZED_GIT_VERBS in the tests); rolling
+    back must not require widening the very capability set that keeps
+    this loop bounded."""
+    if original_text is None:
+        return True
+    try:
+        (repo_root / "README.md").write_text(original_text, encoding="utf-8")
+        return True
+    except OSError:
+        return False
 
 
 def run_one_cycle(repo_root: Path) -> CycleResult:
@@ -206,37 +236,47 @@ def run_one_cycle(repo_root: Path) -> CycleResult:
         return CycleResult("CLEAN_IDLE", "pulse_sweep() clean, nothing to do", now)
 
     if len(findings) == 1 and findings[0].observation == README_DRIFT_OBSERVATION:
-        applied, detail = _attempt_readme_fix(repo_root)
+        applied, detail, original = _attempt_readme_fix(repo_root)
         if not applied:
             return CycleResult("STOPPED_PATTERN_NOT_FOUND", detail, now)
 
+        def _stopped(reason: str) -> CycleResult:
+            """Every failure after the write rolls the tree back, so a
+            STOPPED_* result always means "the repository is as I found
+            it". If the rollback itself fails, say so in the receipt
+            rather than reporting a clean stop that isn't one."""
+            restored = _rollback_readme(repo_root, original)
+            suffix = (
+                " (README.md restored to its pre-fix contents)" if restored else
+                " -- WARNING: rollback FAILED, README.md is left modified "
+                "and requires human cleanup"
+            )
+            return CycleResult("STOPPED_FIX_VERIFICATION_FAILED", reason + suffix, now)
+
         post = pulse_sweep(repo_root)
         if post.findings:
-            return CycleResult(
-                "STOPPED_FIX_VERIFICATION_FAILED",
+            return _stopped(
                 f"fix applied but pulse_sweep() still reports "
                 f"{len(post.findings)} finding(s) -- the fix did not "
-                f"actually clear the condition it targeted",
-                now,
+                f"actually clear the condition it targeted"
             )
 
-        add = _git(repo_root, "add", "README.md")
-        if add.returncode != 0:
-            return CycleResult(
-                "STOPPED_FIX_VERIFICATION_FAILED", f"git add failed: {add.stderr}", now,
-            )
         commit_msg = (
             "[autonomy-loop] README.md: correct test-count drift\n\n"
             f"{detail}\n\n"
             "Applied and verified by foundation/autonomy_loop.py -- "
             "local commit only, never pushed by this loop."
         )
-        commit = _git(repo_root, "commit", "-m", commit_msg)
+        # Pathspec commit, deliberately WITHOUT a preceding `git add`:
+        # committing the path directly leaves the index untouched when the
+        # commit fails (a pre-commit hook, a GPG signing failure, a
+        # concurrent index.lock). The previous `add`-then-`commit` shape
+        # left the change STAGED on failure, where a human's next
+        # unrelated `git commit` would silently absorb it into their own
+        # authorship. Reproduced directly before this change.
+        commit = _git(repo_root, "commit", "-m", commit_msg, "--", "README.md")
         if commit.returncode != 0:
-            return CycleResult(
-                "STOPPED_FIX_VERIFICATION_FAILED",
-                f"git commit failed: {commit.stderr}", now,
-            )
+            return _stopped(f"git commit failed: {commit.stderr.strip()}")
         return CycleResult("FIXED_README_DRIFT", detail, now)
 
     return CycleResult(

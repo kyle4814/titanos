@@ -1,4 +1,5 @@
 import ast
+import stat
 import subprocess
 import tempfile
 import unittest
@@ -13,11 +14,16 @@ from foundation.autonomy_loop import (
 )
 
 # The complete set of git verbs this module is permitted to reach.
-# `status` reads, `add`/`commit` write LOCALLY. Anything that publishes
-# (push), rewrites history (reset/rebase/filter-branch), destroys work
-# (clean/checkout), or reaches the network (fetch/pull/remote) is outside
-# the authorized envelope and must never appear.
-AUTHORIZED_GIT_VERBS = frozenset({"status", "add", "commit"})
+# `status` reads; `commit` writes LOCALLY via pathspec. Anything that
+# publishes (push), rewrites history (reset/rebase/filter-branch),
+# destroys work (clean/checkout/restore), or reaches the network
+# (fetch/pull/remote) is outside the authorized envelope.
+#
+# NARROWED 2026-08-29 from {status, add, commit}: `add` was removed
+# because a pathspec commit leaves the index untouched when the commit
+# fails, whereas add-then-commit left the change STAGED on failure. This
+# set may shrink freely; WIDENING it is an authority change.
+AUTHORIZED_GIT_VERBS = frozenset({"status", "commit"})
 
 _WORKFLOW = """\
 jobs:
@@ -331,3 +337,79 @@ class TestGitCapabilityIsStructurallyConfined(unittest.TestCase):
             "exactly one subprocess call may exist (inside _git); a second "
             "one would be an unconfined execution path",
         )
+
+
+class TestStoppedResultLeavesNoMutation(unittest.TestCase):
+    """TRAJECTORY confinement, not just terminal-state confinement.
+
+    REPRODUCED 2026-08-29 before the fix: with a rejecting pre-commit
+    hook, run_one_cycle() returned STOPPED_FIX_VERIFICATION_FAILED -- a
+    terminal state that reads as "nothing happened" -- while
+    `git status --porcelain` showed `M  README.md`: the change was
+    written AND STAGED. A human's next unrelated `git commit` would have
+    silently absorbed the loop's edit under their own authorship, with no
+    receipt (run_one_cycle writes none).
+
+    A safe final state is not a safe trajectory. These tests assert the
+    repository is byte-identical after a failed cycle."""
+
+    def _repo_with_failing_commit(self, tmp):
+        fx = _FixtureRepo(tmp, _DRIFTED_README)
+        hook = fx.root / ".git" / "hooks" / "pre-commit"
+        hook.write_text("#!/bin/sh\nexit 1\n")
+        hook.chmod(hook.stat().st_mode | stat.S_IEXEC)
+        return fx
+
+    def test_failed_commit_leaves_readme_byte_identical(self):
+        with tempfile.TemporaryDirectory() as d:
+            fx = self._repo_with_failing_commit(d)
+            before = (fx.root / "README.md").read_text()
+            result = run_one_cycle(fx.root)
+            self.assertEqual(result.action, "STOPPED_FIX_VERIFICATION_FAILED")
+            self.assertEqual((fx.root / "README.md").read_text(), before)
+
+    def test_failed_commit_leaves_no_staged_change(self):
+        # The exact reproduced defect: porcelain column 1 == staged.
+        with tempfile.TemporaryDirectory() as d:
+            fx = self._repo_with_failing_commit(d)
+            run_one_cycle(fx.root)
+            porcelain = _git(fx.root, "status", "--porcelain").stdout
+            self.assertEqual(
+                porcelain.strip(), "",
+                f"a STOPPED_* cycle left the tree dirty: {porcelain!r}",
+            )
+
+    def test_failed_commit_makes_no_commit(self):
+        with tempfile.TemporaryDirectory() as d:
+            fx = self._repo_with_failing_commit(d)
+            before = _git(fx.root, "rev-list", "--count", "HEAD").stdout.strip()
+            run_one_cycle(fx.root)
+            after = _git(fx.root, "rev-list", "--count", "HEAD").stdout.strip()
+            self.assertEqual(before, after)
+
+    def test_the_receipt_states_the_rollback_happened(self):
+        # The result must not merely be clean -- it must SAY it rolled
+        # back, so a reader is not left guessing what touched the disk.
+        with tempfile.TemporaryDirectory() as d:
+            fx = self._repo_with_failing_commit(d)
+            result = run_one_cycle(fx.root)
+            self.assertIn("restored", result.detail)
+
+    def test_next_cycle_is_not_poisoned_by_a_failed_cycle(self):
+        # Restart behaviour: a failed cycle must not leave a dirty tree
+        # that turns every future cycle into STOPPED_DIRTY_TREE.
+        with tempfile.TemporaryDirectory() as d:
+            fx = self._repo_with_failing_commit(d)
+            run_one_cycle(fx.root)
+            (fx.root / ".git" / "hooks" / "pre-commit").unlink()
+            second = run_one_cycle(fx.root)
+            self.assertEqual(second.action, "FIXED_README_DRIFT")
+            self.assertTrue(fx.is_clean())
+
+    def test_happy_path_still_commits_without_staging_first(self):
+        with tempfile.TemporaryDirectory() as d:
+            fx = _FixtureRepo(d, _DRIFTED_README)
+            result = run_one_cycle(fx.root)
+            self.assertEqual(result.action, "FIXED_README_DRIFT")
+            self.assertTrue(fx.is_clean())
+            self.assertIn("[autonomy-loop]", fx.last_commit_message())
