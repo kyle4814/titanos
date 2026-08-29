@@ -8,6 +8,90 @@ rather than being deleted here.
 
 ---
 
+**As of 2026-08-29 (cycle continuity_of_will_001) — this entry
+supersedes everything below.**
+
+**Why this entry was rewritten rather than appended to.** The previous
+2026-08-29 entry sat UNCOMMITTED in the working tree for this entire
+session and asserted, in the artifact `boot.md` loads to decide the next
+move: HEAD `3f2bb79`, "9 local commits ahead of `origin/master`",
+"nothing on GitHub reflects this session's work yet", and a recommended
+next move of "push the 9 local commits". Every one of those claims is
+now false — the work was pushed, and HEAD has advanced five commits
+past it. An uncommitted file is also invisible to a fresh clone
+entirely. So the one durable artifact whose job is to carry intent
+forward was simultaneously stale AND unreachable. That is the real
+continuity break this cycle found; it was a data defect, not a missing
+mechanism.
+
+**Real state, verified this cycle (not copied from a prior receipt):**
+HEAD `49ef042`; `origin/master` synchronized — 0 ahead, 0 behind, all
+work pushed to `kyle4814/titanos`. 1,835 real `def test_` across 11
+subsystems, all suites green. `pulse_sweep()` CLEAN (0 findings).
+`foundation/pulse_log.jsonl` has 63 real hourly entries; `cron_pulse.py`
+remains the only live unattended process (1 crontab entry, confirmed)
+and is read-only. `autonomy_loop.py` is committed and live-proven on
+both its terminal branches (`STOPPED_DIRTY_TREE`, and
+`CLEAN_IDLE`→`STOPPED_KILL_SWITCH`) but runs only on manual invocation
+and holds exactly one authorized action, `FIXED_README_DRIFT`.
+`authority_sigil.py`/`authority_runtime.py` remain deliberately inert —
+no `ReleaseCode` has ever been issued, by design.
+
+**Continuity graph, as actually traced this cycle.**
+`evaluate_continuation()` (8 fail-closed HARD_STOP preconditions, closed
+candidate accounting) and `classify_hold()` already exist, are real and
+tested, and are consumed by `.claude/commands/boot.md` protocol steps —
+a real consumer under FRONTIER-016's contract. `autonomy_loop.py`
+deliberately does NOT consume them: its authorized action set is a
+singleton, so for that loop `CLEAN_IDLE` genuinely means "no authorized
+work exists", not "no selector exists". **The selector is not the
+missing piece. Truthful durable state was.**
+
+**Do not re-propose** (unchanged, still invalidated): a parallel ATP
+library / gem economy / SARG subsystem. Wiring `cron_pulse.py` to the
+authority ledger or continuation governor before a real Amber-tier
+capability exists to gate. `CrystalStore` persistence /
+`SentinelSweepWorker` activation (duplicates `cron_pulse.py` +
+`pulse_log.jsonl`, already live). A second `autonomy_loop` actuator —
+see `PARETO_FRONTIER.md`'s Rejected section for the two standing kills
+and their exact re-entry conditions. New external mouths — all five
+verified `docs/SENSOR_ATLAS.yaml` candidates are blocked on the same
+thing: no named in-repository consumer.
+
+**A NEXT_MOVE staleness detector was prosecuted this cycle and NOT
+built.** The checkable claims (an asserted HEAD hash, an asserted
+ahead/behind count) require git state, and every Level-1 check in
+`foundation/sentinel.py` is deterministic file I/O — three of them
+advertise "no subprocess, no git call" verbatim, and `cron_pulse.py`
+runs the sweep hourly. Adding a git subprocess there would break a
+stated, repeatedly-published contract of that module. **Re-entry
+condition:** this staleness recurs a second time after this repair
+(making it evidenced rather than N=1), AND a home is identified that
+does not violate sentinel's no-subprocess Level-1 contract — a boot.md
+protocol step or a separate opt-in checker, not the hourly sweep.
+
+**Recommended next move — the honest answer is that no code change is
+currently the highest-leverage move.** The two open items are human
+judgment calls from `HUMAN_DECISIONS.md` item 13, and only one is still
+open: whether to issue a real, bounded `ReleaseCode` for some specific
+Amber-tier capability, if one is wanted. (The sibling item — push the
+local commits — is now CLOSED; they are pushed.) Failing that, the
+standing engineering lane that has produced a real defect in each of the
+last two cycles is the hollow-satisfaction hunt: find a place where the
+repository asserts something about itself that its own measurement does
+not actually verify. Two were found and closed this way (`55af138`
+hollow modules scoring capability, `49ef042` empty `BUILD_REPORT.md`
+files buying tier T6).
+
+**Cheapest re-verification for a fresh worker (run these before
+trusting anything above):** `git status -sb`, `git log --oneline -6`,
+`python3 -c "from foundation.sentinel import pulse_sweep, count_real_tests; from pathlib import Path; print(len(pulse_sweep(Path('.')).findings), count_real_tests(Path('.')))"`.
+If those disagree with this entry, **this entry is the stale one** —
+that is the failure mode that produced this rewrite, and it will
+recur.
+
+---
+
 **As of 2026-08-26, following `FIRST_PING.md` (self-sourced, no new
 code):** the standing "waiting on Kyle to supply external content"
 framing was wrong and he corrected it directly ("you don't need me for
