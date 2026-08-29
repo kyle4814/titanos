@@ -10,6 +10,7 @@ from foundation import autonomy_loop
 from foundation.autonomy_loop import (
     AUTONOMY_STOP_FILENAME,
     AutonomyReceipts,
+    RECEIPTS_MAX_RECORDS,
     RECEIPT_LOG_NAME,
     read_autonomy_receipts,
     CycleResult,
@@ -793,3 +794,82 @@ class TestReliabilityLineCannotSeparateCountFromUncertainty(unittest.TestCase):
                 f"AutonomyReceipts.{method}() but that method does not "
                 f"exist -- the operator path points at a dead callable",
             )
+
+
+class TestBootProtocolNumbersMatchSource(unittest.TestCase):
+    """Semantic rot: a reference that stays RESOLVABLE while becoming
+    operationally FALSE.
+
+    Prior cycles closed two directions on the boot.md -> source edge:
+    the document naming a callable that does not exist (d027059), and
+    the document dropping the routing (bb33be6). Both check that a
+    SYMBOL resolves. Neither checks that the document's CLAIMS ABOUT
+    THAT SYMBOL are still true.
+
+    REPRODUCED 2026-08-29: changing `RECEIPTS_MAX_RECORDS` from 50 to
+    500 left boot.md still telling the operator the window is "the last
+    50 records", with pulse_sweep() at 0 findings,
+    check_protocol_document_targets() at 0 findings, and the full
+    autonomy suite at 50/50 OK. Every gate green; the protocol false.
+
+    This matters beyond tidiness: the documented window is the
+    DENOMINATOR. `read_autonomy_receipts` computes the rule-of-three
+    bound as 3/n over that window, and that bound is the evidence
+    HUMAN_DECISIONS item 14 weighs. A silently different window means
+    the operator reports a bound computed over a different sample than
+    the protocol describes.
+
+    This is also the repository's single most-repeated stale-claim
+    class -- a hand-maintained number in a document drifting from
+    computed ground truth. `check_readme_test_count()` exists for
+    exactly this shape in README.md; nothing covered boot.md."""
+
+    BOOT = REPO_ROOT / ".claude" / "commands" / "boot.md"
+
+    def _boot_text(self):
+        return self.BOOT.read_text()
+
+    def test_documented_record_windows_match_the_real_constants(self):
+        # LENS A: the numbers themselves. Fails when a constant moves.
+        import re as _re
+        from foundation.sentinel import PULSE_LOG_MAX_RECORDS
+        text = self._boot_text()
+        windows = [int(n) for n in
+                   _re.findall(r"bounded to the last (\d+) records", text)]
+        self.assertEqual(
+            sorted(windows), sorted([PULSE_LOG_MAX_RECORDS, RECEIPTS_MAX_RECORDS]),
+            f"boot.md documents record windows {sorted(windows)} but the real "
+            f"constants are PULSE_LOG_MAX_RECORDS={PULSE_LOG_MAX_RECORDS} and "
+            f"RECEIPTS_MAX_RECORDS={RECEIPTS_MAX_RECORDS} -- the operator "
+            f"protocol states a false fact about the system's behaviour, and "
+            f"the receipts window is the DENOMINATOR of the bound item 14 "
+            f"weighs",
+        )
+
+    def test_documented_staleness_threshold_matches_source(self):
+        import re as _re
+        from foundation.sentinel import PULSE_STALE_AFTER_SECONDS
+        hours = [int(h) for h in
+                 _re.findall(r"last record is >(\d+)h old", self._boot_text())]
+        self.assertEqual(
+            hours, [int(PULSE_STALE_AFTER_SECONDS // 3600)],
+            f"boot.md documents a >{hours}h staleness flag but "
+            f"PULSE_STALE_AFTER_SECONDS={PULSE_STALE_AFTER_SECONDS} "
+            f"({PULSE_STALE_AFTER_SECONDS / 3600:g}h)",
+        )
+
+    def test_the_claims_are_actually_present_not_vacuously_absent(self):
+        # LENS B (anti-vacuum): fails for a GENUINELY different reason --
+        # not a constant moving, but the DOCUMENT being reworded so the
+        # patterns above match nothing and pass on an empty set. Without
+        # this, deleting the claims would silently disable lens A.
+        import re as _re
+        text = self._boot_text()
+        self.assertEqual(
+            len(_re.findall(r"bounded to the last (\d+) records", text)), 2,
+            "expected exactly two documented record-window claims in boot.md; "
+            "if the wording changed, update this test deliberately rather "
+            "than letting the window checks pass on an empty match set")
+        self.assertEqual(
+            len(_re.findall(r"last record is >(\d+)h old", text)), 1,
+            "expected exactly one documented staleness claim in boot.md")
