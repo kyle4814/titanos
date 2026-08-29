@@ -937,3 +937,68 @@ class TestDocumentedConstantActuallyBindsToRuntime(unittest.TestCase):
                 r.records_considered, RECEIPTS_MAX_RECORDS,
                 "the default window did not govern the number of records "
                 "actually read")
+
+
+class TestProducerAndReaderAgreeEndToEnd(unittest.TestCase):
+    """The producer's real output must be readable by the reader.
+
+    REPRODUCED 2026-08-29 as a COMMON-MODE FALSE GREEN. The rollback
+    marker is a magic string shared by two sides:
+      producer: run_one_cycle writes "... (README.md restored to its
+                pre-fix contents)"
+      reader:   read_autonomy_receipts counts records whose detail
+                contains "restored"
+
+    Every existing test asserts ONE side against a hand-written value:
+    producer tests assert the producer's own output; reader tests parse
+    fixtures the test itself wrote using the same magic string. Nothing
+    fed a REAL producer receipt through the READER.
+
+    ATTACK (verified to land): rename the marker in the reader predicate
+    AND the reader fixtures together -- a natural refactor -- leaving the
+    producer untouched. Result: suite 55/55 OK, while a real
+    rolled-back cycle produced attempted_and_recovered=0.
+
+    That silently zeroes the ONE fact git cannot show by construction (a
+    correct rollback restores the exact prior bytes), and that count is
+    the numerator behind the rule-of-three bound HUMAN_DECISIONS item 14
+    weighs. The operator would be told no repair attempts had ever failed
+    while they were failing.
+
+    ORACLE: the real producer's own emitted receipt, not a fixture."""
+
+    def _repo_whose_commit_fails(self, tmp):
+        fx = _FixtureRepo(tmp, _DRIFTED_README)
+        hook = fx.root / ".git" / "hooks" / "pre-commit"
+        hook.write_text("#!/bin/sh\nexit 1\n")
+        hook.chmod(hook.stat().st_mode | stat.S_IEXEC)
+        return fx
+
+    def test_a_real_rolled_back_cycle_is_counted_by_the_real_reader(self):
+        with tempfile.TemporaryDirectory() as d:
+            fx = self._repo_whose_commit_fails(d)
+            result = run_one_cycle(fx.root)
+            # precondition: the producer really did roll back, explicitly
+            # asserted so this cannot pass on a cycle that never wrote
+            self.assertEqual(result.action, "STOPPED_FIX_VERIFICATION_FAILED")
+            self.assertTrue(fx.is_clean(), "precondition: rollback left a clean tree")
+
+            receipts = read_autonomy_receipts(fx.root)
+            self.assertEqual(
+                receipts.attempted_and_recovered, 1,
+                f"the reader did not count a REAL rolled-back cycle. The "
+                f"producer wrote {result.detail!r}; the reader's predicate "
+                f"did not match it. These two sides share a magic string and "
+                f"can be renamed apart while every fixture-based test stays "
+                f"green -- silently zeroing the one fact git cannot show.",
+            )
+
+    def test_a_real_clean_cycle_is_not_counted_as_recovered(self):
+        # Positive control with its own explicit precondition: a cycle
+        # that never wrote must NOT inflate the count, so the assertion
+        # above cannot be satisfied by counting everything.
+        with tempfile.TemporaryDirectory() as d:
+            fx = _FixtureRepo(d, _CLEAN_README)
+            result = run_one_cycle(fx.root)
+            self.assertEqual(result.action, "CLEAN_IDLE")
+            self.assertEqual(read_autonomy_receipts(fx.root).attempted_and_recovered, 0)
