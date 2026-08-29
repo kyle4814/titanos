@@ -144,6 +144,34 @@ Last compiled 2026-08-25. Each item cites its source report.
     exists to prevent, and which this specific decision had fallen
     through until now.
 
+14. **Should `foundation/autonomy_loop.py` run unattended on a
+    schedule?** Open, and deliberately not taken by any session. The
+    actuator itself is built, tested (14 tests), live-proven on both
+    terminal branches, and holds exactly one authorized action
+    (`FIXED_README_DRIFT`): it recomputes the real `def test_` count,
+    rewrites only the verbatim `**N tests across M subsystems` span,
+    re-runs `pulse_sweep()` and refuses to commit unless the finding
+    actually cleared, then makes a local `[autonomy-loop]` commit. **It
+    never pushes**, and `.autonomy_stop` halts it within one sleep slice.
+    As of 2026-08-29 it is invoked MANUALLY only — `crontab -l` confirms
+    the sole cosmic-library entry is `cron_pulse.py`'s hourly read-only
+    sweep. A session-protocol route now exists (`.claude/commands/
+    boot.md` step 4b), which needs no new authority because a session
+    already commits.
+
+    **What is actually being asked:** running it on a schedule would
+    create a standing, unattended, commit-capable process — the first in
+    this repository. That is an authority change (execution with no human
+    present), not a routing change, so it stays here rather than being
+    inferred from the earlier authorization to BUILD the loop. Kyle's
+    2026-08-29 answers authorized building a real running loop with
+    local-edit + local-commit scope and a manual kill switch; they did
+    not name a scheduler, and no session should read them as having done
+    so. Evidence that the repair is genuinely mechanical and recurring:
+    README test-count drift has been hand-repaired 7 times in real git
+    history, 3 of them in one session. *(Distinct from item 13(b), which
+    is about `authority_pulse.py`, a different module.)*
+
 ## Recurring theme worth naming once, not per-session
 
 Three consecutive build sessions (MAGL → RPA → TAAL) each independently

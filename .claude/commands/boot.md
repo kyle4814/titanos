@@ -57,6 +57,35 @@ summary is not proof of anything; verified behavior is.
    is a truncated view, not the whole picture — do not report a finding
    count from a compacted window as if it were complete.
 
+   **If the only finding is README test-count drift, do not hand-edit
+   the number.** A built, tested, live-proven actuator already exists for
+   exactly this one repair: `foundation.autonomy_loop.run_one_cycle(REPO_ROOT)`
+   (or `python3 foundation/autonomy_loop.py` for the sleeping loop).
+   It recomputes the real count, rewrites only the verbatim
+   `**N tests across M subsystems` span, **re-runs `pulse_sweep()` and
+   refuses to commit unless the finding actually cleared**, then makes a
+   local `[autonomy-loop]` commit. It never pushes.
+
+   Its precondition is a CLEAN working tree — it returns
+   `STOPPED_DIRTY_TREE` otherwise, on purpose, because a mid-edit tree is
+   ambiguous. So the moment to use it is right after you commit work that
+   changed the test count, not while you are still editing. Any finding
+   other than this one, or more than one finding at once, returns a
+   `STOPPED_*` result and changes nothing.
+
+   **Why this step exists:** README test-count drift has been repaired
+   BY HAND 7 times in this repository's real history — 3 of them in a
+   single session on 2026-08-29 — while an authorized actuator for it sat
+   unreached. The arm existed; nothing named it. Using it also produces
+   stronger evidence than a hand-edit, because the fix is verified by
+   re-running the detector rather than by eye.
+
+   This step grants nothing. It routes an EXISTING authorized action; the
+   loop's permitted action set (`_ACTIONS`) is unchanged, and it remains
+   local-commit-only with a `.autonomy_stop` kill switch. Installing it
+   on a schedule so it runs unattended is a SEPARATE, HUMAN-GATED
+   decision that has not been made — see `HUMAN_DECISIONS.md`.
+
 4b-ii. **CHECK THE PULSE'S FAILURE RECEIPT** — the crontab entry
    redirects with `>> foundation/cron_pulse.err.log 2>&1`, so that file
    is the only place a traceback lands if the one unattended process
