@@ -1,8 +1,10 @@
 import os
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
+from foundation import sigil
 from foundation.sigil import (
     Sigil, PROOF_OPERATION, compute_sigil, compute_tier, format_sigil, reconcile_sigil,
     RecordedSigil, parse_sigil, read_recorded_sigil, DIMENSION_NAMES,
@@ -504,3 +506,136 @@ class TestDefinesRejectsHollowModules(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestGuardRejectsBeforeAnySubprocessSpawns(unittest.TestCase):
+    """`_dimension_proof`'s load-bearing ordering claim, enforced.
+
+    Its docstring states: "`guard_check()` is called FIRST, before any
+    subprocess is created ... no subprocess is spawned at all for the
+    repeat entry, not merely a spawned child noticing later that it
+    should stop."
+
+    That claim was NOT enforced. `test_recursion_guard.py` proves the
+    guard function returns BLOCKED_REPEAT in isolation;
+    `TestComputeSigilOnRealRepo` uses `guard_check` only to skip ITSELF.
+    Neither asserts that `_dimension_proof` spawns ZERO subprocesses on
+    the rejected trajectory, so moving the guard below the loop — or
+    ignoring its verdict — would have kept every test green.
+
+    Verified 2026-08-29 before writing this: the property currently
+    HOLDS (0 spawn calls under blocked ancestry). This is an unenforced
+    claim being converted to a gate, not a reproduced defect.
+
+    The damage it prevents is not hypothetical. This repository's own
+    history records 50+ forked `unittest` processes in under three
+    minutes when the guard was absent — the incident that caused
+    `recursion_guard.py` to exist.
+
+    TWO INDEPENDENT LENSES, failing for different reasons:
+      A) TRAJECTORY — under blocked ancestry, `subprocess.run` is never
+         called. Catches: guard moved after the loop, verdict ignored.
+      B) STRUCTURE — in the source, the guard's early-return precedes
+         every `subprocess` call. Catches a spawn added on some branch
+         the runtime case does not happen to exercise, which lens A
+         would miss.
+    """
+
+    def _blocked_env(self):
+        from foundation.recursion_guard import child_env
+        return child_env(PROOF_OPERATION)
+
+    def test_a_trajectory_rejected_entry_spawns_nothing(self):
+        from foundation import sigil as sigil_mod
+        calls = []
+
+        # Returns a REALISTIC fake, not None. Found while attacking this
+        # test: a None-returning mock made a guard bypass surface as an
+        # AttributeError crash rather than a clean assertion failure --
+        # detection by accident, not by the gate. With a usable fake the
+        # mutated code runs to completion and `calls` itself is the
+        # evidence.
+        class _Fake:
+            returncode = 0
+            stdout = "Ran 0 tests in 0.0s\n\nOK\n"
+            stderr = ""
+
+        def _fake_run(*a, **k):
+            calls.append(a)
+            return _Fake()
+
+        with mock.patch.dict(os.environ, self._blocked_env(), clear=False):
+            with mock.patch.object(sigil_mod.subprocess, "run", side_effect=_fake_run):
+                score, justification, green, total = sigil_mod._dimension_proof(REPO_ROOT)
+        self.assertEqual(
+            calls, [],
+            "a guard-blocked _dimension_proof spawned a subprocess -- the "
+            "repeat entry must be rejected BEFORE any process is created",
+        )
+        self.assertEqual(score, 0)
+        self.assertFalse(green)
+        self.assertIn("guard-blocked", justification)
+
+    def test_a2_unblocked_entry_still_spawns(self):
+        # Positive control: without this, lens A would pass trivially if
+        # _dimension_proof stopped spawning altogether. subprocess.run is
+        # mocked so no real suites run.
+        from foundation import sigil as sigil_mod
+        calls = []
+
+        class _Fake:
+            returncode = 0
+            stdout = "Ran 0 tests in 0.0s\n\nOK\n"
+            stderr = ""
+
+        def _fake_run(*a, **k):
+            calls.append(a)
+            return _Fake()
+
+        with mock.patch.object(sigil_mod.subprocess, "run", side_effect=_fake_run):
+            sigil_mod._dimension_proof(REPO_ROOT)
+        self.assertTrue(
+            calls, "the unblocked path must still spawn -- otherwise the "
+                   "rejected-path assertion proves nothing")
+
+    def test_b_structure_guard_return_precedes_every_subprocess_call(self):
+        # Source-level dominance check. Independent of lens A: it fails
+        # even for a spawn on a branch no runtime case exercises.
+        import ast
+        tree = ast.parse(Path(sigil.__file__).read_text())
+        fn = next(
+            node for node in ast.walk(tree)
+            if isinstance(node, ast.FunctionDef) and node.name == "_dimension_proof"
+        )
+
+        guard_return_line = None
+        for node in ast.walk(fn):
+            # the `if not guard.is_safe(): return ...` early exit
+            if isinstance(node, ast.If):
+                has_return = any(isinstance(c, ast.Return) for c in ast.walk(node))
+                mentions_guard = any(
+                    isinstance(c, ast.Name) and c.id == "guard" for c in ast.walk(node.test)
+                )
+                if has_return and mentions_guard:
+                    guard_return_line = node.lineno
+                    break
+        self.assertIsNotNone(
+            guard_return_line,
+            "_dimension_proof no longer has a guard early-return -- the "
+            "ordering invariant cannot hold without one")
+
+        spawn_lines = [
+            node.lineno for node in ast.walk(fn)
+            if isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and isinstance(node.func.value, ast.Name)
+            and node.func.value.id == "subprocess"
+            and node.func.attr == "run"
+        ]
+        self.assertTrue(spawn_lines, "expected a real subprocess.run call site")
+        self.assertTrue(
+            all(line > guard_return_line for line in spawn_lines),
+            f"a subprocess.run at line(s) {spawn_lines} is not after the guard "
+            f"early-return at line {guard_return_line} -- a repeat entry could "
+            f"reach process creation before rejection",
+        )

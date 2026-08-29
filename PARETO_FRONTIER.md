@@ -713,8 +713,38 @@ from the active scan path per this addendum's compaction rule.
   alerts candidate — a real, still-unclosed contract gap, but not
   worth fixing speculatively ahead of a sensor that would need it.
 
-- **OPEN SURFACE (located, not built) — `sigil.py`'s guard-ordering
-  claim is unenforced.** Mapped 2026-08-29 rather than pattern-copying
+- **CLOSED 2026-08-29 — `sigil.py`'s guard-ordering claim is now
+  enforced.** `TestGuardRejectsBeforeAnySubprocessSpawns` in
+  `foundation/tests/test_sigil.py`. Verified first that the property
+  HELD (0 spawn calls under blocked ancestry) — an unenforced claim
+  converted to a gate, not a reproduced defect. Two independent lenses:
+  (A) trajectory — under blocked ancestry `subprocess.run` is never
+  called, plus a positive control proving the unblocked path still
+  spawns; (B) structure — the guard's early-return precedes every
+  `subprocess.run` in the AST, catching a spawn on a branch no runtime
+  case exercises. Mutation-proved: moving the guard below the loop fails
+  BOTH lenses; ignoring the verdict fails lens A only — different
+  reasons, so the second lens earns its place. While attacking the test
+  I found my own lens A caught the bypass only as an AttributeError
+  crash (the mock returned None); hardened to return a realistic fake so
+  the gate fires as a clean assertion rather than by accident.
+  Original entry follows for provenance.
+
+- **OPEN SURFACE — `boot.md` reports the failure count without its
+  bound.** Found 2026-08-29 while prosecuting the prior receipt.
+  `HUMAN_DECISIONS.md` item 14 carries `failure_rate_upper_bound_95` and
+  `evidence_is_sufficient_for()` (2 references), but
+  `.claude/commands/boot.md` step 4b instructs the operator to report
+  `attempted_and_recovered` with **0** references to either — so the
+  documented operator path still surfaces a bare zero, which is exactly
+  the false-confidence shape closed at the decision layer in `29ab61a`.
+  The decision itself IS protected (item 14 carries the full qualifier),
+  which is why this ranked second under `select_one_admitted()` rather
+  than first. **Minimum brick:** add the bound and the sufficiency
+  predicate to that step's reported fields. **Re-entry:** next cycle.
+
+- **(superseded, kept for provenance) `sigil.py` guard-ordering claim
+  unenforced.** Mapped 2026-08-29 rather than pattern-copying
   `autonomy_loop`'s git-verb confinement test, because the capability is
   different: sigil's risk is PROCESS SPAWNING, not git verbs. What was
   actually measured: its one `subprocess.run` has a fully constant argv
