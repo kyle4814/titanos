@@ -208,6 +208,25 @@ authorized, and note it still has no fetcher to exercise it).
    `candidates_found` explicitly — `()` positively asserts the cycle
    found nothing; omitting it is refused, because silence is not a claim.
 
+   For `new_wake_evidence`, do not re-derive the one tracked, mechanical
+   wake condition by eye: call
+   `foundation.sentinel.check_deferred_log_size_wake_condition(REPO_ROOT)`
+   (read-only, `stat()` only — never opens a file — bounded to a fixed
+   log list, fails soft on a missing file). It returns `True` iff a
+   tracked JSONL log has passed
+   `DEFERRED_LOG_SIZE_THRESHOLD_BYTES`, which is the objective reopen
+   trigger for the `unbounded_log_read_before_slicing` surface. It was
+   built precisely so a governor invocation calls it once instead of a
+   human re-deriving it from `ls -la`; until this step named it, it had
+   no consumer at all and the condition was simply not being checked.
+
+   **Ceiling, so this is not over-read:** it answers ONE wake condition,
+   not all of them. `new_wake_evidence` is broader — other new evidence
+   (a fresh finding class in `pulse_log.jsonl`, a killed candidate whose
+   re-entry condition is now met, a human decision) still has to be
+   supplied by you. A `False` from this call means "that one log-size
+   trigger has not fired", never "nothing has changed anywhere".
+
    Exactly three outcomes, none of which authorises anything:
    - **raises `UnaccountedCandidates`** = NO_VERDICT. The board is not
      lawfully formed. Report the missing proof. Do **not** report GO and
