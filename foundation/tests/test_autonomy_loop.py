@@ -9,6 +9,7 @@ from pathlib import Path
 from foundation import autonomy_loop
 from foundation.autonomy_loop import (
     AUTONOMY_STOP_FILENAME,
+    AutonomyReceipts,
     RECEIPT_LOG_NAME,
     read_autonomy_receipts,
     CycleResult,
@@ -750,9 +751,45 @@ class TestReliabilityLineCannotSeparateCountFromUncertainty(unittest.TestCase):
             self.assertIn("NOT sufficient", line)
 
     def test_boot_protocol_routes_to_the_line_not_the_bare_count(self):
-        # LENS B (routing): the operator path must name the inseparable
-        # formatter. Independent of the formatter's own behaviour --
-        # this fails if boot.md stops routing to it even while the
-        # method itself stays perfect.
+        # LENS B (routing present): the operator path must name the
+        # inseparable formatter. Fails if boot.md stops routing to it
+        # even while the method itself stays perfect.
         boot = (REPO_ROOT / ".claude" / "commands" / "boot.md").read_text()
         self.assertIn("format_reliability_line", boot)
+
+    def test_every_method_boot_md_names_on_this_class_actually_resolves(self):
+        """LENS B2 (routing INTEGRITY) -- the rot direction lens B misses.
+
+        REPRODUCED 2026-08-29: renaming format_reliability_line in source
+        left `check_protocol_document_targets()` at 0 findings,
+        `pulse_sweep()` at 0 findings, boot.md still naming the dead
+        callable, and the string-presence test above STILL PASSING. The
+        operator path could point at a method that no longer exists and
+        nothing in the repository would notice.
+
+        WHY THE EXISTING CHECK IS BLIND HERE: its two patterns require a
+        `foundation.<module>.<name>(` or `foundation/<path>.py::<name>(`
+        prefix. A METHOD reference (`AutonomyReceipts.<name>()`) matches
+        neither. Every other callable boot.md routes to is a
+        module-level function written in the dotted form, so this is the
+        sole unprotected reference -- introduced by the very commit that
+        claimed to close the routing edge.
+
+        Scoped deliberately to this class rather than extending
+        sentinel's checker: making that checker method-aware would try to
+        resolve `foundation.autonomy_loop.AutonomyReceipts` as a MODULE
+        PATH and emit a false 'module file does not exist' finding on the
+        live hourly sweep. That analysis is recorded as an open surface,
+        not built here."""
+        import re as _re
+        boot = (REPO_ROOT / ".claude" / "commands" / "boot.md").read_text()
+        named = set(_re.findall(r"\bAutonomyReceipts\.(\w+)\(", boot))
+        self.assertTrue(
+            named, "expected boot.md to name at least one AutonomyReceipts method")
+        for method in sorted(named):
+            self.assertTrue(
+                callable(getattr(AutonomyReceipts, method, None)),
+                f"boot.md routes the operator to "
+                f"AutonomyReceipts.{method}() but that method does not "
+                f"exist -- the operator path points at a dead callable",
+            )

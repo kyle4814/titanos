@@ -730,8 +730,37 @@ from the active scan path per this addendum's compaction rule.
   the gate fires as a clean assertion rather than by accident.
   Original entry follows for provenance.
 
-- **OPEN SURFACE — `boot.md` reports the failure count without its
-  bound.** Found 2026-08-29 while prosecuting the prior receipt.
+- **OPEN SURFACE — `check_protocol_document_targets()` is blind to
+  METHOD references in protocol documents.** Reproduced 2026-08-29:
+  renaming `format_reliability_line` in source left the checker at 0
+  findings and `pulse_sweep()` at 0 findings while `boot.md` still named
+  the dead callable. Its two patterns
+  (`_PROTOCOL_DOTTED_REF`, `_PROTOCOL_PATH_REF`) both require a
+  `foundation.<module>.<name>(` or `foundation/<path>.py::<name>(`
+  prefix; a method reference like `AutonomyReceipts.<name>()` matches
+  neither. Every other callable `boot.md` routes to is a module-level
+  function in the dotted form, so this was the only unprotected
+  reference. **Closed locally** by a scoped test
+  (`test_every_method_boot_md_names_on_this_class_actually_resolves`),
+  NOT by extending the checker. **Why not extend it:** the dotted
+  pattern would capture `autonomy_loop.AutonomyReceipts.` as the module
+  prefix and try to resolve
+  `foundation/autonomy_loop/AutonomyReceipts.py`, which does not exist —
+  emitting a FALSE "module file does not exist" finding on the live
+  hourly sweep. **Minimum brick if taken:** teach the resolver to fall
+  back to attribute lookup on a class when the module path misses, with
+  a negative test proving no false positive on the real repository.
+  **Re-entry:** a second protocol document adds a method reference, or
+  any method reference appears outside `AutonomyReceipts`.
+
+- **CLOSED 2026-08-29 — `boot.md` reported the failure count without its
+  bound.** Fixed structurally in `bb33be6`:
+  `AutonomyReceipts.format_reliability_line()` emits observation, sample
+  size, 95% bound, and sufficiency verdict as one inseparable string,
+  and `boot.md` routes to it. Original entry follows for provenance.
+
+- **(superseded, kept for provenance) `boot.md` reports the failure
+  count without its bound.** Found 2026-08-29 while prosecuting the prior receipt.
   `HUMAN_DECISIONS.md` item 14 carries `failure_rate_upper_bound_95` and
   `evidence_is_sufficient_for()` (2 references), but
   `.claude/commands/boot.md` step 4b instructs the operator to report
