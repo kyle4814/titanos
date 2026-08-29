@@ -243,3 +243,122 @@ class TestPulseSweepFailureDoesNotStopTheMouths(unittest.TestCase):
                              "no pulse record should exist when the sweep itself failed")
             self.assertTrue((tmp / "foundation" / "mouth_ONLY_log.jsonl").exists(),
                             "the mouth never ran because pulse_sweep()'s crash was uncaught")
+
+
+class TestPulseLogIsReadableByItsRealReader(unittest.TestCase):
+    """The live producer's real output must be readable by the real
+    consumer that /boot depends on.
+
+    BOUNDARY: cron_pulse.main() -> pulse_log.jsonl ->
+    sentinel.read_pulse_continuity() -> boot.md step 4b -> the operator's
+    answer to "what happened while nobody was watching".
+
+    REPRODUCED 2026-08-29, second instance of a failure geometry first
+    found at the autonomy-loop rollback marker: the two sides share the
+    record's key names, and every existing test asserted ONE side against
+    hand-authored values. cron_pulse's tests ran main() but never read
+    the log back through read_pulse_continuity; read_pulse_continuity's
+    tests parsed fixtures the test file itself wrote.
+
+    ATTACK (verified to land): rename the reader's `findings` key AND all
+    14 supporting fixtures in test_sentinel.py together -- a natural
+    refactor -- leaving cron_pulse's real writer untouched.
+      RESULT: full foundation suite 1025/1025 OK
+      REALITY: a real cron_pulse-shaped record yielded
+               meaningful_findings = 0 while a real finding was written
+
+    Consequence: the hourly sweep's findings would silently vanish from
+    the boot report, and `read_pulse_continuity` is precisely the
+    mechanism meant to reveal what happened unattended. Silence would be
+    indistinguishable from health -- and this repository already treats
+    "it was the silence that was the defect" as a named failure class.
+
+    ORACLE: the record cron_pulse.main() itself wrote. Not a fixture."""
+
+    def _run_main_in_production_layout(self, tmp_dir: Path):
+        """Run the real main() with the PRODUCTION log location.
+
+        The sibling harness above deliberately patches LOG_PATH to a flat
+        tmp_dir/pulse_log.jsonl. read_pulse_continuity() reads
+        <root>/foundation/pulse_log.jsonl -- the real cron_pulse.LOG_PATH
+        layout. Reusing that flat harness here made both of these tests
+        fail on an UNMUTATED repository, which was a harness artifact, not
+        a defect. Recorded rather than silently corrected: a cross-boundary
+        test must reproduce the production layout, or it measures its own
+        setup instead of the contract."""
+        (tmp_dir / "foundation").mkdir(exist_ok=True)
+        state_path = tmp_dir / "foundation" / "mouth_pypi_state.json"
+        pulse_log = tmp_dir / "foundation" / "pulse_log.jsonl"
+        pressure_log = tmp_dir / "foundation" / "dependency_pressure_log.jsonl"
+
+        def fake_observe(_state_path, now=None):
+            items_old = ({"key": "a", "title": "6.0.3"},)
+            items_new = ({"key": "a", "title": "6.0.3"}, {"key": "b", "title": "6.0.4"})
+            observe("pypi_pyyaml_releases", state_path, lambda: b"v1", lambda raw: items_old)
+            return observe("pypi_pyyaml_releases", state_path, lambda: b"v2", lambda raw: items_new)
+
+        fake_mouths = ((cron_pulse.mouth_pypi.MOUTH_ID, fake_observe, state_path, "PyYAML"),)
+        with mock.patch.object(cron_pulse, "MOUTHS", fake_mouths), \
+             mock.patch.object(cron_pulse, "LOG_PATH", pulse_log), \
+             mock.patch.object(cron_pulse, "DEPENDENCY_PRESSURE_LOG_PATH", pressure_log), \
+             mock.patch.object(cron_pulse, "REPO_ROOT", tmp_dir), \
+             mock.patch.object(cron_pulse, "REQUIREMENTS_PATH",
+                               Path("requirements.txt").resolve()):
+            return cron_pulse.main()
+
+    def test_a_real_main_run_produces_a_log_its_real_reader_can_parse(self):
+        from foundation.sentinel import read_pulse_continuity
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_dir = Path(tmp)
+            result = self._run_main_in_production_layout(tmp_dir)
+            self.assertEqual(result, 0, "precondition: main() must have run")
+
+            pulse_log = tmp_dir / "foundation" / "pulse_log.jsonl"
+            self.assertTrue(
+                pulse_log.exists(), "precondition: main() must have written a log")
+            raw = [json.loads(ln) for ln in pulse_log.read_text().splitlines() if ln.strip()]
+            self.assertTrue(raw, "precondition: the log must contain a record")
+
+            continuity = read_pulse_continuity(tmp_dir)
+            self.assertTrue(
+                continuity.available,
+                "the real reader could not even see the real producer's log")
+            self.assertEqual(
+                continuity.records_considered, len(raw),
+                f"the real reader parsed {continuity.records_considered} of "
+                f"{len(raw)} records that cron_pulse.main() actually wrote")
+            self.assertEqual(
+                continuity.warnings, (),
+                f"the real reader emitted warnings on the real producer's own "
+                f"output: {continuity.warnings}")
+
+    def test_real_findings_written_by_main_survive_the_reader(self):
+        # The half that the record-count assertion alone cannot prove: a
+        # record can be counted while its FINDINGS are dropped, which is
+        # exactly what the reproduced key rename did.
+        from foundation.sentinel import read_pulse_continuity
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_dir = Path(tmp)
+            self._run_main_in_production_layout(tmp_dir)
+            raw = [
+                json.loads(ln)
+                for ln in (tmp_dir / "foundation" / "pulse_log.jsonl").read_text().splitlines()
+                if ln.strip()
+            ]
+            # The precondition uses raw_finding_count, a key INDEPENDENT of
+            # the `findings` list this test is about. Using len(rec["findings"])
+            # here made the test skip -- and therefore pass vacuously -- under
+            # a producer-side rename of exactly the key under test. Caught by
+            # mutation, not by review.
+            written = sum(int(rec.get("raw_finding_count", 0)) for rec in raw)
+            if written == 0:
+                self.skipTest(
+                    "this run produced no findings; nothing to carry across "
+                    "the boundary (precondition not met, not a pass)")
+            continuity = read_pulse_continuity(tmp_dir)
+            self.assertTrue(
+                continuity.meaningful_findings,
+                f"cron_pulse.main() wrote {written} finding(s) but the real "
+                f"reader surfaced none -- the two sides share the record's key "
+                f"names and can be renamed apart while every fixture-based "
+                f"test stays green, silently emptying the boot report")
