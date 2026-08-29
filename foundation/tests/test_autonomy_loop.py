@@ -10,6 +10,7 @@ from foundation import autonomy_loop
 from foundation.autonomy_loop import (
     AUTONOMY_STOP_FILENAME,
     RECEIPT_LOG_NAME,
+    read_autonomy_receipts,
     CycleResult,
     run_loop,
     run_one_cycle,
@@ -26,6 +27,8 @@ from foundation.autonomy_loop import (
 # fails, whereas add-then-commit left the change STAGED on failure. This
 # set may shrink freely; WIDENING it is an authority change.
 AUTHORIZED_GIT_VERBS = frozenset({"status", "commit"})
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 _WORKFLOW = """\
 jobs:
@@ -500,3 +503,102 @@ class TestEveryCycleIsReceipted(unittest.TestCase):
             run_one_cycle(fx.root)
             receipts = self._receipts(fx.root)
             self.assertEqual(receipts[-1]["action"], "FIXED_README_DRIFT")
+
+
+class TestReceiptsHaveAReader(unittest.TestCase):
+    """The receipts written since ce18f91 had NO reader anywhere.
+
+    Three sibling machine-local logs each have a reader routed into
+    boot.md (read_pulse_continuity, read_cron_stderr,
+    read_dependency_pressure_log). autonomy_loop_log.jsonl had none, so
+    the facts it carries -- above all the count of cycles that really
+    wrote to disk and rolled back, which git cannot show by construction
+    -- could not reach any decision, including HUMAN_DECISIONS item 14."""
+
+    def _write(self, root, records):
+        d = root / "foundation"
+        d.mkdir(parents=True, exist_ok=True)
+        (d / RECEIPT_LOG_NAME).write_text(
+            "".join(json.dumps(r) + "\n" for r in records))
+
+    def test_absent_log_is_not_available_and_does_not_raise(self):
+        with tempfile.TemporaryDirectory() as d:
+            r = read_autonomy_receipts(Path(d))
+            self.assertFalse(r.available)
+            self.assertEqual(r.records_considered, 0)
+            self.assertIn("never run", r.warnings[0])
+
+    def test_counts_outcomes_and_fixes(self):
+        with tempfile.TemporaryDirectory() as d:
+            self._write(Path(d), [
+                {"action": "CLEAN_IDLE", "detail": "x", "occurred_at": "t1"},
+                {"action": "FIXED_README_DRIFT", "detail": "y", "occurred_at": "t2"},
+                {"action": "FIXED_README_DRIFT", "detail": "z", "occurred_at": "t3"},
+            ])
+            r = read_autonomy_receipts(Path(d))
+            self.assertTrue(r.available)
+            self.assertEqual(r.fixes_applied, 2)
+            self.assertEqual(r.outcome_counts["CLEAN_IDLE"], 1)
+            self.assertEqual(r.latest_timestamp, "t3")
+
+    def test_counts_attempted_and_recovered_the_fact_git_cannot_show(self):
+        with tempfile.TemporaryDirectory() as d:
+            self._write(Path(d), [
+                {"action": "STOPPED_FIX_VERIFICATION_FAILED",
+                 "detail": "git commit failed: hook (README.md restored to its pre-fix contents)",
+                 "occurred_at": "t1"},
+                # A stop that never reached the write stage must NOT count
+                # as a recovered mutation.
+                {"action": "STOPPED_DIRTY_TREE", "detail": "not clean", "occurred_at": "t2"},
+            ])
+            r = read_autonomy_receipts(Path(d))
+            self.assertEqual(r.attempted_and_recovered, 1)
+
+    def test_verification_failure_without_a_rollback_marker_is_not_counted(self):
+        with tempfile.TemporaryDirectory() as d:
+            self._write(Path(d), [
+                {"action": "STOPPED_FIX_VERIFICATION_FAILED",
+                 "detail": "no marker here", "occurred_at": "t1"},
+            ])
+            self.assertEqual(read_autonomy_receipts(Path(d)).attempted_and_recovered, 0)
+
+    def test_consecutive_stops_at_tail(self):
+        with tempfile.TemporaryDirectory() as d:
+            self._write(Path(d), [
+                {"action": "FIXED_README_DRIFT", "detail": "a", "occurred_at": "t1"},
+                {"action": "STOPPED_DIRTY_TREE", "detail": "b", "occurred_at": "t2"},
+                {"action": "STOPPED_DIRTY_TREE", "detail": "c", "occurred_at": "t3"},
+            ])
+            self.assertEqual(read_autonomy_receipts(Path(d)).consecutive_stops_at_tail, 2)
+
+    def test_fails_soft_on_malformed_lines(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            (root / "foundation").mkdir(parents=True)
+            (root / "foundation" / RECEIPT_LOG_NAME).write_text(
+                "not json\n"
+                "12345\n"
+                '{"action": "NOT_A_REAL_ACTION", "detail": "x", "occurred_at": "t"}\n'
+                '{"action": "CLEAN_IDLE", "detail": "ok", "occurred_at": "t9"}\n'
+            )
+            r = read_autonomy_receipts(root)
+            self.assertTrue(r.available)
+            self.assertEqual(r.records_considered, 1)
+            self.assertEqual(len(r.warnings), 3)
+
+    def test_is_bounded_and_read_only(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            self._write(root, [
+                {"action": "CLEAN_IDLE", "detail": str(i), "occurred_at": f"t{i}"}
+                for i in range(500)
+            ])
+            log = root / "foundation" / RECEIPT_LOG_NAME
+            before = log.stat().st_mtime_ns
+            r = read_autonomy_receipts(root, max_records=10)
+            self.assertEqual(r.records_considered, 10)
+            self.assertEqual(log.stat().st_mtime_ns, before)
+
+    def test_reads_the_real_repository_without_raising(self):
+        r = read_autonomy_receipts(REPO_ROOT)
+        self.assertIsInstance(r.outcome_counts, dict)

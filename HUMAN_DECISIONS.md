@@ -159,6 +159,19 @@ Last compiled 2026-08-25. Each item cites its source report.
     boot.md` step 4b), which needs no new authority because a session
     already commits.
 
+    **Evidence to weigh before answering, now mechanically available.**
+    Call `foundation.autonomy_loop.read_autonomy_receipts(REPO_ROOT)`
+    (read-only, bounded, fails soft). It reports `fixes_applied`,
+    `outcome_counts`, `consecutive_stops_at_tail`, and above all
+    `attempted_and_recovered` — cycles that really wrote to disk and
+    rolled back. That last number is the loop's true failure rate and
+    **git cannot show it by construction**: a correct rollback restores
+    the exact prior bytes, so a failed-and-recovered attempt is invisible
+    in history. Until 2026-08-29 nothing read this log at all, so this
+    decision had no failure-rate evidence available — it would have been
+    answered from impressions. It is reporting only: these counts are
+    evidence to weigh, never an authorization to schedule anything.
+
     **What is actually being asked:** running it on a schedule would
     create a standing, unattended, commit-capable process — the first in
     this repository. That is an authority change (execution with no human

@@ -73,6 +73,24 @@ summary is not proof of anything; verified behavior is.
    other than this one, or more than one finding at once, returns a
    `STOPPED_*` result and changes nothing.
 
+   **Report what the actuator has actually done here**, the same way
+   steps above report the other machine-local runtime logs:
+   `foundation.autonomy_loop.read_autonomy_receipts(REPO_ROOT)`
+   (read-only, bounded to the last 50 records, fails soft if the log is
+   missing or a line is malformed). Report `available`,
+   `records_considered`, `outcome_counts`, `fixes_applied`,
+   `consecutive_stops_at_tail`, and `attempted_and_recovered`.
+
+   `attempted_and_recovered` counts cycles that really wrote to disk and
+   rolled back — **git cannot show these**, because a correct rollback
+   restores the exact prior bytes. A rising count means the repair path
+   is failing repeatedly and recovering silently; that is a finding to
+   look at, not something authorized to act on. `available=False` means
+   the actuator has never run in this working copy, which is the honest
+   state for a fresh clone (the log is gitignored machine-local runtime
+   state). These counts are also the evidence `HUMAN_DECISIONS.md` item
+   14 asks for.
+
    **Why this step exists:** README test-count drift has been repaired
    BY HAND 7 times in this repository's real history — 3 of them in a
    single session on 2026-08-29 — while an authorized actuator for it sat

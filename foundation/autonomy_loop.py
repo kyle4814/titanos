@@ -75,7 +75,10 @@ from foundation.sentinel import pulse_sweep, count_real_tests  # noqa: E402
 __all__ = [
     "AUTONOMY_STOP_FILENAME", "RECEIPT_LOG_NAME", "README_DRIFT_OBSERVATION",
     "CycleResult", "run_one_cycle", "run_loop",
+    "AutonomyReceipts", "RECEIPTS_MAX_RECORDS", "read_autonomy_receipts",
 ]
+
+RECEIPTS_MAX_RECORDS = 50
 
 AUTONOMY_STOP_FILENAME = ".autonomy_stop"
 RECEIPT_LOG_NAME = "autonomy_loop_log.jsonl"
@@ -380,6 +383,156 @@ def run_loop(
             elapsed += sleep_slice_seconds
 
     return results
+
+
+@dataclass(frozen=True)
+class AutonomyReceipts:
+    """Bounded, read-only view of what the actuator actually did.
+
+    WHY THIS EXISTS. Three sibling machine-local runtime logs each have a
+    reader routed into `.claude/commands/boot.md`
+    (`read_pulse_continuity`, `read_cron_stderr`,
+    `read_dependency_pressure_log`). `autonomy_loop_log.jsonl` had none:
+    it was written and never read anywhere outside its own tests. The
+    receipts existed; no decision could reach them.
+
+    THE DECISION THIS SERVES is `HUMAN_DECISIONS.md` item 14 -- should
+    this loop run unattended on a schedule? That is a sandbox-to-
+    production move, and it was being weighed with no failure-rate
+    evidence at all, because the only record of a failed-and-recovered
+    attempt is this log (a correct rollback leaves git byte-identical).
+
+    `attempted_and_recovered` is the number this exists for: cycles that
+    really wrote to disk and rolled back. Git cannot show them by
+    construction, so before this reader they were unreachable.
+
+    Reporting only. A `Finding`-style rule applies: these counts are
+    evidence to weigh, never an authorization to schedule anything.
+    Nothing here decides; item 14 remains a human decision.
+    """
+
+    available: bool
+    records_considered: int
+    latest_timestamp: Optional[str]
+    outcome_counts: dict
+    fixes_applied: int
+    attempted_and_recovered: int
+    consecutive_stops_at_tail: int
+    warnings: tuple
+    source: str
+
+
+def read_autonomy_receipts(
+    repo_root: Path,
+    max_records: int = RECEIPTS_MAX_RECORDS,
+) -> AutonomyReceipts:
+    """Summarise the tail of `foundation/autonomy_loop_log.jsonl`.
+
+    Read-only -- never writes, truncates, or rotates the log. Bounded --
+    reads at most `max_records` trailing lines regardless of file size.
+    Fails soft at every layer: a missing file, an empty file, a malformed
+    JSON line, a valid-JSON-but-not-an-object line, and a record with an
+    unrecognised action are all reported in `warnings`, never raised.
+    Same contract as `sentinel.read_pulse_continuity()`, deliberately --
+    a boot sequence must not fail because the loop has never run here or
+    because one line was cut mid-write.
+
+    An absent log means "this actuator has never run on this machine",
+    which is the honest state for a fresh clone -- the log is gitignored
+    machine-local runtime state, not source.
+    """
+    log_path = repo_root / "foundation" / RECEIPT_LOG_NAME
+    source = str(log_path)
+    empty_counts: dict = {}
+
+    if not log_path.exists():
+        return AutonomyReceipts(
+            available=False, records_considered=0, latest_timestamp=None,
+            outcome_counts=empty_counts, fixes_applied=0,
+            attempted_and_recovered=0, consecutive_stops_at_tail=0,
+            warnings=(
+                f"{RECEIPT_LOG_NAME} does not exist -- this actuator has "
+                f"never run in this working copy",
+            ),
+            source=source,
+        )
+
+    try:
+        raw = log_path.read_text(encoding="utf-8", errors="replace")
+    except OSError as exc:
+        return AutonomyReceipts(
+            available=False, records_considered=0, latest_timestamp=None,
+            outcome_counts=empty_counts, fixes_applied=0,
+            attempted_and_recovered=0, consecutive_stops_at_tail=0,
+            warnings=(f"could not read {RECEIPT_LOG_NAME}: {exc}",),
+            source=source,
+        )
+
+    lines = [ln for ln in raw.splitlines() if ln.strip()]
+    tail = lines[-max_records:] if max_records > 0 else []
+
+    records: list = []
+    warnings: list = []
+    for line in tail:
+        try:
+            obj = json.loads(line)
+        except json.JSONDecodeError as exc:
+            warnings.append(f"skipped malformed JSON line: {exc}")
+            continue
+        # Same class of hole already found once in read_pulse_continuity:
+        # a line can be valid JSON without being a record (a bare number
+        # or string from a truncated write). .get() on that would crash
+        # the reader, and this reader is meant to be safe at boot.
+        if not isinstance(obj, dict):
+            warnings.append(f"skipped non-record JSON line: {obj!r}"[:200])
+            continue
+        action = obj.get("action")
+        if action not in _ACTIONS:
+            warnings.append(f"skipped record with unrecognised action: {action!r}"[:200])
+            continue
+        records.append(obj)
+
+    if not records:
+        return AutonomyReceipts(
+            available=True, records_considered=0, latest_timestamp=None,
+            outcome_counts=empty_counts, fixes_applied=0,
+            attempted_and_recovered=0, consecutive_stops_at_tail=0,
+            warnings=tuple(warnings) or ("no usable records in the bounded window",),
+            source=source,
+        )
+
+    counts: dict = {}
+    for rec in records:
+        counts[rec["action"]] = counts.get(rec["action"], 0) + 1
+
+    # A cycle that wrote to disk and rolled back. Identified by its
+    # action AND the rollback marker run_one_cycle() puts in the detail,
+    # so a verification failure that never reached the write stage is not
+    # miscounted as a recovered mutation.
+    recovered = sum(
+        1 for rec in records
+        if rec["action"] == "STOPPED_FIX_VERIFICATION_FAILED"
+        and "restored" in str(rec.get("detail", ""))
+    )
+
+    trailing_stops = 0
+    for rec in reversed(records):
+        if str(rec["action"]).startswith("STOPPED_"):
+            trailing_stops += 1
+        else:
+            break
+
+    return AutonomyReceipts(
+        available=True,
+        records_considered=len(records),
+        latest_timestamp=records[-1].get("occurred_at"),
+        outcome_counts=counts,
+        fixes_applied=counts.get("FIXED_README_DRIFT", 0),
+        attempted_and_recovered=recovered,
+        consecutive_stops_at_tail=trailing_stops,
+        warnings=tuple(warnings),
+        source=source,
+    )
 
 
 if __name__ == "__main__":
