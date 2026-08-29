@@ -306,6 +306,68 @@ class TestPulseLogIsReadableByItsRealReader(unittest.TestCase):
                                Path("requirements.txt").resolve()):
             return cron_pulse.main()
 
+    def test_real_pressure_findings_survive_their_real_reader(self):
+        """THIRD reproduced instance of the producer -> representation ->
+        reader false-green geometry, with a DIFFERENT attack shape.
+
+        BOUNDARY: cron_pulse.main() -> dependency_pressure_log.jsonl ->
+        dependency_pressure.read_dependency_pressure_log() -> boot.md ->
+        operator.
+
+        Instances 1 and 2 required a coordinated RENAME of a shared key
+        plus its fixtures. This one needs no rename and no fixture edit
+        at all: the reader reconstructs `Finding(**payload)` after
+        stripping exactly {mouth_id, observed_at}, so ANY third envelope
+        field the producer adds -- ordinary forward schema evolution --
+        makes every finding unparseable.
+
+        REPRODUCED 2026-08-29: adding a single `cycle_id` field to the
+        producer's record left the full foundation suite at 1027/1027 OK
+        while the real reader surfaced 0 of 1 real findings, demoting a
+        genuine dependency-pressure finding to
+        "skipped malformed finding payload".
+
+        Existing tests could not see it: the producer's own tests parse
+        the log with raw json.loads and assert on record fields directly;
+        every reader test builds its own fixture. Neither crosses.
+
+        ORACLE: the record cron_pulse.main() itself wrote.
+        PRECONDITION INDEPENDENCE: the guard counts RAW LINES written,
+        which does not depend on Finding-parseability -- the exact
+        property under attack. A guard keyed on parsed findings would
+        skip (and so pass vacuously) under this very mutation, which is
+        the trap the previous cycle fell into."""
+        from foundation.dependency_pressure import read_dependency_pressure_log
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_dir = Path(tmp)
+            result = self._run_main_in_production_layout(tmp_dir)
+            self.assertEqual(result, 0, "precondition: main() must have run")
+
+            pressure_log = tmp_dir / "foundation" / "dependency_pressure_log.jsonl"
+            self.assertTrue(
+                pressure_log.exists(),
+                "precondition: main() must have written a pressure receipt")
+            raw_lines = [
+                ln for ln in pressure_log.read_text().splitlines() if ln.strip()]
+            self.assertTrue(
+                raw_lines,
+                "precondition: the producer must have written at least one record")
+
+            continuity = read_dependency_pressure_log(pressure_log)
+            self.assertEqual(
+                continuity.records_considered, len(raw_lines),
+                f"the real reader considered {continuity.records_considered} of "
+                f"{len(raw_lines)} records the producer really wrote")
+            self.assertEqual(
+                len(continuity.findings) + len(continuity.errors), len(raw_lines),
+                f"the producer wrote {len(raw_lines)} record(s) but the real "
+                f"reader surfaced {len(continuity.findings)} finding(s) and "
+                f"{len(continuity.errors)} error(s). The reader rebuilds "
+                f"Finding(**payload) after stripping exactly "
+                f"{{mouth_id, observed_at}}, so any additional envelope field "
+                f"silently demotes real findings to warnings: "
+                f"{continuity.warnings}")
+
     def test_a_real_main_run_produces_a_log_its_real_reader_can_parse(self):
         from foundation.sentinel import read_pulse_continuity
         with tempfile.TemporaryDirectory() as tmp:
