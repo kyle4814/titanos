@@ -873,3 +873,67 @@ class TestBootProtocolNumbersMatchSource(unittest.TestCase):
         self.assertEqual(
             len(_re.findall(r"last record is >(\d+)h old", text)), 1,
             "expected exactly one documented staleness claim in boot.md")
+
+
+class TestDocumentedConstantActuallyBindsToRuntime(unittest.TestCase):
+    """Identity is not semantics: the constant must CONTROL the window.
+
+    REPRODUCED 2026-08-29 as a two-step COMMON-MODE FALSE GREEN, which
+    the prior cycle's numeric-drift test not only missed but actively
+    made more dangerous:
+
+      step 1: change the default to a literal
+              (`max_records: int = 50`). Constant, boot.md, and runtime
+              all still agree. Suite 53/53 OK. The constant is now
+              DECORATIVE and nothing notices.
+      step 2: someone raises RECEIPTS_MAX_RECORDS to 200 and updates
+              boot.md to 200 -- the responsible action, and exactly what
+              TestBootProtocolNumbersMatchSource DEMANDS of them.
+              Result: doc says 200, constant says 200, that test PASSES,
+              suite 53/53 OK, and the real window is STILL 50.
+
+    The operator is then told the sample window is 200 while
+    `read_autonomy_receipts` reads 50 -- and n is the DENOMINATOR of the
+    rule-of-three bound that HUMAN_DECISIONS item 14 weighs.
+
+    WHY THE EXISTING ORACLE WAS BLIND (Offutt, test-oracle strategies:
+    an oracle that does not check the portion of state containing the
+    erroneous value cannot see the failure). The numeric test's oracle
+    is doc-vs-constant -- two pieces of TEXT/STATE agreeing with each
+    other. It never observes whether the constant binds to behaviour.
+    That is a common-mode failure: both sides can be right and the
+    system still operationally wrong.
+
+    This lens takes its oracle from the FUNCTION OBJECT instead."""
+
+    def test_reader_default_window_is_the_documented_constant(self):
+        import inspect
+        default = inspect.signature(
+            read_autonomy_receipts).parameters["max_records"].default
+        self.assertIs(
+            default, RECEIPTS_MAX_RECORDS,
+            f"read_autonomy_receipts defaults to {default!r} but "
+            f"RECEIPTS_MAX_RECORDS is {RECEIPTS_MAX_RECORDS!r}. If these "
+            f"drift apart the constant becomes decorative: boot.md and the "
+            f"constant can then be raised together, keeping every numeric "
+            f"check green, while the real sample window -- the denominator "
+            f"of the bound item 14 weighs -- stays behind.",
+        )
+
+    def test_the_default_actually_governs_the_window_at_runtime(self):
+        # Behavioural half: not just that the objects are identical, but
+        # that calling with NO explicit argument really reads that many
+        # records. Fails if the default is bypassed inside the body.
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            (root / "foundation").mkdir(parents=True)
+            (root / "foundation" / RECEIPT_LOG_NAME).write_text(
+                "".join(json.dumps(
+                    {"action": "CLEAN_IDLE", "detail": str(i),
+                     "occurred_at": f"t{i}"}) + "\n"
+                    for i in range(RECEIPTS_MAX_RECORDS + 25)))
+            r = read_autonomy_receipts(root)   # no explicit max_records
+            self.assertEqual(
+                r.records_considered, RECEIPTS_MAX_RECORDS,
+                "the default window did not govern the number of records "
+                "actually read")
