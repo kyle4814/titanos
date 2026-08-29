@@ -201,6 +201,48 @@ Last compiled 2026-08-25. Each item cites its source report.
     history, 3 of them in one session. *(Distinct from item 13(b), which
     is about `authority_pulse.py`, a different module.)*
 
+15. **How much intermittent mouth failure should raise an alarm?** Open,
+    and deliberately not decided here, because it is a false-positive
+    tolerance judgment rather than a correctness question.
+
+    **The reproduced finding (2026-08-29, no mutation required — both
+    worlds are ordinary shipped behaviour):**
+    `foundation/sentinel.py::check_mouth_health()` fires only when the
+    TWO MOST RECENT records are both `UNAVAILABLE`. Measured directly:
+
+      2 of the last 100 observations failed, consecutively  -> 1 finding
+      50 of the last 100 failed, alternating, ending on a
+        success                                             -> 0 findings
+
+    The strictly worse world reports as the healthier one. A mouth blind
+    half the time is chronic sensory degradation; the module's own text
+    calls this class "silent sensory loss ... the cost is blindness".
+
+    **Why this was NOT fixed unilaterally.** Two existing tests encode
+    DELIBERATE false-positive bounds, with stated rationale:
+    `test_a_single_transient_blip_is_not_reported` ("one failed fetch is
+    normal network variation") and
+    `test_a_failure_that_recovered_is_not_reported`, which keeps
+    `[UNAVAILABLE, UNAVAILABLE, UNCHANGED]` silent — **2 of 3 failures,
+    a 67% rate, intentionally quiet, HIGHER than the 50% case above**.
+    So failure RATE alone cannot separate the alarming case from the
+    deliberately-silent one. A first attempt that fired on any failure in
+    the window was written, run, and REVERTED: it broke both contracts
+    and would have converted a named noise-suppression decision into
+    noise.
+
+    Any narrower rule needs a threshold on rate, recency, or run-length.
+    Choosing one is a judgment about how much blindness is acceptable
+    before an operator is interrupted — the same class of call as items
+    13 and 14, and not one a session should make by picking a number that
+    happens to satisfy the current tests. **Kyle decides, or explicitly
+    delegates the criterion.**
+
+    **What is NOT claimed:** that the current behaviour is wrong to be
+    quiet in every case it is quiet. Only that a strictly worse world can
+    currently be strictly quieter, which no threshold choice should
+    permit whichever way the tolerance is set.
+
 ## Recurring theme worth naming once, not per-session
 
 Three consecutive build sessions (MAGL → RPA → TAAL) each independently
