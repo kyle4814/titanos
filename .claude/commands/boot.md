@@ -239,6 +239,26 @@ authorized, and note it still has no fetcher to exercise it).
    A verdict is a report, never an authorisation. Nothing is built,
    committed, pushed, installed, armed, or scheduled as a consequence.
 
+   **If `proceed=True` and this cycle admitted more than one candidate,
+   pass them to `foundation.sentinel.select_one_admitted(candidate_ids)`
+   in your intended priority order and build only what it returns**
+   (`None` when the tuple is empty). The one-brick-per-cycle limit is a
+   standing rule of every cycle here, but until this step named the
+   function it was upheld by discipline alone — which is precisely what
+   `select_one_admitted()`'s own docstring says it exists to prevent:
+   the limit "enforced structurally rather than by discipline alone …
+   so that fact is checkable, not just documented." It had zero
+   consumers anywhere in the repository.
+
+   It selects; it does not authorise. It returns one identifier from a
+   tuple you supply and confers no permission to build, commit, or push
+   that candidate — the authority boundary is unchanged and lives
+   elsewhere (`HUMAN_DECISIONS.md`, and `autonomy_loop.py`'s `_ACTIONS`
+   for the unattended loop). The candidates it does not return are not
+   discarded: record them as open surfaces so the next cycle's board
+   still accounts for them, exactly as `evaluate_continuation()`'s
+   closed-accounting rule requires.
+
    **What this step is, precisely:** a documented session protocol, the
    same kind as steps 4b/4b-ii/4c/5 and the `classify_hold()` branch
    below. It is *not* a code-level call: nothing in the codebase enforces
