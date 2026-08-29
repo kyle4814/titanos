@@ -8,7 +8,7 @@ from foundation.sigil import (
     RecordedSigil, parse_sigil, read_recorded_sigil, DIMENSION_NAMES,
     _dimension_iron, _dimension_lattice, _dimension_frontier,
     _dimension_memory, _dimension_sight, _dimension_reality, _dimension_orchestration,
-    _dimension_external_integration,
+    _dimension_external_integration, _defines,
 )
 from foundation.recursion_guard import check as guard_check
 
@@ -139,9 +139,14 @@ class TestDimensionsOnSyntheticRepo(unittest.TestCase):
             root = Path(tmp)
             fdir = root / "foundation"
             fdir.mkdir()
-            (fdir / "task_queue.py").write_text("x")
-            (fdir / "layer0_worker.py").write_text("x")
-            (fdir / "queue_worker_adapter.py").write_text("x")
+            # Real symbol definitions, not placeholder text: since
+            # 2026-08-29 these dimensions require the module to actually
+            # define its named capability, not merely exist.
+            (fdir / "task_queue.py").write_text("class TaskQueue: pass\nclass Task: pass\n")
+            (fdir / "layer0_worker.py").write_text(
+                "def should_halt(): pass\nclass CycleRecord: pass\n")
+            (fdir / "queue_worker_adapter.py").write_text(
+                "def make_worker_perform(): pass\ndef make_worker_verify(): pass\n")
             score, justification, proven = _dimension_orchestration(root)
             self.assertFalse(proven)
             self.assertEqual(score, 6)  # 3 of 5 components, 2 points each
@@ -157,9 +162,12 @@ class TestDimensionsOnSyntheticRepo(unittest.TestCase):
             root = Path(tmp)
             fdir = root / "foundation"
             fdir.mkdir()
-            (fdir / "reality_yield_ledger.py").write_text("x")
-            (fdir / "hells_gate.py").write_text("x")
-            (fdir / "publication_gate.py").write_text("x")
+            (fdir / "reality_yield_ledger.py").write_text(
+                "class YieldComponent: pass\nclass LedgerEntry: pass\n")
+            (fdir / "hells_gate.py").write_text(
+                "class HellsGateArtifact: pass\nclass HellsGateDecision: pass\n")
+            (fdir / "publication_gate.py").write_text(
+                "class PublicationSwitch: pass\nclass PublicationDecision: pass\n")
             score, _, zero_net = _dimension_reality(root)
             self.assertTrue(zero_net)
             self.assertEqual(score, 10)
@@ -169,9 +177,12 @@ class TestDimensionsOnSyntheticRepo(unittest.TestCase):
             root = Path(tmp)
             fdir = root / "foundation"
             fdir.mkdir()
-            (fdir / "reality_yield_ledger.py").write_text("x")
-            (fdir / "hells_gate.py").write_text("x")
-            (fdir / "publication_gate.py").write_text("x")
+            (fdir / "reality_yield_ledger.py").write_text(
+                "class YieldComponent: pass\nclass LedgerEntry: pass\n")
+            (fdir / "hells_gate.py").write_text(
+                "class HellsGateArtifact: pass\nclass HellsGateDecision: pass\n")
+            (fdir / "publication_gate.py").write_text(
+                "class PublicationSwitch: pass\nclass PublicationDecision: pass\n")
             (fdir / "sneaky.py").write_text("import requests\n")
             score, _, zero_net = _dimension_reality(root)
             self.assertFalse(zero_net)
@@ -417,3 +428,78 @@ class TestRecordedSigilRetrieval(unittest.TestCase):
         read_recorded_sigil(REPO_ROOT)
         read_recorded_sigil(REPO_ROOT)
         self.assertEqual((REPO_ROOT / "SIGIL.md").stat().st_mtime_ns, before)
+
+
+class TestDefinesRejectsHollowModules(unittest.TestCase):
+    """The reproduced defect: capability dimensions used to score on bare
+    Path.exists(), so a directory of EMPTY files with the right names
+    scored identically to the real repository. See _defines()'s docstring
+    for the original reproduction."""
+
+    def _hollow_repo(self, tmp: str) -> Path:
+        r = Path(tmp)
+        (r / "foundation").mkdir()
+        for n in ("task_queue.py", "layer0_worker.py", "queue_worker_adapter.py",
+                  "sentinel_worker.py", "crystal.py", "sentinel.py",
+                  "secret_scanner.py", "reality_yield_ledger.py",
+                  "hells_gate.py", "publication_gate.py"):
+            (r / "foundation" / n).write_text("")
+        (r / "foundation" / "tests").mkdir()
+        (r / "foundation" / "tests" / "test_closed_loop_reality.py").write_text("")
+        (r / "MEMORY_MAP.md").write_text("")
+        (r / "foundation" / "task_queue.py").write_text("recovery_handoff")
+        (r / "PARETO_FRONTIER.md").write_text("## Archive (built)")
+        return r
+
+    def test_empty_file_with_the_right_name_scores_nothing_for_orchestration(self):
+        with tempfile.TemporaryDirectory() as d:
+            score, _justification, proven = _dimension_orchestration(self._hollow_repo(d))
+            self.assertEqual(score, 0)
+            self.assertFalse(proven)
+
+    def test_empty_file_with_the_right_name_does_not_earn_crystal_credit(self):
+        with tempfile.TemporaryDirectory() as d:
+            score, justification = _dimension_memory(self._hollow_repo(d))
+            self.assertIn("crystal=no", justification)
+            self.assertLess(score, 10)
+
+    def test_empty_gate_modules_do_not_earn_full_reality_credit(self):
+        with tempfile.TemporaryDirectory() as d:
+            hollow, _j, _obelisk = _dimension_reality(self._hollow_repo(d))
+            real, _j2, _o2 = _dimension_reality(REPO_ROOT)
+            self.assertLess(hollow, real)
+
+    def test_real_repository_scores_are_unchanged_by_the_stricter_check(self):
+        # The other half of the proof: tightening the check must not
+        # penalise the real repository. If this fails, the symbol names
+        # in sigil.py are wrong, not the repository.
+        self.assertEqual(_dimension_orchestration(REPO_ROOT)[0], 10)
+        self.assertEqual(_dimension_memory(REPO_ROOT)[0], 10)
+        self.assertEqual(_dimension_sight(REPO_ROOT)[0], 10)
+
+    def test_defines_finds_indented_class_methods(self):
+        # Regression for a real bug in this helper's first draft: a "^"
+        # anchor with no leading-whitespace allowance reported a fully
+        # populated TestCase file as defining no tests.
+        self.assertTrue(_defines(
+            REPO_ROOT / "foundation" / "tests" / "test_closed_loop_reality.py", "test_"))
+
+    def test_defines_is_false_for_a_missing_file(self):
+        self.assertFalse(_defines(REPO_ROOT / "foundation" / "no_such_module.py", "anything"))
+
+    def test_defines_requires_every_named_symbol_not_just_one(self):
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d) / "partial.py"
+            p.write_text("class Present:\n    pass\n")
+            self.assertTrue(_defines(p, "Present"))
+            self.assertFalse(_defines(p, "Present", "Absent"))
+
+    def test_defines_does_not_match_a_mere_mention(self):
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d) / "mention.py"
+            p.write_text("# TaskQueue is discussed here\nx = 'TaskQueue'\n")
+            self.assertFalse(_defines(p, "TaskQueue"))
+
+
+if __name__ == "__main__":
+    unittest.main()

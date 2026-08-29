@@ -89,6 +89,60 @@ def _iter_py_files(repo_root: Path):
         yield path
 
 
+def _defines(module_path: Path, *symbols: str) -> bool:
+    """True only if `module_path` exists AND actually defines every named
+    symbol at module level.
+
+    WHY THIS EXISTS (reproduced defect, not a hypothetical)
+
+    Every capability dimension below used to award its points on bare
+    `Path.exists()`. That is not "derived from a concrete, inspectable
+    fact" in the sense `TITANOS_SIGIL_CAPABILITY_INDEX.md` requires --
+    file existence is effectively caller-suppliable. REPRODUCED
+    2026-08-29: a scratch directory containing six EMPTY files with the
+    right names, plus two trivial marker strings, scored
+    `ORCH:10 | MEMORY:10` -- byte-identical to the real repository's own
+    score for those dimensions.
+
+    This does not attempt to prove the symbol WORKS -- that is PROOF's
+    job, and PROOF genuinely runs the test suites. It closes the far
+    cheaper hole: a named capability scoring full marks while the module
+    behind it is empty, gutted, or truncated (a partial checkout, a
+    failed clone, or a refactor that emptied a module all produce this
+    honestly, without anyone acting maliciously).
+
+    Deliberately NOT applied to markdown documents (`MEMORY_MAP.md`,
+    `PARETO_FRONTIER.md`, `BUILD_REPORT.md`): for those, existence
+    genuinely IS the signal being scored -- there is no equivalent
+    "defines a symbol" notion, and inventing a required-heading check
+    would be a different claim than the one those dimensions make.
+    """
+    if not module_path.exists():
+        return False
+    try:
+        text = module_path.read_text(errors="ignore")
+    except OSError:
+        return False
+    # A symbol ending in "_" is a deliberate PREFIX match (e.g. "test_"
+    # means "defines at least one test function"). A word boundary would
+    # never fire there -- "_" is itself a word character, so `test_\b`
+    # cannot match `def test_foo`.
+    # Leading indentation is allowed: a test function is a method inside
+    # a TestCase class, so anchoring hard at column 0 would have reported
+    # a fully-populated test file as empty. Caught 2026-08-29 by running
+    # this helper against the real repository and seeing ORCH drop 10->8
+    # -- the two-sided check (real repo must NOT change, fake must
+    # collapse) is what surfaced it.
+    return all(
+        re.search(
+            rf"^[ \t]*(?:async +)?(?:def|class) +{re.escape(s)}"
+            + ("" if s.endswith("_") else r"\b"),
+            text, re.MULTILINE,
+        )
+        for s in symbols
+    )
+
+
 def _dimension_iron(repo_root: Path) -> tuple[int, str]:
     """Durable code foundation: subsystems with a real BUILD_REPORT.md
     audit trail (`sentinel.py`'s own fixed list, not re-derived here)."""
@@ -190,8 +244,10 @@ def _dimension_proof(repo_root: Path) -> tuple[int, str, bool, int]:
 def _dimension_sight(repo_root: Path) -> tuple[int, str, bool]:
     """Observability: Sentinel exists and its own pulse_sweep is clean,
     plus the secret scanner exists and is wired to publication_gate."""
-    sentinel_exists = (repo_root / "foundation" / "sentinel.py").exists()
-    scanner_exists = (repo_root / "foundation" / "secret_scanner.py").exists()
+    sentinel_exists = _defines(
+        repo_root / "foundation" / "sentinel.py", "pulse_sweep", "Finding")
+    scanner_exists = _defines(
+        repo_root / "foundation" / "secret_scanner.py", "scan", "ScanReport")
     clean = False
     if sentinel_exists:
         report = pulse_sweep(repo_root)
@@ -239,13 +295,18 @@ def _dimension_orchestration(repo_root: Path) -> tuple[int, str, bool]:
     end — that proof is what separates a wired seam from a demonstrated
     one."""
     files = {
-        "queue": repo_root / "foundation" / "task_queue.py",
-        "worker": repo_root / "foundation" / "layer0_worker.py",
-        "adapter": repo_root / "foundation" / "queue_worker_adapter.py",
-        "real_worker": repo_root / "foundation" / "sentinel_worker.py",
-        "closed_loop_proof": repo_root / "foundation" / "tests" / "test_closed_loop_reality.py",
+        "queue": (repo_root / "foundation" / "task_queue.py", ("TaskQueue", "Task")),
+        "worker": (repo_root / "foundation" / "layer0_worker.py", ("should_halt", "CycleRecord")),
+        "adapter": (repo_root / "foundation" / "queue_worker_adapter.py",
+                    ("make_worker_perform", "make_worker_verify")),
+        "real_worker": (repo_root / "foundation" / "sentinel_worker.py", ("SentinelSweepWorker",)),
+        # A test file's capability claim is that it defines real test
+        # functions -- an empty file named test_closed_loop_reality.py
+        # proves nothing, which is exactly the hole this closes.
+        "closed_loop_proof": (repo_root / "foundation" / "tests" / "test_closed_loop_reality.py",
+                              ("test_",)),
     }
-    present = {k: p.exists() for k, p in files.items()}
+    present = {k: _defines(p, *syms) for k, (p, syms) in files.items()}
     score = sum(2 for v in present.values() if v)
     proven_end_to_end = present["real_worker"] and present["closed_loop_proof"]
     justification = f"{sum(present.values())}/5 components present, end_to_end_proven={proven_end_to_end}"
@@ -256,7 +317,8 @@ def _dimension_memory(repo_root: Path) -> tuple[int, str]:
     """Durable handoff/compaction: Crystal (epistemic provenance),
     MEMORY_MAP.md (boot-load tier audit), recovery_handoff (queue
     interruption recovery)."""
-    crystal = (repo_root / "foundation" / "crystal.py").exists()
+    crystal = _defines(
+        repo_root / "foundation" / "crystal.py", "Crystal", "CrystalStore")
     memory_map = (repo_root / "MEMORY_MAP.md").exists()
     task_queue_path = repo_root / "foundation" / "task_queue.py"
     recovery = task_queue_path.exists() and "recovery_handoff" in task_queue_path.read_text(errors="ignore")
@@ -277,9 +339,15 @@ def _dimension_reality(repo_root: Path) -> tuple[int, str, bool]:
     """Evidence <-> real-world validation: reality-yield ledger, Hell's
     Gate, publication gate, and a real zero-network-dependency check
     (the Obelisk Test), run fresh rather than cited from memory."""
-    ledger = (repo_root / "foundation" / "reality_yield_ledger.py").exists()
-    hells_gate = (repo_root / "foundation" / "hells_gate.py").exists()
-    pub_gate = (repo_root / "foundation" / "publication_gate.py").exists()
+    ledger = _defines(
+        repo_root / "foundation" / "reality_yield_ledger.py",
+        "YieldComponent", "LedgerEntry")
+    hells_gate = _defines(
+        repo_root / "foundation" / "hells_gate.py",
+        "HellsGateArtifact", "HellsGateDecision")
+    pub_gate = _defines(
+        repo_root / "foundation" / "publication_gate.py",
+        "PublicationSwitch", "PublicationDecision")
 
     network_pattern = re.compile(
         r"^\s*(import requests|import boto3|import socket|from http\.client|import urllib\.request)",
