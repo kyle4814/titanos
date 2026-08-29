@@ -636,6 +636,49 @@ from the active scan path per this addendum's compaction rule.
   it needs a real non-test caller and a real unstructured-input fixture
   first — not built speculatively ahead of either.
 
+- **Second `autonomy_loop.py` actuator (Omega Continuity Prosecution,
+  cycle demonblade_014, 2026-08-29)** — measured real recurrence across
+  `foundation/pulse_log.jsonl`'s full 62-entry hourly history (the real
+  unattended `cron_pulse.py` record, not a synthetic sample) rather than
+  reasoning from the check list alone. Result: exactly two observation
+  classes have ever fired in production — `check_readme_test_count`
+  (already the one authorized actuator) and
+  `check_frontier_hash_placeholders` (5 occurrences in this log, plus
+  "recurred at least four times before that" per its own docstring
+  referencing commit `5a9ca9f` — see FRONTIER-018). **Every other of the
+  11 Level-1 checks has fired zero times in 62 real hourly cycles** —
+  strictly stronger evidence than the prior "N=1, insufficient
+  recurrence" kill this session had been carrying forward; re-verify
+  against a longer `pulse_log.jsonl` before reopening any of them, not
+  against reasoning alone.
+  `check_frontier_hash_placeholders` was prosecuted seriously as the one
+  candidate with real, repeated, evidenced recurrence, and **killed on a
+  different axis than recurrence**: the repair is not self-verifying.
+  The README actuator's post-fix `pulse_sweep()` clean state is
+  *definitionally* correct — the fix recomputes the same ground truth
+  the check itself reads, so "check clears" and "fix is correct" are the
+  same fact. A placeholder-hash fix would have to guess the right commit
+  via `git blame` on the affected line — this repo's own history
+  (FRONTIER-018's manual backfill, FRONTIER-019's shape-(a)/shape-(b)
+  divergence findings) already proves row text and shipping commit can
+  diverge (rows edited after their describing commit, wording tweaked
+  without re-attributing). An automated wrong-hash write would make
+  `pulse_sweep()` report CLEAN while asserting **false provenance** into
+  the Archive — silently worse than the honest placeholder it replaced,
+  and per this file's own FRONTIER-018/019 entries a false archive
+  citation is treated as a real, serious defect class, not a cosmetic
+  one. Cheap post-fix verification cannot distinguish a correct hash
+  from a plausible wrong one, which breaks the actuator design's own
+  fail-closed contract (`autonomy_loop.py`'s pattern requires the
+  re-run-`pulse_sweep()`-after-fix step to be *proof*, not merely
+  *absence of the old symptom*). **Re-entry condition:** a mechanism
+  that can independently confirm a candidate hash actually shipped the
+  described capability (not merely last-touched the line) — e.g. cross-
+  checking the row's own prose against that commit's diff/message — not
+  yet built and not proposed as a build target this cycle; reopen only
+  if that verification gap is closed first, not by trusting `git blame`
+  alone.
+
 ## How to use this file
 
 1. Check here before proposing new work — an entry may already exist
