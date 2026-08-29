@@ -78,8 +78,20 @@ summary is not proof of anything; verified behavior is.
    `foundation.autonomy_loop.read_autonomy_receipts(REPO_ROOT)`
    (read-only, bounded to the last 50 records, fails soft if the log is
    missing or a line is malformed). Report `available`,
-   `records_considered`, `outcome_counts`, `fixes_applied`,
-   `consecutive_stops_at_tail`, and `attempted_and_recovered`.
+   `records_considered`, `outcome_counts`, `fixes_applied`, and
+   `consecutive_stops_at_tail`.
+
+   **For the failure count, report
+   `AutonomyReceipts.format_reliability_line()` rather than
+   `attempted_and_recovered` on its own.** That method emits the count,
+   the sample size, the 95% upper bound, and the sufficiency verdict as
+   one inseparable string. This step previously listed the numerator and
+   the denominator but neither the uncertainty nor the sufficiency
+   judgement, even though the repository already computed both — leaving
+   an operator to know the rule of three and derive 3/n themselves in
+   order not to read "0" as "reliable". A bare zero is not a reliability
+   result. The line ends by stating it is evidence only; scheduling
+   remains `HUMAN_DECISIONS.md` item 14 and stays human.
 
    `attempted_and_recovered` counts cycles that really wrote to disk and
    rolled back — **git cannot show these**, because a correct rollback

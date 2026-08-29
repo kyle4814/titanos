@@ -438,6 +438,50 @@ class AutonomyReceipts:
             return False
         return self.failure_rate_upper_bound_95 < target_failure_rate
 
+    def format_reliability_line(self, target_failure_rate: float = 0.05) -> str:
+        """One atomic string carrying observation, SAMPLE SIZE, uncertainty,
+        and sufficiency together. Use this instead of reporting
+        `attempted_and_recovered` on its own.
+
+        WHY THIS EXISTS. `.claude/commands/boot.md` step 4b listed the
+        fields an operator should report and included the numerator
+        (`attempted_and_recovered`) and the denominator
+        (`records_considered`) but NOT the uncertainty or the sufficiency
+        verdict, though both were already computed here. An operator
+        would have had to know the rule of three and derive 3/n
+        themselves to avoid reading "0" as "reliable" -- the
+        point-estimate-without-uncertainty failure, adjacent to
+        denominator neglect.
+
+        The fix is not to ask the operator to remember four fields. It is
+        to make the four inseparable: this method cannot emit the count
+        without also emitting n, the bound, and the sufficiency verdict.
+
+        `target_failure_rate` is NOT invented here. 0.05 is the lens
+        already stated in `HUMAN_DECISIONS.md` item 14. The output
+        reports sufficiency FOR THAT STATED TEST and nothing more --
+        it never means "schedule now", and item 14 stays human."""
+        if not self.available:
+            return (f"autonomy actuator: NO RECORD in this working copy "
+                    f"(n=0) -- no reliability claim is supportable")
+        if self.records_considered == 0:
+            return (f"autonomy actuator: log present but n=0 usable records "
+                    f"-- no reliability claim is supportable")
+        if self.failure_rate_upper_bound_95 is None:
+            return (f"autonomy actuator: n={self.records_considered}, "
+                    f"attempted_and_recovered={self.attempted_and_recovered} "
+                    f"(failures observed, so the zero-failure rule of three "
+                    f"does not apply); NOT sufficient for a "
+                    f"<{target_failure_rate:.0%} failure-rate test")
+        verdict = ("sufficient" if self.evidence_is_sufficient_for(target_failure_rate)
+                   else "NOT sufficient")
+        return (f"autonomy actuator: n={self.records_considered}, "
+                f"attempted_and_recovered={self.attempted_and_recovered}, "
+                f"95% upper bound on failure rate ={self.failure_rate_upper_bound_95:.2f} "
+                f"(rule of three, 3/n); evidence is {verdict} for a "
+                f"<{target_failure_rate:.0%} failure-rate test. "
+                f"Evidence only -- not an authorization to schedule.")
+
 
 def read_autonomy_receipts(
     repo_root: Path,

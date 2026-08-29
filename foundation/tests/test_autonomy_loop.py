@@ -674,3 +674,85 @@ class TestZeroFailuresIsNotEvidenceOfReliability(unittest.TestCase):
             self.assertIsNotNone(r.failure_rate_upper_bound_95)
             self.assertAlmostEqual(
                 r.failure_rate_upper_bound_95, 3.0 / r.records_considered)
+
+
+class TestReliabilityLineCannotSeparateCountFromUncertainty(unittest.TestCase):
+    """A point estimate reported without its uncertainty invites the
+    wrong decision.
+
+    REPRODUCED 2026-08-29: `.claude/commands/boot.md` step 4b instructed
+    the operator to report `attempted_and_recovered` (the numerator) and
+    `records_considered` (the denominator) but contained ZERO references
+    to `failure_rate_upper_bound_95` or `evidence_is_sufficient_for`,
+    though both were already computed. The operator had to know the rule
+    of three and derive 3/n themselves to avoid reading "0" as
+    "reliable" -- and the decision downstream is item 14, scheduling an
+    unattended commit-capable loop.
+
+    The fix is structural, not a longer checklist: these four facts are
+    emitted together or not at all."""
+
+    def _write(self, root, records):
+        d = root / "foundation"
+        d.mkdir(parents=True, exist_ok=True)
+        (d / RECEIPT_LOG_NAME).write_text(
+            "".join(json.dumps(r) + "\n" for r in records))
+
+    def _clean(self, n):
+        return [{"action": "CLEAN_IDLE", "detail": "x", "occurred_at": f"t{i}"}
+                for i in range(n)]
+
+    def test_the_line_always_carries_all_four_facts(self):
+        with tempfile.TemporaryDirectory() as d:
+            self._write(Path(d), self._clean(6))
+            line = read_autonomy_receipts(Path(d)).format_reliability_line()
+            self.assertIn("n=6", line)                     # sample size
+            self.assertIn("attempted_and_recovered=0", line)  # observation
+            self.assertIn("0.50", line)                    # uncertainty
+            self.assertIn("NOT sufficient", line)          # sufficiency
+
+    def test_the_verdict_actually_varies_not_hardcoded(self):
+        # POSITIVE CONTROL with an EXPLICIT precondition: at n=100 the
+        # bound is 0.03, which IS sufficient for the 5% test. Without
+        # this, "NOT sufficient" could be a constant string and the test
+        # above would still pass.
+        with tempfile.TemporaryDirectory() as d:
+            self._write(Path(d), self._clean(100))
+            r = read_autonomy_receipts(Path(d), max_records=200)
+            self.assertEqual(r.records_considered, 100)
+            self.assertAlmostEqual(r.failure_rate_upper_bound_95, 0.03)
+            line = r.format_reliability_line()
+            self.assertIn("evidence is sufficient", line)
+            self.assertNotIn("NOT sufficient", line)
+
+    def test_the_line_never_claims_authorization(self):
+        with tempfile.TemporaryDirectory() as d:
+            self._write(Path(d), self._clean(100))
+            line = read_autonomy_receipts(Path(d), max_records=200).format_reliability_line()
+            # Even when the evidence IS sufficient, the line must not
+            # read as permission -- evidence never becomes authority.
+            self.assertIn("not an authorization", line)
+
+    def test_absent_log_states_no_claim_is_supportable(self):
+        with tempfile.TemporaryDirectory() as d:
+            line = read_autonomy_receipts(Path(d)).format_reliability_line()
+            self.assertIn("n=0", line)
+            self.assertIn("no reliability claim is supportable", line)
+
+    def test_observed_failures_disable_the_rule_of_three_honestly(self):
+        with tempfile.TemporaryDirectory() as d:
+            self._write(Path(d), [
+                {"action": "STOPPED_FIX_VERIFICATION_FAILED",
+                 "detail": "boom (README.md restored to its pre-fix contents)",
+                 "occurred_at": "t1"}] + self._clean(5))
+            line = read_autonomy_receipts(Path(d)).format_reliability_line()
+            self.assertIn("failures observed", line)
+            self.assertIn("NOT sufficient", line)
+
+    def test_boot_protocol_routes_to_the_line_not_the_bare_count(self):
+        # LENS B (routing): the operator path must name the inseparable
+        # formatter. Independent of the formatter's own behaviour --
+        # this fails if boot.md stops routing to it even while the
+        # method itself stays perfect.
+        boot = (REPO_ROOT / ".claude" / "commands" / "boot.md").read_text()
+        self.assertIn("format_reliability_line", boot)
