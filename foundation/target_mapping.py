@@ -55,6 +55,7 @@ __all__ = [
     "MAPPING_STATES", "CONCLUSIVE_MAPPING", "OBSERVATION_RESULTS",
     "TargetMapping", "candidate_pypi_name", "map_repo_to_pypi",
     "MappingIntegrityError", "DirectedObservation", "direct_observation",
+    "map_repo_to_npm",
 ]
 
 
@@ -317,3 +318,118 @@ def direct_observation(mapping: TargetMapping, observe_fn: Callable[[str], objec
         target=mapping.target, instrument=instrument, result="OBSERVED",
         mapping=mapping, items=items,
         detail=f"{len(items)} item(s) from the confirmed target")
+
+
+_NPM_JSON = "https://registry.npmjs.org/{name}"
+
+
+def candidate_npm_name(repo: str) -> str:
+    """A CANDIDATE npm package name. Same status as the PyPI candidate: a
+    guess whose only job is to give the registry something to answer."""
+    if "/" not in repo:
+        return ""
+    return repo.split("/", 1)[1].strip().lower()
+
+
+def _declared_repo_urls(payload: dict) -> dict[str, list[str]]:
+    """Every repository an npm document declares, however it spells it."""
+    declared: dict[str, list[str]] = {}
+    candidates = []
+    rep = payload.get("repository")
+    if isinstance(rep, dict):
+        candidates.append(("repository.url", rep.get("url", "")))
+    elif isinstance(rep, str):
+        candidates.append(("repository", rep))
+    if payload.get("homepage"):
+        candidates.append(("homepage", payload["homepage"]))
+    for label, url in candidates:
+        norm = _normalise_repo(str(url))
+        if norm:
+            declared.setdefault(norm, []).append(f"{label}={url}")
+    return declared
+
+
+def map_repo_to_npm(repo: str,
+                    fetch_fn: Optional[Callable[[str], bytes]] = None,
+                    ) -> TargetMapping:
+    """Ask the npm registry whether it hosts a package claiming this repo.
+
+    Identical discipline to `map_repo_to_pypi`, and deliberately the same
+    vocabulary -- DECLARED_MATCH plus provenance already says exactly what
+    an `NPM_DECLARED_MATCH` would say, so no second identity vocabulary is
+    invented here.
+
+    npm makes the discipline matter MORE, not less. Its namespace is flat
+    and old, so short repository names collide constantly: `Expensify/App`
+    resolves to an npm package `app` that declares rolandpoulter/app and
+    was last published in 2011, and `tadanobutubutu/screeps` resolves to a
+    package declaring screeps/screeps. Both are REFUTED here; both would
+    have been confident false convergence under name matching.
+    """
+    fetch = fetch_fn or (lambda url: fetch_feed(url, DEFAULT_TIMEOUT_SECONDS))
+    want = _normalise_repo(f"github.com/{repo}")
+    candidate = candidate_npm_name(repo)
+
+    if not candidate or not want:
+        return TargetMapping(
+            target=repo, source_class="npm_releases", candidate_identity="",
+            state="UNSUPPORTED",
+            provenance="target is not an owner/name repository, so no npm "
+                       "candidate can be derived at all")
+
+    try:
+        raw = fetch(_NPM_JSON.format(name=candidate))
+    except FetchError as exc:
+        text = str(exc)
+        if "404" in text:
+            return TargetMapping(
+                target=repo, source_class="npm_releases",
+                candidate_identity=candidate, state="NO_SUCH_PACKAGE",
+                provenance=f"the npm registry has no package named "
+                           f"{candidate!r}",
+                evidence=(f"lookup returned 404 for {candidate}",))
+        return TargetMapping(
+            target=repo, source_class="npm_releases",
+            candidate_identity=candidate, state="LOOKUP_FAILED",
+            provenance=f"the question could not be asked: {text[:120]}",
+            unknowns=("whether a mapping exists at all",))
+
+    try:
+        payload = json.loads(raw)
+    except (ValueError, UnicodeDecodeError):
+        return TargetMapping(
+            target=repo, source_class="npm_releases",
+            candidate_identity=candidate, state="LOOKUP_FAILED",
+            provenance="the registry returned a payload this reader could "
+                       "not parse",
+            unknowns=("whether a mapping exists at all",))
+
+    name = payload.get("name", candidate)
+    declared = _declared_repo_urls(payload)
+    evidence = tuple(sorted(v for vals in declared.values() for v in vals))
+
+    if want in declared:
+        return TargetMapping(
+            target=repo, source_class="npm_releases", candidate_identity=name,
+            state="DECLARED_MATCH", declared_repo=want,
+            provenance=(f"npm package {name!r} declares {want} as its own "
+                        f"repository"),
+            evidence=evidence)
+
+    if not declared:
+        return TargetMapping(
+            target=repo, source_class="npm_releases", candidate_identity=name,
+            state="AMBIGUOUS",
+            provenance=(f"an npm package named {candidate!r} exists but "
+                        f"declares no repository, so nothing connects it to "
+                        f"{repo}"),
+            evidence=evidence,
+            unknowns=("which repository this package is published from",))
+
+    return TargetMapping(
+        target=repo, source_class="npm_releases", candidate_identity=name,
+        state="REFUTED",
+        provenance=(f"an npm package named {candidate!r} exists but declares "
+                    f"{', '.join(sorted(declared))} -- it belongs to a "
+                    f"different repository, not {repo}"),
+        evidence=evidence)

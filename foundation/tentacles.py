@@ -33,7 +33,7 @@ from foundation.signal_spine import CanonicalSignal
 
 __all__ = ["github_release_signal", "pypi_release_signal", "release_lineage",
            "github_issue_demand_signal", "demand_lineage",
-           "directed_pypi_release_signal"]
+           "directed_pypi_release_signal", "directed_npm_release_signal"]
 
 
 def release_lineage(package: str, version: str) -> str:
@@ -231,3 +231,45 @@ def directed_pypi_release_signal(item: dict, mapping, target: str,
                   "raw_pub_date": item.get("pub_date", "")},
         unknowns=("whether the index entry reflects a source release or a "
                   "re-upload",))
+
+
+def directed_npm_release_signal(item: dict, mapping, target: str,
+                                now: Optional[datetime] = None
+                                ) -> CanonicalSignal:
+    """A published npm version, observed because the package declared this
+    repository as its own.
+
+    Lineage is the RELEASE event keyed by package and version, exactly as
+    for the other release adapters, so a GitHub release and its npm
+    publication of the same version still collapse to one fact. Publishing
+    to a registry is usually downstream of tagging a release; the radar
+    must not count the same shipment twice because it was announced in two
+    places.
+    """
+    if not mapping.is_conclusive():
+        raise ValueError(
+            f"refusing to build a signal on a {mapping.state} mapping; "
+            f"a directed read without an established target is a guess "
+            f"with a URL attached")
+    version = str(item.get("title", "")).strip()
+    package = mapping.candidate_identity
+    return CanonicalSignal(
+        signal_id=f"NPM-{package}-{version}",
+        source_id="npm_releases", source_type="PLATFORM",
+        source_ref=str(item.get("link", "")),
+        target=target, kind="RELEASE",
+        claim=f"{package} {version} is published on the npm registry",
+        observed_at=_observed_now(now),
+        event_at=_iso(str(item.get("published_at", ""))),
+        source_lineage=release_lineage(package, version),
+        target_established_by="DECLARED_MATCH",
+        facts={"latest_version": version} if item.get("is_latest") else {},
+        evidence={"registry": "npmjs",
+                  "directed": True,
+                  "mapped_package": package,
+                  "is_latest": item.get("is_latest", False),
+                  "mapping_state": mapping.state,
+                  "mapping_provenance": mapping.provenance,
+                  "raw_published_at": item.get("published_at", "")},
+        unknowns=("whether the published artifact was built from the "
+                  "declared repository at this version",))

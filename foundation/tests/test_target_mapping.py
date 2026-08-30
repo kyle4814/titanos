@@ -443,3 +443,268 @@ class TestTheLockSaysWhatItLockedOn(unittest.TestCase):
         lock = self._lock(self._asks(1) + [rel])
         self.assertIn("convergent dimension", " ".join(lock.reasons))
         self.assertNotIn("SINGLE dimension", " ".join(lock.reasons))
+
+
+def _npm(name="widget", repo_url=None, homepage=None, versions=None,
+         latest=None):
+    doc = {"name": name}
+    if repo_url is not None:
+        doc["repository"] = {"type": "git", "url": repo_url}
+    if homepage:
+        doc["homepage"] = homepage
+    if versions:
+        doc["time"] = dict(versions)
+        doc["dist-tags"] = {"latest": latest or sorted(versions)[-1]}
+    return json.dumps(doc).encode()
+
+
+class TestB3AndB4NpmIdentityIsDeclaredNotGuessed(unittest.TestCase):
+    """npm makes the discipline matter more, not less: a flat, fifteen-
+    year-old namespace collides constantly."""
+
+    def test_B3_the_real_expensify_collision(self):
+        """Expensify/App -> npm `app`, declared by rolandpoulter, last
+        published 2011. The most expensive false match in the population."""
+        from foundation.target_mapping import map_repo_to_npm
+        m = map_repo_to_npm("Expensify/App", _fetch(_npm(
+            "app", "git://github.com/rolandpoulter/app.git")))
+        self.assertEqual(m.state, "REFUTED")
+        self.assertIn("rolandpoulter/app", m.provenance)
+        self.assertFalse(m.may_direct_observation())
+
+    def test_B3_the_real_screeps_collision(self):
+        from foundation.target_mapping import map_repo_to_npm
+        m = map_repo_to_npm("tadanobutubutu/screeps", _fetch(_npm(
+            "screeps", "git+https://github.com/screeps/screeps.git")))
+        self.assertEqual(m.state, "REFUTED")
+
+    def test_B4_the_real_copperhead_match(self):
+        """Positive control from the same live population."""
+        from foundation.target_mapping import map_repo_to_npm
+        m = map_repo_to_npm("copperheadhq/copperhead", _fetch(_npm(
+            "copperhead", "git+https://github.com/copperheadhq/copperhead.git")))
+        self.assertEqual(m.state, "DECLARED_MATCH")
+        self.assertEqual(m.declared_repo, "copperheadhq/copperhead")
+        self.assertIn("declares", m.provenance)
+        self.assertTrue(m.may_direct_observation())
+
+    def test_B4_mismatching_the_declaration_refutes_the_mapping(self):
+        from foundation.target_mapping import map_repo_to_npm
+        m = map_repo_to_npm("copperheadhq/copperhead", _fetch(_npm(
+            "copperhead", "git+https://github.com/someoneelse/copperhead.git")))
+        self.assertEqual(m.state, "REFUTED")
+
+    def test_a_string_repository_field_is_read_too(self):
+        from foundation.target_mapping import map_repo_to_npm
+        m = map_repo_to_npm("acme/widget",
+                            _fetch(json.dumps({
+                                "name": "widget",
+                                "repository": "https://github.com/acme/widget"
+                            }).encode()))
+        self.assertEqual(m.state, "DECLARED_MATCH")
+
+    def test_no_declaration_is_ambiguous_not_a_match(self):
+        from foundation.target_mapping import map_repo_to_npm
+        m = map_repo_to_npm("acme/widget", _fetch(_npm("widget")))
+        self.assertEqual(m.state, "AMBIGUOUS")
+
+    def test_no_such_package_is_distinct_from_lookup_failure(self):
+        from foundation.target_mapping import map_repo_to_npm
+        self.assertEqual(map_repo_to_npm(
+            "acme/widget", _raises(FetchError("HTTP Error 404"))).state,
+            "NO_SUCH_PACKAGE")
+        self.assertEqual(map_repo_to_npm(
+            "acme/widget", _raises(FetchError("connection reset"))).state,
+            "LOOKUP_FAILED")
+
+    def test_no_second_identity_vocabulary_was_invented(self):
+        """DECLARED_MATCH plus provenance already says what an
+        NPM_DECLARED_MATCH would say."""
+        from foundation.target_mapping import MAPPING_STATES
+        for banned in ("NPM_DECLARED_MATCH", "CRATES_DECLARED_MATCH",
+                       "SUPER_EXACT_MATCH", "GO_DECLARED_MATCH"):
+            self.assertNotIn(banned, MAPPING_STATES)
+
+
+class TestB2AndB10TargetPreservation(unittest.TestCase):
+    def test_B2_two_distinct_targets_resolve_to_distinct_selectors(self):
+        from foundation.mouth_npm import feed_url_for
+        self.assertNotEqual(feed_url_for("copperhead"), feed_url_for("screeps"))
+        self.assertIn("copperhead", feed_url_for("copperhead"))
+
+    def test_B10_the_mouth_cannot_be_aimed_with_a_repository_path(self):
+        from foundation.mouth_npm import feed_url_for
+        with self.assertRaises(ValueError) as ctx:
+            feed_url_for("copperheadhq/copperhead")
+        self.assertIn("not a package identity", str(ctx.exception))
+
+    def test_the_mouth_requires_a_target_at_all(self):
+        from foundation.mouth_npm import feed_url_for
+        with self.assertRaises(ValueError):
+            feed_url_for("")
+
+    def test_an_unsupported_scoped_package_is_refused_not_guessed(self):
+        from foundation.mouth_npm import feed_url_for
+        with self.assertRaises(ValueError) as ctx:
+            feed_url_for("@scope/thing")
+        self.assertIn("not supported by this bridge yet", str(ctx.exception))
+
+    def test_the_directed_mouth_id_names_the_target(self):
+        from foundation import mouth_npm
+        import tempfile, pathlib
+        obs = mouth_npm.observe(
+            pathlib.Path(tempfile.mkdtemp()) / "s.json", target="copperhead",
+            fetch_fn=lambda: _npm("copperhead",
+                                  "git+https://github.com/copperheadhq/copperhead.git",
+                                  versions={"0.10.0": "2026-08-26T14:03:35Z"}))
+        self.assertIn("copperhead", obs.mouth_id)
+
+    def test_B10_a_read_for_one_package_cannot_emit_another(self):
+        """The signal's package comes from the MAPPING, not from whatever
+        the payload happened to contain."""
+        from foundation.tentacles import directed_npm_release_signal
+        s = directed_npm_release_signal(
+            {"title": "1.0.0", "package": "SOMETHING-ELSE",
+             "published_at": "2026-08-26T14:03:35Z", "link": "x"},
+            _mapping(candidate_identity="copperhead",
+                     target="copperheadhq/copperhead"),
+            "copperheadhq/copperhead")
+        self.assertIn("copperhead", s.signal_id)
+        self.assertNotIn("SOMETHING-ELSE", s.signal_id)
+        self.assertNotIn("SOMETHING-ELSE", s.claim)
+        self.assertEqual(s.target, "copperheadhq/copperhead")
+
+    def test_M_a_non_conclusive_mapping_cannot_build_an_npm_signal(self):
+        from foundation.tentacles import directed_npm_release_signal
+        for state in ("REFUTED", "AMBIGUOUS", "NO_SUCH_PACKAGE",
+                      "LOOKUP_FAILED", "UNKNOWN", "UNSUPPORTED"):
+            with self.assertRaises(ValueError, msg=state):
+                directed_npm_release_signal(
+                    {"title": "1.0.0"},
+                    _mapping(state=state, declared_repo=""), "acme/widget")
+
+
+class TestB5ToB9NpmThroughTheSpine(unittest.TestCase):
+    def setUp(self):
+        from datetime import datetime, timedelta, timezone
+        self.now = datetime.now(timezone.utc)
+
+    def _stamp(self, days):
+        from datetime import timedelta
+        return (self.now - timedelta(days=days)).isoformat()
+
+    def _demand(self, target="copperheadhq/copperhead"):
+        from foundation.signal_spine import CanonicalSignal
+        return CanonicalSignal(
+            signal_id="D", source_id="github_help_wanted_issues",
+            source_type="PLATFORM", source_ref="https://x.invalid/1",
+            target=target, kind="DEMAND", claim=f"{target}#7 asks for help",
+            observed_at=self.now.isoformat(), event_at=self._stamp(1),
+            source_lineage=f"{target}-issue-7",
+            pressure_class="EXPLICIT_DEMAND",
+            pressure_evidence="labelled help wanted; 6 comments")
+
+    def _npm_sig(self, days=5, version="0.10.0",
+                 target="copperheadhq/copperhead"):
+        from foundation.tentacles import directed_npm_release_signal
+        return directed_npm_release_signal(
+            {"title": version, "published_at": self._stamp(days),
+             "is_latest": True, "link": "https://npm.invalid/x"},
+            _mapping(candidate_identity="copperhead", target=target), target)
+
+    def test_B6_a_second_dimension_is_convergence_not_corroboration(self):
+        from foundation.signal_spine import fuse, gravity
+        f = fuse([self._demand(), self._npm_sig()])
+        self.assertEqual(f.convergences, 1)
+        self.assertEqual(f.corroborations, 0)
+        labels = [k for k, _ in gravity(f).breakdown]
+        self.assertIn("MULTI_DIMENSIONAL_CONVERGENCE", labels)
+        self.assertNotIn("INDEPENDENT_CORROBORATION", labels)
+
+    def test_B7_an_npm_publish_of_a_known_release_is_still_one_fact(self):
+        """Publishing to a registry is downstream of tagging a release.
+        The radar must not count one shipment twice."""
+        from foundation.signal_spine import fuse
+        from foundation.tentacles import github_release_signal
+        gh = github_release_signal(
+            {"title": "0.10.0", "link": "https://github.invalid/r",
+             "updated": self._stamp(5)},
+            "copperhead", "copperheadhq/copperhead")
+        f = fuse([gh, self._npm_sig()])
+        self.assertEqual(f.independent_facts, 1)
+        self.assertEqual(f.echoes, 1)
+        self.assertEqual(f.convergences, 0)
+
+    def test_B8_a_stale_publish_read_today_gains_no_fresh_mass(self):
+        """The Expensify trap in signal form: a 2011 package read now."""
+        from foundation.signal_spine import fuse, gravity
+        stale = self._npm_sig(days=400)
+        self.assertTrue(stale.is_stale())
+        f = fuse([self._demand(), stale])
+        self.assertEqual(f.convergences, 0)
+        self.assertIn("STALE_EVIDENCE", [k for k, _ in gravity(f).breakdown])
+
+    def test_B9_the_bridge_cannot_manufacture_a_mission(self):
+        from foundation.signal_spine import (LockNotEarned, fuse,
+                                             raw_value_map_entry, target_lock,
+                                             to_opportunity)
+        e = raw_value_map_entry(
+            fuse([self._demand(), self._npm_sig()]),
+            why_on_the_map=("demand plus a live publish",),
+            what_would_kill_it="the ask is already claimed",
+            next_cheapest_experiment="read the issue thread",
+            disqualifiers=("REQUIRES_SECRETS",))
+        lock = target_lock(e)
+        self.assertEqual(lock.state, "HUMAN_REVIEW_REQUIRED")
+        with self.assertRaises(LockNotEarned):
+            to_opportunity(e, lock)
+
+    def test_the_bridge_creates_no_money_mass(self):
+        from foundation.signal_spine import fuse, gravity
+        g = gravity(fuse([self._demand(), self._npm_sig()]))
+        self.assertTrue(g.money_unknown)
+        self.assertNotIn("MONEY", " ".join(k for k, _ in g.breakdown))
+
+    def test_a_convergent_lock_names_convergence_as_its_basis(self):
+        from foundation.signal_spine import (fuse, raw_value_map_entry,
+                                             target_lock)
+        lock = target_lock(raw_value_map_entry(
+            fuse([self._demand(), self._npm_sig()]),
+            why_on_the_map=("demand plus a live publish",),
+            what_would_kill_it="already claimed",
+            next_cheapest_experiment="read the thread"))
+        self.assertIn("convergent dimension", " ".join(lock.reasons))
+
+
+class TestB1TheMouthDoesNotFakeActivity(unittest.TestCase):
+    def test_an_unparseable_document_yields_no_versions_not_a_guess(self):
+        from foundation.mouth_npm import parse_items
+        self.assertEqual(parse_items(b"not json"), ())
+
+    def test_a_package_with_no_releases_parses_to_nothing(self):
+        from foundation.mouth_npm import parse_items
+        self.assertEqual(parse_items(_npm("widget")), ())
+
+    def test_versions_carry_their_own_publication_time(self):
+        from foundation.mouth_npm import parse_items
+        items = parse_items(_npm("widget", versions={
+            "1.0.0": "2020-01-01T00:00:00Z",
+            "2.0.0": "2026-08-26T14:03:35Z"}, latest="2.0.0"))
+        self.assertEqual(items[0]["title"], "2.0.0")
+        self.assertEqual(items[0]["published_at"], "2026-08-26T14:03:35Z")
+        self.assertTrue(items[0]["is_latest"])
+        self.assertFalse(items[1]["is_latest"])
+
+    def test_registry_bookkeeping_keys_are_not_versions(self):
+        from foundation.mouth_npm import parse_items
+        items = parse_items(_npm("widget", versions={
+            "created": "2020-01-01T00:00:00Z",
+            "modified": "2026-01-01T00:00:00Z",
+            "1.0.0": "2021-01-01T00:00:00Z"}, latest="1.0.0"))
+        self.assertEqual([i["title"] for i in items], ["1.0.0"])
+
+    def test_the_read_is_bounded(self):
+        from foundation.mouth_npm import parse_items, MAX_VERSIONS
+        many = {f"1.0.{i}": f"20{10+i:02d}-01-01T00:00:00Z" for i in range(40)}
+        self.assertEqual(len(parse_items(_npm("widget", versions=many))),
+                         MAX_VERSIONS)
