@@ -45,7 +45,7 @@ MOUTH_ID = "github_commits"
 COMMITS_URL = "https://api.github.com/repos/{repo}/commits?per_page={n}"
 
 # The radar wants the current state of the machine, not its whole history.
-MAX_COMMITS = 5
+MAX_COMMITS = 10
 
 
 def feed_url_for(repo: str, n: int = MAX_COMMITS) -> str:
@@ -87,12 +87,20 @@ def parse_items(raw: bytes) -> tuple[dict, ...]:
             continue
         commit = c.get("commit") or {}
         author = commit.get("author") or {}
+        account = c.get("author") or {}
         message = str(commit.get("message", ""))
+        # Authorship was already in every response and was being discarded.
+        # Two identities are kept because they answer different questions:
+        # the account is who pushed, the email is who wrote, and a repo
+        # where those diverge is not the same shape as one where they don't.
         items.append({
             "key": c["sha"],
             "sha": c["sha"],
             "authored_at": author.get("date", ""),
             "subject": message.splitlines()[0] if message else "",
+            "author_login": account.get("login", ""),
+            "author_type": account.get("type", ""),
+            "author_email": author.get("email", ""),
             "link": c.get("html_url", ""),
         })
     return tuple(items)
