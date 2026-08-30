@@ -33,7 +33,8 @@ from foundation.signal_spine import CanonicalSignal
 
 __all__ = ["github_release_signal", "pypi_release_signal", "release_lineage",
            "github_issue_demand_signal", "demand_lineage",
-           "directed_pypi_release_signal", "directed_npm_release_signal"]
+           "directed_pypi_release_signal", "directed_npm_release_signal",
+           "repository_activity_signal"]
 
 
 def release_lineage(package: str, version: str) -> str:
@@ -273,3 +274,55 @@ def directed_npm_release_signal(item: dict, mapping, target: str,
                   "raw_published_at": item.get("published_at", "")},
         unknowns=("whether the published artifact was built from the "
                   "declared repository at this version",))
+
+
+def repository_activity_signal(item: dict, mapping, target: str,
+                               now: Optional[datetime] = None
+                               ) -> CanonicalSignal:
+    """One commit: evidence the machine behind the ask is still moving.
+
+    DIMENSION: repository-native execution activity. Not "GitHub" -- a
+    platform is not a dimension. Someone asking for help and someone
+    landing code are different acts, and that is what makes this a second
+    dimension rather than a second view of the first one.
+
+    `facts` is deliberately EMPTY. Two commits at different times are both
+    true and are not disagreeing about anything; forcing a commit sha or a
+    date into a single-valued fact key would recreate, exactly, the false
+    contradiction that two help-wanted issue numbers already caused once.
+    The sha, subject and authored time live in evidence.
+
+    Lineage is the commit sha, because each commit is genuinely its own
+    event. RESIDUAL RISK, stated rather than hidden: a commit that tags a
+    release and the registry publication of that same version are one
+    shipment, and this lineage does not currently collapse them. Observed
+    live on copperheadhq/copperhead, whose "Release v0.10.0" commit and npm
+    0.10.0 publish share a date.
+    """
+    if not mapping.is_conclusive():
+        raise ValueError(
+            f"refusing to build a signal on a {mapping.state} mapping; "
+            f"an observation without an established target is a guess "
+            f"with a URL attached")
+    sha = str(item.get("sha", ""))[:12]
+    subject = str(item.get("subject", ""))[:90]
+    return CanonicalSignal(
+        signal_id=f"COMMIT-{target}-{sha}",
+        source_id="github_commits", source_type="PLATFORM",
+        source_ref=str(item.get("link", "")),
+        target=target, kind="ACTIVITY",
+        claim=f"{target} commit {sha}: {subject}",
+        observed_at=_observed_now(now),
+        event_at=_iso(str(item.get("authored_at", ""))),
+        source_lineage=f"{target.lower()}-commit-{sha}",
+        target_established_by="SOURCE_NATIVE",
+        facts={},
+        evidence={"source": "github-commits",
+                  "sha": item.get("sha", ""),
+                  "subject": subject,
+                  "authored_at": item.get("authored_at", ""),
+                  "mapping_state": mapping.state,
+                  "mapping_provenance": mapping.provenance},
+        unknowns=("whether this commit relates to the open request at all",
+                  "whether the committer is a maintainer or an outside "
+                  "contributor"))

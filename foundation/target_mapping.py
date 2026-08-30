@@ -55,7 +55,7 @@ __all__ = [
     "MAPPING_STATES", "CONCLUSIVE_MAPPING", "OBSERVATION_RESULTS",
     "TargetMapping", "candidate_pypi_name", "map_repo_to_pypi",
     "MappingIntegrityError", "DirectedObservation", "direct_observation",
-    "map_repo_to_npm",
+    "map_repo_to_npm", "source_native_target",
 ]
 
 
@@ -63,13 +63,19 @@ class MappingIntegrityError(ValueError):
     """A mapping tried to claim identity it did not establish."""
 
 
-MAPPING_STATES = ("DECLARED_MATCH", "REFUTED", "NO_SUCH_PACKAGE",
-                  "AMBIGUOUS", "UNSUPPORTED", "LOOKUP_FAILED", "UNKNOWN")
+MAPPING_STATES = ("DECLARED_MATCH", "SOURCE_NATIVE", "REFUTED",
+                  "NO_SUCH_PACKAGE", "AMBIGUOUS", "UNSUPPORTED",
+                  "LOOKUP_FAILED", "UNKNOWN")
 
 # The only state that earns a directed read. Deliberately a single value:
 # every widening of this set is a decision to fire an instrument at a
 # target nobody confirmed.
-CONCLUSIVE_MAPPING = ("DECLARED_MATCH",)
+# Widened once, deliberately, and only for identity that is DEFINITIONAL
+# rather than asserted: when the surface being read is the repository
+# itself, there is no cross-ecosystem question to get wrong. The tight
+# constructor `source_native_target()` is the only way to obtain it, and it
+# refuses anything that is not an owner/name path.
+CONCLUSIVE_MAPPING = ("DECLARED_MATCH", "SOURCE_NATIVE")
 
 # How a directed observation ended. "Saw nothing" and "never looked" are
 # different facts and never share a value.
@@ -106,6 +112,12 @@ class TargetMapping:
             raise MappingIntegrityError(
                 "a mapping must say how it was established; an unexplained "
                 "identity is a guess wearing a badge")
+        if self.state == "SOURCE_NATIVE" and (
+                self.candidate_identity != self.target
+                or self.declared_repo != self.target):
+            raise MappingIntegrityError(
+                "SOURCE_NATIVE means the target IS the identity; a source-"
+                "native mapping that renames its target is a contradiction")
         if self.state == "DECLARED_MATCH" and not self.declared_repo:
             raise MappingIntegrityError(
                 "DECLARED_MATCH requires the declaration that established "
@@ -433,3 +445,25 @@ def map_repo_to_npm(repo: str,
                     f"{', '.join(sorted(declared))} -- it belongs to a "
                     f"different repository, not {repo}"),
         evidence=evidence)
+
+
+def source_native_target(repo: str) -> TargetMapping:
+    """Identity for a surface that IS the repository.
+
+    No candidate, no guess, no registry: reading a repository's own commits
+    asks no cross-ecosystem question at all, so there is nothing here that
+    could be REFUTED. This is why the state is SOURCE_NATIVE and not
+    DECLARED_MATCH -- nobody declared anything; the path is the identity.
+
+    The eligibility set is therefore every repository target, which is the
+    entire point after publication-based observation reached 1 in 18.
+    """
+    if repo.count("/") != 1 or not all(p.strip() for p in repo.split("/")):
+        raise MappingIntegrityError(
+            f"expected an owner/name repository path, got {repo!r}; a "
+            f"source-native identity cannot be derived from anything else")
+    return TargetMapping(
+        target=repo, source_class="github_repository", candidate_identity=repo,
+        state="SOURCE_NATIVE", declared_repo=repo,
+        provenance=("the repository path is itself the target identity; no "
+                    "cross-ecosystem mapping is required or possible"))

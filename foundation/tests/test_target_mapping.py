@@ -127,9 +127,14 @@ class TestD3UnknownIsNotNotFound(unittest.TestCase):
         m = map_repo_to_pypi("acme/widget", _fetch(b"<html>nope</html>"))
         self.assertEqual(m.state, "LOOKUP_FAILED")
 
-    def test_M_only_one_state_may_fire_the_second_instrument(self):
-        """Widening this set is a decision to fire blindly."""
-        self.assertEqual(CONCLUSIVE_MAPPING, ("DECLARED_MATCH",))
+    def test_M_only_established_identity_may_fire_the_instrument(self):
+        """Widening this set is a decision to fire blindly, so the guard is
+        the PROPERTY, not a frozen literal: every member must be identity
+        that was actually established -- asserted by a declaration, or
+        definitional because the surface IS the target. Nothing uncertain
+        may ever appear here."""
+        for state in CONCLUSIVE_MAPPING:
+            self.assertIn(state, ("DECLARED_MATCH", "SOURCE_NATIVE"), state)
         for state in ("REFUTED", "NO_SUCH_PACKAGE", "AMBIGUOUS",
                       "UNSUPPORTED", "LOOKUP_FAILED", "UNKNOWN"):
             m = _mapping(state=state, declared_repo="")
@@ -708,3 +713,250 @@ class TestB1TheMouthDoesNotFakeActivity(unittest.TestCase):
         many = {f"1.0.{i}": f"20{10+i:02d}-01-01T00:00:00Z" for i in range(40)}
         self.assertEqual(len(parse_items(_npm("widget", versions=many))),
                          MAX_VERSIONS)
+
+
+def _commits(*specs):
+    """specs: (sha, authored_at, subject)"""
+    return json.dumps([
+        {"sha": s, "html_url": f"https://github.invalid/c/{s}",
+         "commit": {"author": {"date": d}, "message": m}}
+        for s, d, m in specs]).encode()
+
+
+class TestSourceNativeIdentity(unittest.TestCase):
+    """No package, no candidate, no guess: the path is the identity."""
+
+    def test_a_repository_is_its_own_identity(self):
+        from foundation.target_mapping import source_native_target
+        m = source_native_target("acme/widget")
+        self.assertEqual(m.state, "SOURCE_NATIVE")
+        self.assertEqual(m.candidate_identity, "acme/widget")
+        self.assertTrue(m.may_direct_observation())
+        self.assertIn("no cross-ecosystem mapping is required", m.provenance)
+
+    def test_M_a_source_native_mapping_cannot_rename_its_target(self):
+        from foundation.target_mapping import TargetMapping, MappingIntegrityError
+        with self.assertRaises(MappingIntegrityError) as ctx:
+            TargetMapping(target="acme/widget", source_class="github_repository",
+                          candidate_identity="somethingelse", state="SOURCE_NATIVE",
+                          declared_repo="acme/widget", provenance="x")
+        self.assertIn("renames its target", str(ctx.exception))
+
+    def test_it_refuses_anything_that_is_not_a_repository_path(self):
+        from foundation.target_mapping import source_native_target, MappingIntegrityError
+        for bad in ("notarepo", "a/b/c", "  /x", ""):
+            with self.assertRaises(MappingIntegrityError):
+                source_native_target(bad)
+
+    def test_the_eligibility_set_is_every_repository(self):
+        """The whole point, after publication reached 1 in 18."""
+        from foundation.target_mapping import source_native_target
+        for repo in ("promisszn/soroban-amm", "dotnet/runtime",
+                     "AumGupta/abyss-jellyfin", "copperheadhq/copperhead"):
+            self.assertTrue(source_native_target(repo).may_direct_observation())
+
+    def test_no_registry_state_can_be_reached_source_natively(self):
+        """There is no cross-ecosystem question here, so nothing to refute."""
+        from foundation.target_mapping import source_native_target
+        m = source_native_target("acme/widget")
+        self.assertNotEqual(m.state, "DECLARED_MATCH")
+        self.assertNotIn("declares", m.provenance)
+
+
+class TestTheCommitMouth(unittest.TestCase):
+    def test_it_refuses_an_assembled_address(self):
+        from foundation.mouth_github_commits import feed_url_for
+        with self.assertRaises(ValueError) as ctx:
+            feed_url_for("https://evil.invalid/x")
+        self.assertIn("not at an arbitrary address", str(ctx.exception))
+
+    def test_it_refuses_to_clone_history(self):
+        from foundation.mouth_github_commits import feed_url_for
+        with self.assertRaises(ValueError) as ctx:
+            feed_url_for("acme/widget", 500)
+        self.assertIn("does not clone history", str(ctx.exception))
+
+    def test_M_an_error_document_is_not_an_empty_repository(self):
+        """The exact unknown-becomes-zero trap, at the parse layer."""
+        from foundation.mouth_github_commits import parse_items
+        self.assertEqual(parse_items(b'{"message":"Not Found"}'), ())
+        self.assertEqual(parse_items(b"not json"), ())
+
+    def test_each_commit_carries_its_own_authored_time(self):
+        from foundation.mouth_github_commits import parse_items
+        items = parse_items(_commits(
+            ("aaa111", "2026-08-30T17:35:39Z", "Merge pull request #244"),
+            ("bbb222", "2020-01-01T00:00:00Z", "ancient work")))
+        self.assertEqual(items[0]["authored_at"], "2026-08-30T17:35:39Z")
+        self.assertEqual(items[1]["authored_at"], "2020-01-01T00:00:00Z")
+        self.assertEqual(items[0]["subject"], "Merge pull request #244")
+
+    def test_the_directed_mouth_id_names_the_target(self):
+        from foundation import mouth_github_commits as mc
+        import tempfile, pathlib
+        obs = mc.observe(pathlib.Path(tempfile.mkdtemp()) / "s.json",
+                         target="acme/widget",
+                         fetch_fn=lambda: _commits(("a1", "2026-08-30T00:00:00Z", "x")))
+        self.assertIn("acme/widget", obs.mouth_id)
+        self.assertNotEqual(obs.mouth_id, "github_commits")
+
+
+class TestActivityIsADimensionNotAPlatform(unittest.TestCase):
+    def setUp(self):
+        from datetime import datetime, timezone
+        self.now = datetime.now(timezone.utc)
+
+    def _stamp(self, days):
+        from datetime import timedelta
+        return (self.now - timedelta(days=days)).isoformat()
+
+    def _activity(self, sha="abc123", days=1, subject="fix the thing",
+                  target="acme/widget"):
+        from foundation.target_mapping import source_native_target
+        from foundation.tentacles import repository_activity_signal
+        return repository_activity_signal(
+            {"sha": sha, "authored_at": self._stamp(days), "subject": subject,
+             "link": "https://github.invalid/c"},
+            source_native_target(target), target)
+
+    def _demand(self, target="acme/widget", n=1):
+        from foundation.signal_spine import CanonicalSignal
+        return CanonicalSignal(
+            signal_id=f"D{n}", source_id="github_help_wanted_issues",
+            source_type="PLATFORM", source_ref="https://x.invalid/i",
+            target=target, kind="DEMAND", claim=f"{target}#{n} asks for help",
+            observed_at=self.now.isoformat(), event_at=self._stamp(1),
+            source_lineage=f"{target}-issue-{n}",
+            pressure_class="EXPLICIT_DEMAND",
+            pressure_evidence="labelled help wanted; 9 comments")
+
+    def test_the_signal_is_activity_and_claims_nothing_more(self):
+        s = self._activity()
+        self.assertEqual(s.kind, "ACTIVITY")
+        self.assertEqual(s.pressure_class, "NONE")
+        self.assertEqual(s.money_claim(), "NOT_MEASURED")
+        self.assertEqual(s.target_established_by, "SOURCE_NATIVE")
+        self.assertTrue(s.unknowns)
+
+    def test_M_recent_commits_are_not_demand(self):
+        """Activity is not someone asking. Never upgrade it."""
+        self.assertEqual(self._activity().pressure_class, "NONE")
+        self.assertEqual(self._activity(days=0).pressure_class, "NONE")
+
+    def test_M_two_commits_do_not_manufacture_a_contradiction(self):
+        """The issue-number defect, deliberately not repeated."""
+        from foundation.signal_spine import fuse
+        f = fuse([self._activity("aaa", days=1),
+                  self._activity("bbb", days=9, subject="other work")])
+        self.assertEqual(f.contradictions, ())
+        self.assertEqual(f.independent_facts, 2)
+
+    def test_M_two_commits_are_not_two_dimensions(self):
+        from foundation.signal_spine import fuse
+        f = fuse([self._activity("aaa"), self._activity("bbb", subject="b")])
+        self.assertEqual(f.convergences, 0)
+        self.assertEqual(f.corroborations, 0)
+
+    def test_M_activity_alone_cannot_manufacture_corroboration(self):
+        from foundation.signal_spine import fuse, gravity
+        f = fuse([self._activity("aaa"), self._activity("bbb", subject="b"),
+                  self._activity("ccc", subject="c")])
+        self.assertEqual(f.corroborations, 0)
+        self.assertNotIn("INDEPENDENT_CORROBORATION",
+                         [k for k, _ in gravity(f).breakdown])
+
+    def test_demand_plus_activity_is_convergence_not_corroboration(self):
+        from foundation.signal_spine import fuse, gravity
+        f = fuse([self._demand(), self._activity()])
+        self.assertEqual(f.convergences, 1)
+        self.assertEqual(f.corroborations, 0)
+        labels = [k for k, _ in gravity(f).breakdown]
+        self.assertIn("MULTI_DIMENSIONAL_CONVERGENCE", labels)
+        self.assertNotIn("INDEPENDENT_CORROBORATION", labels)
+
+    def test_M_stale_activity_reread_today_stays_stale(self):
+        from foundation.signal_spine import fuse
+        old = self._activity(days=400)
+        self.assertTrue(old.is_stale())
+        self.assertNotEqual(old.event_at[:4], old.observed_at[:4])
+        f = fuse([self._demand(), old])
+        self.assertEqual(f.convergences, 0)
+
+    def test_M_a_non_conclusive_mapping_cannot_build_an_activity_signal(self):
+        from foundation.tentacles import repository_activity_signal
+        for state in ("REFUTED", "AMBIGUOUS", "LOOKUP_FAILED", "UNKNOWN"):
+            with self.assertRaises(ValueError, msg=state):
+                repository_activity_signal(
+                    {"sha": "a", "authored_at": "2026-08-30T00:00:00Z"},
+                    _mapping(state=state, declared_repo=""), "acme/widget")
+
+    def test_M_a_failed_observation_cannot_create_convergence(self):
+        """MAPPING_NOT_CONCLUSIVE carries no items, so there is nothing to
+        fuse -- enforced at construction, not by convention."""
+        from foundation.target_mapping import (DirectedObservation,
+                                               MappingIntegrityError,
+                                               source_native_target)
+        with self.assertRaises(MappingIntegrityError):
+            DirectedObservation(target="acme/widget", instrument="github_commits",
+                                result="FETCH_FAILED",
+                                mapping=source_native_target("acme/widget"),
+                                items=({"sha": "a"},))
+
+    def test_activity_needs_no_package_mapping_at_all(self):
+        import foundation.mouth_github_commits as mc
+        import ast, inspect
+        tree = ast.parse(inspect.getsource(mc))
+        imported = {n.module or "" for n in ast.walk(tree)
+                    if isinstance(n, ast.ImportFrom)}
+        self.assertNotIn("foundation.mouth_npm", imported)
+        self.assertNotIn("foundation.mouth_pypi", imported)
+
+    def test_it_reads_no_popularity_metric(self):
+        """Stars are easy to fetch and mean nothing. Not fetched.
+
+        Checked against EXECUTABLE code only, with docstrings stripped:
+        a source grep otherwise convicts this module for the prose that
+        describes the prohibition, which is a test-design trap this project
+        has already fallen into once.
+        """
+        import ast, inspect
+        import foundation.mouth_github_commits as mc
+        tree = ast.parse(inspect.getsource(mc))
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.Module, ast.ClassDef, ast.FunctionDef)):
+                if (node.body and isinstance(node.body[0], ast.Expr)
+                        and isinstance(node.body[0].value, ast.Constant)
+                        and isinstance(node.body[0].value.value, str)):
+                    node.body = node.body[1:]
+        code = ast.unparse(tree).lower()
+        for vanity in ("stargazers", "stars_count", "forks_count", "watchers",
+                       "subscribers_count"):
+            self.assertNotIn(vanity, code)
+
+
+class TestExistingBehaviourSurvives(unittest.TestCase):
+    def test_the_pypi_declared_match_path_is_untouched(self):
+        m = map_repo_to_pypi("acme/widget", _fetch(_pypi(
+            "widget", {"Source": "https://github.com/acme/widget"})))
+        self.assertEqual(m.state, "DECLARED_MATCH")
+
+    def test_the_npm_refutation_path_is_untouched(self):
+        from foundation.target_mapping import map_repo_to_npm
+        m = map_repo_to_npm("Expensify/App", _fetch(_npm(
+            "app", "git://github.com/rolandpoulter/app.git")))
+        self.assertEqual(m.state, "REFUTED")
+
+    def test_the_fixed_feed_watches_still_run(self):
+        from foundation import mouth_github_releases as gh
+        import tempfile, pathlib
+        obs = gh.observe(pathlib.Path(tempfile.mkdtemp()) / "s.json",
+                         fetch_fn=lambda: b"<feed></feed>")
+        self.assertEqual(obs.mouth_id, gh.MOUTH_ID)
+
+    def test_conclusive_mapping_widened_only_for_definitional_identity(self):
+        from foundation.target_mapping import CONCLUSIVE_MAPPING
+        self.assertEqual(set(CONCLUSIVE_MAPPING),
+                         {"DECLARED_MATCH", "SOURCE_NATIVE"})
+        for never in ("ASSUMED", "AMBIGUOUS", "UNKNOWN", "REFUTED",
+                      "NO_SUCH_PACKAGE", "LOOKUP_FAILED", "UNSUPPORTED"):
+            self.assertNotIn(never, CONCLUSIVE_MAPPING)
