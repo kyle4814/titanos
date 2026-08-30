@@ -32,6 +32,8 @@ from dataclasses import dataclass
 from typing import Optional
 
 from foundation.receipt import Receipt, ReceiptIntegrityError
+from foundation.value_model import ValueModel
+from foundation.value_model import NOT_MEASURED as VALUE_NOT_MEASURED
 
 __all__ = [
     "NOT_MEASURED",
@@ -67,6 +69,9 @@ class BusinessReceipt:
     reentry_condition: str       # copied verbatim
     available_next_action: str   # derived from the offer gate
     beneficiary: Optional[str]
+    # The source state of the figure above, kept as a separate field so a
+    # reader cannot lose it while quoting the impact string.
+    value_state: str = VALUE_NOT_MEASURED
 
     def sells_nothing(self) -> bool:
         return self.available_next_action == "NO_REMEDIATION_OFFER_RECOMMENDED"
@@ -83,6 +88,7 @@ class BusinessReceipt:
             "reentry_condition": self.reentry_condition,
             "available_next_action": self.available_next_action,
             "beneficiary": self.beneficiary,
+            "value_state": self.value_state,
         }
 
 
@@ -101,6 +107,7 @@ def derive_business_receipt(
     hard_truth: str = "",
     why_it_matters: str = "",
     financial_impact_evidence: str = "",
+    value_model: Optional[ValueModel] = None,
 ) -> BusinessReceipt:
     """Derive the sellable layer from the evidence layer.
 
@@ -111,7 +118,30 @@ def derive_business_receipt(
     `financial_impact_evidence` must describe a real measurement. Passing
     a bare number is refused: an unsupported figure is exactly the claim
     this module exists to make impossible.
+
+    `value_model` is the structured alternative: a `ValueModel` whose
+    exposure carries its own source state and refuses to multiply an
+    unmeasured factor. It is READ here and never authored -- and it
+    cannot reach the offer gate below. A large number does not earn an
+    offer and NOT_MEASURED does not forfeit one; only the evidence layer
+    decides that.
+
+    Supplying both is refused. Two writable paths to one field is how the
+    figure and its provenance drift apart.
     """
+    if value_model is not None and financial_impact_evidence.strip():
+        raise ReceiptIntegrityError(
+            "financial impact was given both as free text and as a value model; "
+            "one field cannot have two sources of truth"
+        )
+
+    value_state = VALUE_NOT_MEASURED
+    if value_model is not None:
+        exposure = value_model.exposure()
+        value_state = exposure.status
+        impact = exposure.render()
+        return _assemble(receipt, hard_truth, why_it_matters, impact, value_state)
+
     impact = NOT_MEASURED
     if financial_impact_evidence.strip():
         stripped = financial_impact_evidence.strip()
@@ -123,6 +153,22 @@ def derive_business_receipt(
             )
         impact = stripped
 
+    # Free text carries no source state, so `value_state` stays
+    # NOT_MEASURED even when the prose describes a real measurement. That
+    # asymmetry is deliberate: an unstructured sentence cannot be checked,
+    # and the only way to earn a stronger state is to supply a ValueModel
+    # whose inputs each name their own origin.
+    return _assemble(receipt, hard_truth, why_it_matters, impact, value_state)
+
+
+def _assemble(receipt: Receipt, hard_truth: str, why_it_matters: str,
+              impact: str, value_state: str) -> BusinessReceipt:
+    """Build the object. The gate lives here so both impact paths cross it.
+
+    Note what is NOT an input to the branch below: `impact` and
+    `value_state`. A large exposure does not earn an offer, and
+    NOT_MEASURED does not forfeit one. Only the evidence layer decides.
+    """
     # THE GATE. Derived from the truth layer, never supplied.
     if not receipt.offer_eligible():
         action = "NO_REMEDIATION_OFFER_RECOMMENDED"
@@ -144,4 +190,5 @@ def derive_business_receipt(
         reentry_condition=receipt.reentry_condition,
         available_next_action=action,
         beneficiary=receipt.beneficiary,
+        value_state=value_state,
     )

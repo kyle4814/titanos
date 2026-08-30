@@ -12,6 +12,7 @@ from foundation.business_receipt import (
     BusinessReceipt,
     derive_business_receipt,
 )
+from foundation.value_model import ValueInput, ValueModel
 
 
 def _proven(statement="the key is unenforced", evidence="grep found no validation"):
@@ -107,6 +108,83 @@ class TestTheConfidenceBoundaryIsCounted(unittest.TestCase):
                     verdict="NO_DEFECT",
                     claims=(_proven(), Claim("whether a caller supplies it", "UNKNOWN")))
         self.assertEqual(derive_business_receipt(r).confidence_boundary["UNKNOWN"], 1)
+
+
+class TestTheValueModelCannotReachTheOfferGate(unittest.TestCase):
+    """The one-way law, tested at the only place the two layers meet."""
+
+    @staticmethod
+    def _big_measured_model():
+        return ValueModel(
+            inputs=(
+                ValueInput(name="events", unit="events", status="MEASURED",
+                           amount=1000.0, source="1000 rows in the ledger"),
+                ValueInput(name="loss_each", unit="AUD", status="MEASURED",
+                           amount=900.0, source="900 per matching charge"),
+            ),
+            factors=("events", "loss_each"),
+            result_unit="AUD",
+        )
+
+    def test_a_large_exposure_does_not_earn_an_offer(self):
+        """$900,000, fully MEASURED, on a receipt with no beneficiary."""
+        b = derive_business_receipt(_no_beneficiary_receipt(),
+                                    value_model=self._big_measured_model())
+        self.assertIn("900000", b.financial_impact)
+        self.assertEqual(b.available_next_action, "NO_REMEDIATION_OFFER_RECOMMENDED")
+
+    def test_not_measured_does_not_forfeit_an_earned_offer(self):
+        """The converse: 'VALUE: NOT MEASURED' is still a high-value receipt."""
+        b = derive_business_receipt(_with_beneficiary(), value_model=ValueModel())
+        self.assertEqual(b.value_state, "NOT_MEASURED")
+        self.assertEqual(b.financial_impact, "NOT MEASURED")
+        self.assertEqual(b.available_next_action, "REQUEST_REMEDIATION")
+
+    def test_the_source_state_survives_into_the_business_layer(self):
+        m = ValueModel(
+            inputs=(
+                ValueInput(name="events", unit="events", status="MEASURED",
+                           amount=62.0, source="62 rows in the ledger"),
+                ValueInput(name="loss_each", unit="AUD", status="ESTIMATED",
+                           amount=400.0, assumption="mean order value"),
+            ),
+            factors=("events", "loss_each"),
+            result_unit="AUD",
+        )
+        b = derive_business_receipt(_with_beneficiary(), value_model=m)
+        self.assertEqual(b.value_state, "ESTIMATED")
+        self.assertIn("ESTIMATED", b.financial_impact)
+        self.assertEqual(b.to_dict()["value_state"], "ESTIMATED")
+
+    def test_a_blocked_exposure_is_reported_as_blocked_not_omitted(self):
+        m = ValueModel(
+            inputs=(
+                ValueInput(name="events", unit="events", status="MEASURED",
+                           amount=62.0, source="62 rows in the ledger"),
+                ValueInput(name="loss_each", unit="AUD", status="NOT_MEASURED"),
+            ),
+            factors=("events", "loss_each"),
+            result_unit="AUD",
+        )
+        b = derive_business_receipt(_with_beneficiary(), value_model=m)
+        self.assertEqual(b.value_state, "NOT_MEASURED")
+        self.assertIn("loss_each", b.financial_impact)
+
+    def test_two_sources_of_truth_for_one_field_are_refused(self):
+        with self.assertRaises(ReceiptIntegrityError) as ctx:
+            derive_business_receipt(
+                _with_beneficiary(),
+                financial_impact_evidence="14 support hours logged",
+                value_model=self._big_measured_model(),
+            )
+        self.assertIn("two sources of truth", str(ctx.exception))
+
+    def test_there_is_no_parameter_to_supply_a_value_state(self):
+        """The state must come from the inputs, not from the caller."""
+        import inspect
+        params = set(inspect.signature(derive_business_receipt).parameters)
+        for forbidden in ("value_state", "exposure", "financial_impact", "roi"):
+            self.assertNotIn(forbidden, params)
 
 
 class TestCopiedFieldsAreVerbatim(unittest.TestCase):

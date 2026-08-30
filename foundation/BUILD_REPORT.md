@@ -148,3 +148,76 @@ claims made vs. tests run in a given work session) would let the panic
 detector observe real conditions instead of only caller-supplied
 hypotheticals, and would be the first genuinely LIVE component in this
 otherwise entirely schema/ledger/gate-shaped foundation.
+
+---
+
+## Addendum 2026-08-30 — the receipt / value / offer trio
+
+Three modules, built across two sessions, forming one boundary: what an
+investigation may claim, what a number may claim, and what may be sold.
+
+| Module | Refuses | Tests |
+|---|---|---|
+| `receipt.py` | `DEFECT_ADMITTED` without a PROVEN claim; without a named beneficiary; a PROVEN claim with empty evidence; any price field | 25 |
+| `value_model.py` | a figure on a `NOT_MEASURED` input; a product containing an unmeasured factor; an aggregate stronger than its weakest input; an undeclared factor | 30 |
+| `business_receipt.py` | an authored verdict/confidence/offer; a bare figure as impact; two sources of truth for one field | 19 |
+
+**The one-way law, enforced structurally rather than promised.**
+`value_model` does not import `receipt`; `receipt` does not know
+`value_model` exists. `derive_business_receipt()` is the only meeting
+point, and it has no parameter for verdict, confidence, offer, next
+action, or value state — a test enumerates the signature and asserts
+their absence. Two tests fix the direction from both ends: a $900,000
+fully-`MEASURED` exposure on a receipt with no beneficiary still returns
+`NO_REMEDIATION_OFFER_RECOMMENDED`, and `VALUE: NOT MEASURED` on a proven
+defect with a named beneficiary still returns `REQUEST_REMEDIATION`.
+
+**Deliberately not merged into `crystal.py`.** A Crystal is an internal
+epistemic note; a Receipt is customer-facing with a beneficiary test and
+an offer gate. Merging would put commercial fields on the internal
+record — the exact contamination the firewall exists to prevent. A
+Receipt may cite a crystal id in `evidence_refs`.
+
+**Claim status is not `ALL_CLASSIFICATIONS`.** The KPM vocabulary answers
+"what kind of knowledge is this"; `CLAIM_STATUSES` answers "how strongly
+did this investigation establish this claim". Orthogonal axes; reusing
+the KPM enum would have forced every claim into a category that does not
+describe evidential strength.
+
+### Verification
+
+Mutation battery, four mutations, all convicted, all restored and
+md5-verified: deleting the `NOT_MEASURED`-carries-a-figure refusal (1
+failure); computing the product despite a blocked factor (5 errors);
+letting the strongest rather than weakest input govern (5 failures);
+allowing both impact paths at once (1 failure). Full foundation suite
+1119/1119; all 10 subsystem suites green; `pulse_sweep` raw findings 0.
+
+**A restore that appeared to fail, and did not.** The first battery
+reported failures after restoring byte-identical files. Cause: stale
+`__pycache__` — this filesystem's mtime granularity let CPython reuse
+mutant bytecode against restored source. Recorded because it is a live
+trap for any future mutation work here: **clear `__pycache__` between
+mutation and restore**, and never trust a post-restore green (or red)
+without it. The battery was re-run with cache clearing; one earlier
+mutation's failure count was inflated by the contamination (reported 6,
+true count 1) and is corrected above.
+
+### Limitations
+
+- No `VALIDATED_REALIZED` capture path exists. The state is in the
+  vocabulary and honoured by the arithmetic, but nothing observes value
+  after a remediation, so no receipt can legitimately carry it yet.
+- The derivation supports products only. Sums and quotients are not
+  built and should not be added speculatively.
+- The free-text impact path leaves `value_state` at `NOT_MEASURED` even
+  for genuine prose measurements. Deliberate asymmetry — unstructured
+  text carries no checkable source state — but it will read as a
+  contradiction to anyone who skims the two fields together.
+
+### Next smallest work cell
+
+Nothing here has met a real customer. The trio's honesty is proven
+against adversarial tests, not against anyone's willingness to pay for a
+receipt that says `NO_DEFECT`. That is the open question, and it cannot
+be closed inside this repository.
