@@ -641,13 +641,33 @@ class TestTheDemandAdapter(unittest.TestCase):
         from foundation.tentacles import github_issue_demand_signal
         s = github_issue_demand_signal(self._item())
         self.assertTrue(s.event_at.startswith("2026-08-29"))
-        self.assertEqual(s.facts["demand_first_expressed"],
+        self.assertEqual(s.evidence["first_expressed"],
                          "2021-08-16T07:47:38Z")
 
     def test_the_age_of_the_ask_stays_visible(self):
         from foundation.tentacles import github_issue_demand_signal
         s = github_issue_demand_signal(self._item())
-        self.assertIn("demand_first_expressed", s.facts)
+        self.assertEqual(s.evidence["first_expressed"], "2021-08-16T07:47:38Z")
+
+    def test_M_two_asks_on_one_repo_are_not_a_contradiction(self):
+        """Found live: issue numbers in `facts` made two separate asks
+        collide on one key and read as disagreement. #1 and #2 do not
+        disagree -- two people asked."""
+        from foundation.tentacles import github_issue_demand_signal
+        from foundation.signal_spine import fuse
+        a = github_issue_demand_signal(self._item(number=1))
+        b = github_issue_demand_signal(self._item(number=2))
+        f = fuse([a, b])
+        self.assertEqual(f.contradictions, ())
+        self.assertEqual(f.independent_facts, 2)
+
+    def test_M_two_asks_are_two_voices_not_two_dimensions(self):
+        """Convergence is across dimensions. Same-kind signals are not it."""
+        from foundation.tentacles import github_issue_demand_signal
+        from foundation.signal_spine import fuse
+        f = fuse([github_issue_demand_signal(self._item(number=1)),
+                  github_issue_demand_signal(self._item(number=2))])
+        self.assertEqual(f.convergences, 0)
 
     def test_an_unlabelled_issue_carries_no_pressure(self):
         """Popularity is not demand."""

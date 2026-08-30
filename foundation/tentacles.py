@@ -32,7 +32,8 @@ from typing import Optional
 from foundation.signal_spine import CanonicalSignal
 
 __all__ = ["github_release_signal", "pypi_release_signal", "release_lineage",
-           "github_issue_demand_signal", "demand_lineage"]
+           "github_issue_demand_signal", "demand_lineage",
+           "directed_pypi_release_signal"]
 
 
 def release_lineage(package: str, version: str) -> str:
@@ -153,10 +154,13 @@ def github_issue_demand_signal(item: dict, now: Optional[datetime] = None
     asked = [l for l in labels if l in _HELP_WANTED]
     comments = int(item.get("comments") or 0)
 
-    facts = {"open_help_wanted_issue": str(number),
-             "issue_state": str(item.get("state", ""))}
-    if item.get("created_at"):
-        facts["demand_first_expressed"] = str(item["created_at"])
+    # Deliberately EMPTY. An issue number, its state and its creation date
+    # are properties of one ask, not claims about the target that another
+    # source could confirm or deny. Putting them in `facts` made two
+    # separate asks on one repository collide on a single key and read as
+    # a contradiction -- issue #1 and issue #2 do not disagree, they are
+    # two people asking. Caught by grouping the first live sweep by target.
+    facts: dict = {}
 
     return CanonicalSignal(
         signal_id=f"ISSUE-{repo}-{number}",
@@ -170,6 +174,9 @@ def github_issue_demand_signal(item: dict, now: Optional[datetime] = None
         source_lineage=demand_lineage(repo, number),
         facts=facts,
         evidence={"source": "github-search-issues",
+                  "issue_number": number,
+                  "issue_state": item.get("state", ""),
+                  "first_expressed": item.get("created_at", ""),
                   "labels": tuple(item.get("labels", ())),
                   "comments": comments,
                   "raw_created_at": item.get("created_at", ""),
@@ -182,3 +189,45 @@ def github_issue_demand_signal(item: dict, now: Optional[datetime] = None
             "whether anyone is already working on it",
             "whether the project accepts outside contributions",
             "whether the underlying problem is reproducible"))
+
+
+def directed_pypi_release_signal(item: dict, mapping, target: str,
+                                 now: Optional[datetime] = None
+                                 ) -> CanonicalSignal:
+    """A release observed because a mapping said this package is that repo.
+
+    The lineage stays the RELEASE event, not the mapping, so a directed
+    read and a fixed-feed read of the same release still collapse into one
+    fact. Steering the instrument changes what it looked at, never how
+    many times the world happened.
+
+    `target_established_by` is DECLARED_MATCH and the declaration travels
+    in the evidence, so the reason this signal is allowed to be about this
+    target is auditable rather than assumed.
+    """
+    if not mapping.is_conclusive():
+        raise ValueError(
+            f"refusing to build a signal on a {mapping.state} mapping; "
+            f"a directed read without an established target is a guess "
+            f"with a URL attached")
+    version = str(item.get("title", "")).strip()
+    package = mapping.candidate_identity
+    return CanonicalSignal(
+        signal_id=f"PYPI-DIRECTED-{package}-{version}",
+        source_id="pypi_releases", source_type="PLATFORM",
+        source_ref=str(item.get("link", "")),
+        target=target, kind="RELEASE",
+        claim=f"{package} {version} is listed on the package index",
+        observed_at=_observed_now(now),
+        event_at=_rfc2822(str(item.get("pub_date", ""))),
+        source_lineage=release_lineage(package, version),
+        target_established_by="DECLARED_MATCH",
+        facts={"latest_version": version} if version else {},
+        evidence={"feed": "pypi-releases-rss",
+                  "directed": True,
+                  "mapped_package": package,
+                  "mapping_state": mapping.state,
+                  "mapping_provenance": mapping.provenance,
+                  "raw_pub_date": item.get("pub_date", "")},
+        unknowns=("whether the index entry reflects a source release or a "
+                  "re-upload",))

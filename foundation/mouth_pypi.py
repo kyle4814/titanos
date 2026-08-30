@@ -79,10 +79,29 @@ def parse_items(xml_bytes: bytes) -> tuple[dict, ...]:
     return tuple(items)
 
 
+def feed_url_for(project: str) -> str:
+    """The releases RSS feed for a PyPI project."""
+    name = (project or "").strip()
+    if not name or "/" in name:
+        raise ValueError(
+            f"expected a PyPI project name, got {project!r}; a repository "
+            f"path is not a package identity")
+    return f"https://pypi.org/rss/project/{name}/releases.xml"
+
+
 def observe(
     state_path: Path,
     fetch_fn: Optional[Callable[[], bytes]] = None,
     now=None,
+    target: Optional[str] = None,
 ) -> MouthObservation:
-    fetch = fetch_fn or (lambda: fetch_feed(FEED_URL))
-    return _observe(MOUTH_ID, state_path, fetch, parse_items, now=now)
+    """Observe releases -- from the fixed feed, or from a named project.
+
+    `target` here is a PACKAGE name, never a repository path. The two are
+    different identities and the mapping between them is established by
+    `foundation/target_mapping.py`, not by this mouth guessing.
+    """
+    url = feed_url_for(target) if target else FEED_URL
+    mouth_id = f"{MOUTH_ID}:{target}" if target else MOUTH_ID
+    fetch = fetch_fn or (lambda: fetch_feed(url))
+    return _observe(mouth_id, state_path, fetch, parse_items, now=now)

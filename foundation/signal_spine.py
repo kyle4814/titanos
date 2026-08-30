@@ -67,6 +67,8 @@ __all__ = [
     "RELATIONS",
     "MONEY_STATES",
     "PRESSURE_CLASSES",
+    "TARGET_PROVENANCE",
+    "TRUSTED_TARGET_PROVENANCE",
     "STALE_AFTER_DAYS",
     "CanonicalSignal",
     "Relation",
@@ -103,6 +105,15 @@ MONEY_STATES = ("NOT_OBSERVED", "ADVERTISED", "VERIFIED_CURRENT", "PAID")
 # demand. Every non-NONE class must name the evidence that earned it.
 PRESSURE_CLASSES = ("NONE", "EXPLICIT_DEMAND", "UNRESOLVED_PAIN",
                     "INCENTIVE", "URGENCY")
+
+# How this signal's `target` came to be trusted. A demand issue names its
+# own repository (SOURCE_NATIVE); a directed read is trusted only because
+# a mapping was established (DECLARED_MATCH); anything else is a guess and
+# is never allowed to create convergence mass, because convergence between
+# two targets that merely share a string is the most expensive kind of
+# false evidence this radar can produce.
+TARGET_PROVENANCE = ("SOURCE_NATIVE", "DECLARED_MATCH", "ASSUMED")
+TRUSTED_TARGET_PROVENANCE = ("SOURCE_NATIVE", "DECLARED_MATCH")
 
 STALE_AFTER_DAYS = 21
 
@@ -153,6 +164,7 @@ class CanonicalSignal:
     observed_at: str          # when the system saw it
     event_at: str = _UNKNOWN_TIME     # when the world event happened
     source_lineage: str = ""  # upstream event this derives from
+    target_established_by: str = "SOURCE_NATIVE"
     facts: Mapping[str, str] = field(default_factory=dict)
     evidence: Mapping[str, Any] = field(default_factory=dict)
     pressure_class: str = "NONE"
@@ -172,6 +184,9 @@ class CanonicalSignal:
             raise SignalIntegrityError(
                 "a signal must name the tentacle that observed it, or "
                 "provenance is already lost at the first hop")
+        if self.target_established_by not in TARGET_PROVENANCE:
+            raise SignalIntegrityError(
+                f"unknown target provenance {self.target_established_by!r}")
         if self.pressure_class not in PRESSURE_CLASSES:
             raise SignalIntegrityError(
                 f"unknown pressure class {self.pressure_class!r}")
@@ -200,6 +215,10 @@ class CanonicalSignal:
 
     def is_authoritative(self) -> bool:
         return self.source_type in AUTHORITATIVE_SOURCES
+
+    def target_is_established(self) -> bool:
+        """Whether this signal earned the right to be about this target."""
+        return self.target_established_by in TRUSTED_TARGET_PROVENANCE
 
     def is_stale(self, now: Optional[datetime] = None) -> bool:
         """Staleness is measured on the EVENT, not the observation.
@@ -385,9 +404,14 @@ def fuse(signals: Iterable[CanonicalSignal],
                 # lineages, is convergence -- real evidence, but NOT
                 # agreement about anything. A release and a demand signal
                 # never corroborate each other; they pull from different
-                # directions on the same point.
+                # directions on the same point. Two signals of the SAME
+                # kind are two voices in one dimension, which is also real
+                # and is deliberately not called convergence.
                 if (sigs[i].target == sigs[j].target
+                        and sigs[i].kind != sigs[j].kind
                         and sigs[i].source_lineage != sigs[j].source_lineage
+                        and sigs[i].target_is_established()
+                        and sigs[j].target_is_established()
                         and not sigs[i].is_stale(now)
                         and not sigs[j].is_stale(now)):
                     convergences += 1
@@ -641,8 +665,20 @@ def target_lock(entry: RawValueMapEntry) -> TargetLock:
     if mass < LOCK_THRESHOLD:
         return TargetLock("WATCH", (
             f"gravity {mass} below lock threshold {LOCK_THRESHOLD}",))
-    reasons.append(f"gravity {mass} from {entry.fused.independent_facts} "
-                   f"independent facts")
+    # Name WHICH kind of evidence carried the lock. Four people asking on
+    # one project and two instruments observing different dimensions are
+    # both "independent facts", and a lock that will not say which one it
+    # stood on is a black box with a threshold in front of it.
+    if entry.fused.convergences:
+        basis = (f"{entry.fused.convergences} convergent dimension(s) "
+                 f"across independent instruments")
+    elif entry.fused.corroborations:
+        basis = (f"{entry.fused.corroborations} independent source(s) "
+                 f"agreeing on one fact")
+    else:
+        basis = (f"{entry.fused.independent_facts} independent fact(s) in a "
+                 f"SINGLE dimension -- volume, not cross-dimensional support")
+    reasons.append(f"gravity {mass} from {basis}")
     reasons.append("lock recommends investigation; it does not authorise it")
     return TargetLock("LOCKED", tuple(reasons))
 

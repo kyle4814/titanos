@@ -54,10 +54,32 @@ def parse_items(xml_bytes: bytes) -> tuple[dict, ...]:
     return tuple(items)
 
 
+def feed_url_for(repo: str) -> str:
+    """The releases atom feed for a repository.
+
+    GitHub publishes this for every repository at a fixed path, so the
+    caller expresses a TARGET and never a URL it invented.
+    """
+    if repo.count("/") != 1 or not all(part.strip() for part in repo.split("/")):
+        raise ValueError(
+            f"expected owner/name, got {repo!r}; this mouth is directed at a "
+            f"repository, not at an arbitrary address")
+    return f"https://github.com/{repo}/releases.atom"
+
+
 def observe(
     state_path: Path,
     fetch_fn: Optional[Callable[[], bytes]] = None,
     now=None,
+    target: Optional[str] = None,
 ) -> MouthObservation:
-    fetch = fetch_fn or (lambda: fetch_feed(FEED_URL))
-    return _observe(MOUTH_ID, state_path, fetch, parse_items, now=now)
+    """Observe releases -- from the fixed feed, or from a named target.
+
+    Fixed-feed mode is retained rather than removed: it is the mouth's own
+    standing watch, and nothing about being able to turn the instrument
+    means it should stop looking where it was already looking.
+    """
+    url = feed_url_for(target) if target else FEED_URL
+    mouth_id = f"{MOUTH_ID}:{target}" if target else MOUTH_ID
+    fetch = fetch_fn or (lambda: fetch_feed(url))
+    return _observe(mouth_id, state_path, fetch, parse_items, now=now)
