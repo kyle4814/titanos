@@ -50,6 +50,11 @@ __all__ = [
     "SignalEvidence",
     "OpportunityReceipt",
     "rank",
+    "PowerProfile",
+    "power_profile",
+    "InvestigationMission",
+    "HandoffRefused",
+    "handoff",
 ]
 
 SOURCE_TYPES = ("PRIMARY", "OFFICIAL", "PLATFORM", "PROJECT_MAINTAINED",
@@ -265,3 +270,198 @@ def opportunity_id_for(target: str, handle: str) -> str:
     """Stable identity so the queue cannot hold the same lead twice."""
     raw = f"{target.strip().lower()}|{handle.strip().lower()}"
     return "OPP-" + hashlib.sha256(raw.encode()).hexdigest()[:16]
+
+
+# ── THE SCOUTER ──────────────────────────────────────────────────────────
+#
+# A power level is a decision aid, not a fact and never money. It exists so
+# a queue can be skimmed; it must always be able to answer "why?".
+#
+# Power and confidence are reported SEPARATELY and never multiplied into
+# one figure. A 9,000 at 0.2 confidence and a 6,500 at 0.9 are different
+# kinds of target -- one is a speculation, the other is work -- and
+# collapsing them hides the only distinction that matters when choosing
+# what to actually do next.
+
+_BANDS = ((9000, "EXTREME"), (7000, "HOT"), (4000, "PROMISING"),
+          (2000, "WATCH"), (0, "LOW"))
+
+
+@dataclass(frozen=True)
+class PowerProfile:
+    power_level: int
+    breakdown: tuple[tuple[str, int], ...]
+    confidence: float
+    confidence_inputs: tuple[str, ...]
+
+    def band(self) -> str:
+        for floor, name in _BANDS:
+            if self.power_level >= floor:
+                return name
+        return "LOW"
+
+    def classification(self) -> str:
+        """Power and confidence together, never averaged."""
+        if self.power_level >= 7000 and self.confidence < 0.4:
+            return "HIGH_UPSIDE_UNCERTAIN"
+        if self.power_level >= 4000 and self.confidence >= 0.7:
+            return "STRONG_EXECUTION_TARGET"
+        return f"{self.band()}_CONFIDENCE_{self.confidence:.2f}"
+
+    def show_the_math(self) -> str:
+        lines = [f"POWER {self.power_level}  ({self.band()})"]
+        lines += [f"  {'+' if v >= 0 else '-'} {k}={abs(v)}"
+                  for k, v in self.breakdown]
+        lines.append(f"CONFIDENCE {self.confidence:.2f}")
+        lines += [f"  - {c}" for c in self.confidence_inputs]
+        return "\n".join(lines)
+
+
+def power_profile(opportunity: OpportunityReceipt,
+                  now: Optional[datetime] = None) -> PowerProfile:
+    """Explainable power level. Every term is traceable to an observation.
+
+    Money is only counted when money was actually OBSERVED. An unknown
+    reward contributes nothing -- it is not scored as zero for
+    convenience, it simply does not appear in the breakdown, and the
+    absence is visible.
+    """
+    parts: list[tuple[str, int]] = []
+
+    if opportunity.reward_state == "VERIFIED_CURRENT":
+        parts.append(("VERIFIED_REWARD_OBSERVED", 2500))
+    elif opportunity.reward_state == "OBSERVED":
+        parts.append(("REWARD_OBSERVED_UNVERIFIED", 1200))
+    # UNKNOWN / NOT_PRESENT contribute nothing and are not scored as zero.
+
+    if any(s.kind == "DEMAND" for s in opportunity.signals):
+        parts.append(("EXPLICIT_DEMAND", 1800))
+    if any(s.kind == "CODE_PRESSURE" for s in opportunity.signals):
+        parts.append(("CODE_PRESSURE", 1500))
+    if opportunity.activity_class == "HIGHLY_ACTIVE":
+        parts.append(("TARGET_ACTIVITY", 1200))
+    elif opportunity.activity_class == "ACTIVE":
+        parts.append(("TARGET_ACTIVITY", 900))
+
+    if opportunity.locally_reproducible == "YES":
+        parts.append(("LOCAL_REPRODUCIBILITY", 1600))
+    elif opportunity.locally_reproducible == "NO":
+        parts.append(("NOT_LOCALLY_REPRODUCIBLE", -1200))
+
+    if not opportunity.is_stale(now):
+        parts.append(("EVIDENCE_FRESH", 700))
+    else:
+        parts.append(("EVIDENCE_STALE", -1500))
+
+    distinct = {s.source_type for s in opportunity.signals}
+    if len(distinct) > 1:
+        parts.append(("SOURCE_DIVERSITY", 400))
+
+    if opportunity.unknowns:
+        parts.append(("EVIDENCE_UNCERTAINTY", -150 * len(opportunity.unknowns)))
+    if opportunity.disqualifiers:
+        parts.append(("DISQUALIFIER_FRICTION", -2000 * len(opportunity.disqualifiers)))
+
+    power = max(0, sum(v for _, v in parts))
+
+    # Confidence is about how well we KNOW, not how much it is worth.
+    conf_inputs: list[str] = []
+    confidence = 0.5
+    if any(s.is_authoritative() for s in opportunity.signals):
+        confidence += 0.2
+        conf_inputs.append("at least one PRIMARY/OFFICIAL source")
+    else:
+        conf_inputs.append("no authoritative source: platform/third-party only")
+    if opportunity.is_stale(now):
+        confidence -= 0.3
+        conf_inputs.append("evidence is stale")
+    if opportunity.unknowns:
+        confidence -= min(0.1 * len(opportunity.unknowns), 0.3)
+        conf_inputs.append(f"{len(opportunity.unknowns)} recorded unknown(s)")
+    if opportunity.locally_reproducible == "UNKNOWN":
+        confidence -= 0.1
+        conf_inputs.append("local reproducibility unverified")
+    confidence = round(min(max(confidence, 0.0), 1.0), 2)
+
+    return PowerProfile(power, tuple(parts), confidence, tuple(conf_inputs))
+
+
+class HandoffRefused(OpportunityIntegrityError):
+    """The opportunity was not in a state that justifies a mission."""
+
+
+@dataclass(frozen=True)
+class InvestigationMission:
+    """A bounded question, carrying the evidence that justified asking it.
+
+    Deliberately has no verdict, no claim, and no route to a Receipt or a
+    GoldBrick. Those require an investigation to actually happen. The
+    mission says why to look, never what will be found.
+    """
+
+    opportunity_id: str
+    target: str
+    why_this_target_now: tuple[str, ...]
+    source_observations: tuple[SignalEvidence, ...]
+    power_level: int
+    confidence: float
+    classification: str
+    unknowns: tuple[str, ...]
+    disqualifiers: tuple[str, ...]
+    next_cheapest_experiment: str
+    what_would_disprove_value: str
+    stop_conditions: tuple[str, ...]
+
+    def bug_claim(self) -> str:
+        return "NONE"
+
+    def value_claim(self) -> str:
+        return "NOT_MEASURED"
+
+
+def handoff(opportunity: OpportunityReceipt,
+            next_cheapest_experiment: str,
+            what_would_disprove_value: str,
+            now: Optional[datetime] = None) -> InvestigationMission:
+    """Turn a ranked opportunity into a bounded mission, or refuse.
+
+    Refuses rather than degrades. A stale, disqualified or un-ranked
+    target must not become a mission just because someone called this
+    function -- that would be the radar authorising its own hunt.
+
+    Provenance and unknowns are carried through by construction, because
+    a mission that loses them sends the investigator out believing the
+    evidence is better than it is.
+    """
+    ranking = rank(opportunity, now)
+    if ranking.recommendation != "INVESTIGATE":
+        raise HandoffRefused(
+            f"ranking says {ranking.recommendation}, not INVESTIGATE; the "
+            f"radar does not authorise its own hunt")
+    if opportunity.blocking_disqualifiers():
+        raise HandoffRefused(
+            f"blocking disqualifier(s): "
+            f"{', '.join(opportunity.blocking_disqualifiers())}")
+    if not next_cheapest_experiment.strip():
+        raise HandoffRefused(
+            "a mission must name the cheapest experiment that could kill it")
+
+    profile = power_profile(opportunity, now)
+    return InvestigationMission(
+        opportunity_id=opportunity.opportunity_id,
+        target=opportunity.target,
+        why_this_target_now=ranking.inputs,
+        source_observations=opportunity.signals,
+        power_level=profile.power_level,
+        confidence=profile.confidence,
+        classification=profile.classification(),
+        unknowns=opportunity.unknowns,
+        disqualifiers=opportunity.disqualifiers,
+        next_cheapest_experiment=next_cheapest_experiment.strip(),
+        what_would_disprove_value=what_would_disprove_value.strip(),
+        stop_conditions=(
+            "stop at any external action requiring owner authority",
+            "stop if the evidence proves stale at current upstream",
+            "stop if a security-sensitive finding appears: private route only",
+        ),
+    )

@@ -178,3 +178,119 @@ class TestIdentityAndHygiene(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestThePowerLevelShowsItsMath(unittest.TestCase):
+    def _profile(self, **kw):
+        from foundation.opportunity import power_profile
+        return power_profile(_opp(**kw))
+
+    def test_every_power_level_can_answer_why(self):
+        p = self._profile(signals=(_sig(), _sig(kind="DEMAND")))
+        self.assertTrue(p.breakdown)
+        self.assertIn("POWER", p.show_the_math())
+        self.assertIn("CONFIDENCE", p.show_the_math())
+
+    def test_M3_an_unknown_reward_is_not_scored_as_zero(self):
+        """It contributes nothing and its absence is visible -- it is not
+        silently treated as a measured zero."""
+        p = self._profile()
+        keys = [k for k, _ in p.breakdown]
+        self.assertNotIn("VERIFIED_REWARD_OBSERVED", keys)
+        self.assertNotIn("REWARD_OBSERVED_UNVERIFIED", keys)
+
+    def test_an_observed_reward_scores_below_a_verified_one(self):
+        obs = self._profile(reward_state="OBSERVED", reward_advertised="$5,000",
+                            signals=(_sig(kind="REWARD", source_type="OFFICIAL"),))
+        ver = self._profile(reward_state="VERIFIED_CURRENT",
+                            reward_advertised="$5,000",
+                            signals=(_sig(kind="REWARD", source_type="OFFICIAL"),))
+        self.assertLess(obs.power_level, ver.power_level)
+
+    def test_M6_a_high_power_score_cannot_erase_low_confidence(self):
+        """9,000 at 0.2 and 6,500 at 0.9 are different kinds of target."""
+        p = self._profile(
+            reward_state="VERIFIED_CURRENT", reward_advertised="$50,000",
+            activity_class="HIGHLY_ACTIVE", locally_reproducible="YES",
+            signals=(_sig(kind="REWARD", source_type="OFFICIAL"),
+                     _sig(kind="DEMAND"), _sig(kind="CODE_PRESSURE")),
+            unknowns=("a",) * 6)
+        self.assertGreater(p.power_level, 4000)
+        self.assertLess(p.confidence, 0.6)
+        self.assertIn("CONFIDENCE", p.show_the_math())
+
+    def test_confidence_drops_without_an_authoritative_source(self):
+        weak = self._profile()                       # PLATFORM only
+        strong = self._profile(signals=(_sig(source_type="OFFICIAL"),))
+        self.assertLess(weak.confidence, strong.confidence)
+
+    def test_power_and_confidence_are_never_multiplied_together(self):
+        p = self._profile(signals=(_sig(), _sig(kind="DEMAND")))
+        self.assertIsInstance(p.power_level, int)
+        self.assertIsInstance(p.confidence, float)
+        self.assertNotEqual(p.power_level, p.power_level * p.confidence)
+
+
+class TestTheHandoff(unittest.TestCase):
+    def _strong(self, **kw):
+        base = dict(signals=(_sig(), _sig(kind="DEMAND"),
+                             _sig(kind="CODE_PRESSURE")))
+        base.update(kw)
+        return _opp(**base)
+
+    def _hand(self, o=None, exp="build it and run the reproduction",
+              disproof="the behaviour is already fixed at current HEAD"):
+        from foundation.opportunity import handoff
+        return handoff(o or self._strong(), exp, disproof)
+
+    def test_a_ranked_target_becomes_a_bounded_mission(self):
+        m = self._hand()
+        self.assertTrue(m.next_cheapest_experiment)
+        self.assertTrue(m.stop_conditions)
+
+    def test_M12_provenance_and_unknowns_survive_the_handoff(self):
+        """A mission that loses them sends the investigator out believing
+        the evidence is better than it is."""
+        o = self._strong(unknowns=("licence unread", "not built locally"))
+        m = self._hand(o)
+        self.assertEqual(m.unknowns, o.unknowns)
+        self.assertEqual(m.source_observations, o.signals)
+
+    def test_M7_M8_a_mission_cannot_claim_a_finding_or_a_value(self):
+        m = self._hand()
+        self.assertEqual(m.bug_claim(), "NONE")
+        self.assertEqual(m.value_claim(), "NOT_MEASURED")
+        surface = {f for f in dir(m) if not f.startswith("_")}
+        for forbidden in ("verdict", "claims", "receipt", "brick", "materialise"):
+            self.assertNotIn(forbidden, surface)
+
+    def test_a_non_investigate_ranking_is_refused(self):
+        """The radar does not authorise its own hunt."""
+        from foundation.opportunity import HandoffRefused
+        with self.assertRaises(HandoffRefused) as ctx:
+            self._hand(_opp(activity_class="LOW"))
+        self.assertIn("does not authorise its own hunt", str(ctx.exception))
+
+    def test_M9_a_disqualified_target_cannot_be_handed_off(self):
+        from foundation.opportunity import HandoffRefused
+        with self.assertRaises(HandoffRefused):
+            self._hand(self._strong(disqualifiers=("REQUIRES_LIVE_INFRA",)))
+
+    def test_M5_a_stale_target_cannot_be_handed_off(self):
+        from datetime import datetime, timedelta, timezone
+        from foundation.opportunity import HandoffRefused
+        old = (datetime.now(timezone.utc) - timedelta(days=60)).isoformat()
+        with self.assertRaises(HandoffRefused):
+            self._hand(self._strong(observed_at=old))
+
+    def test_a_mission_must_name_the_cheapest_killing_experiment(self):
+        from foundation.opportunity import HandoffRefused
+        with self.assertRaises(HandoffRefused) as ctx:
+            self._hand(exp="   ")
+        self.assertIn("cheapest experiment", str(ctx.exception))
+
+    def test_the_mission_carries_power_and_confidence_separately(self):
+        m = self._hand()
+        self.assertIsInstance(m.power_level, int)
+        self.assertIsInstance(m.confidence, float)
+        self.assertTrue(m.classification)
