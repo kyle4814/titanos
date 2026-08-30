@@ -31,7 +31,8 @@ from typing import Optional
 
 from foundation.signal_spine import CanonicalSignal
 
-__all__ = ["github_release_signal", "pypi_release_signal", "release_lineage"]
+__all__ = ["github_release_signal", "pypi_release_signal", "release_lineage",
+           "github_issue_demand_signal", "demand_lineage"]
 
 
 def release_lineage(package: str, version: str) -> str:
@@ -118,3 +119,66 @@ def pypi_release_signal(item: dict, package: str, target: str,
                   "raw_pub_date": item.get("pub_date", "")},
         unknowns=("whether the index entry reflects a source release or a "
                   "re-upload",))
+
+
+# A demand issue's lineage is the issue itself. Deliberately NOT the
+# repository: two issues in one project are two separate expressions of
+# need, but the same issue mirrored on a bounty board or an aggregator is
+# one, and only an issue-scoped lineage gets both of those right.
+def demand_lineage(repo: str, number) -> str:
+    return f"{repo.lower()}-issue-{number}"
+
+
+_HELP_WANTED = ("help wanted", "good first issue", "contributions welcome",
+                "up for grabs")
+
+
+def github_issue_demand_signal(item: dict, now: Optional[datetime] = None
+                               ) -> CanonicalSignal:
+    """One open issue where a human asked for help.
+
+    `event_at` is `updated_at`, not `created_at`: demand is current if it
+    is still being discussed. A 2021 request still argued about this week
+    is live pressure, and a 2021 request untouched since 2021 is not --
+    using creation time would get both backwards. `created_at` survives
+    as a fact so the age of the ask stays visible.
+
+    The pressure class is EXPLICIT_DEMAND only when a label actually says
+    so. Inferring demand from a project being popular is exactly the
+    hype-for-evidence substitution this whole spine exists to prevent.
+    """
+    repo = str(item.get("repo", ""))
+    number = item.get("number")
+    labels = [str(l).lower() for l in item.get("labels", ())]
+    asked = [l for l in labels if l in _HELP_WANTED]
+    comments = int(item.get("comments") or 0)
+
+    facts = {"open_help_wanted_issue": str(number),
+             "issue_state": str(item.get("state", ""))}
+    if item.get("created_at"):
+        facts["demand_first_expressed"] = str(item["created_at"])
+
+    return CanonicalSignal(
+        signal_id=f"ISSUE-{repo}-{number}",
+        source_id="github_help_wanted_issues", source_type="PLATFORM",
+        source_ref=str(item.get("html_url", "")),
+        target=repo, kind="DEMAND",
+        claim=(f"{repo}#{number} is open and labelled for help: "
+               f"{str(item.get('title',''))[:90]}"),
+        observed_at=_observed_now(now),
+        event_at=_iso(str(item.get("updated_at", ""))),
+        source_lineage=demand_lineage(repo, number),
+        facts=facts,
+        evidence={"source": "github-search-issues",
+                  "labels": tuple(item.get("labels", ())),
+                  "comments": comments,
+                  "raw_created_at": item.get("created_at", ""),
+                  "raw_updated_at": item.get("updated_at", "")},
+        pressure_class="EXPLICIT_DEMAND" if asked else "NONE",
+        pressure_evidence=(
+            f"labelled {', '.join(asked)}; {comments} comments"
+            if asked else ""),
+        unknowns=(
+            "whether anyone is already working on it",
+            "whether the project accepts outside contributions",
+            "whether the underlying problem is reproducible"))

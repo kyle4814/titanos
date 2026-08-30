@@ -66,6 +66,7 @@ __all__ = [
     "SignalIntegrityError",
     "RELATIONS",
     "MONEY_STATES",
+    "PRESSURE_CLASSES",
     "STALE_AFTER_DAYS",
     "CanonicalSignal",
     "Relation",
@@ -95,6 +96,13 @@ RELATIONS = ("SUPPORTING", "CONTRADICTORY", "DUPLICATE", "CORRELATED",
 # Money states, deliberately mirroring `opportunity`'s reward discipline
 # rather than inventing a second ladder. NOT_OBSERVED is not zero.
 MONEY_STATES = ("NOT_OBSERVED", "ADVERTISED", "VERIFIED_CURRENT", "PAID")
+
+# Value pressure: evidence that something exerts real external pull.
+# NONE is the default and is not a deficiency -- most observations carry
+# no pressure at all, and pretending otherwise is how a radar invents
+# demand. Every non-NONE class must name the evidence that earned it.
+PRESSURE_CLASSES = ("NONE", "EXPLICIT_DEMAND", "UNRESOLVED_PAIN",
+                    "INCENTIVE", "URGENCY")
 
 STALE_AFTER_DAYS = 21
 
@@ -147,6 +155,8 @@ class CanonicalSignal:
     source_lineage: str = ""  # upstream event this derives from
     facts: Mapping[str, str] = field(default_factory=dict)
     evidence: Mapping[str, Any] = field(default_factory=dict)
+    pressure_class: str = "NONE"
+    pressure_evidence: str = ""   # what was observed, not what it implies
     money_state: str = "NOT_OBSERVED"
     money_observed: str = ""  # verbatim, never parsed into a number
     unknowns: tuple[str, ...] = ()
@@ -162,6 +172,13 @@ class CanonicalSignal:
             raise SignalIntegrityError(
                 "a signal must name the tentacle that observed it, or "
                 "provenance is already lost at the first hop")
+        if self.pressure_class not in PRESSURE_CLASSES:
+            raise SignalIntegrityError(
+                f"unknown pressure class {self.pressure_class!r}")
+        if self.pressure_class != "NONE" and not self.pressure_evidence.strip():
+            raise SignalIntegrityError(
+                f"pressure class {self.pressure_class!r} claims external pull "
+                f"but names no evidence for it")
         if self.money_state not in MONEY_STATES:
             raise SignalIntegrityError(
                 f"unknown money state {self.money_state!r}")
@@ -292,6 +309,8 @@ class FusedTarget:
     signals: tuple[CanonicalSignal, ...]
     relations: tuple[tuple[str, str, Relation], ...]
     independent_facts: int
+    corroborations: int          # distinct sources agreeing on ONE fact
+    convergences: int            # distinct DIMENSIONS pointing at one target
     echoes: int
     contradictions: tuple[Relation, ...]
     stale_signals: tuple[str, ...]
@@ -305,6 +324,8 @@ class FusedTarget:
         lines = [f"TARGET {self.target}",
                  f"  signals observed        {len(self.signals)}",
                  f"  independent facts       {self.independent_facts}",
+                 f"  corroborations          {self.corroborations}",
+                 f"  convergent dimensions   {self.convergences}",
                  f"  echoes collapsed        {self.echoes}",
                  f"  contradictions          {len(self.contradictions)}",
                  f"  stale signals           {len(self.stale_signals)}"]
@@ -332,6 +353,8 @@ def fuse(signals: Iterable[CanonicalSignal],
     relations: list[tuple[str, str, Relation]] = []
     contradictions: list[Relation] = []
     unknown_pairs = 0
+    corroborations = 0
+    convergences = 0
 
     # Union-find over signal indices. Anything that is not genuinely
     # independent gets merged into one cluster.
@@ -354,8 +377,20 @@ def fuse(signals: Iterable[CanonicalSignal],
             relations.append((sigs[i].signal_id, sigs[j].signal_id, rel))
             if rel.kind == "CONTRADICTORY":
                 contradictions.append(rel)
+            elif rel.kind == "SUPPORTING":
+                corroborations += 1
             elif rel.kind == "UNKNOWN":
                 unknown_pairs += 1
+                # Different dimensions of ONE target, from distinct
+                # lineages, is convergence -- real evidence, but NOT
+                # agreement about anything. A release and a demand signal
+                # never corroborate each other; they pull from different
+                # directions on the same point.
+                if (sigs[i].target == sigs[j].target
+                        and sigs[i].source_lineage != sigs[j].source_lineage
+                        and not sigs[i].is_stale(now)
+                        and not sigs[j].is_stale(now)):
+                    convergences += 1
             elif rel.kind in ("DUPLICATE", "CORRELATED", "STALE"):
                 union(i, j)
 
@@ -369,7 +404,8 @@ def fuse(signals: Iterable[CanonicalSignal],
 
     return FusedTarget(
         target=sigs[0].target, signals=sigs, relations=tuple(relations),
-        independent_facts=independent, echoes=echoes,
+        independent_facts=independent, corroborations=corroborations,
+        convergences=convergences, echoes=echoes,
         contradictions=tuple(contradictions), stale_signals=stale,
         unknown_pairs=unknown_pairs, unknowns=unknowns)
 
@@ -387,6 +423,9 @@ class GravityProfile:
     mass: int
     breakdown: tuple[tuple[str, int], ...]
     independent_facts: int
+    corroborations: int
+    convergences: int
+    pressure_observed: tuple[str, ...]
     contradictions: int
     echoes_ignored: int
     money_observed: str
@@ -398,6 +437,10 @@ class GravityProfile:
             lines.append(f"  {'+' if value >= 0 else '-'} {label}="
                          f"{abs(value)}")
         lines.append(f"  independent facts   {self.independent_facts}")
+        lines.append(f"  corroborations      {self.corroborations}")
+        lines.append(f"  convergent dims     {self.convergences}")
+        lines.append(f"  pressure observed   "
+                     f"{', '.join(self.pressure_observed) or 'NONE'}")
         lines.append(f"  echoes ignored      {self.echoes_ignored}")
         lines.append(f"  contradictions      {self.contradictions}")
         lines.append(f"  money observed      "
@@ -415,9 +458,14 @@ def gravity(fused: FusedTarget, now: Optional[datetime] = None) -> GravityProfil
     """
     parts: list[tuple[str, int]] = []
 
-    if fused.independent_facts > 1:
-        parts.append(("INDEPENDENT_CORROBORATION",
-                      600 * (fused.independent_facts - 1)))
+    # Corroboration and convergence are different evidence and are never
+    # merged into one line. Two sources agreeing on one fact is not the
+    # same as a release and a complaint pointing at one project, and a map
+    # that calls both "corroboration" is lying about what it saw.
+    if fused.corroborations:
+        parts.append(("INDEPENDENT_CORROBORATION", 600 * fused.corroborations))
+    if fused.convergences:
+        parts.append(("MULTI_DIMENSIONAL_CONVERGENCE", 500 * fused.convergences))
     if any(s.is_authoritative() for s in fused.signals):
         parts.append(("AUTHORITATIVE_SOURCE_PRESENT", 800))
     fresh = [s for s in fused.signals if not s.is_stale(now)]
@@ -431,12 +479,28 @@ def gravity(fused: FusedTarget, now: Optional[datetime] = None) -> GravityProfil
     if fused.independent_facts == 1 and fused.echoes:
         parts.append(("ECHO_ONLY_NO_CORROBORATION", -300))
 
+    # Pressure creates mass only from signals that are both non-stale and
+    # carry named evidence. An expired complaint is not current pull.
+    pressure_weights = {"EXPLICIT_DEMAND": 700, "UNRESOLVED_PAIN": 600,
+                        "URGENCY": 800, "INCENTIVE": 400}
+    live_pressure = sorted({
+        s.pressure_class for s in fused.signals
+        if s.pressure_class != "NONE" and not s.is_stale(now)})
+    for cls in live_pressure:
+        parts.append((f"VALUE_PRESSURE_{cls}", pressure_weights[cls]))
+
+    all_pressure = tuple(sorted({s.pressure_class for s in fused.signals
+                                 if s.pressure_class != "NONE"}))
+
     money = [s for s in fused.signals if s.money_state != "NOT_OBSERVED"]
     observed = "; ".join(f"{s.money_observed} ({s.money_state})" for s in money)
 
     return GravityProfile(
         mass=sum(v for _, v in parts), breakdown=tuple(parts),
         independent_facts=fused.independent_facts,
+        corroborations=fused.corroborations,
+        convergences=fused.convergences,
+        pressure_observed=all_pressure,
         contradictions=len(fused.contradictions),
         echoes_ignored=fused.echoes, money_observed=observed,
         money_unknown=not money)

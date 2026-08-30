@@ -415,3 +415,260 @@ class TestTheBridgeIntoTheExistingHunter(unittest.TestCase):
         names = " ".join(spine.__all__).lower()
         for forbidden in ("mission", "hunter", "investigat"):
             self.assertNotIn(forbidden, names)
+
+
+class TestValuePressure(unittest.TestCase):
+    """Pressure is observed pull, never inferred popularity."""
+
+    def _demand(self, **kw):
+        base = dict(sid="D", source_id="github_issues", kind="DEMAND",
+                    claim="maintainer asked for help on #42",
+                    source_lineage="acme-issue-42",
+                    facts={"open_help_wanted_issue": "42"},
+                    pressure_class="EXPLICIT_DEMAND",
+                    pressure_evidence="labelled help wanted; 12 comments")
+        base.update(kw)
+        return _sig(**base)
+
+    def test_a_pressure_class_must_name_its_evidence(self):
+        with self.assertRaises(SignalIntegrityError) as ctx:
+            self._demand(pressure_evidence="")
+        self.assertIn("names no evidence", str(ctx.exception))
+
+    def test_an_invented_pressure_class_is_refused(self):
+        with self.assertRaises(SignalIntegrityError):
+            self._demand(pressure_class="LOOKS_HOT")
+
+    def test_no_pressure_is_the_default_and_not_a_deficiency(self):
+        self.assertEqual(_sig().pressure_class, "NONE")
+
+    def test_observed_pressure_creates_mass(self):
+        plain = gravity(fuse([_sig()])).mass
+        self.assertGreater(gravity(fuse([self._demand()])).mass, plain)
+
+    def test_M5_stale_pressure_creates_no_mass(self):
+        """An expired complaint is not current pull."""
+        stale = self._demand(event_at=_stamp(400))
+        g = gravity(fuse([stale]))
+        self.assertNotIn("VALUE_PRESSURE_EXPLICIT_DEMAND",
+                         [k for k, _ in g.breakdown])
+        # ...but it stays visible rather than being silently dropped.
+        self.assertIn("EXPLICIT_DEMAND", g.pressure_observed)
+
+    def test_pressure_is_reported_in_the_breakdown_by_name(self):
+        g = gravity(fuse([self._demand()]))
+        self.assertIn("VALUE_PRESSURE_EXPLICIT_DEMAND",
+                      [k for k, _ in g.breakdown])
+        self.assertIn("pressure observed", g.show_the_math())
+
+
+class TestCorroborationIsNotConvergence(unittest.TestCase):
+    """The defect the demand source class exposed: relate() said 'not
+    corroboration' while gravity() scored INDEPENDENT_CORROBORATION for
+    the very same pair."""
+
+    def _release(self):
+        return _sig(sid="R", source_id="github_releases", kind="RELEASE",
+                    source_lineage="acme-release-7.0.0",
+                    facts={"latest_version": "7.0.0"},
+                    claim="7.0.0 was released")
+
+    def _demand(self):
+        return _sig(sid="D", source_id="github_issues", kind="DEMAND",
+                    source_lineage="acme-issue-42",
+                    facts={"open_help_wanted_issue": "42"},
+                    claim="someone asked for help on #42",
+                    pressure_class="EXPLICIT_DEMAND",
+                    pressure_evidence="labelled help wanted; 12 comments")
+
+    def test_M8_different_dimensions_are_never_called_corroboration(self):
+        f = fuse([self._release(), self._demand()])
+        self.assertEqual(f.corroborations, 0)
+        self.assertEqual(f.convergences, 1)
+        labels = [k for k, _ in gravity(f).breakdown]
+        self.assertNotIn("INDEPENDENT_CORROBORATION", labels)
+        self.assertIn("MULTI_DIMENSIONAL_CONVERGENCE", labels)
+
+    def test_agreement_on_one_fact_is_corroboration_not_convergence(self):
+        a = _sig(sid="A", source_id="one", source_lineage="l-a")
+        b = _sig(sid="B", source_id="two", source_lineage="l-b",
+                 claim="the index confirms 6.0.2 is current")
+        f = fuse([a, b])
+        self.assertEqual(f.corroborations, 1)
+        self.assertEqual(f.convergences, 0)
+
+    def test_the_relation_layer_and_the_mass_layer_now_agree(self):
+        """The two layers described the same pair in contradictory words.
+        Whatever relate() reports, gravity must not overstate."""
+        f = fuse([self._release(), self._demand()])
+        kinds = {rel.kind for _, _, rel in f.relations}
+        self.assertEqual(kinds, {"UNKNOWN"})
+        self.assertEqual(f.corroborations, 0)
+
+    def test_M4_two_mirrors_of_one_demand_event_stay_one_fact(self):
+        """A bounty board mirroring a GitHub issue is not a second voice."""
+        issue = self._demand()
+        mirror = _sig(sid="M", source_id="bounty_board", kind="DEMAND",
+                      source_lineage="acme-issue-42",
+                      facts={"open_help_wanted_issue": "42"},
+                      claim="a board relists acme#42 as open work",
+                      pressure_class="EXPLICIT_DEMAND",
+                      pressure_evidence="relisted; 0 independent detail")
+        f = fuse([issue, mirror])
+        self.assertEqual(f.independent_facts, 1)
+        self.assertEqual(f.echoes, 1)
+        self.assertEqual(f.corroborations, 0)
+
+    def test_convergence_requires_both_signals_to_be_current(self):
+        stale_release = _sig(sid="R", source_id="github_releases",
+                             kind="RELEASE", source_lineage="acme-release-1",
+                             facts={"latest_version": "1.0"},
+                             claim="1.0 released", event_at=_stamp(400))
+        f = fuse([stale_release, self._demand()])
+        self.assertEqual(f.convergences, 0)
+
+
+class TestMoneyCannotBuyALock(unittest.TestCase):
+    def _rich_demand(self, **kw):
+        base = dict(sid="B", source_id="bounty_board", kind="REWARD",
+                    source_lineage="acme-bounty-9",
+                    facts={"bounty_open": "9"},
+                    claim="a board advertises $50,000 for acme#9",
+                    money_state="ADVERTISED", money_observed="$50,000",
+                    pressure_class="INCENTIVE",
+                    pressure_evidence="advertised reward listing")
+        base.update(kw)
+        return _sig(**base)
+
+    def test_M1_an_advertised_reward_is_not_a_verified_one(self):
+        s = self._rich_demand()
+        self.assertEqual(s.money_state, "ADVERTISED")
+        self.assertNotEqual(s.money_state, "VERIFIED_CURRENT")
+
+    def test_M2_observed_money_is_never_reported_as_realised(self):
+        for state in ("ADVERTISED", "VERIFIED_CURRENT"):
+            s = self._rich_demand(money_state=state)
+            self.assertEqual(s.money_claim(), "NOT_MEASURED")
+
+    def test_M3_an_absent_reward_stays_absent_rather_than_becoming_zero(self):
+        g = gravity(fuse([_sig()]))
+        self.assertTrue(g.money_unknown)
+        self.assertEqual(g.money_observed, "")
+        self.assertNotIn("MONEY", " ".join(k for k, _ in g.breakdown))
+
+    def test_M7_a_large_reward_cannot_force_a_lock_past_a_disqualifier(self):
+        other = _sig(sid="X", source_id="github_issues", kind="DEMAND",
+                     source_lineage="acme-issue-1",
+                     facts={"open_help_wanted_issue": "1"},
+                     claim="help is wanted on #1",
+                     pressure_class="EXPLICIT_DEMAND",
+                     pressure_evidence="labelled help wanted; 9 comments")
+        e = _entry([self._rich_demand(), other],
+                   why_on_the_map=("a large advertised reward",),
+                   disqualifiers=("REQUIRES_SECRETS",))
+        lock = target_lock(e)
+        self.assertEqual(lock.state, "HUMAN_REVIEW_REQUIRED")
+        self.assertFalse(lock.authorises_investigation())
+
+    def test_a_huge_reward_does_not_change_the_mass_at_all(self):
+        other = _sig(sid="X", source_id="github_issues", kind="DEMAND",
+                     source_lineage="acme-issue-1",
+                     facts={"open_help_wanted_issue": "1"},
+                     claim="help is wanted on #1")
+        rich = gravity(fuse([self._rich_demand(), other]))
+        poor = gravity(fuse([
+            self._rich_demand(money_state="NOT_OBSERVED", money_observed="",
+                              pressure_class="NONE", pressure_evidence=""),
+            other]))
+        # Only the pressure class differs in mass; money itself adds none.
+        self.assertNotIn("MONEY", " ".join(k for k, _ in rich.breakdown))
+        self.assertEqual(
+            rich.mass - poor.mass,
+            dict(rich.breakdown).get("VALUE_PRESSURE_INCENTIVE", 0))
+
+
+class TestATentacleCannotBypassTheSpine(unittest.TestCase):
+    def test_M6_the_tentacle_module_creates_no_opportunity_or_mission(self):
+        """The tentacle sees. The spine thinks. The gate decides."""
+        import foundation.tentacles as tentacles
+        import ast, inspect
+        tree = ast.parse(inspect.getsource(tentacles))
+        called = {n.func.id for n in ast.walk(tree)
+                  if isinstance(n, ast.Call) and isinstance(n.func, ast.Name)}
+        for forbidden in ("OpportunityReceipt", "handoff", "materialise",
+                          "Receipt", "GoldBrick", "to_opportunity"):
+            self.assertNotIn(forbidden, called)
+
+    def test_the_tentacle_module_imports_no_receipt_or_mission_machinery(self):
+        import foundation.tentacles as tentacles
+        import ast, inspect
+        tree = ast.parse(inspect.getsource(tentacles))
+        imported = set()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom):
+                imported.add(node.module or "")
+        for forbidden in ("foundation.opportunity", "foundation.receipt",
+                          "foundation.gold_brick"):
+            self.assertNotIn(forbidden, imported)
+
+    def test_a_demand_signal_still_claims_no_bug_and_no_value(self):
+        from foundation.tentacles import github_issue_demand_signal
+        s = github_issue_demand_signal({
+            "repo": "acme/widget", "number": 42, "title": "help please",
+            "labels": ["help wanted"], "comments": 5,
+            "created_at": "2026-08-01T00:00:00Z",
+            "updated_at": "2026-08-29T00:00:00Z", "state": "open",
+            "html_url": "https://github.invalid/acme/widget/issues/42"})
+        self.assertEqual(s.kind, "DEMAND")
+        self.assertEqual(s.money_claim(), "NOT_MEASURED")
+        self.assertEqual(s.pressure_class, "EXPLICIT_DEMAND")
+        self.assertTrue(s.unknowns)
+
+
+class TestTheDemandAdapter(unittest.TestCase):
+    def _item(self, **kw):
+        base = dict(repo="acme/widget", number=42, title="Looking for help",
+                    labels=["help wanted"], comments=12,
+                    created_at="2021-08-16T07:47:38Z",
+                    updated_at="2026-08-29T12:00:00Z", state="open",
+                    html_url="https://github.invalid/acme/widget/issues/42")
+        base.update(kw)
+        return base
+
+    def test_event_time_is_last_activity_not_creation(self):
+        """A 2021 request still argued about this week is live pressure;
+        using creation time would call it stale and get it backwards."""
+        from foundation.tentacles import github_issue_demand_signal
+        s = github_issue_demand_signal(self._item())
+        self.assertTrue(s.event_at.startswith("2026-08-29"))
+        self.assertEqual(s.facts["demand_first_expressed"],
+                         "2021-08-16T07:47:38Z")
+
+    def test_the_age_of_the_ask_stays_visible(self):
+        from foundation.tentacles import github_issue_demand_signal
+        s = github_issue_demand_signal(self._item())
+        self.assertIn("demand_first_expressed", s.facts)
+
+    def test_an_unlabelled_issue_carries_no_pressure(self):
+        """Popularity is not demand."""
+        from foundation.tentacles import github_issue_demand_signal
+        s = github_issue_demand_signal(self._item(labels=["bug"], comments=900))
+        self.assertEqual(s.pressure_class, "NONE")
+        self.assertEqual(s.pressure_evidence, "")
+
+    def test_two_issues_in_one_repo_are_two_separate_asks(self):
+        from foundation.tentacles import demand_lineage
+        self.assertNotEqual(demand_lineage("acme/widget", 1),
+                            demand_lineage("acme/widget", 2))
+
+    def test_the_mouth_refuses_to_harvest(self):
+        from foundation.mouth_github_issues import build_url, MAX_PER_PAGE
+        with self.assertRaises(ValueError) as ctx:
+            build_url(500)
+        self.assertIn("does not harvest", str(ctx.exception))
+        self.assertIn("per_page=10", build_url(MAX_PER_PAGE))
+
+    def test_malformed_payload_yields_no_signals_rather_than_guesses(self):
+        from foundation.mouth_github_issues import parse_items
+        self.assertEqual(parse_items(b"not json"), ())
+        self.assertEqual(parse_items(b'{"items":[{"no":"url"}]}'), ())
