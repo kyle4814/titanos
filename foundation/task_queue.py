@@ -48,6 +48,7 @@ from typing import Callable, Optional
 
 __all__ = [
     "Task", "TaskQueue", "RunBudget", "RunReport",
+    "TaskValue", "SCORING_MODEL_VERSION", "select_next",
     "RecoveryHandoff", "recovery_handoff",
     "run", "reconcile_in_progress",
     "TASK_STATES", "TRANSITIONS",
@@ -73,6 +74,81 @@ def can_transition(from_state: str, to_state: str) -> bool:
     return to_state in TRANSITIONS.get(from_state, frozenset())
 
 
+SCORING_MODEL_VERSION = "1"
+
+
+@dataclass(frozen=True)
+class TaskValue:
+    """Why one task should be done before another.
+
+    THE LAW THIS EXISTS FOR: "the scheduler selects the highest-value
+    sufficiently-verifiable task, NOT MERELY THE OLDEST TASK." Before this,
+    `run()` took `eligible[0]` in load order and `Task` had no value axis
+    at all, so highest-value selection was not merely unimplemented -- it
+    was structurally impossible.
+
+    EVERY FACTOR IS OPTIONAL AND NONE DEFAULTS TO ZERO. An unestimated
+    factor is `None`, and a task with any `None` factor is UNSCORED rather
+    than scored low -- the same rule `foundation/value_model.py` already
+    enforces for money: UNKNOWN is not ZERO. A queue that silently ranked
+    unestimated work at the bottom would bury exactly the tasks nobody has
+    looked at yet.
+
+    The score is a NAVIGATION AID, not a truth. It is versioned
+    (`SCORING_MODEL_VERSION`) precisely because it will be wrong and will
+    need to change, and `assumptions` records what the estimate rests on.
+    """
+
+    value: Optional[float] = None
+    dependency_unlock: Optional[float] = None
+    reuse: Optional[float] = None
+    risk_reduction: Optional[float] = None
+    execution_cost: Optional[float] = None
+    verification_cost: Optional[float] = None
+    assumptions: tuple[str, ...] = ()
+    model_version: str = SCORING_MODEL_VERSION
+
+    _FACTORS = ("value", "dependency_unlock", "reuse", "risk_reduction",
+                "execution_cost", "verification_cost")
+
+    def unestimated(self) -> tuple[str, ...]:
+        return tuple(f for f in self._FACTORS if getattr(self, f) is None)
+
+    def is_scoreable(self) -> bool:
+        return not self.unestimated()
+
+    def score(self) -> Optional[float]:
+        """Benefit over cost. None when any factor was never estimated.
+
+        Deliberately returns None rather than a number: a caller that wants
+        to rank must decide what to do about unestimated work, and cannot
+        be handed a fabricated zero to sort by.
+        """
+        if not self.is_scoreable():
+            return None
+        benefit = (self.value + self.dependency_unlock + self.reuse
+                   + self.risk_reduction)
+        cost = self.execution_cost + self.verification_cost
+        # Cost floors at 1 so a zero-cost claim cannot produce infinity --
+        # a task asserting it is free is not thereby infinitely valuable.
+        return benefit / max(cost, 1.0)
+
+    def show_the_math(self) -> str:
+        if not self.is_scoreable():
+            return (f"UNSCORED -- never estimated: "
+                    f"{', '.join(self.unestimated())}")
+        lines = [f"SCORE {self.score():.3f}  (model v{self.model_version})",
+                 f"  + value             {self.value}",
+                 f"  + dependency_unlock {self.dependency_unlock}",
+                 f"  + reuse             {self.reuse}",
+                 f"  + risk_reduction    {self.risk_reduction}",
+                 f"  / execution_cost    {self.execution_cost}",
+                 f"  / verification_cost {self.verification_cost}"]
+        for a in self.assumptions:
+            lines.append(f"  assumption: {a}")
+        return "\n".join(lines)
+
+
 @dataclass
 class Task:
     task_id: str
@@ -83,6 +159,7 @@ class Task:
     max_attempts: int = 1
     failure_reason: str = ""
     result: str = ""
+    task_value: Optional[TaskValue] = None
 
     def __post_init__(self) -> None:
         if self.state not in TASK_STATES:
@@ -138,7 +215,13 @@ class TaskQueue:
         return problems
 
     def eligible_tasks(self) -> tuple[Task, ...]:
-        """PENDING tasks whose every dependency is DONE, in load order."""
+        """PENDING tasks whose every dependency is DONE, in load order.
+
+        Load order is the ENUMERATION order, not the selection order --
+        `select_next()` decides what runs. Kept separate so that "what is
+        eligible" stays a fact about dependencies and "what runs next"
+        stays a judgement about value.
+        """
         eligible = []
         for task in self.all_tasks():
             if task.state != "PENDING":
@@ -151,6 +234,43 @@ class TaskQueue:
             if all(d in self._tasks and self._tasks[d].state == "DONE" for d in task.dependencies):
                 eligible.append(task)
         return tuple(eligible)
+
+
+def select_next(eligible: "tuple[Task, ...]") -> Optional[Task]:
+    """Highest-value scoreable task, load order only as a tie-break.
+
+    UNSCORED WORK IS NOT RANKED LAST. If nothing eligible carries an
+    estimate, the oldest is returned -- FIFO remains the honest fallback
+    when there is no value information, rather than the default when
+    there is. If SOME tasks are scored, an unscored one is not silently
+    outranked by a low-scoring estimate either: unscored tasks are
+    returned only when no scored task is eligible, and `unscored_eligible`
+    lets a caller see them rather than lose them.
+
+    A scheduler that invents a zero for unestimated work would bury
+    exactly the tasks nobody has assessed yet.
+    """
+    if not eligible:
+        return None
+    scored = [t for t in eligible
+              if t.task_value is not None and t.task_value.is_scoreable()]
+    if scored:
+        best = max(scored, key=lambda t: t.task_value.score())
+        top = best.task_value.score()
+        # Ties resolve by load order, preserving the old behaviour exactly
+        # where value genuinely cannot discriminate.
+        for t in eligible:
+            if (t.task_value is not None and t.task_value.is_scoreable()
+                    and t.task_value.score() == top):
+                return t
+        return best
+    return eligible[0]
+
+
+def unscored_eligible(eligible: "tuple[Task, ...]") -> tuple[Task, ...]:
+    """Eligible work carrying no usable estimate. Visible, not buried."""
+    return tuple(t for t in eligible
+                 if t.task_value is None or not t.task_value.is_scoreable())
 
 
 def _detect_cycles(tasks: dict[str, Task]) -> list[str]:
@@ -317,7 +437,9 @@ def run(
         if not eligible:
             return _stop("no eligible tasks remain")
 
-        task = eligible[0]
+        task = select_next(eligible)
+        if task is None:                      # pragma: no cover - guarded above
+            return _stop("no eligible tasks remain")
         task_count += 1
 
         if task.attempts >= task.max_attempts:

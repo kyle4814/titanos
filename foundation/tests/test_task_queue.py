@@ -1,6 +1,9 @@
 import unittest
 
 from foundation.task_queue import (
+    TaskValue,
+    select_next,
+    unscored_eligible,
     RunBudget, RunReport, Task, TaskQueue, can_transition, reconcile_in_progress,
     recovery_handoff, run,
 )
@@ -314,3 +317,116 @@ class TestRun(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestTheSchedulerSelectsByValueNotAge(unittest.TestCase):
+    """"The scheduler selects the highest-value sufficiently-verifiable
+    task, NOT MERELY THE OLDEST TASK." Before this, run() took eligible[0]
+    and Task had no value axis, so the law could not be obeyed even in
+    principle."""
+
+    def _v(self, **kw):
+        base = dict(value=10.0, dependency_unlock=0.0, reuse=0.0,
+                    risk_reduction=0.0, execution_cost=1.0,
+                    verification_cost=1.0)
+        base.update(kw)
+        return TaskValue(**base)
+
+    def _t(self, tid, value=None):
+        return Task(task_id=tid, description=tid, task_value=value)
+
+    def test_M_the_highest_value_task_wins_over_the_oldest(self):
+        old = self._t("first-loaded", self._v(value=1.0))
+        new = self._t("loaded-later", self._v(value=100.0))
+        self.assertEqual(select_next((old, new)).task_id, "loaded-later")
+
+    def test_cost_divides_benefit(self):
+        cheap = self._t("cheap", self._v(value=10.0, execution_cost=1.0))
+        dear = self._t("dear", self._v(value=10.0, execution_cost=100.0))
+        self.assertEqual(select_next((dear, cheap)).task_id, "cheap")
+
+    def test_dependency_unlock_counts_as_benefit(self):
+        plain = self._t("plain", self._v(value=10.0))
+        unlocks = self._t("unlocks", self._v(value=10.0,
+                                             dependency_unlock=50.0))
+        self.assertEqual(select_next((plain, unlocks)).task_id, "unlocks")
+
+    def test_M_unestimated_work_is_unscored_not_scored_zero(self):
+        """A queue that invents a zero buries exactly the tasks nobody has
+        assessed yet."""
+        partial = TaskValue(value=10.0)          # other factors never set
+        self.assertFalse(partial.is_scoreable())
+        try:
+            got = partial.score()
+        except Exception as exc:                 # noqa: BLE001 -- the point
+            self.fail(f"score() must return None for unestimated factors, "
+                      f"never attempt arithmetic on them. Raised: {exc!r}")
+        self.assertIsNone(
+            got, "an unestimated factor must not be scored as zero; a queue "
+                 "that invents a zero buries the tasks nobody assessed")
+        self.assertIn("execution_cost", partial.unestimated())
+
+    def test_M_a_low_scoring_estimate_does_not_silently_outrank_unknown(self):
+        scored_low = self._t("scored-low", self._v(value=0.1))
+        unknown = self._t("never-assessed")
+        chosen = select_next((unknown, scored_low))
+        self.assertEqual(chosen.task_id, "scored-low")
+        # ...but the unassessed task remains visible, not lost.
+        self.assertEqual(
+            [t.task_id for t in unscored_eligible((unknown, scored_low))],
+            ["never-assessed"])
+
+    def test_M_fifo_remains_the_honest_fallback_with_no_estimates(self):
+        a, b = self._t("first"), self._t("second")
+        self.assertEqual(select_next((a, b)).task_id, "first")
+
+    def test_ties_resolve_by_load_order(self):
+        a = self._t("first", self._v(value=5.0))
+        b = self._t("second", self._v(value=5.0))
+        self.assertEqual(select_next((a, b)).task_id, "first")
+
+    def test_selecting_from_nothing_returns_none(self):
+        self.assertIsNone(select_next(()))
+
+    def test_M_a_zero_cost_claim_cannot_produce_infinite_value(self):
+        """A task asserting it is free is not thereby infinitely valuable."""
+        free = self._v(value=10.0, execution_cost=0.0, verification_cost=0.0)
+        self.assertEqual(free.score(), 10.0)
+        self.assertNotEqual(free.score(), float("inf"))
+
+    def test_the_score_shows_its_math_and_its_model_version(self):
+        text = self._v(value=7.0).show_the_math()
+        self.assertIn("SCORE", text)
+        self.assertIn("model v", text)
+        self.assertIn("execution_cost", text)
+
+    def test_M_an_unscoreable_value_says_what_was_never_estimated(self):
+        text = TaskValue(value=1.0).show_the_math()
+        self.assertIn("UNSCORED", text)
+        self.assertIn("never estimated", text)
+        self.assertIn("reuse", text)
+
+    def test_assumptions_travel_with_the_estimate(self):
+        v = self._v(assumptions=("assumes the fixture still reproduces",))
+        self.assertIn("assumption:", v.show_the_math())
+
+    def test_eligibility_is_still_about_dependencies_not_value(self):
+        """"What is eligible" stays a fact; "what runs next" stays a
+        judgement. Adding value must not change eligibility."""
+        q = TaskQueue()
+        q.load(Task(task_id="a", description="a"))
+        q.load(Task(task_id="b", description="b",
+                    task_value=self._v(value=99.0)))
+        self.assertEqual({t.task_id for t in q.eligible_tasks()}, {"a", "b"})
+
+    def test_run_executes_the_valuable_task_first(self):
+        q = TaskQueue()
+        q.load(Task(task_id="low", description="low",
+                    task_value=self._v(value=1.0)))
+        q.load(Task(task_id="high", description="high",
+                    task_value=self._v(value=100.0)))
+        order = []
+        report = run(q, RunBudget(max_tasks=1, max_failures=1),
+                     perform=lambda t: order.append(t.task_id) or "done",
+                     verify=lambda t, r: True)
+        self.assertEqual(order, ["high"])
