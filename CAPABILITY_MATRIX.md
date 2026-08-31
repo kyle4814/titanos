@@ -1,12 +1,12 @@
 # Capability Matrix
 
-Generated `2026-08-31T20:40:47.174220+00:00` at revision `58770b0` (state digest `68b64a3fb54923e5`).
+Generated `2026-08-31T21:30:08.705514+00:00` at revision `d18026e` (state digest `30efc1589e18ba48`).
 
 **Generated file — do not hand-edit.** Regenerate with `python3 -m foundation.launch_report`.
 
 | Criterion | State | Evidence |
 |---|---|---|
-| TESTS_GREEN | **MET** | 2690 run, 0 failed |
+| TESTS_GREEN | **MET** | 2770 run, 0 failed |
 | WORKTREE_CLEAN | **MET** | clean apart from this generator's own output, which is excluded by construction |
 | PULSE_CLEAN | **MET** | sentinel.pulse_sweep() -> 0 finding(s) |
 | NETWORK_GATED | **MET** | fetch_feed() calls authorize_discovery() before urlopen |

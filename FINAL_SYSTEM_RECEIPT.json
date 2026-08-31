@@ -2,7 +2,7 @@
   "autonomy_ratio": 0.0,
   "criteria": [
     {
-      "evidence": "2690 run, 0 failed",
+      "evidence": "2770 run, 0 failed",
       "name": "TESTS_GREEN",
       "state": "MET"
     },
@@ -57,7 +57,7 @@
       "state": "UNMET"
     }
   ],
-  "generated_at": "2026-08-31T20:40:47.174220+00:00",
+  "generated_at": "2026-08-31T21:30:08.705514+00:00",
   "human_gated_operations": 19,
   "notes": [
     "outcome ledger head predates hash chaining; it is CHAIN_UNVERIFIED_LEGACY, not verified",
@@ -65,13 +65,13 @@
   ],
   "pulse_findings": 0,
   "receipt_head": "OC-eecf6388ada2d538",
-  "revision": "58770b0",
+  "revision": "d18026e",
   "runnable_entrypoints": 11,
   "scheduled_entrypoints": 1,
-  "state_digest": "68b64a3fb54923e5",
+  "state_digest": "30efc1589e18ba48",
   "status": "READY_WITH_LIMITATIONS",
   "tests_failed": 0,
-  "tests_run": 2690,
+  "tests_run": 2770,
   "unmet_count": 2,
   "worktree_clean": true
 }
