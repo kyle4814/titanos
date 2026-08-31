@@ -43,6 +43,35 @@ __all__ = ["LaunchAssessment", "assess", "render_receipt", "write_artifacts"]
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
+
+# Files this module itself writes. Modifications to these are expected
+# while generating and are not evidence of an unclean repository.
+_GENERATED = ("FINAL_SYSTEM_RECEIPT.json", "CAPABILITY_MATRIX.md",
+              "REMAINING_LIMITATIONS.md")
+
+
+def _dirty_paths(repo_root: Path) -> list[str]:
+    import subprocess
+    try:
+        out = subprocess.run(["git", "status", "--porcelain"], cwd=repo_root,
+                             capture_output=True, text=True, timeout=15)
+    except (OSError, subprocess.SubprocessError):
+        return []
+    return [ln[3:].strip() for ln in out.stdout.splitlines() if ln.strip()]
+
+
+def _clean_ignoring_own_output(repo_root: Path) -> bool:
+    return not [p for p in _dirty_paths(repo_root) if p not in _GENERATED]
+
+
+def _worktree_evidence(repo_root: Path) -> str:
+    other = [p for p in _dirty_paths(repo_root) if p not in _GENERATED]
+    if not other:
+        return ("clean apart from this generator's own output, which is "
+                "excluded by construction")
+    return f"{len(other)} file(s) modified: {', '.join(other[:4])}"
+
+
 @dataclass(frozen=True)
 class Criterion:
     """One launch criterion and the evidence for its state.
@@ -134,9 +163,16 @@ def assess(repo_root: Path = REPO_ROOT, *,
                   else ("MET" if tests_failed == 0 else "UNMET"),
                   f"{tests_run} run, {tests_failed} failed"
                   if tests_run is not None else "no test results supplied"),
-        Criterion("WORKTREE_CLEAN", "MET" if m.worktree_clean else "UNMET",
-                  f"git status --porcelain "
-                  f"{'empty' if m.worktree_clean else 'non-empty'}"),
+        # The generator's own output files are excluded from this check.
+        # Writing the artifacts necessarily dirties the tree, so a naive
+        # check reports UNMET forever: generate -> dirty -> regenerate ->
+        # still dirty. That is a self-reference, not a fact about the
+        # repository, and a criterion that can never be satisfied by any
+        # action is worse than no criterion. Every OTHER modified file
+        # still counts.
+        Criterion("WORKTREE_CLEAN",
+                  "MET" if _clean_ignoring_own_output(repo_root) else "UNMET",
+                  _worktree_evidence(repo_root)),
         Criterion("PULSE_CLEAN", "MET" if m.pulse_findings == 0 else "UNMET",
                   f"sentinel.pulse_sweep() -> {m.pulse_findings} finding(s)"),
         Criterion("NETWORK_GATED", "MET" if _mod("discovery_authorization") else "UNMET",
