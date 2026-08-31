@@ -36,6 +36,14 @@ from foundation.mouth_common import DEFAULT_TIMEOUT_SECONDS, fetch_feed, observe
 MOUTH_ID = "github_help_wanted_issues"
 
 # Open, explicitly labelled as wanting help, with enough discussion that
+from foundation.discovery_authorization import DiscoveryPolicy
+
+# The concrete objective this module fetches for. `fetch_feed()`
+# refuses to open a socket without one -- see its docstring for why
+# the gate lives at the socket rather than above it.
+DISCOVERY_POLICY = DiscoveryPolicy(
+    objective="observe open GitHub issues labelled for help on public repositories",
+    requested_scope="READ_API")
 # at least a few humans engaged. `comments:>2` is the cheapest available
 # filter against a label nobody ever answered.
 SEARCH_URL = (
@@ -106,5 +114,5 @@ def observe(state_path: Path, per_page: int = 5,
     url = build_url(per_page)
     return _observe(
         mouth_id=MOUTH_ID, state_path=state_path,
-        fetch_fn=fetch_fn or (lambda: fetch_feed(url, DEFAULT_TIMEOUT_SECONDS)),
+        fetch_fn=fetch_fn or (lambda: fetch_feed(url, DEFAULT_TIMEOUT_SECONDS, policy=DISCOVERY_POLICY)),
         parse_fn=parse_items, now=now)

@@ -1,3 +1,4 @@
+import pathlib
 import unittest
 
 from foundation.communication_gate import CommunicationDenied
@@ -83,12 +84,45 @@ class TestPolicyIsBounded(unittest.TestCase):
 
 
 class TestNoNetworkIO(unittest.TestCase):
+    """This module authorizes network access; it must never perform it.
+
+    Checked against the module's real IMPORTS via AST, not against its
+    source text. The previous version scanned the raw file for the
+    substrings "socket", "requests" and so on, which made any prose
+    mentioning a socket fail the test -- and it did, the moment a
+    comment explained why this module had been wired to one. A test that
+    a comment can break is measuring the wrong thing: the property that
+    matters is what the module imports, not what it talks about.
+    """
+
     def test_module_imports_no_network_libraries(self):
+        import ast
         import foundation.discovery_authorization as mod
-        with open(mod.__file__) as f:
-            source = f.read()
-        for forbidden in ("urllib.request", "requests", "socket", "http.client"):
-            self.assertNotIn(forbidden, source)
+        tree = ast.parse(pathlib.Path(mod.__file__).read_text())
+        imported = set()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                imported.update(a.name for a in node.names)
+            elif isinstance(node, ast.ImportFrom) and node.module:
+                imported.add(node.module)
+        for forbidden in ("urllib", "urllib.request", "requests", "socket",
+                          "http.client", "http", "ftplib", "telnetlib",
+                          "asyncio", "aiohttp", "httpx"):
+            self.assertNotIn(forbidden, imported,
+                             f"{forbidden!r} is imported by a module whose "
+                             f"whole job is to authorize, never to fetch")
+
+    def test_module_calls_nothing_that_opens_a_connection(self):
+        """Complementary to the import check: a module could reach the
+        network through an import performed inside a function body."""
+        import ast
+        import foundation.discovery_authorization as mod
+        tree = ast.parse(pathlib.Path(mod.__file__).read_text())
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Call):
+                name = ast.unparse(node.func)
+                self.assertNotIn("urlopen", name)
+                self.assertNotIn("socket", name)
 
 
 if __name__ == "__main__":

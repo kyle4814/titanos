@@ -29,6 +29,7 @@ from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from typing import Optional
 
+from foundation.activity_shape import _is_bot
 from foundation.demand_direction import classify_direction
 from foundation.signal_spine import CanonicalSignal
 
@@ -172,6 +173,17 @@ def github_issue_demand_signal(item: dict, now: Optional[datetime] = None
         item.get("labels", ()),
         sole_author_share=item.get("sole_author_share"))
 
+    # A fourth gate, and the same failure family as the bot-commit lock
+    # one layer up: `_is_bot` guarded commits and activity shape, but
+    # nothing asked who WROTE the ask. Found in the first live fetch made
+    # through the new control plane -- kubestellar/console#22495, a "Hive
+    # Advisory Report" with 48 comments and no assignee, authored by
+    # `kubestellar-hive[bot]`. Every prior gate passed it: unassigned,
+    # no recruitment taxonomy, plenty of discussion. A machine filing a
+    # report against its own project is not a human with a problem.
+    author_is_bot = _is_bot(str(item.get("author_login", "")),
+                            str(item.get("author_type", "")))
+
     # Deliberately EMPTY. An issue number, its state and its creation date
     # are properties of one ask, not claims about the target that another
     # source could confirm or deny. Putting them in `facts` made two
@@ -200,21 +212,26 @@ def github_issue_demand_signal(item: dict, now: Optional[datetime] = None
                   "assignees": tuple(assignees),
                   "claimed": bool(assignees),
                   "demand_direction": direction.direction,
+                  "author_login": item.get("author_login", ""),
+                  "author_is_bot": author_is_bot,
                   "direction_reasons": tuple(direction.reasons),
                   "raw_created_at": item.get("created_at", ""),
                   "raw_updated_at": item.get("updated_at", "")},
         pressure_class=("EXPLICIT_DEMAND"
-                        if asked and not assignees
+                        if asked and not assignees and not author_is_bot
                         and direction.counts_as_demand() else "NONE"),
         pressure_evidence=(
             f"labelled {', '.join(asked)}; {comments} comments; unassigned; "
-            f"no recruitment evidence"
-            if asked and not assignees and direction.counts_as_demand()
+            f"no recruitment evidence; asked by a human"
+            if asked and not assignees and not author_is_bot
+            and direction.counts_as_demand()
             else ""),
         unknowns=(
             ("someone is assigned; this ask is already claimed"
              if assignees else "whether anyone is already working on it"),
-            ("this ask is contributor-recruitment material, not a need"
+            ("the ask was filed by a bot, not a person"
+             if author_is_bot else
+             "this ask is contributor-recruitment material, not a need"
              if direction.is_recruitment()
              else "whether a real need underlies this ask -- the absence "
                   "of recruitment markers is not evidence that one does"),

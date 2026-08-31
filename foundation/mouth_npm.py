@@ -37,6 +37,14 @@ MOUTH_ID = "npm_releases"
 REGISTRY_URL = "https://registry.npmjs.org/{name}"
 
 # One package document can list hundreds of versions. The radar wants the
+from foundation.discovery_authorization import DiscoveryPolicy
+
+# The concrete objective this module fetches for. `fetch_feed()`
+# refuses to open a socket without one -- see its docstring for why
+# the gate lives at the socket rather than above it.
+DISCOVERY_POLICY = DiscoveryPolicy(
+    objective="observe the npm registry record for one named package",
+    requested_scope="READ_API")
 # current state of the target, not its whole history.
 MAX_VERSIONS = 10
 
@@ -97,5 +105,5 @@ def observe(state_path: Path, target: str,
     url = feed_url_for(target)
     return _observe(
         mouth_id=f"{MOUTH_ID}:{target}", state_path=state_path,
-        fetch_fn=fetch_fn or (lambda: fetch_feed(url, DEFAULT_TIMEOUT_SECONDS)),
+        fetch_fn=fetch_fn or (lambda: fetch_feed(url, DEFAULT_TIMEOUT_SECONDS, policy=DISCOVERY_POLICY)),
         parse_fn=parse_items, now=now)

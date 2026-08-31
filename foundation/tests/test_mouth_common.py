@@ -5,6 +5,7 @@ from unittest import mock
 from datetime import datetime, timezone
 from pathlib import Path
 
+from foundation.discovery_authorization import DiscoveryPolicy
 from foundation.mouth_common import (
     FetchError, MAX_FEED_BYTES, compute_state_hash, fetch_feed, observe,
     read_mouth_log_continuity,
@@ -155,24 +156,32 @@ class TestFetchFeedIsByteBounded(unittest.TestCase):
         def __enter__(self): return self
         def __exit__(self, *a): return False
 
+    # fetch_feed() now refuses to open a socket without an authorized
+    # DiscoveryPolicy (foundation/communication_gate.py). These tests
+    # exercise the BYTE CAP, so they must get through the gate first --
+    # a real policy, not a bypass.
+    POLICY = DiscoveryPolicy(
+        objective="exercise the fetch_feed byte cap against a fake response",
+        requested_scope="READ_URL")
+
     def _patched(self, payload):
         return mock.patch("urllib.request.urlopen", return_value=self._FakeResponse(payload))
 
     def test_an_oversized_response_is_refused_as_a_fetch_error(self):
         with self._patched(b"A" * (MAX_FEED_BYTES + 10)):
             with self.assertRaises(FetchError) as ctx:
-                fetch_feed("https://example.invalid/feed")
+                fetch_feed("https://example.invalid/feed", policy=self.POLICY)
         self.assertIn("MAX_FEED_BYTES", str(ctx.exception))
 
     def test_a_normal_sized_response_is_returned_intact(self):
         payload = b"<rss>ok</rss>"
         with self._patched(payload):
-            self.assertEqual(fetch_feed("https://example.invalid/feed"), payload)
+            self.assertEqual(fetch_feed("https://example.invalid/feed", policy=self.POLICY), payload)
 
     def test_a_response_exactly_at_the_cap_is_still_accepted(self):
         payload = b"B" * MAX_FEED_BYTES
         with self._patched(payload):
-            self.assertEqual(len(fetch_feed("https://example.invalid/feed")), MAX_FEED_BYTES)
+            self.assertEqual(len(fetch_feed("https://example.invalid/feed", policy=self.POLICY)), MAX_FEED_BYTES)
 
     def test_an_oversized_feed_becomes_UNAVAILABLE_and_preserves_prior_state(self):
         """The consequence that matters: a refused fetch must never look

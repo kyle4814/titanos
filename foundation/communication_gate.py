@@ -223,10 +223,21 @@ def authorize_communication(switch: CommunicationSwitch) -> bool:
     caller cannot mistake "didn't check" for "checked and it's fine" —
     the same reasoning as publication_gate.py::authorize_publish().
 
-    Returning True here grants nothing by itself: no code in this
-    repository consumes this return value to perform a network
-    operation, because no such operation exists. This function answers
-    "is the switch open," not "did anything walk through it."
+    CORRECTION 2026-09-01. This docstring previously said "no code in
+    this repository consumes this return value to perform a network
+    operation, because no such operation exists." That stopped being
+    true when the mouths were built: `mouth_common.fetch_feed()` opens a
+    real socket, and for several cycles it did so WITHOUT passing
+    through this gate at all. The statement was not merely stale -- it
+    was the reason nobody noticed the gap, because the gate's own
+    documentation asserted the door it guarded did not exist.
+
+    Now accurate: `fetch_feed()` is the single socket in this
+    repository, and it calls `discovery_authorization.authorize_
+    discovery()` -- which re-derives through this function -- before
+    every request, refusing outright when no policy is supplied. This
+    function still answers "is the switch open," not "did anything walk
+    through it"; what changed is that something now walks through it.
     """
     decision = evaluate(switch)
     if not decision.action_permitted:

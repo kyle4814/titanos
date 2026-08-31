@@ -207,3 +207,54 @@ class TestDemandGateConsultsDirection(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestABotIsNotAPersonWithAProblem(unittest.TestCase):
+    """Found in the first live fetch made through the new control plane.
+
+    kubestellar/console#22495 -- "Hive Advisory Report", 48 comments, no
+    assignee, `help wanted` -- was authored by `kubestellar-hive[bot]`.
+    Unassigned, no recruitment taxonomy, plenty of discussion: every
+    prior gate passed it. Same failure family as the bot-commit lock,
+    one layer up.
+    """
+
+    def _item(self, author, **kw):
+        base = dict(repo="kubestellar/console", number=22495,
+                    title="Hive Advisory Report",
+                    labels=["help wanted", "agent/scanner"], comments=48,
+                    assignees=[], state="open", author_login=author,
+                    created_at="2026-08-14T03:54:44Z",
+                    updated_at="2026-08-31T17:42:36Z",
+                    html_url="https://example.invalid/22495")
+        base.update(kw)
+        return base
+
+    def test_a_bot_authored_ask_is_not_demand(self):
+        sig = github_issue_demand_signal(self._item("kubestellar-hive[bot]"))
+        self.assertEqual(sig.pressure_class, "NONE")
+        self.assertTrue(sig.evidence["author_is_bot"])
+
+    def test_the_same_ask_from_a_person_is_demand(self):
+        """The discriminator must be the author, not the shape."""
+        sig = github_issue_demand_signal(self._item("miclip"))
+        self.assertEqual(sig.pressure_class, "EXPLICIT_DEMAND")
+        self.assertFalse(sig.evidence["author_is_bot"])
+
+    def test_known_bot_families_are_all_caught(self):
+        for who in ("dependabot[bot]", "renovate[bot]", "github-actions[bot]",
+                    "kubestellar-hive[bot]"):
+            with self.subTest(author=who):
+                self.assertEqual(
+                    github_issue_demand_signal(self._item(who)).pressure_class,
+                    "NONE")
+
+    def test_the_bot_reason_reaches_the_unknowns(self):
+        sig = github_issue_demand_signal(self._item("some-bot[bot]"))
+        self.assertTrue(any("filed by a bot" in u for u in sig.unknowns))
+
+    def test_bot_detection_is_not_duplicated_here(self):
+        """It must reuse activity_shape, not grow a second copy."""
+        import foundation.tentacles as t
+        from foundation.activity_shape import _is_bot as canonical
+        self.assertIs(t._is_bot, canonical)

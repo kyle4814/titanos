@@ -28,8 +28,15 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, Optional
 
+# Imported at module level so the gate's own exception type is part of
+# this module's contract rather than something a caller discovers only
+# at call time. discovery_authorization is imported lazily inside
+# fetch_feed() to keep the dependency one-directional.
+from foundation.communication_gate import CommunicationDenied
+
 __all__ = [
     "FetchError",
+    "CommunicationDenied",
     "MouthObservation",
     "fetch_feed",
     "MAX_FEED_BYTES",
@@ -62,11 +69,37 @@ class FetchError(Exception):
 
 
 def fetch_feed(url: str, timeout: int = DEFAULT_TIMEOUT_SECONDS,
-                user_agent: str = DEFAULT_USER_AGENT) -> bytes:
+                user_agent: str = DEFAULT_USER_AGENT,
+                *, policy: "DiscoveryPolicy | None" = None) -> bytes:
     """One GET request, real network I/O, no retry loop here — the
     caller's own schedule (cron) is the backoff policy.
 
-    Hard byte cap added 2026-08-28 after adversarial review. The previous
+    THE CONTROL PLANE IS ENFORCED HERE, NOT ABOVE HERE
+
+    `policy` is required and has no usable default. This function is the
+    only place in the repository that opens a socket, so it is the only
+    place where the authorization check cannot be routed around: a
+    caller that reaches for a mouth, an adapter, or this function
+    directly hits the same gate. Enforcing in a CLI or an orchestrator
+    instead would leave `fetch_feed(url)` as an open door beside it.
+
+    Found by auditing the switch estate against its own claim.
+    `communication_gate.py` was built, tested and armed, and
+    `discovery_authorization.authorize_discovery()` describes itself as
+    "the one real entry point a future discovery adapter must call
+    before doing anything." Five mouths and `target_mapping` fetch. None
+    of them called it. The gate had no consumer, which makes it a
+    reminder rather than an enforcement point -- exactly the failure the
+    switch-gate doctrine exists to prevent.
+
+    Passing `policy=None` raises rather than defaulting to a permissive
+    standing grant. A default would reintroduce the bypass in one line:
+    the point is that every fetch names a concrete objective and a
+    budget, which is what the standing authorization actually requires.
+
+    THE BYTE CAP (retained from the 2026-08-28 adversarial review)
+
+    Hard byte cap added after adversarial review. The previous
     `response.read()` was unbounded: `timeout` bounds a single stalled
     socket operation, NOT total transfer size or total transfer time, so
     a source that trickles bytes just under the idle timeout can stream
@@ -76,14 +109,35 @@ def fetch_feed(url: str, timeout: int = DEFAULT_TIMEOUT_SECONDS,
     legitimate-but-compromised endpoint returns. These are release feeds
     measured in kilobytes; a cap of `MAX_FEED_BYTES` is far above any
     honest response and turns a memory-exhaustion vector into an
-    ordinary, receipted `FetchError` → `UNAVAILABLE`, which `observe()`
+    ordinary, receipted `FetchError` -> `UNAVAILABLE`, which `observe()`
     already handles without touching prior state.
 
     Reads one byte past the cap specifically so exceeding it is
     detectable rather than silently truncating a feed into a corrupt
-    parse — a truncated feed would look like "items disappeared," which
+    parse -- a truncated feed would look like "items disappeared," which
     `observe()` could otherwise record as a real CHANGED observation.
     """
+    from foundation.discovery_authorization import (
+        DiscoveryPolicy, authorize_discovery)
+    if policy is None:
+        raise CommunicationDenied(
+            f"refusing to fetch {url!r}: no DiscoveryPolicy supplied. "
+            f"Network access in this repository is gated by "
+            f"foundation/communication_gate.py via authorize_discovery(); "
+            f"a caller must name a concrete objective and budget. There is "
+            f"deliberately no permissive default -- see this function's "
+            f"docstring."
+        )
+    if not isinstance(policy, DiscoveryPolicy):
+        raise CommunicationDenied(
+            f"refusing to fetch {url!r}: policy must be a DiscoveryPolicy, "
+            f"not {type(policy).__name__} -- a caller cannot substitute an "
+            f"object that merely claims to be authorized"
+        )
+    # Raises UnboundedDiscoveryObjective or CommunicationDenied. Never
+    # returns False silently, so "did not check" cannot be mistaken for
+    # "checked and it was fine".
+    authorize_discovery(policy)
     request = urllib.request.Request(url, headers={"User-Agent": user_agent})
     try:
         with urllib.request.urlopen(request, timeout=timeout) as response:

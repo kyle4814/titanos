@@ -19,11 +19,19 @@ from typing import Callable, Optional
 from xml.etree import ElementTree
 
 from foundation.mouth_common import FetchError, MouthObservation, fetch_feed, observe as _observe
+from foundation.discovery_authorization import DiscoveryPolicy
 
 __all__ = [
     "MOUTH_ID", "FEED_URL", "FetchError", "MouthObservation",
     "fetch_feed", "parse_items", "observe",
 ]
+
+# The concrete objective this module fetches for. `fetch_feed()`
+# refuses to open a socket without one -- see its docstring for why
+# the gate lives at the socket rather than above it.
+DISCOVERY_POLICY = DiscoveryPolicy(
+    objective="observe the GitHub releases atom feed for one named repository",
+    requested_scope="READ_URL")
 
 MOUTH_ID = "github_pyyaml_releases"
 FEED_URL = "https://github.com/yaml/pyyaml/releases.atom"
@@ -81,5 +89,5 @@ def observe(
     """
     url = feed_url_for(target) if target else FEED_URL
     mouth_id = f"{MOUTH_ID}:{target}" if target else MOUTH_ID
-    fetch = fetch_fn or (lambda: fetch_feed(url))
+    fetch = fetch_fn or (lambda: fetch_feed(url, policy=DISCOVERY_POLICY))
     return _observe(mouth_id, state_path, fetch, parse_items, now=now)

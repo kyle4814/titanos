@@ -50,6 +50,7 @@ from dataclasses import dataclass, field
 from typing import Callable, Optional
 
 from foundation.mouth_common import DEFAULT_TIMEOUT_SECONDS, FetchError, fetch_feed
+from foundation.discovery_authorization import DiscoveryPolicy
 
 __all__ = [
     "MAPPING_STATES", "CONCLUSIVE_MAPPING", "OBSERVATION_RESULTS",
@@ -57,6 +58,13 @@ __all__ = [
     "MappingIntegrityError", "DirectedObservation", "direct_observation",
     "map_repo_to_npm", "source_native_target",
 ]
+
+# The concrete objective this module fetches for. `fetch_feed()`
+# refuses to open a socket without one -- see its docstring for why
+# the gate lives at the socket rather than above it.
+DISCOVERY_POLICY = DiscoveryPolicy(
+    objective="resolve one named repository to its package-registry identity",
+    requested_scope="READ_API")
 
 
 class MappingIntegrityError(ValueError):
@@ -174,7 +182,7 @@ def map_repo_to_pypi(repo: str,
     somewhere else, that is REFUTED -- an actively wrong mapping, which is
     far more useful to know than an absent one.
     """
-    fetch = fetch_fn or (lambda url: fetch_feed(url, DEFAULT_TIMEOUT_SECONDS))
+    fetch = fetch_fn or (lambda url: fetch_feed(url, DEFAULT_TIMEOUT_SECONDS, policy=DISCOVERY_POLICY))
     want = _normalise_repo(f"github.com/{repo}")
     candidate = candidate_pypi_name(repo)
 
@@ -378,7 +386,7 @@ def map_repo_to_npm(repo: str,
     package declaring screeps/screeps. Both are REFUTED here; both would
     have been confident false convergence under name matching.
     """
-    fetch = fetch_fn or (lambda url: fetch_feed(url, DEFAULT_TIMEOUT_SECONDS))
+    fetch = fetch_fn or (lambda url: fetch_feed(url, DEFAULT_TIMEOUT_SECONDS, policy=DISCOVERY_POLICY))
     want = _normalise_repo(f"github.com/{repo}")
     candidate = candidate_npm_name(repo)
 

@@ -24,13 +24,21 @@ hand each time, and (2) bounds *how* discovery may run once armed
 (`DiscoveryPolicy` — objective, budget, stop conditions) — a concern
 `CommunicationSwitch` deliberately does not cover, since "who authorized
 what scope" and "how much of it may one discovery attempt consume" are
-independent questions. Nothing in this repository calls a real fetcher
-based on either — the door is armed, but per the same recon, no
-fetcher/adapter exists yet because no concrete discovery objective is
-currently open in `PARETO_FRONTIER.md`. Building one now, with nothing
-to discover, would be exactly the "empty theater" this repository has
-declined three times before (`GO <topic>` requiring an actual topic;
-`communication_gate.py` itself declining to build a live fetcher).
+independent questions.
+
+STATUS CORRECTION 2026-09-01. The paragraph here previously read
+"Nothing in this repository calls a real fetcher based on either — the
+door is armed, but no fetcher/adapter exists yet." That became false
+once the mouths were built, and it stayed in the file for several
+cycles while `mouth_common.fetch_feed()` opened real sockets beside a
+gate that nothing consulted. The claim was load-bearing in the worst
+way: it is the reason the gap went unnoticed, because the file
+documenting the door insisted there was no door.
+
+Now accurate: `mouth_common.fetch_feed()` calls `authorize_discovery()`
+before every request and refuses outright without a policy. This module
+still performs no network I/O itself -- that separation is the point,
+and it is enforced by a test that reads this module's real imports.
 
 SCOPE OF THE STANDING AUTHORIZATION (verbatim from Kyle, 2026-08-27)
 
@@ -46,6 +54,7 @@ represented here.
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
@@ -91,6 +100,29 @@ FORBIDDEN_OBJECTIVE_PHRASES = (
     "make the bot smarter",
     "make the system smarter",
 )
+
+# The phrase list above is exact-match and can only ever catch what
+# somebody already thought of. Found by attacking this module after
+# wiring it to a real socket: the objective "find everything" passed
+# validation and reached `urlopen`, failing only on DNS. That is the
+# blocklist's structural weakness, not a missing entry -- adding
+# "find everything" to the tuple would leave "search the web",
+# "explore", "look around" and every future phrasing open.
+#
+# This is the complementary STRUCTURAL check. An objective whose object
+# is an unbounded universal quantifier is unbounded by construction,
+# whatever words surround it, and that is a property of the string
+# rather than a guess about its meaning.
+#
+# It is deliberately conservative. A network gate's correct failure
+# direction is refusal, and an objective wrongly refused costs one
+# rewording, while one wrongly allowed costs an unbounded fetch. This
+# still does not make the check complete -- no string test can confirm
+# an objective is concrete, only that it is not obviously not.
+_UNBOUNDED_QUANTIFIER = re.compile(
+    r"\b(everything|anything|all the things|whatever|as much as (you |i )?can|"
+    r"any and all|the (whole|entire) (web|internet)|the web|the internet)\b",
+    re.I)
 
 DEFAULT_MAX_QUERIES = 5
 DEFAULT_MAX_WALL_CLOCK_SECONDS = 60
@@ -142,6 +174,14 @@ def _validate_objective(objective: str) -> None:
                 f"{phrase!r} — a discovery objective must name a "
                 f"concrete question, not a mandate to wander"
             )
+    quantifier = _UNBOUNDED_QUANTIFIER.search(text)
+    if quantifier:
+        raise UnboundedDiscoveryObjective(
+            f"objective {text!r} contains the unbounded quantifier "
+            f"{quantifier.group(0)!r} — an objective whose object is "
+            f"'everything' is unbounded by construction, however it is "
+            f"phrased. Name the specific subject to be observed."
+        )
 
 
 def standing_switch_for(requested_scope: str) -> CommunicationSwitch:
@@ -165,8 +205,12 @@ def authorize_discovery(policy: DiscoveryPolicy) -> bool:
     otherwise — RECEIVE_WEBHOOK or any unlisted scope is refused here,
     before it would even reach communication_gate.py), then re-derives
     authorization from the real switch via `authorize_communication()`
-    — never trusts a cached flag. Performs no I/O. Returning True does
-    not mean a fetcher exists to consume it — see module docstring."""
+    — never trusts a cached flag. Performs no I/O itself.
+
+    A fetcher DOES now consume this: `mouth_common.fetch_feed()` calls
+    this function immediately before `urlopen`, and refuses to open a
+    socket at all when no policy is supplied. This docstring previously
+    said the opposite; see the module docstring's status correction."""
     _validate_objective(policy.objective)
     if policy.requested_scope not in STANDING_AUTHORIZED_SCOPES:
         raise CommunicationDenied(

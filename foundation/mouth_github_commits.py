@@ -45,6 +45,14 @@ MOUTH_ID = "github_commits"
 COMMITS_URL = "https://api.github.com/repos/{repo}/commits?per_page={n}"
 
 # The radar wants the current state of the machine, not its whole history.
+from foundation.discovery_authorization import DiscoveryPolicy
+
+# The concrete objective this module fetches for. `fetch_feed()`
+# refuses to open a socket without one -- see its docstring for why
+# the gate lives at the socket rather than above it.
+DISCOVERY_POLICY = DiscoveryPolicy(
+    objective="observe the recent commit list for one named GitHub repository",
+    requested_scope="READ_API")
 MAX_COMMITS = 10
 
 
@@ -117,5 +125,5 @@ def observe(state_path: Path, target: str,
     url = feed_url_for(target, n)
     return _observe(
         mouth_id=f"{MOUTH_ID}:{target}", state_path=state_path,
-        fetch_fn=fetch_fn or (lambda: fetch_feed(url, DEFAULT_TIMEOUT_SECONDS)),
+        fetch_fn=fetch_fn or (lambda: fetch_feed(url, DEFAULT_TIMEOUT_SECONDS, policy=DISCOVERY_POLICY)),
         parse_fn=parse_items, now=now)
