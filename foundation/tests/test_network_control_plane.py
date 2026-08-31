@@ -26,6 +26,19 @@ from foundation.discovery_authorization import (
 )
 from foundation.mouth_common import fetch_feed
 
+# Build outputs are copies of the source tree, not new code. `pip wheel .`
+# and an sdist build leave `build/` and `*.egg-info/` behind, each holding a
+# duplicate of every production module, and a scan that walks them reports
+# the copy as a second network caller -- a false alarm about a file that is
+# byte-identical to one already checked. They are gitignored; walking the
+# filesystem does not respect that, so the exclusion is explicit.
+_BUILD_DIRS = ("build/", "dist/", ".eggs/")
+
+
+def _is_build_output(rel: str) -> bool:
+    return rel.startswith(_BUILD_DIRS) or ".egg-info/" in rel
+
+
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 
 VALID = DiscoveryPolicy(
@@ -131,6 +144,8 @@ class TestThereIsExactlyOneSocket(unittest.TestCase):
         for path in sorted(REPO_ROOT.rglob("*.py")):
             rel = path.relative_to(REPO_ROOT).as_posix()
             if "/tests/" in rel or rel.startswith("tests/"):
+                continue
+            if _is_build_output(rel):
                 continue
             try:
                 tree = ast.parse(path.read_text(errors="ignore"))

@@ -38,3 +38,10 @@ foundation/authority_runtime_tick_log.jsonl
 .autonomy_stop
 foundation/autonomy_loop_log.jsonl
 foundation/outcome_ledger.jsonl
+
+# Python build artifacts. Distributions are attached to GitHub Releases,
+# never committed -- a build output in git is a second source of truth for
+# something `python3 -m pip wheel .` reproduces from the tagged source.
+dist/
+build/
+*.egg-info/

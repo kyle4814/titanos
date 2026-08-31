@@ -1,0 +1,90 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "titanos"
+version = "0.1.0"
+description = "Epistemic architecture: schema validation, an admission firewall, claim classification, and provenance-preserving ledgers that refuse to manufacture certainty."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { file = "LICENSE" }
+authors = [{ name = "Kyle Graham" }]
+keywords = ["epistemics", "provenance", "validation", "governance", "firewall"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Software Development :: Quality Assurance",
+  "Topic :: Security",
+]
+dependencies = ["PyYAML>=6.0"]
+
+[project.urls]
+Homepage = "https://github.com/kyle4814/titanos"
+Source = "https://github.com/kyle4814/titanos"
+Issues = "https://github.com/kyle4814/titanos/issues"
+
+# WHAT IS AND IS NOT IN THIS DISTRIBUTION, AND WHY
+#
+# Listed explicitly rather than auto-discovered. This repository is a
+# flat layout with twelve top-level directories, and only some of them are
+# importable library code; letting setuptools guess would ship whatever
+# happened to have an __init__.py on the day it ran.
+#
+# INCLUDED — the eight packages that are real, importable library code.
+#
+# EXCLUDED, deliberately:
+#
+#   compiler/     a CLI tool (`python3 compiler/coverage.py <doctrine>`),
+#                 not a library. No __init__.py, never imported by
+#                 anything in this repository.
+#
+#   provenance/   `provenance/seal.py` is top-level script code with no
+#                 `if __name__ == "__main__"` guard: importing it runs the
+#                 whole pipeline and overwrites releases/RELEASE-001.json.
+#                 Shipping that as an importable module would be a footgun.
+#                 Recorded in experiments/EXP-001 and left unfixed there.
+#
+#   kpm/source-vault/, kpm/work-cells/, kpm/threat-models/
+#                 hyphenated directory names are not valid Python
+#                 identifiers, so these were never importable as modules.
+#                 Nothing in the repository imports them (grep finds only
+#                 prose references), so excluding them removes nothing that
+#                 was reachable. Their tests load them by path.
+#
+#   *.tests       the suites stay in the repository, where `run_all_tests.sh`
+#                 and CI run them against the source tree. They are not
+#                 part of the installable surface.
+[tool.setuptools]
+packages = [
+  "firewall",
+  "foundation",
+  "kpm",
+  "kpm.contradictions",
+  "kpm.promotion",
+  "kpm.schemas",
+  "kpm.validators",
+  "legacy",
+  "magl",
+  "magl.composition",
+  "magl.registry",
+  "magl.schema",
+  "magl.validators",
+  "narrative",
+  "narrative.composition",
+  "narrative.intake",
+  "narrative.schema",
+  "narrative.store",
+  "narrative.validators",
+  "schema",
+  "taal",
+  "taal.archetypes",
+  "taal.gate",
+  "taal.integrator",
+  "taal.schema",
+  "taal.validators",
+]
+include-package-data = false
