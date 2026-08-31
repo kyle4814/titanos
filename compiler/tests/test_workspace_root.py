@@ -35,7 +35,64 @@ def _run(*args):
     return proc.returncode, json.loads(proc.stdout) if proc.stdout else None
 
 
+# THE EXTERNAL WORKSPACE THESE DOCTRINES GOVERN
+#
+# `doctrine/*.yaml` declare `workspace_root: "../.."`, so their
+# `enforced_at` paths resolve into SIBLING repositories of this one. Those
+# siblings exist on the author's machine and are not part of this
+# repository, so in a plain checkout -- CI, or any new contributor's first
+# clone -- they are simply absent and every claim resolves to a missing
+# file.
+#
+# The tests below that assert a real doctrine ACCEPTS were therefore
+# asserting "this is the author's laptop", and they failed in CI for at
+# least eight consecutive commits while every local run reported green.
+#
+# The compiler is right to report those unresolvable claims as
+# STALE_CLAIM: from inside this repository an absent sibling and a moved
+# file are genuinely indistinguishable, and a checker that guessed would
+# be worse than one that refuses. (Adding an EXTERNAL_WORKSPACE_ABSENT
+# verdict was tried and reverted -- it could not tell an absent checkout
+# from a misconfigured root, so it also excused the wrong-root case that
+# `test_a_wrong_declared_root_still_refuses` correctly pins.)
+#
+# So the environment dependency is declared here, where it belongs,
+# instead of being silently assumed. Tests that need the siblings skip
+# with a stated reason; every test that does NOT need them keeps running
+# everywhere, which is most of this file.
+
+def _external_workspace_present() -> bool:
+    """True when the sibling repositories the doctrines point at are here.
+
+    Probes doctrine-002 only -- the ACTIVE doctrine, whose claims all
+    resolve when the workspace is present. doctrine-001 is deliberately
+    preserved with one genuinely missing file (its I-06 STALE_CLAIM is the
+    historical record doctrine-002 was authored to correct), so probing it
+    would report "absent" even on a machine that has everything.
+    """
+    import yaml as _yaml
+    path = REPO_ROOT / "doctrine" / "doctrine-002.yaml"
+    if not path.exists():
+        return False
+    root = (REPO_ROOT / "doctrine" / "../..").resolve()
+    tops = {str(inv.get("enforced_at") or "").split("::", 1)[0].split("/", 1)[0]
+            for inv in (_yaml.safe_load(path.read_text(encoding="utf-8"))
+                        or {}).get("invariants", [])
+            if "/" in str(inv.get("enforced_at") or "")}
+    return bool(tops) and all((root / t).exists() for t in tops)
+
+
+EXTERNAL_WORKSPACE = _external_workspace_present()
+needs_external = unittest.skipUnless(
+    EXTERNAL_WORKSPACE,
+    "the sibling repositories these doctrines govern are not present in "
+    "this checkout; the claims resolve to missing files and the compiler "
+    "correctly refuses. Nothing is wrong with the doctrine or the compiler "
+    "-- the code under audit simply is not here.")
+
+
 class TestWorkspaceRootResolution(unittest.TestCase):
+    @needs_external
     def test_declared_root_makes_the_real_doctrine_accepted(self):
         """The whole point: default invocation, no CLI root, must ACCEPT."""
         code, report = _run(DOCTRINE)
@@ -109,6 +166,7 @@ class TestGeneralizationAcrossAllDoctrines(unittest.TestCase):
 
     DOCTRINE_DIR = REPO_ROOT / "doctrine"
 
+    @needs_external
     def test_pole_reversal_is_accepted_with_its_declaration(self):
         code, report = _run(self.DOCTRINE_DIR / "POLE_REVERSAL_DOCTRINE.yaml")
         self.assertEqual(report["result"], "ACCEPTED")
@@ -127,6 +185,7 @@ class TestGeneralizationAcrossAllDoctrines(unittest.TestCase):
             code, report = _run(stripped)
         self.assertEqual(report["result"], "REFUSED")
 
+    @needs_external
     def test_doctrine_001_is_correctly_still_refused(self):
         """NOT a bug. doctrine-001 is SUPERSEDED and deliberately preserved
         verbatim; its one STALE_CLAIM (I-06) is the exact defect that
@@ -250,6 +309,7 @@ class TestEveryApplicableDoctrineIsValidated(unittest.TestCase):
         self.assertEqual(missing, [], f"applicable doctrines with no declared "
                          f"workspace_root: {missing}")
 
+    @needs_external
     def test_every_applicable_doctrine_is_accepted_or_knowingly_refused(self):
         """The real coverage gate. Every discovered doctrine is actually
         run through the compiler. ACCEPTED passes. REFUSED passes ONLY if

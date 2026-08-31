@@ -488,20 +488,47 @@ class TestLegacyUnchainedLedgerStillLoads(unittest.TestCase):
     fields at all. It must keep loading, and must never be reported as
     chain-verified merely because loading did not raise."""
 
+    # A FRESH CLONE HAS NO LEDGER, AND THAT IS A VALID STATE.
+    #
+    # `foundation/outcome_ledger.jsonl` is gitignored on purpose -- it is
+    # machine-local operational history, and .gitignore says so in as many
+    # words: "a fresh clone correctly reports these logs as 'never fired
+    # yet'". These two tests nonetheless asserted the file was present, so
+    # they could only pass on a machine that had already run the system.
+    #
+    # That is why CI was red for at least eight consecutive commits while
+    # every local run reported green. The tests were not measuring the
+    # ledger's behaviour; they were measuring whether they were running on
+    # Kyle's laptop. The claim they exist to defend is already proven
+    # environment-independently by
+    # `test_a_synthetic_legacy_file_loads_and_reports_unverifiable` below.
+    #
+    # So both states are now asserted rather than one being assumed: with a
+    # ledger, the legacy records must load and report UNVERIFIED_LEGACY;
+    # without one, construction must still succeed and report zero records
+    # rather than raising. Skipping would have hidden the second case,
+    # which is the case a new contributor actually hits first.
+
     def test_the_real_repository_ledger_loads_without_raising(self):
-        self.assertTrue(_DEFAULT_LEDGER_PATH.exists(),
-                        "this test assumes the real ledger file is present; "
-                        "if it was ever deleted the assumption should be "
-                        "revisited, not silently skipped")
         try:
             led = OutcomeLedger(ledger_path=_DEFAULT_LEDGER_PATH)
         except Exception as exc:           # noqa: BLE001 -- the point
             self.fail(f"the pre-existing, unchained ledger must still load. "
                       f"Raised: {exc!r}")
+        if not _DEFAULT_LEDGER_PATH.exists():
+            self.assertEqual(
+                led.all_records(), [],
+                "a fresh clone has no ledger; it must report empty, not "
+                "fabricate records")
+            return
         self.assertGreater(len(led.all_records()), 0)
 
     def test_a_legacy_record_is_reported_unverifiable_not_verified(self):
         led = OutcomeLedger(ledger_path=_DEFAULT_LEDGER_PATH)
+        if not _DEFAULT_LEDGER_PATH.exists():
+            self.assertEqual(led.all_records(), [])
+            self.assertEqual(list(led.pairs()), [])
+            return
         self.assertGreater(len(led.all_records()), 0)
         for record in led.all_records():
             self.assertEqual(led.chain_status(record.outcome_id),

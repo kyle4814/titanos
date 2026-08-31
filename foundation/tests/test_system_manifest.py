@@ -65,9 +65,26 @@ class TestItReportsRealNumbers(unittest.TestCase):
         self.assertGreaterEqual(self.m.resolved_human_decisions, 1)
 
     def test_it_locates_the_durable_ledgers(self):
-        present = [k for k, v in self.m.durable_ledgers.items()
-                   if v.get("present")]
-        self.assertGreaterEqual(len(present), 3)
+        """Assert the manifest KNOWS the ledgers, not that this machine has
+        run them.
+
+        This previously required >= 3 present. Four of the five durable
+        ledgers are gitignored runtime state, so a fresh clone has one --
+        and this assertion failed there for eight consecutive CI runs while
+        every local run passed, because it was measuring accumulated local
+        history rather than the manifest's behaviour.
+
+        What the manifest actually owes is: know every ledger it tracks,
+        and report each one's presence correctly. Absence is a fact about
+        the checkout, not a defect in the reporter."""
+        self.assertGreaterEqual(len(self.m.durable_ledgers), 3,
+                                "the manifest must track the known ledgers")
+        for name, info in self.m.durable_ledgers.items():
+            self.assertIn("present", info,
+                          f"{name} reports no presence verdict")
+            self.assertEqual(
+                info["present"], (REPO_ROOT / name).exists(),
+                f"{name}: reported presence disagrees with the filesystem")
 
     def test_a_legacy_receipt_head_is_flagged_not_called_verified(self):
         joined = " ".join(self.m.notes)
