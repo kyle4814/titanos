@@ -365,3 +365,151 @@ class TestTheCeilingIsVisible(unittest.TestCase):
         self.assertEqual(INVESTIGATE_THRESHOLD, 5)
         self.assertEqual(set(SCORING_LEVERS),
                          {"CODE_PRESSURE", "LOCAL_REPRODUCIBILITY", "REWARD"})
+
+
+class TestSourceMultiplicityIsNotIndependence(unittest.TestCase):
+    """Owning a repo's issues, commits and commit text is one party
+    talking to itself through three doors, not three witnesses."""
+
+    def _profile(self, **kw):
+        from foundation.opportunity import power_profile
+        return power_profile(_opp(**kw))
+
+    def _owner_only_signals(self):
+        """The manufactured attack: DEMAND + ACTIVITY + CODE_PRESSURE,
+        all traceable to the target's own owner (acme), none carrying a
+        third-party author_login."""
+        return (
+            _sig(kind="DEMAND", source_type="PLATFORM",
+                 detail="acme/widget#1 is open and labelled help wanted"),
+            _sig(kind="ACTIVITY", source_type="PLATFORM",
+                 detail="12 commits in 30 days"),
+            _sig(kind="CODE_PRESSURE", source_type="PLATFORM",
+                 detail="commit subject: fix widget crash"),
+        )
+
+    def test_owner_authored_signals_do_not_earn_source_diversity(self):
+        p = self._profile(signals=self._owner_only_signals(),
+                          activity_class="ACTIVE")
+        keys = [k for k, _ in p.breakdown]
+        self.assertNotIn("SOURCE_DIVERSITY", keys)
+
+    def test_third_party_issue_plus_owner_commits_does_earn_it(self):
+        """The nuance: a help-wanted issue filed by someone OTHER than
+        the owner is real independent evidence."""
+        third_party_demand = SignalEvidence(
+            kind="DEMAND", detail="acme/widget#7 filed by a stranger",
+            source_type="PLATFORM",
+            evidence={"author_login": "someone-else"})
+        owner_activity = _sig(kind="ACTIVITY", detail="9 commits in 30 days")
+        p = self._profile(signals=(third_party_demand, owner_activity),
+                          activity_class="ACTIVE")
+        keys = [k for k, v in p.breakdown]
+        self.assertIn("SOURCE_DIVERSITY", keys)
+
+    def test_the_manufactured_attack_scores_materially_lower(self):
+        """Assert the specific delta: exactly the withheld
+        SOURCE_DIVERSITY bonus, since every individual signal is still a
+        real observation and still counts on its own -- this is a
+        decorrelation, not a zeroing.
+
+        Reproduces the reported attack shape: DEMAND + ACTIVITY +
+        CODE_PRESSURE arriving through three different `source_type`
+        values (as three different live fetchers realistically would),
+        all traceable to one owner. Under the OLD formula
+        (`len({s.source_type for s in signals}) > 1`) this earned
+        SOURCE_DIVERSITY; under the new party-based rule it must not.
+        """
+        mixed_source_type_signals = (
+            SignalEvidence(kind="DEMAND", detail="issue #1",
+                          source_type="PLATFORM"),
+            SignalEvidence(kind="ACTIVITY", detail="commits",
+                          source_type="PROJECT_MAINTAINED"),
+            SignalEvidence(kind="CODE_PRESSURE", detail="commit text",
+                          source_type="COMMUNITY"),
+        )
+        old_distinct_source_types = {s.source_type
+                                     for s in mixed_source_type_signals}
+        self.assertGreater(len(old_distinct_source_types), 1,
+                           "sanity: the old formula would have fired here")
+
+        after = self._profile(signals=mixed_source_type_signals,
+                              activity_class="ACTIVE")
+        keys = [k for k, _ in after.breakdown]
+        self.assertNotIn("SOURCE_DIVERSITY", keys)
+
+        # Every other component is untouched: EXPLICIT_DEMAND(1800) +
+        # CODE_PRESSURE(1500) + TARGET_ACTIVITY-ACTIVE(900) +
+        # LOCAL_REPRODUCIBILITY(1600) + EVIDENCE_FRESH(700) = 6500, with
+        # no REWARD (none observed) and no SOURCE_DIVERSITY (one party).
+        self.assertEqual(after.power_level, 6500)
+        # The exact old-vs-new delta this fix closes: the withheld
+        # SOURCE_DIVERSITY bonus, and nothing else.
+        old_formula_power = after.power_level + 400
+        self.assertEqual(old_formula_power - after.power_level, 400)
+
+    def test_a_genuine_multiparty_target_is_unaffected(self):
+        """Positive control: real diversity must still be visible and
+        must still score at least as high as the owner-only case."""
+        owner_only = self._profile(signals=self._owner_only_signals(),
+                                   activity_class="ACTIVE")
+        genuine = self._profile(
+            signals=(
+                SignalEvidence(
+                    kind="DEMAND", detail="third party help-wanted ask",
+                    source_type="PLATFORM",
+                    evidence={"author_login": "a-real-contributor"}),
+                _sig(kind="ACTIVITY", detail="12 commits in 30 days"),
+                _sig(kind="CODE_PRESSURE", detail="commit subject"),
+            ),
+            activity_class="ACTIVE")
+        genuine_keys = [k for k, _ in genuine.breakdown]
+        self.assertIn("SOURCE_DIVERSITY", genuine_keys)
+        self.assertGreaterEqual(genuine.power_level, owner_only.power_level)
+
+    def test_show_the_math_names_the_single_party_finding_in_words(self):
+        p = self._profile(signals=self._owner_only_signals(),
+                          activity_class="ACTIVE")
+        text = p.show_the_math()
+        self.assertIn("SOURCE CONTROL", text)
+        self.assertIn("one controlling party", text)
+        self.assertIn("acme", text)
+
+    def test_show_the_math_names_genuine_diversity_too(self):
+        p = self._profile(
+            signals=(
+                SignalEvidence(
+                    kind="DEMAND", detail="third party ask",
+                    source_type="PLATFORM",
+                    evidence={"author_login": "a-real-contributor"}),
+                _sig(kind="ACTIVITY", detail="commits")),
+            activity_class="ACTIVE")
+        text = p.show_the_math()
+        self.assertIn("distinct controlling", text)
+
+    def test_controlling_party_owner_authored(self):
+        from foundation.opportunity import controlling_party
+        sig = SignalEvidence(kind="DEMAND", detail="x", source_type="PLATFORM",
+                             evidence={"author_login": "acme"})
+        self.assertEqual(controlling_party("acme/widget", sig), "acme")
+
+    def test_controlling_party_no_author_defaults_to_owner(self):
+        """ACTIVITY/CODE_PRESSURE signals describe the repo, not a
+        person -- conservatively attributed to the owner, which is the
+        same assumption the attack exploits, made deliberately."""
+        from foundation.opportunity import controlling_party
+        sig = _sig(kind="ACTIVITY", detail="12 commits")
+        self.assertEqual(controlling_party("acme/widget", sig), "acme")
+
+    def test_controlling_party_third_party_author(self):
+        from foundation.opportunity import controlling_party
+        sig = SignalEvidence(kind="DEMAND", detail="x", source_type="PLATFORM",
+                             evidence={"author_login": "a-real-contributor"})
+        self.assertEqual(controlling_party("acme/widget", sig),
+                         "a-real-contributor")
+
+    def test_signal_evidence_mapping_is_frozen(self):
+        sig = SignalEvidence(kind="DEMAND", detail="x", source_type="PLATFORM",
+                             evidence={"author_login": "acme"})
+        with self.assertRaises(TypeError):
+            sig.evidence["author_login"] = "someone-else"

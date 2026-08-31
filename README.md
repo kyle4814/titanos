@@ -94,6 +94,9 @@ specific technical problem.
 ## Running the tests
 
 ```sh
+# everything, one summary line, with per-suite timings
+./run_all_tests.sh
+
 # any single subsystem
 python3 -m unittest discover -s schema -p "test_*.py"
 
@@ -102,6 +105,14 @@ for d in schema firewall kpm magl rpa taal foundation narrative legacy compiler 
   python3 -m unittest discover -s "$d" -p "test_*.py"
 done
 ```
+
+**Expected runtime.** `foundation/` takes roughly 90 seconds and that
+is normal, not a hang: it contains `sigil.py`'s real-repository tests,
+and `compute_sigil()`'s PROOF dimension genuinely shells out to run
+every other subsystem's suite. Every other suite finishes in seconds. A
+cleanroom reconstruction test on 2026-09-01 could not distinguish "slow"
+from "hung" here and abandoned the full run, which is why this paragraph
+exists.
 
 ## Design principles, briefly
 

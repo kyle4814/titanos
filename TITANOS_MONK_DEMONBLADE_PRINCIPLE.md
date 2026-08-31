@@ -94,7 +94,7 @@ already has a real, grep-verified, tested implementation somewhere in
 this repo — `hells_gate.py`'s fail-closed admission and refusal to
 ever say "TRUSTED"; `situation_analysis.py`'s `HOLD`/
 `AMBIGUOUS_MULTIPLE`/`OFFRAMP_DECISIONS` (optionality/off-ramp);
-`crystal.py::is_current()` and `contradictions/registry.py`'s
+`crystal.py::is_current()` and `kpm/contradictions/registry.py`'s
 evidence-gated `resolve()` (historical ≠ current truth); `flow_switch.py`'s
 CT_141 panic detection (false-urgency resistance, already covered by
 this repo's own Black Ice doctrine); `human_jurisdiction.py`'s

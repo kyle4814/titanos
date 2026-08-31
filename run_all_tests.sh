@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# Aggregate test runner. One command, one summary line.
+#
+# WHY THIS EXISTS: a fresh engineer auditing this repository could not
+# tell "slow but normal" from "hung" -- foundation/ alone exceeded a
+# 60-second timeout for them, and README only gave a shell loop with no
+# expected runtime and no aggregate result. That is a real onboarding
+# defect, reported by a cleanroom reconstruction test on 2026-09-01.
+#
+# foundation/ is the slow one (~90s) and that is EXPECTED: it contains
+# sigil.py's real-repository tests, and compute_sigil()'s PROOF
+# dimension genuinely shells out to run every subsystem's suite. It is
+# doing real work, not hanging.
+set -uo pipefail
+cd "$(dirname "$0")"
+SUITES=(schema firewall kpm magl rpa taal foundation narrative compiler legacy)
+total=0; failed=""
+printf "%-12s %8s %10s\n" SUITE TESTS RESULT
+printf -- "----------------------------------\n"
+for s in "${SUITES[@]}"; do
+  [ -d "$s" ] || continue
+  start=$(date +%s)
+  out=$(python3 -m unittest discover -s "$s" 2>&1 | tail -4)
+  el=$(( $(date +%s) - start ))
+  n=$(echo "$out" | grep -oE 'Ran [0-9]+' | grep -oE '[0-9]+' || echo 0)
+  if echo "$out" | grep -qE '^OK'; then r="OK"; else r="FAIL"; failed="$failed $s"; fi
+  printf "%-12s %8s %7s %3ss\n" "$s" "$n" "$r" "$el"
+  total=$(( total + n ))
+done
+printf -- "----------------------------------\n"
+if [ -z "$failed" ]; then
+  echo "PASS  $total tests, 10 suites, 0 failures"; exit 0
+else
+  echo "FAIL  $total tests; failing suites:$failed"; exit 1
+fi

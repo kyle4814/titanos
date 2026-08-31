@@ -36,7 +36,8 @@ from __future__ import annotations
 import hashlib
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
-from typing import Optional
+from types import MappingProxyType
+from typing import Any, Mapping, Optional
 
 __all__ = [
     "SOURCE_TYPES",
@@ -56,6 +57,7 @@ __all__ = [
     "INVESTIGATE_THRESHOLD",
     "PowerProfile",
     "power_profile",
+    "controlling_party",
     "InvestigationMission",
     "HandoffRefused",
     "handoff",
@@ -109,6 +111,12 @@ class SignalEvidence:
     detail: str
     source_type: str
     source_ref: str = ""
+    # Carried verbatim from `signal_spine.CanonicalSignal.evidence` when a
+    # signal originates there (e.g. `author_login`, set by
+    # `tentacles.py` for DEMAND signals). Not required, not validated for
+    # shape beyond being a mapping -- this is provenance passed through,
+    # not a new claim this module makes on its own authority.
+    evidence: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if self.source_type not in SOURCE_TYPES:
@@ -116,6 +124,11 @@ class SignalEvidence:
                 f"unknown source type {self.source_type!r}")
         if not self.detail.strip():
             raise OpportunityIntegrityError("a signal must state what was seen")
+        # Freeze so a caller cannot mutate evidence after construction and
+        # have `controlling_party()` see something different than what
+        # was reasoned about when the signal was admitted.
+        object.__setattr__(self, "evidence",
+                           MappingProxyType(dict(self.evidence)))
 
     def is_authoritative(self) -> bool:
         return self.source_type in AUTHORITATIVE_SOURCES
@@ -391,12 +404,82 @@ _BANDS = ((9000, "EXTREME"), (7000, "HOT"), (4000, "PROMISING"),
           (2000, "WATCH"), (0, "LOW"))
 
 
+def controlling_party(target: str, signal: SignalEvidence) -> str:
+    """Who actually stands behind one signal -- not which API served it.
+
+    THE ATTACK THIS CLOSES
+
+    An attacker who owns a public GitHub repo simultaneously controls the
+    repo's issues (becomes a DEMAND signal, +1800 EXPLICIT_DEMAND), the
+    repo's commits (becomes ACTIVITY, +900/+1200 TARGET_ACTIVITY) and the
+    commit subject text (becomes CODE_PRESSURE, +1500). Before this
+    function existed, `power_profile()` computed diversity as
+    `len({s.source_type for s in signals}) > 1` -- three signals arriving
+    through three different fetchers read as three witnesses and earned
+    SOURCE_DIVERSITY (+400) on top. They are not three witnesses. They
+    are one party talking to itself through three doors. Self-dealt
+    total before this fix: 1800 + 1200 (HIGHLY_ACTIVE) + 1500 + 400 =
+    4900, or 1800 + 900 (ACTIVE) + 1500 + 400 = 4600, entirely sourced
+    from one repository's own owner.
+
+    THE PRINCIPLE, MOVED ONE LEVEL UP
+
+    `signal_spine.py`'s `source_lineage` already established that two
+    FEEDS reporting one event are one fact, not two -- see `relate()`,
+    which treats matching `source_lineage` as one fact observed twice,
+    not two facts. That rule was never applied to the CONTROLLING
+    PARTY, only to the feed. This function
+    applies the identical idea one layer up: diversity of API endpoint
+    (issues vs. commits) is not diversity of witness when both endpoints
+    are doors into a repository the same account owns.
+
+    THE NUANCE THAT MUST SURVIVE
+
+    A `help wanted` issue filed by someone OTHER than the repo owner is
+    genuinely independent third-party evidence -- a stranger asking for
+    something is not the owner talking to itself, even though the
+    signal still arrives via the repo's own issues API. `tentacles.py`
+    already captures who wrote it as `evidence["author_login"]` for
+    DEMAND signals. When that name differs from the target's owner, the
+    author -- not the repo -- is this signal's controlling party. Losing
+    this distinction would collapse a genuine contributor-demand signal
+    into a self-dealt one, which is the over-correction this function
+    exists to avoid: the fix is to stop self-dealt signals from
+    corroborating each other, not to stop counting real ones.
+
+    WHAT THIS DOES NOT COVER
+
+    - Sock puppets: an `author_login` the same attacker also controls
+      (an alt account, a bot they run) still reads as a second party.
+      This function has no identity-linking capability and does not
+      pretend to -- it answers "does GitHub's own record name a
+      different account", not "is that account really independent".
+    - Non-GitHub targets: "the first path segment is the owner" is a
+      GitHub convention. A target with no "/" is treated as its own
+      single party rather than raising, but this has not been validated
+      against any non-GitHub identity model.
+    - Signals with no `author_login` (ACTIVITY, CODE_PRESSURE, RELEASE --
+      these describe the repo as a whole, not one person's post) are
+      conservatively attributed to the repo owner. That is the same
+      assumption the attack exploits; refusing to make it here would
+      silently reopen the hole for exactly the signal kinds that carry
+      it, so it is made deliberately, not by oversight.
+    """
+    owner = (target.split("/", 1)[0] if "/" in target else target).strip().lower()
+    author = str(signal.evidence.get("author_login", "")).strip().lower()
+    return author if author and author != owner else owner
+
+
 @dataclass(frozen=True)
 class PowerProfile:
     power_level: int
     breakdown: tuple[tuple[str, int], ...]
     confidence: float
     confidence_inputs: tuple[str, ...]
+    # One controlling party per signal, same order as the signals that
+    # were scored. Carried through so `show_the_math()` can name the
+    # finding in words rather than leaving it invisible inside a number.
+    controlling_parties: tuple[str, ...] = ()
 
     def band(self) -> str:
         for floor, name in _BANDS:
@@ -418,6 +501,19 @@ class PowerProfile:
                   for k, v in self.breakdown]
         lines.append(f"CONFIDENCE {self.confidence:.2f}")
         lines += [f"  - {c}" for c in self.confidence_inputs]
+        distinct = sorted(set(self.controlling_parties))
+        if len(distinct) <= 1:
+            who = distinct[0] if distinct else "unknown"
+            lines.append(
+                f"SOURCE CONTROL: all {len(self.controlling_parties)} "
+                f"signal(s) traced to one controlling party ({who}) -- "
+                f"SOURCE_DIVERSITY withheld; source multiplicity is not "
+                f"independence")
+        else:
+            lines.append(
+                f"SOURCE CONTROL: {len(distinct)} distinct controlling "
+                f"parties ({', '.join(distinct)}) -- SOURCE_DIVERSITY "
+                f"earned")
         return "\n".join(lines)
 
 
@@ -457,8 +553,18 @@ def power_profile(opportunity: OpportunityReceipt,
     else:
         parts.append(("EVIDENCE_STALE", -1500))
 
-    distinct = {s.source_type for s in opportunity.signals}
-    if len(distinct) > 1:
+    # SOURCE_DIVERSITY rewards independent corroboration, not endpoint
+    # variety. Grouping by `source_type` alone let one party earn it by
+    # self-publishing through several API shapes (issues + commits +
+    # releases) it fully controls -- see `controlling_party()`'s
+    # docstring for the concrete attack this closed. Grouping by
+    # controlling party instead means the bonus fires only when the
+    # evidence traces to more than one real party, which for a GitHub
+    # target means: the repo owner plus at least one third-party
+    # `author_login` (e.g. a genuine community-filed issue).
+    parties = tuple(controlling_party(opportunity.target, s)
+                    for s in opportunity.signals)
+    if len(set(parties)) > 1:
         parts.append(("SOURCE_DIVERSITY", 400))
 
     if opportunity.unknowns:
@@ -487,7 +593,8 @@ def power_profile(opportunity: OpportunityReceipt,
         conf_inputs.append("local reproducibility unverified")
     confidence = round(min(max(confidence, 0.0), 1.0), 2)
 
-    return PowerProfile(power, tuple(parts), confidence, tuple(conf_inputs))
+    return PowerProfile(power, tuple(parts), confidence, tuple(conf_inputs),
+                        controlling_parties=parties)
 
 
 class HandoffRefused(OpportunityIntegrityError):

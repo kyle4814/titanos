@@ -69,7 +69,7 @@ alone — a caller must not bypass a safety rule by skipping one function.
 (This principle was already independently arrived at earlier this same
 session: `foundation/flow_switch.py`'s `recommend_transition()` never
 recommends an illegal target even though the real enforcement lives in
-`MODE_TRANSITIONS`/`.transition()`; `taal/gate/human_jurisdiction.py`'s
+`MODE_TRANSITIONS`/`.transition()`; `rpa/gates/human_jurisdiction.py`'s
 `confirm_pilot_authorized()` re-derives its answer from history rather
 than trusting the state label. This doctrine names the pattern; it does
 not introduce it.)
