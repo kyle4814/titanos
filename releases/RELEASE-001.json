@@ -75,17 +75,21 @@
   "doctrine_hash": "sha256:4033cb9ba257772784a32805cdc1946862191363b7aa9045744904eccba4a642",
   "doctrine_version": "1",
   "generation": 1,
-  "human_release_authorization": "NOT_GRANTED",
+  "human_release_authorization": "GRANTED",
+  "human_release_authorization_note": "Granted explicitly by the repository owner (Kyle Graham) on 2026-09-01 for the v0.1.0 GitHub Release. Recorded as granted because it was granted; this field is never set by any automated process.",
   "known_open_defects": [
     "F-006 upsert accepts fabricated authority",
     "F-007 git history contaminated"
   ],
   "parent_release": null,
   "pipeline_version": "cosmic-library-1",
-  "publication_status": "CANDIDATE_ONLY_DO_NOT_PUBLISH",
+  "publication_status": "PUBLISHED_GITHUB_RELEASE_v0.1.0",
+  "published_at": "2026-08-31T23:09:31.922253+00:00",
+  "published_commit": "a0c6068",
   "release_hash": "sha256:c2d0e36c17f9e765ebff41d68463ec16c39d2862a5828cbe4a2567e14af9951f",
   "release_id": "TITANOS-COSMIC-LIBRARY-001",
   "signature": null,
+  "signature_note": "Still UNSIGNED, and deliberately so. No signing key exists and none was created -- creating or handling a private key is prohibited regardless of authorization. An unsigned release is a valid release; it is simply not a signed one.",
   "signature_status": "UNSIGNED",
   "source_revision": "cosmic-library-gen-001"
 }
