@@ -70,8 +70,7 @@ import yaml
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))
 
-from foundation.sentinel import (  # noqa: E402
-    SIGIL_STALE_OBSERVATION, count_real_tests, pulse_sweep)
+from foundation.sentinel import pulse_sweep, count_real_tests  # noqa: E402
 
 __all__ = [
     "AUTONOMY_STOP_FILENAME", "RECEIPT_LOG_NAME", "README_DRIFT_OBSERVATION",
@@ -97,8 +96,6 @@ _README_COUNT_PATTERN = re.compile(r"\*\*([\d,]+) tests across (\d+) subsystems"
 _ACTIONS = frozenset({
     "CLEAN_IDLE",
     "FIXED_README_DRIFT",
-    "FIXED_SIGIL_STALENESS",
-    "CONFIRMED_SIGIL_CURRENT",
     "STOPPED_KILL_SWITCH",
     "STOPPED_DIRTY_TREE",
     "STOPPED_UNEXPECTED_FINDINGS",
@@ -190,96 +187,6 @@ def _attempt_readme_fix(repo_root: Path) -> tuple[bool, str, Optional[str]]:
     except OSError as exc:
         return False, f"could not write README.md: {exc}", None
     return True, f"{old_snippet!r} -> {new_snippet!r}", text
-
-
-
-_SIGIL_LINE = re.compile(
-    r"TIER:T\d+ \| IRON:\d+ \| LATTICE:\d+ \| PROOF:\d+ \| SIGHT:\d+ \| "
-    r"FRONTIER:\d+ \| ORCH:\d+ \| MEMORY:\d+ \| REALITY:\d+")
-_SIGIL_COMPUTED_LINE = re.compile(r"(\*\*Computed:\*\*\s*)(\d{4}-\d{2}-\d{2})")
-
-_SIGIL_SNAPSHOT_FILES = ("SIGIL.md", "CLAUDE.md")
-
-
-def _attempt_sigil_fix(repo_root: Path) -> tuple[bool, str, dict]:
-    """Recompute the sigil for real and write it to every snapshot.
-
-    Returns (applied, detail, originals) where `originals` maps each
-    written path to its exact prior text, so the caller can roll the
-    whole set back atomically if verification fails afterwards.
-
-    THIS IS THE EXPENSIVE PATH ON PURPOSE. `compute_sigil()` genuinely
-    runs every subsystem's suite (~18s of subprocess time), which is why
-    the hourly pulse only detects that a recomputation is warranted and
-    never performs one. The loop can afford it; the sensor cannot.
-
-    Writing a recomputed value is not fabrication: `compute_sigil()`
-    derives every dimension from repository evidence and returns the
-    same result for the same state. This function never edits a
-    dimension by hand and never reconciles one snapshot to another --
-    both are overwritten from the single recomputed source.
-    """
-    from foundation.sigil import compute_sigil, format_sigil, parse_sigil
-
-    try:
-        real = compute_sigil(repo_root)
-    except Exception as exc:                                  # noqa: BLE001
-        return False, f"compute_sigil() failed: {exc}", {}
-
-    line = format_sigil(real)
-    today = datetime.now(timezone.utc).date().isoformat()
-    originals: dict = {}
-    changed: list[str] = []
-    unchanged: list[str] = []
-
-    for name in _SIGIL_SNAPSHOT_FILES:
-        path = repo_root / name
-        if not path.exists():
-            continue
-        try:
-            text = path.read_text(encoding="utf-8")
-        except OSError as exc:
-            _rollback_paths(originals)
-            return False, f"could not read {name}: {exc}", {}
-
-        recorded = parse_sigil(text, source=name)
-        if recorded is None:
-            continue
-
-        new_text = _SIGIL_LINE.sub(line, text)
-        new_text = _SIGIL_COMPUTED_LINE.sub(
-            lambda m: f"{m.group(1)}{today}", new_text)
-        if new_text == text:
-            unchanged.append(name)
-            continue
-        originals[path] = text
-        try:
-            path.write_text(new_text, encoding="utf-8")
-        except OSError as exc:
-            _rollback_paths(originals)
-            return False, f"could not write {name}: {exc}", {}
-        changed.append(name)
-
-    if not changed and not unchanged:
-        return False, "no sigil snapshot found to update", {}
-    if not changed:
-        return False, (
-            f"sigil recomputed and already current in "
-            f"{', '.join(unchanged)} -- {line}"), {}
-    return True, f"{', '.join(changed)} -> {line}", originals
-
-
-def _rollback_paths(originals: dict) -> bool:
-    """Restore every file written this attempt. Returns False if any
-    single restore fails, so the caller can say so in the receipt rather
-    than reporting a clean stop that isn't one."""
-    ok = True
-    for path, text in originals.items():
-        try:
-            path.write_text(text, encoding="utf-8")
-        except OSError:
-            ok = False
-    return ok
 
 
 def _rollback_readme(repo_root: Path, original_text: Optional[str]) -> bool:
@@ -403,60 +310,6 @@ def _run_one_cycle_uncounted(repo_root: Path) -> CycleResult:
         if commit.returncode != 0:
             return _stopped(f"git commit failed: {commit.stderr.strip()}")
         return CycleResult("FIXED_README_DRIFT", detail, now)
-
-    # -- second authorized class: a stale sigil snapshot ------------------
-    #
-    # Added after the README class had been exercised in production. The
-    # envelope stays exactly as narrow: exactly one finding, matched on a
-    # stable observation constant, with the same apply -> re-sweep ->
-    # rollback-on-failure -> pathspec-commit shape. Nothing about the
-    # "stop on anything unexpected" guarantee is relaxed to admit it.
-    if (len(findings) == 1
-            and findings[0].observation == SIGIL_STALE_OBSERVATION):
-        applied, detail, originals = _attempt_sigil_fix(repo_root)
-        if not applied:
-            # A recompute that finds the cached value already correct is
-            # a real, useful outcome -- the staleness evidence expired
-            # but the number did not move. Distinguished from a failure
-            # so the receipt does not read as a stop.
-            if "already current" in detail:
-                return CycleResult("CONFIRMED_SIGIL_CURRENT", detail, now)
-            return CycleResult("STOPPED_PATTERN_NOT_FOUND", detail, now)
-
-        def _stopped_sigil(reason: str) -> CycleResult:
-            restored = _rollback_paths(originals)
-            suffix = (
-                " (sigil snapshots restored to their pre-fix contents)"
-                if restored else
-                " -- WARNING: rollback FAILED, sigil snapshots are left "
-                "modified and require human cleanup"
-            )
-            return CycleResult(
-                "STOPPED_FIX_VERIFICATION_FAILED", reason + suffix, now)
-
-        post = pulse_sweep(repo_root)
-        if post.findings:
-            return _stopped_sigil(
-                f"fix applied but pulse_sweep() still reports "
-                f"{len(post.findings)} finding(s) -- the fix did not "
-                f"actually clear the condition it targeted"
-            )
-
-        commit_msg = (
-            "[autonomy-loop] sigil snapshots: recompute from repository "
-            "evidence\n\n"
-            f"{detail}\n\n"
-            "Recomputed by foundation/sigil.py::compute_sigil() and written "
-            "to every snapshot from that single source -- the snapshots are "
-            "never reconciled to each other. Applied and verified by "
-            "foundation/autonomy_loop.py -- local commit only, never pushed "
-            "by this loop."
-        )
-        paths = [str(pth.relative_to(repo_root)) for pth in originals]
-        commit = _git(repo_root, "commit", "-m", commit_msg, "--", *paths)
-        if commit.returncode != 0:
-            return _stopped_sigil(f"git commit failed: {commit.stderr.strip()}")
-        return CycleResult("FIXED_SIGIL_STALENESS", detail, now)
 
     return CycleResult(
         "STOPPED_UNEXPECTED_FINDINGS",

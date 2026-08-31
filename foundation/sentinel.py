@@ -778,105 +778,6 @@ def check_sigil_snapshot_agreement(repo_root: Path) -> list[Finding]:
 _ARCHIVE_HASH_PLACEHOLDER_CELL = re.compile(r"\|\s*\(this commit\)\s*\|")
 
 
-
-SIGIL_STALE_OBSERVATION = (
-    "SIGIL.md's recorded computation predates changes to the code the "
-    "sigil measures"
-)
-
-# Files whose content can move a sigil dimension. Deliberately narrow:
-# the sigil is computed from module presence, transition tables, test
-# outcomes and doctrine wiring, so a change to a .md that is not a
-# doctrine import cannot move it.
-_SIGIL_INPUT_SUFFIXES = (".py",)
-
-_SIGIL_COMPUTED_ON = re.compile(r"\*\*Computed:\*\*\s*(\d{4}-\d{2}-\d{2})")
-
-
-def check_sigil_snapshot_freshness(repo_root: Path) -> list[Finding]:
-    """Detect a sigil snapshot that is stale even though it AGREES with
-    every other snapshot.
-
-    `check_sigil_snapshot_agreement()` compares the recorded snapshots to
-    each other, and its own interpretation says plainly that "neither
-    document is ground truth." That leaves a blind spot it cannot see by
-    construction: when every cached copy is equally stale, they agree,
-    and the sweep is silent.
-
-    Demonstrated live on 2026-09-01, not hypothesised. SIGIL.md and
-    CLAUDE.md both recorded LATTICE:6 while a real `compute_sigil()` run
-    returned LATTICE:7 -- a seventh module with an explicit transition
-    table had been added since the snapshot. Both files agreed, the
-    agreement check reported nothing, and the number was wrong in both.
-
-    THIS CHECK DOES NOT RECOMPUTE THE SIGIL. `compute_sigil()` really
-    runs every subsystem's test suite and costs ~18s of subprocess time;
-    the hourly pulse is explicitly a no-subprocess, no-test-execution
-    path (see `count_real_tests`'s docstring for the same discipline).
-    So this reports only that a recomputation is WARRANTED -- that code
-    the sigil measures has changed since the snapshot was taken -- never
-    that the value has actually moved. It may well not have.
-    """
-    from datetime import datetime, timezone
-
-    path = repo_root / "SIGIL.md"
-    if not path.exists():
-        return []
-    try:
-        text = path.read_text(encoding="utf-8")
-    except OSError:
-        return []
-    match = _SIGIL_COMPUTED_ON.search(text)
-    if match is None:
-        return []
-    try:
-        computed_on = datetime.fromisoformat(match.group(1)).replace(
-            tzinfo=timezone.utc)
-    except ValueError:
-        return []
-
-    newer: list[str] = []
-    for candidate in repo_root.rglob("*"):
-        if candidate.suffix not in _SIGIL_INPUT_SUFFIXES:
-            continue
-        rel = candidate.relative_to(repo_root).as_posix()
-        if any(part in _EXCLUDED_DIRS for part in candidate.parts):
-            continue
-        try:
-            mtime = datetime.fromtimestamp(candidate.stat().st_mtime,
-                                           tz=timezone.utc)
-        except OSError:
-            continue
-        if mtime > computed_on:
-            newer.append(rel)
-    if not newer:
-        return []
-
-    return [Finding(
-        # STABLE observation, no counts -- same keying discipline as
-        # check_readme_test_count: a persisting condition must dedupe
-        # across ticks instead of producing a new key each sweep.
-        observation=SIGIL_STALE_OBSERVATION,
-        evidence_location=str(path),
-        confidence="HIGH",
-        interpretation=(
-            f"SIGIL.md was computed {match.group(1)}; {len(newer)} Python "
-            f"file(s) the sigil measures have changed since. This does NOT "
-            f"mean a dimension moved -- only that the cheap evidence for "
-            f"trusting the cached value has expired. The agreement check "
-            f"cannot catch this: when every snapshot is equally stale they "
-            f"agree with each other and nothing fires. Proven on "
-            f"2026-09-01, when SIGIL.md and CLAUDE.md both read LATTICE:6 "
-            f"against a real recompute of LATTICE:7."
-        ),
-        reversibility="fully reversible -- observation only, nothing is rewritten",
-        recommended_next_action=(
-            "run compute_sigil() and write the real value to both snapshots; "
-            "never reconcile the snapshots to each other"
-        ),
-    )]
-
-
 def check_frontier_hash_placeholders(repo_root: Path) -> list[Finding]:
     """Detect PARETO_FRONTIER.md Archive rows still carrying the literal
     hash placeholder. Read-only, no subprocess, no git call."""
@@ -1890,7 +1791,6 @@ _LEVEL1_CHECKS: tuple = (
     check_claude_md_imports, check_subsystem_build_reports, check_python_syntax,
     check_duplicate_frontier_ids, check_frontier_schema, check_mouth_health,
     check_readme_test_count, check_sigil_snapshot_agreement,
-    check_sigil_snapshot_freshness,
     check_frontier_hash_placeholders, check_protocol_document_targets,
     check_ci_matrix_coverage,
 )
