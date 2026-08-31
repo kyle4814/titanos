@@ -294,3 +294,74 @@ class TestTheHandoff(unittest.TestCase):
         self.assertIsInstance(m.power_level, int)
         self.assertIsInstance(m.confidence, float)
         self.assertTrue(m.classification)
+
+
+class TestTheCeilingIsVisible(unittest.TestCase):
+    """A ranking of WATCH was ambiguous: "weak target" and "no evidence this
+    system can produce would ever score higher" are opposite facts and were
+    indistinguishable. Measured: with every live instrument firing at
+    maximum, the best achievable priority is 4 and the threshold is 5."""
+
+    def _best_possible(self):
+        """Everything the live instruments can physically emit today."""
+        return _opp(signals=(_sig(kind="DEMAND", source_type="OFFICIAL"),
+                             _sig(kind="ACTIVITY", source_type="OFFICIAL"),
+                             _sig(kind="RELEASE", source_type="OFFICIAL")),
+                    activity_class="HIGHLY_ACTIVE",
+                    locally_reproducible="UNKNOWN")
+
+    def test_M_the_best_live_target_is_structurally_capped(self):
+        from foundation.opportunity import ceiling_analysis
+        c = ceiling_analysis(self._best_possible())
+        self.assertTrue(c.is_structurally_capped())
+        self.assertLess(c.reachable_ceiling, c.threshold)
+
+    def test_M_a_capped_ranking_says_the_levers_are_unavailable(self):
+        """Not 'this target is weak' but 'nothing could make it stronger'."""
+        joined = " ".join(rank(self._best_possible()).inputs)
+        self.assertIn("unavailable to this system", joined)
+        self.assertIn("CODE_PRESSURE", joined)
+
+    def test_the_ceiling_names_every_blocked_lever_with_a_reason(self):
+        from foundation.opportunity import ceiling_analysis
+        c = ceiling_analysis(self._best_possible())
+        levers = {name for name, _ in c.blocked_by}
+        self.assertEqual(levers, {"CODE_PRESSURE", "LOCAL_REPRODUCIBILITY",
+                                  "REWARD"})
+        for _, why in c.blocked_by:
+            self.assertTrue(why.strip())
+        self.assertIn("no live instrument emits this kind", c.explain())
+
+    def test_M_a_reachable_target_is_not_reported_as_capped(self):
+        """Positive control: the diagnosis must not cry wolf."""
+        from foundation.opportunity import ceiling_analysis
+        reachable = _opp(signals=(_sig(kind="DEMAND"),
+                                  _sig(kind="CODE_PRESSURE")),
+                         locally_reproducible="YES")
+        c = ceiling_analysis(reachable)
+        self.assertFalse(c.is_structurally_capped())
+        self.assertIn("INVESTIGATE is reachable", c.explain())
+
+    def test_M_an_investigate_ranking_carries_no_ceiling_warning(self):
+        r = rank(_opp(signals=(_sig(), _sig(kind="DEMAND"),
+                               _sig(kind="CODE_PRESSURE"))))
+        self.assertEqual(r.recommendation, "INVESTIGATE")
+        self.assertNotIn("unavailable to this system", " ".join(r.inputs))
+
+    def test_M_the_diagnosis_changes_no_recommendation(self):
+        """Weights and threshold are untouched; only legibility is added."""
+        for opp in (self._best_possible(),
+                    _opp(activity_class="DORMANT"),
+                    _opp(disqualifiers=("OUT_OF_SCOPE",)),
+                    _opp(signals=(_sig(), _sig(kind="DEMAND"),
+                                  _sig(kind="CODE_PRESSURE")))):
+            r = rank(opp)
+            self.assertIn(r.recommendation,
+                          ("INVESTIGATE", "WATCH", "IGNORE", "RECHECK",
+                           "WITHHOLD", "HUMAN_REVIEW_REQUIRED"))
+
+    def test_the_threshold_is_named_not_a_magic_number(self):
+        from foundation.opportunity import INVESTIGATE_THRESHOLD, SCORING_LEVERS
+        self.assertEqual(INVESTIGATE_THRESHOLD, 5)
+        self.assertEqual(set(SCORING_LEVERS),
+                         {"CODE_PRESSURE", "LOCAL_REPRODUCIBILITY", "REWARD"})

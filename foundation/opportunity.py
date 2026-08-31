@@ -50,6 +50,10 @@ __all__ = [
     "SignalEvidence",
     "OpportunityReceipt",
     "rank",
+    "CeilingAnalysis",
+    "ceiling_analysis",
+    "SCORING_LEVERS",
+    "INVESTIGATE_THRESHOLD",
     "PowerProfile",
     "power_profile",
     "InvestigationMission",
@@ -261,9 +265,109 @@ def rank(opportunity: OpportunityReceipt,
         inputs.append(f"{len(opportunity.unknowns)} unknown(s) recorded, "
                       f"not papered over")
 
-    rec = "INVESTIGATE" if priority >= 5 else "WATCH" if priority >= 2 else "IGNORE"
+    rec = ("INVESTIGATE" if priority >= INVESTIGATE_THRESHOLD
+           else "WATCH" if priority >= 2 else "IGNORE")
     inputs.append(f"priority {priority} -> {rec} (queue order, not a verdict)")
+
+    # Diagnosis, not tuning: no weight and no threshold changes here. If the
+    # only levers left are ones no instrument can supply, say so, because
+    # "WATCH because weak" and "WATCH because impossible" are opposite facts
+    # that previously looked identical.
+    if rec != "INVESTIGATE":
+        unavailable = []
+        if not any(s.kind == "CODE_PRESSURE" for s in opportunity.signals):
+            unavailable.append("CODE_PRESSURE (no instrument emits it)")
+        if opportunity.locally_reproducible == "UNKNOWN":
+            unavailable.append("local reproducibility (never measured)")
+        if opportunity.reward_state not in ("OBSERVED", "VERIFIED_CURRENT",
+                                            "PAID"):
+            unavailable.append("reward (no money instrument)")
+        headroom = INVESTIGATE_THRESHOLD - priority
+        if unavailable and headroom > 0:
+            inputs.append(
+                f"needs {headroom} more point(s); the only remaining levers "
+                f"are unavailable to this system: {'; '.join(unavailable)}")
+
     return Ranking(rec, tuple(inputs), priority=priority)
+
+
+# What each remaining scoring lever needs, and what would have to exist to
+# supply it. Written down because a target that cannot reach INVESTIGATE
+# should say WHY, rather than reading as merely weak.
+SCORING_LEVERS = {
+    "CODE_PRESSURE": (
+        2, "a signal of kind CODE_PRESSURE",
+        "no live instrument emits this kind; the mouths emit DEMAND, "
+        "ACTIVITY and RELEASE"),
+    "LOCAL_REPRODUCIBILITY": (
+        2, "locally_reproducible == 'YES'",
+        "nothing measures reproducibility; the radar always sets UNKNOWN"),
+    "REWARD": (
+        1, "reward_state OBSERVED or VERIFIED_CURRENT",
+        "no money instrument exists, deliberately"),
+}
+
+INVESTIGATE_THRESHOLD = 5
+
+
+@dataclass(frozen=True)
+class CeilingAnalysis:
+    """Whether this target could reach INVESTIGATE at all, and what stops it.
+
+    A ranking of WATCH is ambiguous: it can mean "weak target" or it can
+    mean "no combination of available evidence could ever score higher".
+    Those are opposite facts and were previously indistinguishable.
+    """
+
+    achieved: int
+    reachable_ceiling: int
+    threshold: int
+    blocked_by: tuple[tuple[str, str], ...]   # (lever, why it is unavailable)
+
+    def is_structurally_capped(self) -> bool:
+        """True when the threshold cannot be reached by any evidence the
+        system can currently produce -- not merely not reached yet."""
+        return self.reachable_ceiling < self.threshold
+
+    def explain(self) -> str:
+        if not self.is_structurally_capped():
+            return (f"ceiling {self.reachable_ceiling} >= threshold "
+                    f"{self.threshold}: INVESTIGATE is reachable")
+        lines = [f"STRUCTURAL CEILING: max achievable priority is "
+                 f"{self.reachable_ceiling}, threshold is {self.threshold}. "
+                 f"No evidence this system can currently produce would "
+                 f"change the recommendation."]
+        for lever, why in self.blocked_by:
+            lines.append(f"  unavailable: {lever} -- {why}")
+        return "\n".join(lines)
+
+
+def ceiling_analysis(opportunity: "OpportunityReceipt") -> CeilingAnalysis:
+    """How high this target could score if every AVAILABLE lever were pulled.
+
+    Does not change any weight or threshold. It asks a different question
+    from `rank()`: not "what did this score" but "what could it ever score".
+    """
+    achieved = rank(opportunity).priority
+    ceiling = achieved
+    blocked = []
+
+    if not any(s.kind == "CODE_PRESSURE" for s in opportunity.signals):
+        pts, _, why = SCORING_LEVERS["CODE_PRESSURE"]
+        blocked.append(("CODE_PRESSURE", why))
+    if opportunity.locally_reproducible != "YES":
+        pts, _, why = SCORING_LEVERS["LOCAL_REPRODUCIBILITY"]
+        if opportunity.locally_reproducible == "UNKNOWN":
+            blocked.append(("LOCAL_REPRODUCIBILITY", why))
+        else:
+            ceiling += pts + 2      # NO -> YES recovers the penalty too
+    if opportunity.reward_state not in ("OBSERVED", "VERIFIED_CURRENT", "PAID"):
+        pts, _, why = SCORING_LEVERS["REWARD"]
+        blocked.append(("REWARD", why))
+
+    return CeilingAnalysis(achieved=achieved, reachable_ceiling=ceiling,
+                           threshold=INVESTIGATE_THRESHOLD,
+                           blocked_by=tuple(blocked))
 
 
 def opportunity_id_for(target: str, handle: str) -> str:
