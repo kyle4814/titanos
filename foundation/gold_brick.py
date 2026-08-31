@@ -91,6 +91,24 @@ CONTACT = {
 }
 
 
+# The ten conditions the promotion gate names. A brick that cannot
+# evidence all ten is not forbidden -- it is forbidden from IMPLYING it
+# met them. "A package must never claim a stronger status than its
+# evidence supports."
+PROMOTION_CONDITIONS = (
+    "SCOPE_EXPLICIT",
+    "INPUTS_OUTPUTS_DEFINED",
+    "PROVENANCE_RECORDED",
+    "ACCEPTANCE_CRITERIA_SATISFIED",
+    "VERIFICATION_EVIDENCE_EXISTS",
+    "LIMITATIONS_DOCUMENTED",
+    "PERMISSIONS_GOVERNANCE_SATISFIED",
+    "LINEAGE_RECORDED",
+    "RECEIPT_EXISTS",
+    "ROLLBACK_UNDERSTOOD",
+)
+
+
 class BrickIntegrityError(ValueError):
     """A brick claimed something its receipt does not support."""
 
@@ -119,12 +137,27 @@ class GoldBrick:
     platform_result: str
     human_value_status: str      # UNKNOWN until a human actually acts
     offer_permitted: bool
+    limitations: tuple[str, ...] = ()
+    authority_used: str = ""
+    admitted_work_id: str = ""
+    supersedes: Optional[str] = None
+    conditions_met: tuple[str, ...] = ()
+    conditions_unmet: tuple[str, ...] = ()
     created_at: str = field(
         default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
     def verify_integrity(self, receipt: Receipt) -> bool:
         """Does this brick still correspond to that receipt?"""
         return self.brick_id == _brick_id_for(receipt)
+
+    def fully_promoted(self) -> bool:
+        """True only when all ten promotion conditions were evidenced.
+
+        Derived, never asserted -- the same discipline as
+        `DeliveryRecord.full_brick_delivered()`.
+        """
+        return not self.conditions_unmet and len(
+            self.conditions_met) == len(PROMOTION_CONDITIONS)
 
     def is_recipient_facing(self) -> bool:
         return self.context in RECIPIENT_FACING_CONTEXTS
@@ -253,6 +286,45 @@ def _brick_id_for(receipt: Receipt) -> str:
     return "GB-" + hashlib.sha256(payload.encode()).hexdigest()[:16]
 
 
+def evaluate_promotion(receipt: Receipt, *, revision: str,
+                       work_completed: tuple[str, ...],
+                       limitations: tuple[str, ...], authority_used: str,
+                       admitted_work_id: str,
+                       ) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    """Which of the ten promotion conditions this brick can actually evidence.
+
+    Returns (met, unmet). Nothing here refuses promotion: a brick built on
+    partial evidence is allowed to exist, it is simply not allowed to imply
+    it met conditions it did not. "A package must never claim a stronger
+    status than its evidence supports" is a labelling law, not a ban.
+
+    Before this existed, `materialise()` checked three things and the brick
+    silently read as if all ten held. That is the exact overclaim the
+    promotion gate names.
+    """
+    met, unmet = [], []
+
+    def _check(name: str, ok: bool) -> None:
+        (met if ok else unmet).append(name)
+
+    _check("SCOPE_EXPLICIT", bool(receipt.target.strip() and revision.strip()))
+    _check("INPUTS_OUTPUTS_DEFINED", bool(work_completed))
+    _check("PROVENANCE_RECORDED", bool(receipt.receipt_id.strip()))
+    # An acceptance criterion is a question the work was measured against.
+    _check("ACCEPTANCE_CRITERIA_SATISFIED", bool(receipt.question.strip()))
+    _check("VERIFICATION_EVIDENCE_EXISTS", bool(receipt.proven_claims()))
+    # Silence is not the same as "no limitations". Saying so counts.
+    _check("LIMITATIONS_DOCUMENTED", bool(limitations))
+    _check("PERMISSIONS_GOVERNANCE_SATISFIED", bool(authority_used.strip()))
+    # Lineage to the admitted work that authorised the investigation --
+    # the link that let a caller bypass the admission gate entirely.
+    _check("LINEAGE_RECORDED", bool(admitted_work_id.strip()))
+    _check("RECEIPT_EXISTS", True)          # required by the signature
+    _check("ROLLBACK_UNDERSTOOD",
+           bool(receipt.reentry_condition.strip() or receipt.supersedes))
+    return tuple(met), tuple(unmet)
+
+
 def materialise(
     receipt: Receipt,
     business: Optional[BusinessReceipt],
@@ -268,12 +340,28 @@ def materialise(
     delivery_status: str = "NOT_DELIVERED",
     platform_result: str = "NOT_ATTEMPTED",
     human_value_status: str = "UNKNOWN",
+    limitations: tuple[str, ...] = (),
+    authority_used: str = "",
+    admitted_work_id: str = "",
+    supersedes: Optional[str] = None,
 ) -> GoldBrick:
     """Derive a brick from a receipt. The receipt is the only source.
 
     Refuses a claim the receipt does not carry: a brick describing a
     finding needs at least one PROVEN claim behind it, exactly as
     DEFECT_ADMITTED does. Prose is not evidence.
+
+    The promotion gate names TEN conditions. This function hard-refuses
+    only the ones that would make the artifact dishonest, and RECORDS the
+    rest on the brick itself. A brick built on partial evidence may exist;
+    it may not imply it met conditions it did not. Read
+    `conditions_unmet` before treating a brick as fully promoted.
+
+    `admitted_work_id` is how a brick states which admitted investigation
+    authorised it. `admission.py::attach_brick()` independently refuses to
+    attach a brick to work that is not QUALIFIED -- two gates, and this
+    field is what lets them compose instead of standing side by side while
+    a caller walks between them.
     """
     if context not in BRICK_CONTEXTS:
         raise BrickIntegrityError(f"unknown brick context {context!r}")
@@ -292,6 +380,11 @@ def materialise(
         and business.available_next_action != "NO_REMEDIATION_OFFER_RECOMMENDED"
     )
 
+    met, unmet = evaluate_promotion(
+        receipt, revision=revision, work_completed=work_completed,
+        limitations=limitations, authority_used=authority_used,
+        admitted_work_id=admitted_work_id)
+
     return GoldBrick(
         brick_id=_brick_id_for(receipt),
         receipt_id=receipt.receipt_id,
@@ -307,4 +400,10 @@ def materialise(
         platform_result=platform_result,
         human_value_status=human_value_status,
         offer_permitted=offer_permitted,
+        limitations=limitations,
+        authority_used=authority_used,
+        admitted_work_id=admitted_work_id,
+        supersedes=supersedes,
+        conditions_met=met,
+        conditions_unmet=unmet,
     )

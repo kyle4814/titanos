@@ -10,6 +10,7 @@ import unittest
 from foundation.receipt import Claim, Receipt
 from foundation.business_receipt import derive_business_receipt
 from foundation.gold_brick import (
+    PROMOTION_CONDITIONS,
     BrickIntegrityError,
     DeliveryRecord,
     GoldBrick,
@@ -174,3 +175,79 @@ class TestTheBrickCannotOutrunItsReceipt(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestThePromotionGateNamesTenConditions(unittest.TestCase):
+    """"DOCUMENTED != IMPLEMENTED != TESTED != VERIFIED != PRODUCTION.
+    A package must never claim a stronger status than its evidence
+    supports." Before this, materialise() checked three things and the
+    brick silently read as if all ten held."""
+
+    def test_M_a_thin_brick_reports_what_it_could_not_evidence(self):
+        brick = _brick()
+        self.assertTrue(brick.conditions_unmet)
+        self.assertFalse(brick.fully_promoted())
+        for missing in ("LIMITATIONS_DOCUMENTED",
+                        "PERMISSIONS_GOVERNANCE_SATISFIED",
+                        "LINEAGE_RECORDED"):
+            self.assertIn(missing, brick.conditions_unmet)
+
+    def test_M_silence_is_not_the_same_as_no_limitations(self):
+        """Recording none and having none are different facts."""
+        bare = _brick()
+        stated = _brick(limitations=("not exercised at current HEAD",))
+        self.assertIn("LIMITATIONS_DOCUMENTED", bare.conditions_unmet)
+        self.assertIn("LIMITATIONS_DOCUMENTED", stated.conditions_met)
+
+    def test_M_a_fully_evidenced_brick_reports_all_ten(self):
+        """Positive control: the gate must be satisfiable, not decorative."""
+        r = Receipt(
+            receipt_id="R-1", target="acme/widget",
+            question="does the suggested fix compile?",
+            verdict="COVERAGE_GAP_RECORDED",
+            claims=(Claim("the fix emits an unbound qualifier", "PROVEN",
+                          "reproduced via RunWithSuggestedFixes"),),
+            reentry_condition="re-run if the analyzer changes")
+        brick = _brick(receipt=r, limitations=("latent, not triggered",),
+                       authority_used="READ_ONLY",
+                       admitted_work_id="WU-abc123")
+        self.assertEqual(brick.conditions_unmet, ())
+        self.assertTrue(brick.fully_promoted())
+        self.assertEqual(len(brick.conditions_met), len(PROMOTION_CONDITIONS))
+
+    def test_M_fully_promoted_is_derived_never_asserted(self):
+        surface = {f for f in dir(_brick()) if not f.startswith("_")}
+        self.assertNotIn("set_fully_promoted", surface)
+        self.assertNotIn("promote", surface)
+
+    def test_every_named_condition_is_accounted_for(self):
+        brick = _brick()
+        self.assertEqual(set(brick.conditions_met) | set(brick.conditions_unmet),
+                         set(PROMOTION_CONDITIONS))
+        self.assertEqual(set(brick.conditions_met) & set(brick.conditions_unmet),
+                         set())
+
+    def test_M_lineage_is_the_link_that_makes_two_gates_compose(self):
+        """A caller could call materialise() directly and walk past the
+        admission gate entirely. The brick now states whether it knows
+        which admitted work authorised it."""
+        self.assertIn("LINEAGE_RECORDED", _brick().conditions_unmet)
+        self.assertIn("LINEAGE_RECORDED",
+                      _brick(admitted_work_id="WU-abc").conditions_met)
+
+    def test_M_a_corrected_brick_can_point_at_the_one_it_replaces(self):
+        """GoldBrick had no supersedes while Receipt and Crystal both do,
+        so a corrected brick got a new content id with no link back."""
+        first = _brick()
+        second = _brick(what_we_found="corrected finding",
+                        supersedes=first.brick_id)
+        self.assertEqual(second.supersedes, first.brick_id)
+        self.assertNotEqual(second.brick_id, first.brick_id)
+        self.assertIsNone(first.supersedes)
+
+    def test_the_offer_gate_is_untouched_by_any_of_this(self):
+        r = _receipt(verdict="NO_DEFECT")
+        b = _brick(receipt=r, business=derive_business_receipt(r),
+                   admitted_work_id="WU-abc", authority_used="READ_ONLY")
+        self.assertFalse(b.offer_permitted)
+        self.assertIn("titanos.tech", b.render())
