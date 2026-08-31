@@ -517,7 +517,7 @@ class TestLegacyUnchainedLedgerStillLoads(unittest.TestCase):
                       f"Raised: {exc!r}")
         if not _DEFAULT_LEDGER_PATH.exists():
             self.assertEqual(
-                led.all_records(), [],
+                len(led.all_records()), 0,
                 "a fresh clone has no ledger; it must report empty, not "
                 "fabricate records")
             return
@@ -526,8 +526,8 @@ class TestLegacyUnchainedLedgerStillLoads(unittest.TestCase):
     def test_a_legacy_record_is_reported_unverifiable_not_verified(self):
         led = OutcomeLedger(ledger_path=_DEFAULT_LEDGER_PATH)
         if not _DEFAULT_LEDGER_PATH.exists():
-            self.assertEqual(led.all_records(), [])
-            self.assertEqual(list(led.pairs()), [])
+            self.assertEqual(len(led.all_records()), 0)
+            self.assertEqual(len(list(led.pairs())), 0)
             return
         self.assertGreater(len(led.all_records()), 0)
         for record in led.all_records():
