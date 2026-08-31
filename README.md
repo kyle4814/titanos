@@ -140,7 +140,19 @@ attribution pending confirmation of the preferred rights-holder name.
 
 ## Status
 
-Pre-publication review in progress. See `legacy/DECISION_PACKET.md` for
-the one redaction made during that review (derived scan manifests
-containing unrelated private filesystem paths, excluded from tracking,
-logged rather than silently dropped).
+**Published.** [v0.1.0](https://github.com/kyle4814/titanos/releases/tag/v0.1.0)
+is tagged and released with a wheel and an sdist attached. CI is green
+across all 12 suites.
+
+The pre-publication review that preceded it made exactly one redaction,
+recorded in `legacy/DECISION_PACKET.md`: derived scan manifests containing
+unrelated private filesystem paths, excluded from tracking and logged
+rather than silently dropped.
+
+What v0.1.0 does **not** claim, stated here so the release notes are not
+the only place it appears: it is unsigned (no signing key exists), its
+measured `autonomy_ratio` is `0.0000` because no mutating entrypoint is
+scheduled, no commercial outcome has ever been observed, and three open
+defects with runnable reproductions sit in `failures/FAILURE_ARCHIVE.md`.
+Installing into a dedicated virtualenv is advised — the wheel exposes
+generic top-level package names that can collide in a shared environment.
