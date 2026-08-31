@@ -24,7 +24,15 @@ printf -- "----------------------------------\n"
 for s in "${SUITES[@]}"; do
   [ -d "$s" ] || continue
   start=$(date +%s)
-  out=$(python3 -m unittest discover -s "$s" 2>&1 | tail -4)
+  # Read the summary from STDERR ONLY. unittest writes "Ran N tests" and
+  # "OK"/"FAILED" to stderr; a test's own print() goes to stdout, which is
+  # block-buffered when piped and therefore flushes AFTER stderr at process
+  # exit. Merging them with 2>&1 put a compiler test's JSON output last, so
+  # `tail` never saw the summary: 41 passing tests were reported as
+  # "0 FAIL" and dropped from the total. release.sh gates on this script's
+  # verdict, so a parser that can be displaced by arbitrary test output is
+  # not a test result -- it is a coin flip that usually lands right.
+  out=$(python3 -m unittest discover -s "$s" 2>&1 1>/dev/null | tail -4)
   el=$(( $(date +%s) - start ))
   n=$(echo "$out" | grep -oE 'Ran [0-9]+' | grep -oE '[0-9]+' || echo 0)
   if echo "$out" | grep -qE '^OK'; then r="OK"; else r="FAIL"; failed="$failed $s"; fi
@@ -33,7 +41,7 @@ for s in "${SUITES[@]}"; do
 done
 printf -- "----------------------------------\n"
 if [ -z "$failed" ]; then
-  echo "PASS  $total tests, 10 suites, 0 failures"; exit 0
+  echo "PASS  $total tests, ${#SUITES[@]} suites, 0 failures"; exit 0
 else
   echo "FAIL  $total tests; failing suites:$failed"; exit 1
 fi
