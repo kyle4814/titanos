@@ -69,6 +69,7 @@ from typing import Any
 __all__ = [
     "SOURCE_TYPES", "SourceRecord", "SourceRegistry",
     "InvalidSourceType", "SourceVaultError", "NoSuchContentHash",
+    "LedgerCorrupted",
 ]
 
 # ─────────────────────────────────────────────────────────────
@@ -90,6 +91,17 @@ class SourceVaultError(Exception):
     """Base for structured rejections raised by this module. Never raised
     for "we merely disagree with the content" — only for inputs that
     cannot be safely or meaningfully registered at all."""
+
+
+class LedgerCorrupted(SourceVaultError):
+    """The registry ledger has a malformed line that is NOT the last one.
+
+    Deliberately distinct from the recoverable case. A malformed final
+    line is an interrupted append and is skipped with a recorded warning;
+    a malformed line with intact lines after it means something was
+    written past a hole, which no crash produces. Loading a provenance
+    ledger in that state would silently present incomplete history as
+    complete, so this refuses instead."""
 
 
 class InvalidSourceType(SourceVaultError):
@@ -149,6 +161,9 @@ class SourceRegistry:
         self._archive_dir.mkdir(parents=True, exist_ok=True)
         self._registry_path = Path(registry_path) if registry_path else None
         self._records: dict[str, SourceRecord] = {}
+        # Always present, so a caller can check it unconditionally rather
+        # than guarding on whether a replay happened to run.
+        self.recovery_warnings: tuple[str, ...] = ()
         if self._registry_path and self._registry_path.exists():
             self._replay()
 
@@ -156,21 +171,79 @@ class SourceRegistry:
 
     def _replay(self) -> None:
         """Reload prior ingestion events from the append-only JSONL file.
-        Read-only over that file — never writes here."""
-        with open(self._registry_path, "r", encoding="utf-8") as fh:
-            for line in fh:
-                line = line.strip()
-                if not line:
-                    continue
+        Read-only over that file — never writes here.
+
+        A TRUNCATED FINAL LINE IS A CRASH ARTIFACT, NOT CORRUPTION
+
+        Reproduced directly: appending one partial line to a three-record
+        ledger — exactly what a process killed mid-append leaves behind —
+        made `SourceRegistry()` raise `json.JSONDecodeError` from this
+        method, out through `__init__`. The vault could not be
+        constructed at all, and three intact records still present on
+        disk became unreachable until a human hand-edited the file.
+
+        The fix is deliberately NOT "skip every bad line". This is a
+        provenance vault; silently dropping a record in the middle of the
+        ledger would lose evidence and say nothing about it, which is
+        worse than crashing. So position decides:
+
+        - A malformed LAST line is the expected artifact of an
+          interrupted append. It is skipped, and the fact is recorded in
+          `recovery_warnings` so it is observable rather than invisible.
+        - A malformed line anywhere EARLIER cannot be an interrupted
+          append -- something wrote past it afterwards. That is real
+          corruption or tampering, and it still raises.
+
+        `recovery_warnings` is checked by a caller that cares; it is not
+        printed, because this module has no opinion about output.
+        """
+        lines = [
+            (index, stripped)
+            for index, raw in enumerate(
+                self._registry_path.read_text(encoding="utf-8").splitlines())
+            if (stripped := raw.strip())
+        ]
+        last_index = lines[-1][0] if lines else -1
+        warnings: list[str] = []
+
+        for index, line in lines:
+            try:
                 obj = json.loads(line)
-                self._records[obj["artifact_id"]] = SourceRecord(**obj)
+                record = SourceRecord(**obj)
+            except (json.JSONDecodeError, TypeError) as exc:
+                if index == last_index:
+                    warnings.append(
+                        f"final ledger line {index + 1} is malformed and was "
+                        f"skipped ({type(exc).__name__}); this is the "
+                        f"signature of a write interrupted mid-append. "
+                        f"{len(self._records)} earlier record(s) recovered "
+                        f"intact."
+                    )
+                    continue
+                raise LedgerCorrupted(
+                    f"ledger line {index + 1} of {len(lines)} is malformed "
+                    f"({type(exc).__name__}) and is NOT the final line — a "
+                    f"later line was written after it, so this cannot be an "
+                    f"interrupted append. Refusing to load a provenance "
+                    f"ledger with a hole in it."
+                ) from exc
+            self._records[record.artifact_id] = record
+
+        self.recovery_warnings: tuple[str, ...] = tuple(warnings)
 
     def _append_to_ledger(self, rec: SourceRecord) -> None:
         if not self._registry_path:
             return
         with open(self._registry_path, "a", encoding="utf-8") as fh:
-            fh.write(json.dumps(rec.to_dict(), sort_keys=True))
-            fh.write("\n")
+            # One write call, not two. The previous shape wrote the JSON
+            # body and the trailing newline separately, which left a
+            # second, wider window in which a crash produces a line that
+            # is syntactically plausible but unterminated.
+            fh.write(json.dumps(rec.to_dict(), sort_keys=True) + "\n")
+            # A provenance vault that reports success before the bytes
+            # are durable is reporting something it does not know.
+            fh.flush()
+            os.fsync(fh.fileno())
 
     @staticmethod
     def _hash_bytes(content: bytes) -> str:

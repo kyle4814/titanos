@@ -18,6 +18,7 @@
 @TITANOS_RECURSION_GUARD_001.md
 @TITANOS_LAUNCH_SEQUENCE_001.md
 @TITANOS_MONK_DEMONBLADE_PRINCIPLE.md
+@TITANOS_COMMUNICATION_SWITCH_001.md
 
 Monk-Demonblade Principle (next doctrine file after Launch Sequence
 001): names, but does not newly enforce, the capability/authority
@@ -133,11 +134,24 @@ sources only, no credentials/privilege/spend/code-execution — see
 `HUMAN_DECISIONS.md`), represented as real `CommunicationSwitch`
 instances by `foundation/discovery_authorization.py` rather than a
 prose claim a caller re-types each time. `authorize_communication()`
-now genuinely returns True for an authorized `DiscoveryPolicy` — but
-this repository still makes zero network connections and still passes
-the Obelisk Test unchanged: no fetcher/adapter consumes that True, and
-none should be built until a concrete discovery objective is actually
-open in `PARETO_FRONTIER.md` (none is, as of this entry). See also
+now genuinely returns True for an authorized `DiscoveryPolicy`.
+
+**CORRECTED 2026-09-01.** This paragraph previously read "this
+repository still makes zero network connections... no fetcher/adapter
+consumes that True, and none should be built until a concrete discovery
+objective is actually open." That became false when the mouths were
+built and stayed in this file for several cycles. `foundation/
+mouth_common.py::fetch_feed()` is the single socket in this repository
+and it makes real network requests; five mouths and `target_mapping.py`
+call it. For several of those cycles it did so WITHOUT consulting the
+gate at all — the switch was armed and had no consumer, and this
+sentence is precisely why nobody noticed, because the file documenting
+the door insisted there was no door. Wired 2026-09-01: `fetch_feed()`
+now calls `authorize_discovery()` before every request and refuses
+outright without a `DiscoveryPolicy` naming a concrete objective and
+budget. See `foundation/tests/test_network_control_plane.py`, which
+attacks the gate from the positions a careless caller would occupy.
+See also
 `foundation/sentinel.py::classify_hold()` — the HOLD_CLASSES
 (`TERMINAL_HOLD`/`BLOCKED_HOLD`/`INPUT_STARVED_HOLD`/`BUDGET_HOLD`/
 `AUTHORITY_HOLD`) this authorization made worth naming, since only
@@ -179,8 +193,11 @@ and `PARETO_FRONTIER.md` FRONTIER-009 for the deferred fix.
 `PARETO_FRONTIER.md` ids), CT_141-compacted above 20 raw findings,
 structurally forbidden from executing a finding (`FourPaths` cannot
 recommend a path with no proposal; no public callable is named as an
-action verb). Real finding from its first run: `schema/`, `firewall/`,
-`narrative/` have no `BUILD_REPORT.md`.
+action verb). Its first run found that `schema/`, `firewall/` and
+`narrative/` had no `BUILD_REPORT.md` — since resolved; all eight
+subsystems now have one, and this file contradicted itself about that
+for several cycles (the "Standing facts" section below always stated it
+correctly). The sentinel now runs twelve checks, not four.
 
 **Frontier-as-Capability-Map addendum** governs `PARETO_FRONTIER.md`'s
 own maintenance discipline (Frontier Gate: CURRENT/GAP/LEVER/FIRST
@@ -191,10 +208,18 @@ evidence-backed enough to become frontier commitments.
 
 **Obelisk Zero-Dependency Doctrine** — H0 (proven now, zero external
 dependency) / H1 (resource-conditional, never claimed as implemented) /
-H2 (civilisational vista, a strategic map only). Audited same day: zero
-network imports anywhere in this repository, `yaml` the sole third-party
-dependency across all eight subsystems — the Obelisk Test already
-passes. See `TITANOS_OBELISK_ZERO_DEPENDENCY_DOCTRINE.md`.
+H2 (civilisational vista, a strategic map only). Audited 2026-08-25:
+zero network imports anywhere, `yaml` the sole third-party dependency —
+the Obelisk Test passed as stated.
+
+**That audit is superseded and its headline is now false.** The mouths
+added `urllib.request` from 2026-08-27, which `SIGIL.md` itself records
+as the cause of the T7 -> T3 tier drop and `REALITY:10 -> 6`. The repo
+still has exactly one third-party dependency (`yaml`) and every suite
+still runs with no network access, so the *dependency* half of the
+Obelisk Test holds; the *zero network imports* half does not. Network
+access is now bounded by `communication_gate.py` rather than by absence.
+See `TITANOS_OBELISK_ZERO_DEPENDENCY_DOCTRINE.md`.
 
 **Capability Sigil** (`SIGIL.md`, computed by `foundation/sigil.py::
 compute_sigil()`) is historical compression — what capability has
@@ -250,6 +275,87 @@ to go hands-off this machine — this file is how a future session (with
 or without him present) finds out what's actually still waiting on a
 decision, without re-deriving it from git history.
 
+## The value radar (`foundation/`) — undocumented here until 2026-09-01
+
+Thirteen modules totalling roughly 5,700 lines had no mention in this
+file at all, including the largest single module in the repository. They
+are the "does anyone outside care?" instrument, and every one of them
+exists because a live run found the previous one lying.
+
+- `signal_spine.py` — the canonical signal contract and the only fusion
+  path. Keeps `observed_at` separate from `event_at`, preserves
+  `evidence` verbatim, and collapses echoes via `source_lineage` so two
+  feeds reporting one event cannot pass as two facts. Refuses to
+  construct a signal claiming EXPLICIT_DEMAND with no pressure evidence
+  — an independent second enforcement point, found by mutation.
+- `tentacles.py` — thin adapters turning real feed items into canonical
+  signals. Never fetches.
+- `mouth_common.py` + `mouth_github_releases/pypi/npm/github_issues/
+  github_commits.py` — the fetchers. `fetch_feed()` is the repository's
+  only socket and is gated (see the communication-gate note above).
+- `activity_shape.py` — human hands versus machines. `_is_bot` is the
+  single bot classifier; nothing may grow a second one.
+- `code_pressure.py` — share of recent commits that are repair work.
+  Excludes bots entirely, after a target locked at 100% remediation
+  where all ten commits were `github-actions[bot]` talking to itself.
+- `demand_direction.py` — which side of the transaction the asker is on.
+  A contributor-onboarding programme manufactures "help wanted" issues
+  to hand to a cohort; those are labour supply wearing demand's clothes,
+  and both prior gates passed them. Reads the maintainer's own declared
+  labels, never intent.
+- `target_mapping.py` — repo-to-registry identity, with
+  `SOURCE_NATIVE`/`DECLARED_MATCH` distinguished from inference.
+- `opportunity.py` — ranking and the handoff, plus `ceiling_analysis()`,
+  which exists because INVESTIGATE was once structurally unreachable and
+  the honest response was to make the ceiling legible rather than lower
+  the threshold.
+- `outcome_ledger.py` — the durable calibration spine. Content-addressed
+  pre-action contexts, a witness requirement above transport, and
+  `DISPROVEN` for a target a killing experiment excluded before any
+  approach was made.
+- `admission.py` — the work ledger and capacity report. In-memory only,
+  despite "append-only" language; see the durability note below.
+- `value_model.py` — value classes kept apart. UNKNOWN is never zero.
+- `situation_analysis.py` — 977 lines, the largest module here, and
+  entirely absent from this file until now.
+- `corpus_triage.py` — decides in seconds whether a delivered corpus
+  contains anything buildable. `structural_key()` collapses wording and
+  keeps shape, which is what separates "twenty specifications" from "one
+  specification written twenty times". Every corpus delivered to this
+  repository so far has measured as scaffolding.
+- `autonomy_loop.py` — the only thing authorised to repair README's test
+  count, with verification, rollback and a receipt. Not scheduled; see
+  `HUMAN_DECISIONS.md` for why that is a human decision.
+- `secret_scanner.py`, `sentinel.py` (twelve checks), `readme` guards —
+  the observation layer.
+
+## Two honest caveats about this repository's own claims
+
+**Durability.** Several stores describe themselves as "append-only
+ledgers" and hold nothing but an in-memory dict: `crystal.py`,
+`reality_yield_ledger.py`, `admission.py`, `firewall/quarantine.py`,
+`kpm/promotion/state_machine.py`, `narrative/store/narrative_atom_store.py`.
+"Append-only" is true of a Python list and means nothing across a
+process boundary — every record in those six is lost on ordinary exit,
+not merely on a crash. The genuinely durable stores are
+`outcome_ledger.jsonl`, `autonomy_loop_log.jsonl`, `pulse_log.jsonl`,
+`authority_ledger.jsonl` and `kpm/source-vault/registry.jsonl`. No
+ledger anywhere hash-chains its records, so deleting a middle line is
+undetectable; `LedgerTampered` catches in-place mutation of one record,
+not deletion.
+
+**Gates.** Twelve gate/switch modules exist, all with declarations,
+implementations and tests. Exactly one is load-bearing on a real action:
+`discovery_authorization`/`communication_gate`, reachable from
+`fetch_feed()`. `publication_gate` is legitimately unwired — it guards
+`git push`, a human action with no in-repo code path. The rest —
+`hells_gate` (described above as the front door), `contribution_gate`,
+`switch_hardener`, `taal/gate/root_gate`, `rpa/gates/human_jurisdiction`,
+`firewall/gate` — have no production caller, and `flow_switch` and
+`magl/composition/engine` are called only by callers that themselves
+have none. Audited 2026-09-01. Do not read a gate's existence as
+evidence that anything passes through it.
+
 ## Standing facts about this repository
 
 Real, running Python (unittest), no runtime dependency beyond PyYAML.
@@ -257,6 +363,10 @@ Every subsystem (`schema/`, `firewall/`, `kpm/`, `magl/`, `rpa/`,
 `taal/`, `foundation/`, `narrative/`) has its own `BUILD_REPORT.md` with
 an honest limitations/human-decisions/next-work-cell section — read
 those before assuming a capability is missing. As of the last full-repo
-regression run (2026-08-25, post-Crystal), all 8 suites pass, 915 tests
-total; run them again rather than trusting that count, since it will go
-stale the moment this file does not.
+regression run (2026-09-01) all ten suites pass — `schema`, `firewall`,
+`kpm`, `magl`, `rpa`, `taal`, `foundation`, `narrative`, `compiler`,
+`legacy`. The count in `README.md` is the one kept current (by
+`autonomy_loop.py`, the only thing authorised to write it); this file
+deliberately no longer carries a second copy, because the previous one
+sat at 915 for weeks while reality passed 2,400 — a hand-maintained
+number in a second place is a staleness generator, not a fact.
