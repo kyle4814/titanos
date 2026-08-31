@@ -29,6 +29,7 @@ from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from typing import Optional
 
+from foundation.demand_direction import classify_direction
 from foundation.signal_spine import CanonicalSignal
 
 __all__ = ["github_release_signal", "pypi_release_signal", "release_lineage",
@@ -161,6 +162,16 @@ def github_issue_demand_signal(item: dict, now: Optional[datetime] = None
     # had counted every one of them as an open request.
     assignees = [a for a in (item.get("assignees") or ()) if a]
 
+    # A third axis, orthogonal to human/bot and to assigned/unassigned:
+    # which side of the transaction the asker is on. Found by the second
+    # killing experiment -- two targets whose asks were unassigned and
+    # written by real humans, but manufactured to be handed to a cohort
+    # of contributors. Both prior gates passed them correctly and neither
+    # could see it. See `foundation/demand_direction.py`.
+    direction = classify_direction(
+        item.get("labels", ()),
+        sole_author_share=item.get("sole_author_share"))
+
     # Deliberately EMPTY. An issue number, its state and its creation date
     # are properties of one ask, not claims about the target that another
     # source could confirm or deny. Putting them in `facts` made two
@@ -188,16 +199,25 @@ def github_issue_demand_signal(item: dict, now: Optional[datetime] = None
                   "comments": comments,
                   "assignees": tuple(assignees),
                   "claimed": bool(assignees),
+                  "demand_direction": direction.direction,
+                  "direction_reasons": tuple(direction.reasons),
                   "raw_created_at": item.get("created_at", ""),
                   "raw_updated_at": item.get("updated_at", "")},
-        pressure_class=("EXPLICIT_DEMAND" if asked and not assignees
-                        else "NONE"),
+        pressure_class=("EXPLICIT_DEMAND"
+                        if asked and not assignees
+                        and direction.counts_as_demand() else "NONE"),
         pressure_evidence=(
-            f"labelled {', '.join(asked)}; {comments} comments; unassigned"
-            if asked and not assignees else ""),
+            f"labelled {', '.join(asked)}; {comments} comments; unassigned; "
+            f"no recruitment evidence"
+            if asked and not assignees and direction.counts_as_demand()
+            else ""),
         unknowns=(
             ("someone is assigned; this ask is already claimed"
              if assignees else "whether anyone is already working on it"),
+            ("this ask is contributor-recruitment material, not a need"
+             if direction.is_recruitment()
+             else "whether a real need underlies this ask -- the absence "
+                  "of recruitment markers is not evidence that one does"),
             "whether the project accepts outside contributions",
             "whether the underlying problem is reproducible"))
 

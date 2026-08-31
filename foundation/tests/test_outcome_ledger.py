@@ -12,6 +12,7 @@ from pathlib import Path
 
 from foundation.outcome_ledger import (
     EXTERNALLY_EVIDENCED_STATES,
+    OUTCOME_STATES,
     OutcomeIntegrityError,
     LedgerTampered,
     OutcomeLedger,
@@ -338,3 +339,38 @@ class TestDurabilityAcrossTheProcessBoundary(unittest.TestCase):
         self.assertIsNotNone(w)
         self.assertIn("maintainer", w.observed_by)
         self.assertTrue(w.mechanism)
+
+
+class TestDisprovenIsItsOwnState(unittest.TestCase):
+    """A killing experiment's verdict must not collapse into a neighbour.
+
+    Added when the radar first positively excluded a target before any
+    approach was made. NOT_OBSERVED would have understated it (the world
+    was not silent -- it answered clearly), and DECLINED would have
+    overstated it (nobody refused us; no contact was ever made).
+    """
+
+    def test_disproven_is_a_declared_state(self):
+        self.assertIn("DISPROVEN", OUTCOME_STATES)
+
+    def test_disproven_needs_no_witness(self):
+        """It is our own finding about a public artifact, not a claim
+        about what a person did, so it must not sit behind the witness
+        requirement that guards the externally-evidenced states."""
+        self.assertNotIn("DISPROVEN", EXTERNALLY_EVIDENCED_STATES)
+
+    def test_disproven_is_not_confusable_with_its_neighbours(self):
+        for other in ("NOT_OBSERVED", "DECLINED", "UNKNOWN"):
+            self.assertNotEqual("DISPROVEN", other)
+
+    def test_disproven_records_without_a_witness(self):
+        with tempfile.TemporaryDirectory() as d:
+            ledger = OutcomeLedger(Path(d) / "l.jsonl")
+            ctx = freeze_pre_action(
+                target="acme/widget", target_established_by="SOURCE_NATIVE",
+                facts={"verdict": "excluded"},
+                disqualifiers=("contributor-onboarding programme",))
+            rec = ledger.record(brick_id="KE-1", context=ctx,
+                                state="DISPROVEN")
+            self.assertEqual(rec.state, "DISPROVEN")
+            self.assertIsNone(rec.witness)

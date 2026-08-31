@@ -86,6 +86,12 @@ def parse_items(raw: bytes) -> tuple[dict, ...]:
             # locked target before this was noticed.
             "assignees": [a.get("login", "") for a in it.get("assignees", ())
                           if isinstance(a, dict)],
+            # Who wrote the ask. Third field in this parser found to
+            # matter after being discarded: one account authoring every
+            # ask in a repository is a contributor programme, not a
+            # community. Kept so `demand_direction` can corroborate a
+            # lone teaching label without an extra API request.
+            "author_login": (it.get("user") or {}).get("login", ""),
             "created_at": it.get("created_at", ""),
             "updated_at": it.get("updated_at", ""),
             "state": it.get("state", ""),

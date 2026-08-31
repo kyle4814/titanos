@@ -90,6 +90,14 @@ OUTCOME_STATES = (
     "VALUE_REALIZED",       # a real outcome was obtained
     "CASH_REALIZED",        # verified money
     "DECLINED",             # an identifiable human said no
+    # A killing experiment positively excluded the target BEFORE any
+    # approach was made. Deliberately distinct from both neighbours:
+    # NOT_OBSERVED means we looked and the world was silent, DECLINED
+    # means a person refused us. This means we investigated and the
+    # evidence ruled the target out on its own terms, with no contact
+    # ever made. Collapsing it into either one would lose the only
+    # outcome the system can reach without spending an approach.
+    "DISPROVEN",
     "UNKNOWN",              # not established either way
 )
 

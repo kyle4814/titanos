@@ -15,8 +15,8 @@ against real, unmodified filesystem data rather than only synthetic
 tests.
 
 No runtime dependency beyond PyYAML. Pure `unittest`, no test framework
-dependency. **2,448 tests across 11 subsystems, all passing as of
-2026-08-30** (a static count of `def test_*` definitions, checked
+dependency. **2,476 tests across 11 subsystems, all passing as of
+2026-09-01** (a static count of `def test_*` definitions, checked
 against real state by `foundation/sentinel.py::check_readme_test_count()`
 — run `python3 -m unittest discover` in any subsystem's `tests/`
 directory to verify the count executes and passes; do not trust this
