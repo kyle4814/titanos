@@ -692,3 +692,54 @@ class TestTheDemandAdapter(unittest.TestCase):
         from foundation.mouth_github_issues import parse_items
         self.assertEqual(parse_items(b"not json"), ())
         self.assertEqual(parse_items(b'{"items":[{"no":"url"}]}'), ())
+
+
+class TestConvergenceIsNotQuadraticInSignalCount(unittest.TestCase):
+    """Found by running the full chain live: five demand issues plus one
+    activity signal plus one pressure signal reported ELEVEN convergent
+    dimensions when three were present, inflating gravity by 5,500."""
+
+    def _d(self, n):
+        return _sig(sid=f"D{n}", source_id="issues", kind="DEMAND",
+                    source_lineage=f"acme-issue-{n}", facts={},
+                    claim=f"issue {n} asks for help",
+                    pressure_class="EXPLICIT_DEMAND",
+                    pressure_evidence="labelled help wanted")
+
+    def _a(self):
+        return _sig(sid="A", source_id="commits", kind="ACTIVITY",
+                    source_lineage="acme-commit-1", facts={},
+                    claim="a commit landed")
+
+    def _p(self):
+        return _sig(sid="P", source_id="commits", kind="CODE_PRESSURE",
+                    source_lineage="acme-pressure", facts={},
+                    claim="50% remediation")
+
+    def test_M_three_dimensions_report_three_not_eleven(self):
+        f = fuse([self._d(1), self._d(2), self._d(3), self._d(4), self._d(5),
+                  self._a(), self._p()])
+        # kind-pairs: DEMAND/ACTIVITY, DEMAND/CODE_PRESSURE, ACTIVITY/CODE_PRESSURE
+        self.assertEqual(f.convergences, 3)
+
+    def test_M_adding_more_of_the_same_kind_does_not_add_convergence(self):
+        """The load-bearing property: convergence is bounded by how many
+        DIMENSIONS exist, not how many signals arrived."""
+        few = fuse([self._d(1), self._a()])
+        many = fuse([self._d(i) for i in range(1, 21)] + [self._a()])
+        self.assertEqual(few.convergences, many.convergences)
+        self.assertEqual(many.convergences, 1)
+
+    def test_M_gravity_no_longer_inflates_with_signal_count(self):
+        few = gravity(fuse([self._d(1), self._a()]))
+        many = gravity(fuse([self._d(i) for i in range(1, 21)] + [self._a()]))
+        self.assertEqual(
+            dict(few.breakdown)["MULTI_DIMENSIONAL_CONVERGENCE"],
+            dict(many.breakdown)["MULTI_DIMENSIONAL_CONVERGENCE"])
+
+    def test_a_genuinely_new_dimension_still_counts(self):
+        """Positive control: the fix must not make convergence unreachable."""
+        two = fuse([self._d(1), self._a()])
+        three = fuse([self._d(1), self._a(), self._p()])
+        self.assertEqual(two.convergences, 1)
+        self.assertEqual(three.convergences, 3)

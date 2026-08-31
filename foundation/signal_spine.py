@@ -373,7 +373,14 @@ def fuse(signals: Iterable[CanonicalSignal],
     contradictions: list[Relation] = []
     unknown_pairs = 0
     corroborations = 0
-    convergences = 0
+    # Distinct KIND-PAIRS, not qualifying signal pairs. Counting signal
+    # pairs is quadratic in signal count: five demand issues plus one
+    # activity signal plus one pressure signal produced ELEVEN
+    # "convergent dimensions" on a live target when there were only
+    # three dimensions present. That inflated gravity by 5,500 for
+    # evidence that had not multiplied -- the echo failure in a new
+    # shape. Found by running the full chain live, not by review.
+    convergent_kinds: set = set()
 
     # Union-find over signal indices. Anything that is not genuinely
     # independent gets merged into one cluster.
@@ -414,7 +421,8 @@ def fuse(signals: Iterable[CanonicalSignal],
                         and sigs[j].target_is_established()
                         and not sigs[i].is_stale(now)
                         and not sigs[j].is_stale(now)):
-                    convergences += 1
+                    convergent_kinds.add(
+                        tuple(sorted((sigs[i].kind, sigs[j].kind))))
             elif rel.kind in ("DUPLICATE", "CORRELATED", "STALE"):
                 union(i, j)
 
@@ -429,7 +437,7 @@ def fuse(signals: Iterable[CanonicalSignal],
     return FusedTarget(
         target=sigs[0].target, signals=sigs, relations=tuple(relations),
         independent_facts=independent, corroborations=corroborations,
-        convergences=convergences, echoes=echoes,
+        convergences=len(convergent_kinds), echoes=echoes,
         contradictions=tuple(contradictions), stale_signals=stale,
         unknown_pairs=unknown_pairs, unknowns=unknowns)
 
