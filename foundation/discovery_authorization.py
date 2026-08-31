@@ -54,7 +54,10 @@ represented here.
 """
 from __future__ import annotations
 
+import hashlib
+import json
 import re
+import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
@@ -72,6 +75,10 @@ __all__ = [
     "DEFAULT_MAX_RESULTS",
     "DiscoveryPolicy", "UnboundedDiscoveryObjective",
     "standing_switch_for", "authorize_discovery",
+    "DiscoveryBudgetExhausted", "spend_query", "budget_spent",
+    "reset_budgets",
+    "DiscoveryBudgetExhausted", "spend_query", "budget_spent",
+    "reset_budgets",
 ]
 
 STANDING_AUTHORIZED_BY = "Kyle Graham"
@@ -122,6 +129,39 @@ FORBIDDEN_OBJECTIVE_PHRASES = (
 _UNBOUNDED_QUANTIFIER = re.compile(
     r"\b(everything|anything|all the things|whatever|as much as (you |i )?can|"
     r"any and all|the (whole|entire) (web|internet)|the web|the internet)\b",
+    re.I)
+
+# The regex above matches bare quantifier PRONOUNS only, and the comment
+# above it claimed an objective containing an unbounded quantifier was
+# caught "however it is phrased". That was false, and an independent
+# adversarial review broke it with five strings that all passed:
+#
+#   "download every release across every repository on github"
+#   "collect all public github repos matching *"
+#   "mirror the full github issue tracker"
+#   "monitor every repo in this github org"
+#   "crawl each page under this domain"
+#
+# Each is "search everything" in substance. A quantifier applied to a
+# NOUN is invisible to a pronoun-only pattern, which is the whole class
+# the first version missed.
+#
+# This second pattern catches a quantifier ranging over a CLASS of
+# things rather than a named instance. It is deliberately conservative:
+# a network gate's correct failure direction is refusal, and a wrongly
+# refused objective costs one rewording while a wrongly allowed one
+# costs an unbounded crawl.
+#
+# It still cannot be complete. "every release of numpy" is bounded by
+# numpy and would be refused here; that is an accepted false positive,
+# not a claim of precision. No string test can confirm an objective is
+# bounded -- only that it is not obviously unbounded.
+_QUANTIFIED_CLASS = re.compile(
+    r"\b(every|each|all|any|the\s+(full|entire|whole|complete))\s+"
+    r"(?:\w+\s+){0,3}?"
+    r"(repo|repos|repositor(?:y|ies)|packages?|projects?|pages?|sites?|"
+    r"domains?|orgs?|organi[sz]ations?|users?|accounts?|issues?|"
+    r"releases?|files?|endpoints?|records?|feeds?)\b",
     re.I)
 
 DEFAULT_MAX_QUERIES = 5
@@ -179,9 +219,214 @@ def _validate_objective(objective: str) -> None:
         raise UnboundedDiscoveryObjective(
             f"objective {text!r} contains the unbounded quantifier "
             f"{quantifier.group(0)!r} — an objective whose object is "
-            f"'everything' is unbounded by construction, however it is "
-            f"phrased. Name the specific subject to be observed."
+            f"'everything' is unbounded by construction. Name the "
+            f"specific subject to be observed."
         )
+    quantified = _QUANTIFIED_CLASS.search(text)
+    if quantified:
+        raise UnboundedDiscoveryObjective(
+            f"objective {text!r} quantifies over a class of things "
+            f"({quantified.group(0)!r}) rather than naming an instance. "
+            f"'every repository', 'all packages' and 'the full issue "
+            f"tracker' are unbounded however they are worded. Name the "
+            f"specific subject to be observed."
+        )
+
+
+
+# ─────────────────────────────────────────────────────────────
+# BUDGET ENFORCEMENT
+#
+# `max_queries`, `max_wall_clock_seconds` and `max_results` were
+# declared on DiscoveryPolicy, serialised by to_dict(), and read by
+# NOTHING. An independent adversarial review grepped the whole
+# repository and found zero consumers. Meanwhile `fetch_feed()`'s own
+# docstring told callers a policy "names a concrete objective and
+# budget" -- so the gate advertised a limit it did not have, which is
+# the switch-that-does-nothing defect this repository's own doctrine
+# calls out by name.
+#
+# THE SCOPE IS PER-PROCESS, AND THAT IS STATED RATHER THAN IMPLIED.
+# The ledger below lives in module memory, so the budget covers one
+# Python process. That genuinely matches how this repository fetches:
+# `cron_pulse.py` is a cron entry, so every tick is a fresh process
+# with a fresh budget, and the limit constrains a runaway loop inside
+# one run -- which is the failure this is for. It does NOT constrain
+# total requests per hour across many cron ticks; that is what
+# GitHub's own rate limit does, and pretending otherwise would be a
+# second false claim in the same place as the first.
+# ─────────────────────────────────────────────────────────────
+
+class DiscoveryBudgetExhausted(CommunicationDenied):
+    """A policy's declared budget was spent. Subclasses CommunicationDenied
+    so a caller that already handles refusal handles this too, and so no
+    existing caller can accidentally treat exhaustion as success."""
+
+
+def _policy_key(policy: "DiscoveryPolicy") -> str:
+    """Identity by declared content, not by object id.
+
+    Two policies naming the same objective and budget are the same
+    authorization however many times they are constructed -- otherwise a
+    caller could reset its own budget just by building a fresh instance
+    in a loop, which is the exact bypass this is meant to close.
+    """
+    return hashlib.sha256(json.dumps({
+        "objective": policy.objective.strip().lower(),
+        "requested_scope": policy.requested_scope,
+        "max_queries": policy.max_queries,
+        "max_wall_clock_seconds": policy.max_wall_clock_seconds,
+    }, sort_keys=True).encode()).hexdigest()[:16]
+
+
+# key -> [queries_spent, first_spend_monotonic]
+_BUDGET_LEDGER: dict[str, list] = {}
+
+
+def spend_query(policy: "DiscoveryPolicy", now: "float | None" = None) -> int:
+    """Charge one request against a policy. Raises when the budget is out.
+
+    Called by `mouth_common.fetch_feed()` immediately after
+    authorization and BEFORE the socket opens, so an exhausted budget
+    costs no request. Returns the number spent including this one.
+
+    `now` is injectable for tests; production uses a monotonic clock so
+    a system clock adjustment cannot extend or collapse a window.
+    """
+    key = _policy_key(policy)
+    current = time.monotonic() if now is None else now
+    entry = _BUDGET_LEDGER.setdefault(key, [0, current])
+    spent, started = entry
+
+    elapsed = current - started
+    if elapsed > policy.max_wall_clock_seconds:
+        # The window is over. A fresh window is the honest reading of
+        # "max_wall_clock_seconds" -- it bounds one burst, and refusing
+        # forever would make a long-lived process permanently mute.
+        entry[0], entry[1] = 0, current
+        spent = 0
+
+    if spent >= policy.max_queries:
+        raise DiscoveryBudgetExhausted(
+            f"discovery budget exhausted for objective "
+            f"{policy.objective!r}: {spent} of {policy.max_queries} "
+            f"queries already spent within {policy.max_wall_clock_seconds}s "
+            f"(this process). Refusing before the request is made, so the "
+            f"budget costs nothing to enforce."
+        )
+    entry[0] = spent + 1
+    return entry[0]
+
+
+def budget_spent(policy: "DiscoveryPolicy") -> int:
+    """How many queries this policy has spent in this process. Read-only;
+    exists so the budget is observable rather than only enforceable."""
+    return _BUDGET_LEDGER.get(_policy_key(policy), [0, 0.0])[0]
+
+
+def reset_budgets() -> None:
+    """Clear the ledger. For tests and for a caller that genuinely starts
+    a new run inside one process -- deliberately NOT called anywhere in
+    the fetch path, or the budget would reset itself."""
+    _BUDGET_LEDGER.clear()
+
+
+# ─────────────────────────────────────────────────────────────
+# BUDGET ENFORCEMENT
+#
+# `max_queries`, `max_wall_clock_seconds` and `max_results` were
+# declared on DiscoveryPolicy, serialised by to_dict(), and read by
+# NOTHING. An independent adversarial review grepped the whole
+# repository and found zero consumers. Meanwhile `fetch_feed()`'s own
+# docstring told callers a policy "names a concrete objective and
+# budget" -- so the gate advertised a limit it did not have, which is
+# exactly the switch-that-does-nothing defect this repository's own
+# doctrine calls out by name.
+#
+# THE SCOPE IS PER-PROCESS, AND THAT IS STATED RATHER THAN IMPLIED.
+# The ledger below lives in module memory, so the budget covers one
+# Python process. That matches how this repository actually fetches:
+# `cron_pulse.py` is a cron entry, so every tick is a fresh process
+# with a fresh budget, and the limit constrains a runaway loop inside
+# one run -- which is the failure this is for. It does NOT constrain
+# total requests per hour across many ticks; GitHub's own rate limit
+# does that, and pretending otherwise would put a second false claim
+# in the same place as the first.
+# ─────────────────────────────────────────────────────────────
+
+
+class DiscoveryBudgetExhausted(CommunicationDenied):
+    """A policy's declared budget was spent.
+
+    Subclasses CommunicationDenied so a caller that already handles
+    refusal handles this too, and so no existing caller can mistake
+    exhaustion for success."""
+
+
+def _policy_key(policy: "DiscoveryPolicy") -> str:
+    """Identity by declared content, not by object id.
+
+    Two policies naming the same objective and budget are the same
+    authorization however many times they are constructed -- otherwise a
+    caller resets its own budget just by building a fresh instance in a
+    loop, which is the exact bypass this closes.
+    """
+    return hashlib.sha256(json.dumps({
+        "objective": policy.objective.strip().lower(),
+        "requested_scope": policy.requested_scope,
+        "max_queries": policy.max_queries,
+        "max_wall_clock_seconds": policy.max_wall_clock_seconds,
+    }, sort_keys=True).encode()).hexdigest()[:16]
+
+
+_BUDGET_LEDGER: dict = {}
+
+
+def spend_query(policy: "DiscoveryPolicy", now=None) -> int:
+    """Charge one request against a policy. Raises when the budget is out.
+
+    Called by `mouth_common.fetch_feed()` after authorization and BEFORE
+    the socket opens, so an exhausted budget costs no request. Returns
+    the number spent including this one.
+
+    `now` is injectable for tests; production uses a monotonic clock so
+    a system clock adjustment cannot extend or collapse a window.
+    """
+    key = _policy_key(policy)
+    current = time.monotonic() if now is None else now
+    entry = _BUDGET_LEDGER.setdefault(key, [0, current])
+    spent, started = entry
+
+    if current - started > policy.max_wall_clock_seconds:
+        # The window is over. A fresh window is the honest reading of
+        # max_wall_clock_seconds -- it bounds one burst, and refusing
+        # forever would make a long-lived process permanently mute.
+        entry[0], entry[1] = 0, current
+        spent = 0
+
+    if spent >= policy.max_queries:
+        raise DiscoveryBudgetExhausted(
+            f"discovery budget exhausted for objective {policy.objective!r}: "
+            f"{spent} of {policy.max_queries} queries already spent within "
+            f"{policy.max_wall_clock_seconds}s (this process). Refusing "
+            f"before the request is made, so the budget costs nothing to "
+            f"enforce."
+        )
+    entry[0] = spent + 1
+    return entry[0]
+
+
+def budget_spent(policy: "DiscoveryPolicy") -> int:
+    """How many queries this policy has spent in this process. Read-only;
+    exists so the budget is observable, not only enforceable."""
+    return _BUDGET_LEDGER.get(_policy_key(policy), [0, 0.0])[0]
+
+
+def reset_budgets() -> None:
+    """Clear the ledger. For tests, and for a caller that genuinely
+    starts a new run inside one process -- deliberately NOT called
+    anywhere in the fetch path, or the budget would reset itself."""
+    _BUDGET_LEDGER.clear()
 
 
 def standing_switch_for(requested_scope: str) -> CommunicationSwitch:

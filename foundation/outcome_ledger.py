@@ -71,7 +71,20 @@ __all__ = [
     "OutcomeLedger",
     "LedgerTampered",
     "freeze_pre_action",
+    "CHAIN_VERIFIED",
+    "CHAIN_UNVERIFIED_LEGACY",
 ]
+
+# A record's place in the file is itself evidence: deleting or reordering a
+# LINE was previously invisible, because each record only content-addressed
+# ITSELF (PreActionContext.is_intact()), never its neighbour. Two statuses,
+# never conflated: a record chained to its predecessor and verified across
+# the whole run of chained lines, versus a record written before this
+# feature existed, which the chain literally cannot speak to. The second
+# status is not "assumed fine" -- it is a distinct, queryable fact so a
+# caller cannot mistake "never checked" for "checked and passed."
+CHAIN_VERIFIED = "CHAIN_VERIFIED"
+CHAIN_UNVERIFIED_LEGACY = "CHAIN_UNVERIFIED_LEGACY"
 
 
 class OutcomeIntegrityError(ValueError):
@@ -158,6 +171,25 @@ def _digest_for(target: str, established_by: str, facts: Mapping[str, Any],
         "disqualifiers": list(disqualifiers),
     }, sort_keys=True, default=str)
     return hashlib.sha256(blob.encode()).hexdigest()[:16]
+
+
+def _canonical_record_hash(obj: Mapping[str, Any]) -> str:
+    """One deterministic digest over a line's own content plus the link to
+    its predecessor.
+
+    Canonical form (`sort_keys=True, separators=(",", ":")`) matters: the
+    same logical record must hash identically regardless of dict insertion
+    order, or two honest writers could disagree about a hash that never
+    actually changed. `record_hash` is excluded from its own input --
+    hashing a field that contains itself is undefined, not merely awkward.
+    `previous_hash` is INCLUDED, which is the whole mechanism: it is what
+    turns a bag of self-addressed records into a chain where removing or
+    reordering one line breaks the link the next line depends on.
+    """
+    payload = {k: v for k, v in obj.items() if k != "record_hash"}
+    blob = json.dumps(payload, sort_keys=True, separators=(",", ":"),
+                      default=str)
+    return hashlib.sha256(blob.encode()).hexdigest()
 
 
 def freeze_pre_action(target: str, target_established_by: str,
@@ -284,6 +316,28 @@ class OutcomeLedger:
     boundary: someone editing the file could otherwise change what the
     system "believed" before it acted. A tampered context raises rather
     than loading quietly.
+
+    THE GAP THAT WAS FOUND, AND WHY IT WAS INVISIBLE. `is_intact()` proves
+    a record was not EDITED -- it says nothing about a record that was
+    REMOVED. A middle line deleted (or two lines swapped) from the raw
+    JSONL leaves every remaining line individually self-consistent; replay
+    would happily rebuild a shorter, or reordered, history and never know.
+    Every new record now carries `previous_hash` (the `record_hash` of the
+    line written before it, `""` for the first chained record) and its own
+    `record_hash` (a digest over its own content INCLUDING `previous_hash`
+    -- see `_canonical_record_hash`). Deleting or reordering a chained line
+    breaks the link the following line depends on, and replay raises
+    `LedgerTampered` naming the line and the break, instead of silently
+    reconstructing a shorter past.
+
+    BACKWARD COMPATIBILITY. The file this module has been writing since
+    before this feature has no hash fields at all. Those records are not
+    an error -- they predate the chain and the chain literally has nothing
+    to check them against. They load, and are reported via
+    `chain_status()` as `CHAIN_UNVERIFIED_LEGACY`, never as verified. The
+    first record appended after a run of legacy lines starts a fresh
+    chain from `previous_hash=""` -- it cannot retroactively chain to
+    unhashed history, so it does not pretend to.
     """
 
     def __init__(self,
@@ -291,26 +345,42 @@ class OutcomeLedger:
         self._ledger_path = Path(ledger_path) if ledger_path else None
         self._records: list[OutcomeRecord] = []
         self._contexts: dict[str, PreActionContext] = {}
+        # The hash chain's running state. "" means "nothing chained yet" --
+        # true both at the very start of a file AND immediately after a
+        # run of legacy (unhashed) lines, which is exactly the behaviour
+        # requirement 2 wants: the first chained record's previous_hash is
+        # "" whether it opens the file or resumes after legacy history.
+        self._chain_next_previous: str = ""
+        self._chain_status: dict[str, str] = {}
         if self._ledger_path and self._ledger_path.exists():
             self._replay()
 
     # -- durability --------------------------------------------------
     def _replay(self) -> None:
         with open(self._ledger_path, "r", encoding="utf-8") as fh:
-            for line in fh:
+            for line_no, line in enumerate(fh, start=1):
                 line = line.strip()
                 if not line:
                     continue
                 try:
                     obj = json.loads(line)
                 except json.JSONDecodeError:
-                    continue        # truncated trailing write; see docstring
+                    # A truncated trailing write from a killed process looks
+                    # exactly like this: a half-written final line that is
+                    # not valid JSON. Skipping it (rather than raising) is
+                    # deliberate -- a crash may only ever cost the last
+                    # unflushed append, never force destructive manual
+                    # recovery of everything before it. A deletion/reorder
+                    # in the MIDDLE never produces invalid JSON -- the
+                    # surviving lines are each still well-formed -- so it is
+                    # caught below, by the chain check, not here.
+                    continue
                 try:
-                    self._replay_line(obj)
+                    self._replay_line(obj, line_no)
                 except (KeyError, TypeError):
                     continue
 
-    def _replay_line(self, obj: dict) -> None:
+    def _replay_line(self, obj: dict, line_no: int) -> None:
         kind = obj.get("kind")
         if kind == "CONTEXT":
             ctx = PreActionContext(
@@ -325,16 +395,52 @@ class OutcomeLedger:
                     f"sealed context {ctx.context_id} on disk does not match "
                     f"its own content; what the system believed before acting "
                     f"has been altered")
+            self._verify_chain_link(obj, ctx.context_id, line_no)
             self._contexts[ctx.context_id] = ctx
         elif kind == "OUTCOME":
             w = obj.get("witness")
-            self._records.append(OutcomeRecord(
+            record = OutcomeRecord(
                 outcome_id=obj["outcome_id"], brick_id=obj["brick_id"],
                 pre_action_id=obj["pre_action_id"], state=obj["state"],
                 witness=Witness(**w) if w else None,
                 note=obj.get("note", ""),
                 recorded_at=obj.get("recorded_at", ""),
-                supersedes=obj.get("supersedes")))
+                supersedes=obj.get("supersedes"))
+            self._verify_chain_link(obj, record.outcome_id, line_no)
+            self._records.append(record)
+
+    def _verify_chain_link(self, obj: dict, record_id: str,
+                           line_no: int) -> None:
+        """Advance (or refuse to advance) the running chain state for one
+        replayed line. Every branch either records an honest status or
+        raises -- there is no third, silent, "probably fine" outcome."""
+        record_hash = obj.get("record_hash")
+        if record_hash is None:
+            # Pre-dates the chain. Not tampering -- there is nothing here
+            # to verify against -- but it must never be reported as if it
+            # had been.
+            self._chain_status[record_id] = CHAIN_UNVERIFIED_LEGACY
+            return
+        previous_hash = obj.get("previous_hash", "")
+        if previous_hash != self._chain_next_previous:
+            raise LedgerTampered(
+                f"line {line_no}: record {record_id} claims "
+                f"previous_hash={previous_hash!r}, but the chain built from "
+                f"every line read so far expects {self._chain_next_previous!r}. "
+                f"A line was deleted, reordered, or the ledger was cut and "
+                f"resumed from a different point -- the two hashes can only "
+                f"disagree if the sequence of lines actually on disk differs "
+                f"from the sequence this record was written into.")
+        recomputed = _canonical_record_hash(obj)
+        if recomputed != record_hash:
+            raise LedgerTampered(
+                f"line {line_no}: record {record_id} does not match its own "
+                f"record_hash; its content was altered in place after being "
+                f"written (this is the same class of tampering "
+                f"PreActionContext.is_intact() already catches for sealed "
+                f"contexts, extended here to every chained line).")
+        self._chain_status[record_id] = CHAIN_VERIFIED
+        self._chain_next_previous = record_hash
 
     def _append(self, obj: dict) -> None:
         if not self._ledger_path:
@@ -342,6 +448,26 @@ class OutcomeLedger:
         self._ledger_path.parent.mkdir(parents=True, exist_ok=True)
         with open(self._ledger_path, "a", encoding="utf-8") as fh:
             fh.write(json.dumps(obj, sort_keys=True, default=str) + "\n")
+
+    def _append_chained(self, obj: dict, record_id: str) -> None:
+        """Write one line, linking it to whatever was written before it
+        (in THIS process's view of the chain -- which, after a
+        constructor-time replay, already reflects the whole file)."""
+        chained = dict(obj, previous_hash=self._chain_next_previous)
+        chained["record_hash"] = _canonical_record_hash(chained)
+        self._append(chained)
+        self._chain_next_previous = chained["record_hash"]
+        self._chain_status[record_id] = CHAIN_VERIFIED
+
+    # -- chain status --------------------------------------------------
+    def chain_status(self, record_id: str) -> str:
+        """CHAIN_VERIFIED, CHAIN_UNVERIFIED_LEGACY, or "UNKNOWN_RECORD" if
+        no context or outcome with this id was ever loaded or written.
+        Never returns a verified status for a record this ledger has not
+        actually checked -- silence about the chain is not the same fact
+        as a passed check, and this method exists so a caller can never
+        confuse the two."""
+        return self._chain_status.get(record_id, "UNKNOWN_RECORD")
 
     def seal(self, context: PreActionContext) -> PreActionContext:
         """Store a pre-action snapshot. Re-sealing an identical context is
@@ -358,14 +484,14 @@ class OutcomeLedger:
                 "refusing to replace a sealed pre-action context")
         if context.context_id not in self._contexts:
             self._contexts[context.context_id] = context
-            self._append({
+            self._append_chained({
                 "kind": "CONTEXT", "context_id": context.context_id,
                 "target": context.target,
                 "target_established_by": context.target_established_by,
                 "facts": dict(context.facts),
                 "unknowns": list(context.unknowns),
                 "disqualifiers": list(context.disqualifiers),
-                "frozen_at": context.frozen_at})
+                "frozen_at": context.frozen_at}, context.context_id)
         return context
 
     def record(self, brick_id: str, context: PreActionContext, state: str,
@@ -380,7 +506,7 @@ class OutcomeLedger:
             pre_action_id=context.context_id, state=state, witness=witness,
             note=note, supersedes=supersedes)
         self._records.append(record)
-        self._append({
+        self._append_chained({
             "kind": "OUTCOME", "outcome_id": record.outcome_id,
             "brick_id": record.brick_id, "pre_action_id": record.pre_action_id,
             "state": record.state, "note": record.note,
@@ -389,7 +515,7 @@ class OutcomeLedger:
                          "mechanism": record.witness.mechanism,
                          "what_was_observed": record.witness.what_was_observed,
                          "observed_at": record.witness.observed_at}
-                        if record.witness else None)})
+                        if record.witness else None)}, record.outcome_id)
         return record
 
     def context_for(self, outcome: OutcomeRecord) -> Optional[PreActionContext]:

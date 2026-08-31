@@ -39,12 +39,57 @@ Mirrors `reality_yield_ledger.py` / `kpm/promotion/state_machine.py` /
 `firewall/quarantine.py`: append-only, no delete/purge/clear/remove
 method. A crystal later shown to be wrong is superseded, not erased —
 `supersedes` points at the old id, both remain retrievable.
+
+DURABILITY -- WHAT WAS FALSE BEFORE AND WHAT CHANGED
+
+`CrystalStore`'s docstring used to claim "Append-only store of Crystal
+records. No delete surface" while holding nothing but a plain in-memory
+dict. That claim was false: "append-only" describes an ordering
+discipline, not a durability guarantee, and a Python dict has none —
+every crystal recorded by a real GO cycle was lost the moment the
+process exited, not merely on a crash. For a module whose entire reason
+to exist is being the MEMORY link in this repository's own
+REALITY -> LEVER -> ACTION -> TEST -> YIELD -> MEMORY chain
+(`TITANOS_GREENLIGHT_AND_MEMETIC_DOCTRINE.md`), that is not a minor gap.
+
+This module now follows the JSONL append/replay pattern proven in
+`foundation/outcome_ledger.py::OutcomeLedger`: an optional `crystal_path`
+is appended to on every `record()` and replayed on construction, with
+`fsync` after every write (a guarantee `OutcomeLedger` itself does not
+make — a store that reports success before its bytes are durable is
+reporting something it does not actually know) and a truncated trailing
+line skipped rather than raised on reload.
+
+THE DEFAULT IS DELIBERATELY *NOT* A REPOSITORY PATH
+
+`OutcomeLedger` defaults `ledger_path` to a module-relative file, but
+every one of its own tests explicitly overrides that default with a
+tempdir path — none of them ever construct `OutcomeLedger()` bare. This
+module's existing test suite is the opposite: dozens of cases already
+call `CrystalStore()` with no arguments, and per this fix's own
+requirement they must keep passing unchanged. Defaulting `crystal_path`
+to a real `foundation/crystal_store.jsonl` path would make every one of
+those calls silently start writing to the repository on every test run
+— test pollution, and the exact durability-vs-isolation trap
+`outcome_ledger.py` and `admission.py` have already been caught in once
+each. The correct call here is therefore the opposite of
+`OutcomeLedger`'s default: `crystal_path` defaults to `None` (in-memory
+only, byte-for-byte the previous behaviour). Durability is opt-in —
+callers that want a crystal to survive process exit must pass an
+explicit path, e.g. `CrystalStore(crystal_path=Path(__file__).resolve().parent / "crystal_store.jsonl")`.
+This is the safer default because silent non-durability is a known,
+already-documented limitation (see this repo's `CLAUDE.md`), while
+silent repository writes during `unittest` runs are a new defect this
+fix must not introduce.
 """
 
 from __future__ import annotations
 
+import json
+import os
 from dataclasses import dataclass, field, asdict
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 from kpm.schemas.epistemic_types import ALL_CLASSIFICATIONS
@@ -112,11 +157,64 @@ class Crystal:
 
 
 class CrystalStore:
-    """Append-only store of Crystal records. No delete surface."""
+    """Append-only store of Crystal records. No delete surface.
 
-    def __init__(self) -> None:
+    DURABILITY: see the module docstring's "DURABILITY" section for the
+    full history of the defect this fixes. Short version: `crystal_path`
+    is optional and defaults to `None` (in-memory only, matching the
+    store's previous, entirely non-durable behaviour) precisely so the
+    existing bare `CrystalStore()` test suite keeps its isolation. Pass
+    an explicit path to get real durability — every `record()` is then
+    appended to that file and fsync'd before the call returns, and the
+    same records are replayed back on the next construction against that
+    path.
+    """
+
+    def __init__(self, crystal_path: "str | Path | None" = None) -> None:
+        self._crystal_path = Path(crystal_path) if crystal_path else None
         self._crystals: dict[str, Crystal] = {}
         self._order: list[str] = []
+        if self._crystal_path is not None and self._crystal_path.exists():
+            self._replay()
+
+    # -- durability ----------------------------------------------------
+    def _replay(self) -> None:
+        """Reload every previously appended crystal from disk.
+
+        Mirrors `OutcomeLedger._replay()`: a line that fails to parse as
+        JSON is assumed to be a truncated trailing write from a process
+        that died mid-append, and is skipped rather than raised — losing
+        at most the single unflushed record, never the whole store. A
+        line that parses but fails `Crystal`'s own field validation (or
+        is missing a required key) is likewise skipped rather than
+        aborting the whole reload, on the same "one bad record must not
+        take down the rest of memory" principle.
+        """
+        with open(self._crystal_path, "r", encoding="utf-8") as fh:
+            for line in fh:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    obj = json.loads(line)
+                except json.JSONDecodeError:
+                    continue        # truncated trailing write; see docstring
+                try:
+                    crystal = Crystal(**obj)
+                except (KeyError, TypeError, ValueError):
+                    continue
+                self._crystals[crystal.crystal_id] = crystal
+                self._order.append(crystal.crystal_id)
+
+    def _append(self, crystal: Crystal) -> None:
+        if self._crystal_path is None:
+            return
+        self._crystal_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(self._crystal_path, "a", encoding="utf-8") as fh:
+            fh.write(json.dumps(crystal.to_dict(), sort_keys=True, default=str) + "\n")
+            fh.flush()
+            os.fsync(fh.fileno())  # durable before record() returns, not
+                                    # merely "handed to the OS eventually"
 
     def record(
         self,
@@ -162,6 +260,7 @@ class CrystalStore:
         )
         self._crystals[crystal_id] = crystal
         self._order.append(crystal_id)
+        self._append(crystal)
         return crystal
 
     def get(self, crystal_id: str) -> Crystal | None:

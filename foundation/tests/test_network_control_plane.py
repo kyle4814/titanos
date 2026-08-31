@@ -21,7 +21,8 @@ from unittest import mock
 
 from foundation.communication_gate import CommunicationDenied
 from foundation.discovery_authorization import (
-    DiscoveryPolicy, UnboundedDiscoveryObjective,
+    DiscoveryBudgetExhausted, DiscoveryPolicy, UnboundedDiscoveryObjective,
+    budget_spent, reset_budgets,
 )
 from foundation.mouth_common import fetch_feed
 
@@ -203,3 +204,124 @@ class TestTheDocumentationMatchesReality(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestQuantifiedClassObjectivesAreRefused(unittest.TestCase):
+    """An independent adversarial review broke the first quantifier check.
+
+    `_UNBOUNDED_QUANTIFIER` matched bare pronouns only, while the comment
+    beside it claimed an unbounded objective was caught "however it is
+    phrased". These five strings all passed validation and would have
+    reached `urlopen`. A quantifier applied to a NOUN was invisible to a
+    pronoun-only pattern -- the whole class the first version missed.
+    """
+
+    BYPASSES = (
+        "download every release across every repository on github",
+        "collect all public github repos matching *",
+        "mirror the full github issue tracker",
+        "monitor every repo in this github org",
+        "crawl each page under this domain",
+        "index all packages on pypi",
+        "fetch any user account data",
+    )
+
+    def test_each_known_bypass_is_refused(self):
+        for objective in self.BYPASSES:
+            with self.subTest(objective=objective):
+                policy = DiscoveryPolicy(objective=objective,
+                                         requested_scope="READ_URL")
+                with mock.patch("urllib.request.urlopen", _never_called):
+                    with self.assertRaises(UnboundedDiscoveryObjective):
+                        fetch_feed("https://example.invalid/f", policy=policy)
+
+    def test_the_six_real_mouth_objectives_still_pass(self):
+        """The other half of the proof. A validator that refuses every
+        objective is not a gate, it is an outage."""
+        import importlib
+        from foundation.discovery_authorization import authorize_discovery
+        for name in ("mouth_github_releases", "mouth_pypi",
+                     "mouth_github_issues", "mouth_github_commits",
+                     "mouth_npm", "target_mapping"):
+            with self.subTest(mouth=name):
+                mod = importlib.import_module(f"foundation.{name}")
+                self.assertTrue(authorize_discovery(mod.DISCOVERY_POLICY))
+
+
+class TestTheBudgetIsRealNotDecorative(unittest.TestCase):
+    """`max_queries` / `max_wall_clock_seconds` / `max_results` were
+    declared, serialised by to_dict(), and read by NOTHING -- confirmed
+    by a repo-wide grep. Meanwhile fetch_feed's docstring told callers a
+    policy names a budget. The gate advertised a limit it did not have.
+    """
+
+    class _Resp:
+        def read(self, n=-1): return b"<feed/>"
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+
+    def setUp(self):
+        reset_budgets()
+        self.addCleanup(reset_budgets)
+        self.policy = DiscoveryPolicy(
+            objective="observe the release feed of one named repository",
+            requested_scope="READ_URL", max_queries=3)
+
+    def test_the_budget_stops_the_fourth_request(self):
+        opened = []
+        def counting(*a, **k):
+            opened.append(1)
+            return self._Resp()
+        with mock.patch("urllib.request.urlopen", counting):
+            for _ in range(3):
+                fetch_feed("https://example.invalid/f", policy=self.policy)
+            with self.assertRaises(DiscoveryBudgetExhausted):
+                fetch_feed("https://example.invalid/f", policy=self.policy)
+        self.assertEqual(len(opened), 3,
+                         "a refused request must cost no socket")
+
+    def test_a_freshly_constructed_identical_policy_shares_the_budget(self):
+        """Otherwise a caller resets its own budget by rebuilding the
+        object in a loop -- the exact bypass this closes."""
+        with mock.patch("urllib.request.urlopen", lambda *a, **k: self._Resp()):
+            for _ in range(3):
+                fetch_feed("https://example.invalid/f", policy=self.policy)
+            twin = DiscoveryPolicy(
+                objective="observe the release feed of one named repository",
+                requested_scope="READ_URL", max_queries=3)
+            with self.assertRaises(DiscoveryBudgetExhausted):
+                fetch_feed("https://example.invalid/f", policy=twin)
+
+    def test_exhaustion_is_a_refusal_not_a_silent_false(self):
+        """DiscoveryBudgetExhausted subclasses CommunicationDenied so an
+        existing caller that handles refusal handles this too."""
+        self.assertTrue(issubclass(DiscoveryBudgetExhausted,
+                                   CommunicationDenied))
+
+    def test_the_budget_is_observable(self):
+        with mock.patch("urllib.request.urlopen", lambda *a, **k: self._Resp()):
+            fetch_feed("https://example.invalid/f", policy=self.policy)
+        self.assertEqual(budget_spent(self.policy), 1)
+
+    def test_a_different_objective_has_its_own_budget(self):
+        other = DiscoveryPolicy(
+            objective="observe the npm registry record for one named package",
+            requested_scope="READ_API", max_queries=3)
+        with mock.patch("urllib.request.urlopen", lambda *a, **k: self._Resp()):
+            for _ in range(3):
+                fetch_feed("https://example.invalid/f", policy=self.policy)
+            fetch_feed("https://example.invalid/f", policy=other)
+        self.assertEqual(budget_spent(other), 1)
+
+    def test_the_window_expires_and_a_new_burst_is_allowed(self):
+        """max_wall_clock_seconds bounds one burst. Refusing forever would
+        make a long-lived process permanently mute."""
+        from foundation.discovery_authorization import spend_query
+        for _ in range(3):
+            spend_query(self.policy, now=100.0)
+        with self.assertRaises(DiscoveryBudgetExhausted):
+            spend_query(self.policy, now=100.0)
+        # Past the window: a fresh burst is permitted.
+        self.assertEqual(
+            spend_query(self.policy,
+                        now=100.0 + self.policy.max_wall_clock_seconds + 1), 1)

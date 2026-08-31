@@ -4,6 +4,7 @@ Every test here tries to make an outcome claim more than the world said,
 or to let the system learn a fact after the decision and pretend it knew.
 """
 
+import json
 import unittest
 from dataclasses import replace
 
@@ -11,6 +12,8 @@ import tempfile
 from pathlib import Path
 
 from foundation.outcome_ledger import (
+    CHAIN_UNVERIFIED_LEGACY,
+    CHAIN_VERIFIED,
     EXTERNALLY_EVIDENCED_STATES,
     OUTCOME_STATES,
     OutcomeIntegrityError,
@@ -21,6 +24,7 @@ from foundation.outcome_ledger import (
     TERMINAL_UNOBSERVED,
     Witness,
     freeze_pre_action,
+    _DEFAULT_LEDGER_PATH,
 )
 
 
@@ -374,3 +378,212 @@ class TestDisprovenIsItsOwnState(unittest.TestCase):
                                 state="DISPROVEN")
             self.assertEqual(rec.state, "DISPROVEN")
             self.assertIsNone(rec.witness)
+
+
+def _read_lines(path: Path) -> list[str]:
+    return [ln for ln in path.read_text().splitlines() if ln.strip()]
+
+
+def _write_lines(path: Path, lines: list[str]) -> None:
+    path.write_text("\n".join(lines) + "\n")
+
+
+class TestHashChainDetectsDeletionAndReordering(unittest.TestCase):
+    """The actual gap this feature closes. Before it, each record only
+    content-addressed itself -- deleting or reordering a whole LINE left
+    every surviving line individually self-consistent, and replay would
+    silently reconstruct a shorter or reordered history. Every case here
+    proves the chain, not just the per-record digest, is what changed."""
+
+    def setUp(self):
+        self.path = Path(tempfile.mkdtemp()) / "l.jsonl"
+
+    def _four_line_ledger(self) -> OutcomeLedger:
+        """One sealed context plus three outcomes -- four chained lines,
+        enough to have a genuine middle to delete or swap."""
+        led = OutcomeLedger(ledger_path=self.path)
+        ctx = _ctx()
+        led.record("GB-a", ctx, "NOT_OBSERVED")
+        led.record("GB-a", ctx, "ACCEPTED_BY_PLATFORM")
+        led.record("GB-a", ctx, "HUMAN_RESPONDED", _witness())
+        return led
+
+    def test_M_deleting_a_middle_line_is_detected(self):
+        self._four_line_ledger()
+        lines = _read_lines(self.path)
+        self.assertEqual(len(lines), 4)
+        del lines[1]                       # remove the first OUTCOME line
+        _write_lines(self.path, lines)
+        with self.assertRaises(LedgerTampered) as c:
+            OutcomeLedger(ledger_path=self.path)
+        msg = str(c.exception)
+        self.assertIn("line", msg)
+        self.assertTrue(any(w in msg for w in ("deleted", "reordered")))
+
+    def test_M_deleting_the_last_middle_line_before_the_tail_is_detected(self):
+        """Distinct from the truncated-final-line case: this deletion
+        still leaves a well-formed final line, so it must be caught by the
+        chain check, not mistaken for a crash artifact."""
+        self._four_line_ledger()
+        lines = _read_lines(self.path)
+        del lines[2]                       # remove the middle OUTCOME line
+        _write_lines(self.path, lines)
+        with self.assertRaises(LedgerTampered):
+            OutcomeLedger(ledger_path=self.path)
+
+    def test_M_reordering_two_lines_is_detected(self):
+        self._four_line_ledger()
+        lines = _read_lines(self.path)
+        lines[1], lines[2] = lines[2], lines[1]     # swap two middle lines
+        _write_lines(self.path, lines)
+        with self.assertRaises(LedgerTampered) as c:
+            OutcomeLedger(ledger_path=self.path)
+        self.assertIn("line", str(c.exception))
+
+    def test_M_mutating_an_outcome_records_content_is_detected(self):
+        """`is_intact()` only ever covered PreActionContext. An OUTCOME
+        line's own content had no self-check before the chain existed."""
+        self._four_line_ledger()
+        lines = _read_lines(self.path)
+        obj = json.loads(lines[1])
+        self.assertEqual(obj["kind"], "OUTCOME")
+        obj["note"] = "this note was never written by the ledger"
+        lines[1] = json.dumps(obj, sort_keys=True)
+        _write_lines(self.path, lines)
+        with self.assertRaises(LedgerTampered) as c:
+            OutcomeLedger(ledger_path=self.path)
+        self.assertIn("altered in place", str(c.exception))
+
+    def test_a_truncated_final_line_still_degrades_gracefully(self):
+        """A genuine crash artifact (killed mid-append) must not raise --
+        that is a different failure mode from tampering in the middle."""
+        self._four_line_ledger()
+        raw = self.path.read_text()
+        self.path.write_text(raw[:-20])    # simulate a killed process
+        try:
+            reloaded = OutcomeLedger(ledger_path=self.path)
+        except Exception as exc:           # noqa: BLE001 -- the point
+            self.fail(f"a truncated trailing write must not raise; it is a "
+                      f"crash artifact, not tampering. Raised: {exc!r}")
+        self.assertGreaterEqual(len(reloaded.all_records()), 2)
+
+    def test_round_trip_write_reload_all_chain_verified(self):
+        led = self._four_line_ledger()
+        outcome_ids = [r.outcome_id for r in led.all_records()]
+        self.assertEqual(len(outcome_ids), 3)
+        for oid in outcome_ids:
+            self.assertEqual(led.chain_status(oid), CHAIN_VERIFIED)
+
+        reloaded = OutcomeLedger(ledger_path=self.path)
+        self.assertEqual(len(reloaded.all_records()), 3)
+        for oid in outcome_ids:
+            self.assertEqual(reloaded.chain_status(oid), CHAIN_VERIFIED)
+        for ctx, _ in reloaded.pairs():
+            self.assertEqual(reloaded.chain_status(ctx.context_id),
+                             CHAIN_VERIFIED)
+
+
+class TestLegacyUnchainedLedgerStillLoads(unittest.TestCase):
+    """The real on-disk ledger predates this feature and has no hash
+    fields at all. It must keep loading, and must never be reported as
+    chain-verified merely because loading did not raise."""
+
+    def test_the_real_repository_ledger_loads_without_raising(self):
+        self.assertTrue(_DEFAULT_LEDGER_PATH.exists(),
+                        "this test assumes the real ledger file is present; "
+                        "if it was ever deleted the assumption should be "
+                        "revisited, not silently skipped")
+        try:
+            led = OutcomeLedger(ledger_path=_DEFAULT_LEDGER_PATH)
+        except Exception as exc:           # noqa: BLE001 -- the point
+            self.fail(f"the pre-existing, unchained ledger must still load. "
+                      f"Raised: {exc!r}")
+        self.assertGreater(len(led.all_records()), 0)
+
+    def test_a_legacy_record_is_reported_unverifiable_not_verified(self):
+        led = OutcomeLedger(ledger_path=_DEFAULT_LEDGER_PATH)
+        self.assertGreater(len(led.all_records()), 0)
+        for record in led.all_records():
+            self.assertEqual(led.chain_status(record.outcome_id),
+                             CHAIN_UNVERIFIED_LEGACY)
+        for ctx, _ in led.pairs():
+            self.assertEqual(led.chain_status(ctx.context_id),
+                             CHAIN_UNVERIFIED_LEGACY)
+
+    def test_a_synthetic_legacy_file_loads_and_reports_unverifiable(self):
+        """Same claim as above, but on a throwaway file this test controls
+        end to end, independent of whatever the real ledger currently
+        contains."""
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / "legacy.jsonl"
+            ctx = _ctx()
+            legacy_context = {
+                "kind": "CONTEXT", "context_id": ctx.context_id,
+                "target": ctx.target,
+                "target_established_by": ctx.target_established_by,
+                "facts": dict(ctx.facts), "unknowns": list(ctx.unknowns),
+                "disqualifiers": list(ctx.disqualifiers),
+                "frozen_at": ctx.frozen_at}
+            legacy_outcome = {
+                "kind": "OUTCOME", "outcome_id": "OC-legacy1",
+                "brick_id": "GB-legacy", "pre_action_id": ctx.context_id,
+                "state": "NOT_OBSERVED", "note": "", "recorded_at": "x",
+                "supersedes": None, "witness": None}
+            _write_lines(path, [
+                json.dumps(legacy_context, sort_keys=True),
+                json.dumps(legacy_outcome, sort_keys=True)])
+
+            led = OutcomeLedger(ledger_path=path)
+            self.assertEqual(len(led.all_records()), 1)
+            self.assertEqual(led.chain_status(ctx.context_id),
+                             CHAIN_UNVERIFIED_LEGACY)
+            self.assertEqual(led.chain_status("OC-legacy1"),
+                             CHAIN_UNVERIFIED_LEGACY)
+
+    def test_appending_after_legacy_records_works_and_chains_from_there(self):
+        """The chain cannot retroactively cover unhashed history -- it
+        must start clean (previous_hash="") right after it, not refuse to
+        start at all."""
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / "legacy.jsonl"
+            ctx = _ctx()
+            legacy_outcome = {
+                "kind": "OUTCOME", "outcome_id": "OC-legacy1",
+                "brick_id": "GB-legacy", "pre_action_id": ctx.context_id,
+                "state": "NOT_OBSERVED", "note": "", "recorded_at": "x",
+                "supersedes": None, "witness": None}
+            legacy_context = {
+                "kind": "CONTEXT", "context_id": ctx.context_id,
+                "target": ctx.target,
+                "target_established_by": ctx.target_established_by,
+                "facts": dict(ctx.facts), "unknowns": list(ctx.unknowns),
+                "disqualifiers": list(ctx.disqualifiers),
+                "frozen_at": ctx.frozen_at}
+            _write_lines(path, [
+                json.dumps(legacy_context, sort_keys=True),
+                json.dumps(legacy_outcome, sort_keys=True)])
+
+            led = OutcomeLedger(ledger_path=path)
+            new_rec = led.record("GB-new", ctx, "ACCEPTED_BY_PLATFORM")
+
+            # The freshly appended line chains cleanly...
+            self.assertEqual(led.chain_status(new_rec.outcome_id),
+                             CHAIN_VERIFIED)
+            # ...while the legacy lines are still honestly unverifiable.
+            self.assertEqual(led.chain_status("OC-legacy1"),
+                             CHAIN_UNVERIFIED_LEGACY)
+
+            # And a fresh process reloading the whole file must not raise
+            # -- legacy lines followed by one real chained line is exactly
+            # the shape this feature is required to tolerate.
+            reloaded = OutcomeLedger(ledger_path=path)
+            self.assertEqual(len(reloaded.all_records()), 2)
+            self.assertEqual(reloaded.chain_status(new_rec.outcome_id),
+                             CHAIN_VERIFIED)
+            self.assertEqual(reloaded.chain_status("OC-legacy1"),
+                             CHAIN_UNVERIFIED_LEGACY)
+
+            # The new line's own previous_hash on disk is "" -- it cannot
+            # chain to hashless history, so it honestly starts fresh.
+            written = json.loads(_read_lines(path)[-1])
+            self.assertEqual(written["previous_hash"], "")

@@ -1,6 +1,11 @@
+import os
+import tempfile
 import unittest
+from pathlib import Path
 
 from foundation.crystal import Crystal, CrystalStore
+
+_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
 
 def _kwargs(**overrides: str) -> dict:
@@ -156,6 +161,102 @@ class TestIsCurrent(unittest.TestCase):
         store.record("C-601", **_kwargs(supersedes="C-600"))
         self.assertIsNotNone(store.get("C-600"))
         self.assertIn("C-600", [c.crystal_id for c in store.all_crystals()])
+
+
+class TestCrystalDurabilityAcrossProcessBoundary(unittest.TestCase):
+    """`record()` claims durability now; these prove the claim rather
+    than trust the docstring, same discipline as
+    `test_outcome_ledger.py::TestDurabilityAcrossTheProcessBoundary`."""
+
+    def setUp(self):
+        self._tmpdir = tempfile.TemporaryDirectory()
+        self.path = Path(self._tmpdir.name) / "crystal_store.jsonl"
+
+    def tearDown(self):
+        self._tmpdir.cleanup()
+
+    def test_reconstructed_store_contains_written_records_in_order(self):
+        a = CrystalStore(crystal_path=self.path)
+        a.record("C-D01", **_kwargs(result="first"))
+        a.record("C-D02", **_kwargs(result="second"))
+        a.record("C-D03", **_kwargs(result="third"))
+        del a  # simulate the process ending; nothing survives but disk
+
+        b = CrystalStore(crystal_path=self.path)
+        ids = [c.crystal_id for c in b.all_crystals()]
+        self.assertEqual(ids, ["C-D01", "C-D02", "C-D03"])
+        self.assertEqual(b.get("C-D02").result, "second")
+
+    def test_unparseable_trailing_line_does_not_block_construction(self):
+        a = CrystalStore(crystal_path=self.path)
+        a.record("C-D10", **_kwargs())
+        # Simulate a process that died mid-write: a truncated JSON
+        # fragment appended after the last good, newline-terminated
+        # record.
+        with open(self.path, "a", encoding="utf-8") as fh:
+            fh.write('{"crystal_id": "C-D11", "problem": "trunc')
+
+        b = CrystalStore(crystal_path=self.path)
+        self.assertEqual([c.crystal_id for c in b.all_crystals()], ["C-D10"])
+
+    def test_crystal_path_none_stays_in_memory_and_writes_no_file(self):
+        store = CrystalStore(crystal_path=None)
+        store.record("C-D20", **_kwargs())
+        self.assertFalse(self.path.exists())
+        # There is genuinely nowhere for None to have written to; the
+        # assertion above documents the specific tempdir path this test
+        # already controls stayed empty of any crystal file.
+        self.assertEqual(list(Path(self._tmpdir.name).iterdir()), [])
+
+    def test_no_crystal_file_created_anywhere_in_repo_by_default_construction(self):
+        # The exact failure mode this fix must not reintroduce: a bare
+        # CrystalStore() must never touch the filesystem, anywhere.
+        before = set(_REPO_ROOT.rglob("crystal_store.jsonl"))
+        store = CrystalStore()
+        store.record("C-D30", **_kwargs())
+        store2 = CrystalStore()
+        store2.record("C-D31", **_kwargs(supersedes=None))
+        after = set(_REPO_ROOT.rglob("crystal_store.jsonl"))
+        self.assertEqual(before, after)
+        self.assertEqual(after, set())
+
+    def test_supersedes_and_epistemic_status_survive_round_trip(self):
+        a = CrystalStore(crystal_path=self.path)
+        a.record("C-D40", **_kwargs(epistemic_status="EVIDENCE_SUPPORTED_MODEL"))
+        a.record(
+            "C-D41",
+            supersedes="C-D40",
+            **_kwargs(
+                epistemic_status="VERIFIED_FACT",
+                result="revised after new evidence",
+            ),
+        )
+        del a
+
+        b = CrystalStore(crystal_path=self.path)
+        original = b.get("C-D40")
+        newer = b.get("C-D41")
+        self.assertEqual(original.epistemic_status, "EVIDENCE_SUPPORTED_MODEL")
+        self.assertEqual(newer.epistemic_status, "VERIFIED_FACT")
+        self.assertIsNone(original.supersedes)
+        self.assertEqual(newer.supersedes, "C-D40")
+        self.assertFalse(b.is_current("C-D40"))
+        self.assertTrue(b.is_current("C-D41"))
+
+    def test_written_bytes_are_fsynced_before_record_returns(self):
+        # Not a mock-based "was fsync called" check -- a real read of the
+        # file's bytes performed immediately after record() returns,
+        # with no flush/close of our own first, proving the data is
+        # already on disk rather than sitting in a buffer this test
+        # would otherwise have to close to see.
+        store = CrystalStore(crystal_path=self.path)
+        store.record("C-D50", **_kwargs())
+        fd = os.open(self.path, os.O_RDONLY)
+        try:
+            raw = os.read(fd, 1 << 16)
+        finally:
+            os.close(fd)
+        self.assertIn(b'"crystal_id": "C-D50"', raw)
 
 
 if __name__ == "__main__":

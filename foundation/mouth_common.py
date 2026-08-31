@@ -118,7 +118,7 @@ def fetch_feed(url: str, timeout: int = DEFAULT_TIMEOUT_SECONDS,
     `observe()` could otherwise record as a real CHANGED observation.
     """
     from foundation.discovery_authorization import (
-        DiscoveryPolicy, authorize_discovery)
+        DiscoveryPolicy, authorize_discovery, spend_query)
     if policy is None:
         raise CommunicationDenied(
             f"refusing to fetch {url!r}: no DiscoveryPolicy supplied. "
@@ -138,6 +138,12 @@ def fetch_feed(url: str, timeout: int = DEFAULT_TIMEOUT_SECONDS,
     # returns False silently, so "did not check" cannot be mistaken for
     # "checked and it was fine".
     authorize_discovery(policy)
+    # And charge the request against the policy's declared budget BEFORE
+    # the socket opens, so an exhausted budget costs nothing. Until
+    # 2026-09-01 `max_queries` was a decorative field read by no code
+    # anywhere, while this docstring told callers a policy names a
+    # budget -- the gate advertised a limit it did not have.
+    spend_query(policy)
     request = urllib.request.Request(url, headers={"User-Agent": user_agent})
     try:
         with urllib.request.urlopen(request, timeout=timeout) as response:
