@@ -1,6 +1,6 @@
 # Remaining Limitations
 
-Generated `2026-08-31T21:30:08.705514+00:00` at revision `d18026e`.
+Generated `2026-08-31T21:56:39.957519+00:00` at revision `8dc05cd`.
 
 **Generated file — do not hand-edit.** Every entry below is an unmet criterion measured at generation time, not an opinion.
 

@@ -1,6 +1,6 @@
 # Capability Matrix
 
-Generated `2026-08-31T21:30:08.705514+00:00` at revision `d18026e` (state digest `30efc1589e18ba48`).
+Generated `2026-08-31T21:56:39.957519+00:00` at revision `8dc05cd` (state digest `5cd3665a350ca974`).
 
 **Generated file — do not hand-edit.** Regenerate with `python3 -m foundation.launch_report`.
 
