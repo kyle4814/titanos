@@ -34,7 +34,8 @@ from foundation.signal_spine import CanonicalSignal
 __all__ = ["github_release_signal", "pypi_release_signal", "release_lineage",
            "github_issue_demand_signal", "demand_lineage",
            "directed_pypi_release_signal", "directed_npm_release_signal",
-           "repository_activity_signal"]
+           "repository_activity_signal",
+           "code_pressure_signal"]
 
 
 def release_lineage(package: str, version: str) -> str:
@@ -326,3 +327,56 @@ def repository_activity_signal(item: dict, mapping, target: str,
         unknowns=("whether this commit relates to the open request at all",
                   "whether the committer is a maintainer or an outside "
                   "contributor"))
+
+
+def code_pressure_signal(profile, mapping, target: str,
+                         now: Optional[datetime] = None,
+                         latest_event_at: str = "UNKNOWN"):
+    """A CODE_PRESSURE signal -- but only when the window earned one.
+
+    Returns None when the profile is not pressured. That is the whole
+    discipline: an instrument that always emits its signal is not an
+    instrument, it is a constant, and wiring a constant into `rank()`
+    would be threshold-tuning through the back door.
+
+    The claim is deliberately narrow: it reports a remediation SHARE over
+    a stated window, never a defect. `event_at` is the newest commit in
+    the window, so a pressured window from two years ago reads as stale
+    rather than current.
+    """
+    from foundation.code_pressure import PressureIntegrityError
+    if not mapping.is_conclusive():
+        raise ValueError(
+            f"refusing to build a signal on a {mapping.state} mapping")
+    if not profile.is_pressured():
+        return None
+    share = profile.share()
+    if share is None:                       # defensive: is_pressured implies it
+        raise PressureIntegrityError("pressured profile with no share")
+    return CanonicalSignal(
+        signal_id=f"PRESSURE-{target}-{profile.classified()}",
+        source_id="github_commits", source_type="PLATFORM",
+        source_ref=f"https://github.com/{target}/commits",
+        target=target, kind="CODE_PRESSURE",
+        claim=(f"{share:.0%} of {profile.classified()} recent classified "
+               f"commits on {target} are remediation"),
+        observed_at=_observed_now(now),
+        event_at=latest_event_at,
+        source_lineage=f"{target.lower()}-pressure-window",
+        target_established_by="SOURCE_NATIVE",
+        facts={},                            # a window is not a target claim
+        evidence={"source": "github-commit-subjects",
+                  "remediation": profile.remediation,
+                  "feature": profile.feature,
+                  "maintenance": profile.maintenance,
+                  "unclassified": profile.unclassified,
+                  "classified": profile.classified(),
+                  "share": round(share, 3),
+                  "model_version": profile.model_version,
+                  "samples": list(profile.evidence)},
+        pressure_class="UNRESOLVED_PAIN",
+        pressure_evidence=(f"{profile.remediation} of {profile.classified()} "
+                           f"classified commits are remediation"),
+        unknowns=("subject lines describe what commits say, not what they "
+                  "changed",
+                  "whether the remediation relates to any open request"))
