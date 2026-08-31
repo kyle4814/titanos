@@ -7,9 +7,13 @@ or to let the system learn a fact after the decision and pretend it knew.
 import unittest
 from dataclasses import replace
 
+import tempfile
+from pathlib import Path
+
 from foundation.outcome_ledger import (
     EXTERNALLY_EVIDENCED_STATES,
     OutcomeIntegrityError,
+    LedgerTampered,
     OutcomeLedger,
     OutcomeRecord,
     PreActionContext,
@@ -17,6 +21,12 @@ from foundation.outcome_ledger import (
     Witness,
     freeze_pre_action,
 )
+
+
+def _led():
+    """Isolated ledger. Tests must never share the default on-disk path --
+    records would accumulate across tests and across runs."""
+    return OutcomeLedger(ledger_path=Path(tempfile.mkdtemp()) / "l.jsonl")
 
 
 def _ctx(**kw):
@@ -52,14 +62,14 @@ class TestNoTimeTravel(unittest.TestCase):
         self.assertNotEqual(tampered.digest(), ctx.digest())
 
     def test_M_the_ledger_refuses_a_tampered_context(self):
-        led = OutcomeLedger()
+        led = _led()
         with self.assertRaises(OutcomeIntegrityError) as c:
             led.seal(replace(_ctx(), facts={"gravity": 99999}))
         self.assertIn("altered after", str(c.exception))
 
     def test_M_a_sealed_context_cannot_be_replaced_by_a_different_one(self):
         """The substitution this whole design exists to prevent."""
-        led = OutcomeLedger()
+        led = _led()
         ctx = _ctx()
         led.seal(ctx)
         forged = PreActionContext(
@@ -77,7 +87,7 @@ class TestNoTimeTravel(unittest.TestCase):
 
     def test_M_an_outcome_cannot_edit_what_we_knew(self):
         """Recording a result leaves the sealed belief byte-identical."""
-        led = OutcomeLedger()
+        led = _led()
         ctx = _ctx()
         before = ctx.digest()
         rec = led.record("GB-abc", ctx, "VALUE_WITNESSED", _witness())
@@ -91,7 +101,7 @@ class TestNoTimeTravel(unittest.TestCase):
 
 class TestSilenceIsNotFailure(unittest.TestCase):
     def test_M_unobserved_states_are_not_negative_results(self):
-        led = OutcomeLedger()
+        led = _led()
         for state in TERMINAL_UNOBSERVED:
             r = led.record("GB-abc", _ctx(), state)
             self.assertTrue(r.is_unobserved(), state)
@@ -99,14 +109,14 @@ class TestSilenceIsNotFailure(unittest.TestCase):
             self.assertFalse(r.counts_as_external_evidence(), state)
 
     def test_only_an_identifiable_human_saying_no_is_a_no(self):
-        led = OutcomeLedger()
+        led = _led()
         r = led.record("GB-abc", _ctx(), "DECLINED",
                        _witness(what_was_observed="said it is out of scope"))
         self.assertTrue(r.is_negative())
         self.assertFalse(r.is_unobserved())
 
     def test_not_observed_and_declined_are_different_facts(self):
-        led = OutcomeLedger()
+        led = _led()
         silent = led.record("GB-a", _ctx(), "NOT_OBSERVED")
         refused = led.record("GB-b", _ctx(), "DECLINED", _witness(
             what_was_observed="closed as wontfix"))
@@ -116,13 +126,13 @@ class TestSilenceIsNotFailure(unittest.TestCase):
 
 class TestTheSystemCannotWitnessItself(unittest.TestCase):
     def test_M_value_witnessed_requires_a_witness(self):
-        led = OutcomeLedger()
+        led = _led()
         with self.assertRaises(OutcomeIntegrityError) as c:
             led.record("GB-abc", _ctx(), "VALUE_WITNESSED")
         self.assertIn("evidence about a server", str(c.exception))
 
     def test_M_every_externally_evidenced_state_requires_one(self):
-        led = OutcomeLedger()
+        led = _led()
         for state in EXTERNALLY_EVIDENCED_STATES:
             with self.assertRaises(OutcomeIntegrityError, msg=state):
                 led.record("GB-abc", _ctx(), state)
@@ -143,7 +153,7 @@ class TestTheSystemCannotWitnessItself(unittest.TestCase):
     def test_a_real_external_witness_is_accepted(self):
         """Positive control: the discipline must not make evidence
         impossible, only unearned."""
-        led = OutcomeLedger()
+        led = _led()
         r = led.record("GB-abc", _ctx(), "VALUE_WITNESSED", _witness())
         self.assertTrue(r.counts_as_external_evidence())
         self.assertIn("maintainer", r.witness.observed_by)
@@ -152,7 +162,7 @@ class TestTheSystemCannotWitnessItself(unittest.TestCase):
 class TestTransportIsNotValue(unittest.TestCase):
     def test_M_platform_acceptance_is_not_value_witnessed(self):
         """A machine accepting a request says nothing about a human."""
-        led = OutcomeLedger()
+        led = _led()
         r = led.record("GB-abc", _ctx(), "ACCEPTED_BY_PLATFORM")
         self.assertNotEqual(r.state, "VALUE_WITNESSED")
         self.assertFalse(r.counts_as_external_evidence())
@@ -169,7 +179,7 @@ class TestTransportIsNotValue(unittest.TestCase):
                                   "DECLINED"), state)
 
     def test_platform_acceptance_needs_no_witness_because_it_claims_nothing(self):
-        led = OutcomeLedger()
+        led = _led()
         self.assertEqual(
             led.record("GB-abc", _ctx(), "ACCEPTED_BY_PLATFORM").state,
             "ACCEPTED_BY_PLATFORM")
@@ -213,7 +223,7 @@ class TestTheLedgerIsAppendOnly(unittest.TestCase):
             self.assertNotIn(banned, surface)
 
     def test_a_correction_supersedes_rather_than_overwrites(self):
-        led = OutcomeLedger()
+        led = _led()
         ctx = _ctx()
         first = led.record("GB-abc", ctx, "NOT_OBSERVED")
         second = led.record("GB-abc", ctx, "HUMAN_RESPONDED", _witness(),
@@ -225,7 +235,7 @@ class TestTheLedgerIsAppendOnly(unittest.TestCase):
         self.assertIn(first, led.all_records())
 
     def test_pairs_give_belief_then_result_never_the_reverse(self):
-        led = OutcomeLedger()
+        led = _led()
         led.record("GB-a", _ctx(), "NOT_OBSERVED")
         led.record("GB-b", _ctx(target="other/thing"), "VALUE_WITNESSED",
                    _witness())
@@ -236,8 +246,95 @@ class TestTheLedgerIsAppendOnly(unittest.TestCase):
             self.assertEqual(outcome.pre_action_id, context.context_id)
 
     def test_a_brick_with_no_outcome_reports_none_not_a_failure(self):
-        self.assertIsNone(OutcomeLedger().current_for_brick("GB-never"))
+        self.assertIsNone(_led().current_for_brick("GB-never"))
 
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestDurabilityAcrossTheProcessBoundary(unittest.TestCase):
+    """Calibration needs outcomes to ACCUMULATE. A dataset held only in
+    memory cannot accumulate past a process exit, which made the stated
+    bottleneck -- outcome volume -- unreachable by construction."""
+
+    def setUp(self):
+        self.path = Path(tempfile.mkdtemp()) / "l.jsonl"
+
+    def test_M_records_survive_a_new_ledger_over_the_same_file(self):
+        a = OutcomeLedger(ledger_path=self.path)
+        ctx = _ctx()
+        a.record("GB-abc", ctx, "ACCEPTED_BY_PLATFORM")
+        a.record("GB-abc", ctx, "NOT_OBSERVED", note="nobody replied")
+
+        b = OutcomeLedger(ledger_path=self.path)      # a fresh process
+        self.assertEqual(len(b.outcomes_for_brick("GB-abc")), 2)
+        self.assertEqual(b.current_for_brick("GB-abc").state, "NOT_OBSERVED")
+
+    def test_M_the_sealed_context_survives_reload_intact(self):
+        a = OutcomeLedger(ledger_path=self.path)
+        ctx = _ctx()
+        a.record("GB-abc", ctx, "NOT_OBSERVED")
+        b = OutcomeLedger(ledger_path=self.path)
+        reloaded = b.context_for(b.all_records()[0])
+        self.assertIsNotNone(reloaded)
+        self.assertTrue(reloaded.is_intact())
+        self.assertEqual(reloaded.context_id, ctx.context_id)
+        self.assertEqual(dict(reloaded.facts)["gravity"], 1300)
+
+    def test_M_tampering_with_a_sealed_context_on_disk_is_caught(self):
+        """The no-time-travel guarantee is worthless if it holds in memory
+        and not across the process boundary."""
+        a = OutcomeLedger(ledger_path=self.path)
+        a.record("GB-abc", _ctx(), "NOT_OBSERVED")
+        raw = self.path.read_text()
+        self.path.write_text(raw.replace('"gravity": 1300', '"gravity": 99999'))
+        with self.assertRaises(LedgerTampered) as c:
+            OutcomeLedger(ledger_path=self.path)
+        self.assertIn("has been altered", str(c.exception))
+
+    def test_a_truncated_trailing_write_loses_only_that_record(self):
+        """A crash mid-append must never force destructive manual
+        recovery of the whole dataset."""
+        a = OutcomeLedger(ledger_path=self.path)
+        ctx = _ctx()
+        a.record("GB-abc", ctx, "ACCEPTED_BY_PLATFORM")
+        a.record("GB-abc", ctx, "NOT_OBSERVED")
+        raw = self.path.read_text()
+        self.path.write_text(raw[:-25])          # simulate a killed process
+        try:
+            b = OutcomeLedger(ledger_path=self.path)
+        except Exception as exc:                 # noqa: BLE001 -- the point
+            self.fail(f"a truncated trailing write must not abort the whole "
+                      f"ledger; that forces destructive manual recovery and "
+                      f"silently resets the dataset. Raised: {exc!r}")
+        self.assertGreaterEqual(len(b.all_records()), 1)
+        self.assertTrue(b.pairs())
+
+    def test_pairs_survive_reload_so_calibration_can_accumulate(self):
+        a = OutcomeLedger(ledger_path=self.path)
+        a.record("GB-a", _ctx(), "NOT_OBSERVED")
+        a.record("GB-b", _ctx(target="other/thing"), "VALUE_WITNESSED",
+                 _witness())
+        b = OutcomeLedger(ledger_path=self.path)
+        pairs = b.pairs()
+        self.assertEqual(len(pairs), 2)
+        for context, outcome in pairs:
+            self.assertTrue(context.is_intact())
+            self.assertEqual(outcome.pre_action_id, context.context_id)
+
+    def test_an_in_memory_only_ledger_is_still_possible(self):
+        """Passing None keeps the old behaviour for callers that genuinely
+        want a scratch ledger -- tests, dry runs."""
+        led = OutcomeLedger(ledger_path=None)
+        led.record("GB-abc", _ctx(), "NOT_OBSERVED")
+        self.assertEqual(len(led.all_records()), 1)
+
+    def test_a_witness_survives_the_round_trip(self):
+        a = OutcomeLedger(ledger_path=self.path)
+        a.record("GB-abc", _ctx(), "VALUE_WITNESSED", _witness())
+        b = OutcomeLedger(ledger_path=self.path)
+        w = b.all_records()[0].witness
+        self.assertIsNotNone(w)
+        self.assertIn("maintainer", w.observed_by)
+        self.assertTrue(w.mechanism)

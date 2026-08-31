@@ -37,3 +37,4 @@ foundation/authority_runtime_tick_log.jsonl
 # catch real ambiguity.
 .autonomy_stop
 foundation/autonomy_loop_log.jsonl
+foundation/outcome_ledger.jsonl

@@ -52,7 +52,13 @@ import hashlib
 import json
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Mapping, Optional
+
+# Same shape as foundation/authority_sigil.py::ReleaseLedger and
+# kpm/source-vault/registry.py: in-memory dict as the fast path, JSONL as
+# the durable replay-on-construction paper trail.
+_DEFAULT_LEDGER_PATH = Path(__file__).resolve().parent / "outcome_ledger.jsonl"
 
 __all__ = [
     "OutcomeIntegrityError",
@@ -63,6 +69,7 @@ __all__ = [
     "Witness",
     "OutcomeRecord",
     "OutcomeLedger",
+    "LedgerTampered",
     "freeze_pre_action",
 ]
 
@@ -240,17 +247,93 @@ class OutcomeRecord:
         return self.state in EXTERNALLY_EVIDENCED_STATES
 
 
+class LedgerTampered(OutcomeIntegrityError):
+    """A sealed context on disk no longer matches its own identity."""
+
+
 class OutcomeLedger:
     """Append-only. Outcomes are corrected by superseding, never by editing.
 
     Same discipline as `CrystalStore` and `RealityYieldLedger`: there is no
     delete surface and no update surface, because a dataset that can be
     quietly rewritten after the fact cannot calibrate anything.
+
+    DURABILITY, AND WHY IT IS PART OF THE INVARIANT
+
+    Calibration needs outcomes to ACCUMULATE. A dataset held only in
+    memory cannot accumulate past a process exit, which makes the stated
+    bottleneck -- outcome volume -- unreachable by construction. That was
+    a real defect in this module: the first genuine pre-action/outcome
+    pair was computed and then lost when its process ended.
+
+    The JSONL path and replay follow `authority_sigil.py::ReleaseLedger`
+    exactly, including fail-soft over a truncated trailing line, so a
+    crash mid-write can only ever lose the last unflushed append.
+
+    ONE ADDITION THAT LEDGER DOES NOT NEED. Every sealed context is
+    re-verified with `is_intact()` on reload. The no-time-travel guarantee
+    is worthless if it holds in memory and not across the process
+    boundary: someone editing the file could otherwise change what the
+    system "believed" before it acted. A tampered context raises rather
+    than loading quietly.
     """
 
-    def __init__(self) -> None:
+    def __init__(self,
+                 ledger_path: "str | Path | None" = _DEFAULT_LEDGER_PATH) -> None:
+        self._ledger_path = Path(ledger_path) if ledger_path else None
         self._records: list[OutcomeRecord] = []
         self._contexts: dict[str, PreActionContext] = {}
+        if self._ledger_path and self._ledger_path.exists():
+            self._replay()
+
+    # -- durability --------------------------------------------------
+    def _replay(self) -> None:
+        with open(self._ledger_path, "r", encoding="utf-8") as fh:
+            for line in fh:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    obj = json.loads(line)
+                except json.JSONDecodeError:
+                    continue        # truncated trailing write; see docstring
+                try:
+                    self._replay_line(obj)
+                except (KeyError, TypeError):
+                    continue
+
+    def _replay_line(self, obj: dict) -> None:
+        kind = obj.get("kind")
+        if kind == "CONTEXT":
+            ctx = PreActionContext(
+                context_id=obj["context_id"], target=obj["target"],
+                target_established_by=obj["target_established_by"],
+                facts=obj.get("facts", {}),
+                unknowns=tuple(obj.get("unknowns", ())),
+                disqualifiers=tuple(obj.get("disqualifiers", ())),
+                frozen_at=obj.get("frozen_at", ""))
+            if not ctx.is_intact():
+                raise LedgerTampered(
+                    f"sealed context {ctx.context_id} on disk does not match "
+                    f"its own content; what the system believed before acting "
+                    f"has been altered")
+            self._contexts[ctx.context_id] = ctx
+        elif kind == "OUTCOME":
+            w = obj.get("witness")
+            self._records.append(OutcomeRecord(
+                outcome_id=obj["outcome_id"], brick_id=obj["brick_id"],
+                pre_action_id=obj["pre_action_id"], state=obj["state"],
+                witness=Witness(**w) if w else None,
+                note=obj.get("note", ""),
+                recorded_at=obj.get("recorded_at", ""),
+                supersedes=obj.get("supersedes")))
+
+    def _append(self, obj: dict) -> None:
+        if not self._ledger_path:
+            return
+        self._ledger_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(self._ledger_path, "a", encoding="utf-8") as fh:
+            fh.write(json.dumps(obj, sort_keys=True, default=str) + "\n")
 
     def seal(self, context: PreActionContext) -> PreActionContext:
         """Store a pre-action snapshot. Re-sealing an identical context is
@@ -265,7 +348,16 @@ class OutcomeLedger:
         if existing is not None and existing.digest() != context.digest():
             raise OutcomeIntegrityError(
                 "refusing to replace a sealed pre-action context")
-        self._contexts.setdefault(context.context_id, context)
+        if context.context_id not in self._contexts:
+            self._contexts[context.context_id] = context
+            self._append({
+                "kind": "CONTEXT", "context_id": context.context_id,
+                "target": context.target,
+                "target_established_by": context.target_established_by,
+                "facts": dict(context.facts),
+                "unknowns": list(context.unknowns),
+                "disqualifiers": list(context.disqualifiers),
+                "frozen_at": context.frozen_at})
         return context
 
     def record(self, brick_id: str, context: PreActionContext, state: str,
@@ -280,6 +372,16 @@ class OutcomeLedger:
             pre_action_id=context.context_id, state=state, witness=witness,
             note=note, supersedes=supersedes)
         self._records.append(record)
+        self._append({
+            "kind": "OUTCOME", "outcome_id": record.outcome_id,
+            "brick_id": record.brick_id, "pre_action_id": record.pre_action_id,
+            "state": record.state, "note": record.note,
+            "recorded_at": record.recorded_at, "supersedes": record.supersedes,
+            "witness": ({"observed_by": record.witness.observed_by,
+                         "mechanism": record.witness.mechanism,
+                         "what_was_observed": record.witness.what_was_observed,
+                         "observed_at": record.witness.observed_at}
+                        if record.witness else None)})
         return record
 
     def context_for(self, outcome: OutcomeRecord) -> Optional[PreActionContext]:
