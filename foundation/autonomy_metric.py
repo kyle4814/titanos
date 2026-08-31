@@ -180,7 +180,21 @@ def _resolve_scheduled_script(line: str, repo_root: Path) -> Optional[Path]:
 
 
 def _line_references_repo(line: str, repo_root: Path) -> bool:
-    return str(repo_root) in line
+    """Does this crontab line schedule something in THIS repository?
+
+    The path is resolved first. The previous version compared
+    `str(repo_root)` directly, so a caller passing `Path(".")` -- the
+    obvious thing to type -- matched every crontab line containing a
+    dot, including entries belonging to entirely unrelated projects on
+    the same machine. That inflated the headline autonomy_ratio from
+    the true 0.0000 to 0.1111 by counting another project's scheduled
+    job as this system's autonomy.
+
+    Caught by running the module two ways and getting two answers. A
+    metric whose value depends on how the caller spelled the path is
+    not a measurement.
+    """
+    return str(Path(repo_root).resolve()) in line
 
 
 # ---------------------------------------------------------------------
