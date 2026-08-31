@@ -50,6 +50,8 @@ import re
 from dataclasses import dataclass, field
 from typing import Optional, Sequence
 
+from foundation.activity_shape import _is_bot
+
 __all__ = [
     "PressureIntegrityError",
     "COMMIT_CLASSES",
@@ -135,6 +137,7 @@ class PressureProfile:
     feature: int
     maintenance: int
     unclassified: int
+    bot_commits: int = 0
     evidence: tuple[str, ...] = ()
     model_version: str = PRESSURE_MODEL_VERSION
 
@@ -169,6 +172,11 @@ class PressureProfile:
         share = self.share()
         return share is not None and share >= PRESSURE_SHARE
 
+    def human_share_note(self) -> str:
+        return (f"  bot commits   {self.bot_commits} (excluded entirely: a "
+                f"bot mass-producing 'fix:' commits is machine noise, not "
+                f"human repair pressure)")
+
     def show_the_math(self) -> str:
         if not self.is_measurable():
             return (f"NOT MEASURABLE -- {self.sample} commit(s), only "
@@ -182,6 +190,8 @@ class PressureProfile:
                  f"  feature       {self.feature}",
                  f"  maintenance   {self.maintenance}",
                  f"  unclassified  {self.unclassified} (excluded from the share)"]
+        if self.bot_commits:
+            lines.append(self.human_share_note())
         for e in self.evidence:
             lines.append(f"  evidence: {e}")
         lines.append("  NOTE: subject-line evidence is weak; it describes "
@@ -192,19 +202,34 @@ class PressureProfile:
 def measure_pressure(items: Sequence[dict]) -> PressureProfile:
     """Measure one commit window. Never fetches anything.
 
+    BOT COMMITS ARE EXCLUDED ENTIRELY. Found live: a repository whose last
+    ten commits were all `github-actions[bot]` emitting
+    "fix: resolve issue #N" scored 100% remediation and LOCKED. That is a
+    machine talking to itself, not a project under repair pressure --
+    exactly the fish-mistaken-for-shark failure `activity_shape` was built
+    to catch, in an instrument that was not consulting it. Reuses
+    `activity_shape._is_bot` rather than duplicating the detection.
+
     `items` are commit dicts as `mouth_github_commits.parse_items()`
     already produces, so this costs no additional API request.
     """
     counts = {c: 0 for c in COMMIT_CLASSES}
     evidence: list[str] = []
+    bots = 0
     for it in items:
+        if _is_bot(str(it.get("author_login", "")),
+                   str(it.get("author_type", ""))):
+            bots += 1
+            continue
         subject = str(it.get("subject", ""))
         cls = classify_subject(subject)
         counts[cls] += 1
         if cls == "REMEDIATION":
             sha = str(it.get("sha", ""))[:8]
             evidence.append(f"{sha} {subject[:70]}")
+    human = len(items) - bots
     return PressureProfile(
-        sample=len(items), remediation=counts["REMEDIATION"],
+        sample=human, remediation=counts["REMEDIATION"],
         feature=counts["FEATURE"], maintenance=counts["MAINTENANCE"],
-        unclassified=counts["UNCLASSIFIED"], evidence=tuple(evidence[:5]))
+        unclassified=counts["UNCLASSIFIED"], bot_commits=bots,
+        evidence=tuple(evidence[:5]))

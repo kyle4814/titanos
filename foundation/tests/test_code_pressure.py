@@ -282,3 +282,66 @@ class TestTheClassifiedBaseMustBeBigEnough(unittest.TestCase):
                              + [_c("wip")] * 7)
         self.assertIsNone(code_pressure_signal(
             p, source_native_target("acme/widget"), "acme/widget"))
+
+
+class TestBotCommitsAreNotHumanPressure(unittest.TestCase):
+    """Found live: a repository whose last ten commits were ALL
+    github-actions[bot] emitting "fix: resolve issue #N" scored 100%
+    remediation and LOCKED. A machine talking to itself is not a project
+    under repair pressure."""
+
+    def _bot(self, subject="fix: resolve issue #114717"):
+        return {"sha": "b0700000", "subject": subject,
+                "author_login": "github-actions[bot]", "author_type": "Bot"}
+
+    def _human(self, subject="fix the parser", login="alice"):
+        return {"sha": "aaa11111", "subject": subject,
+                "author_login": login, "author_type": "User"}
+
+    def test_M_an_all_bot_window_is_not_pressured(self):
+        """The exact live case. Ten bot 'fix:' commits, 100% share, LOCKED."""
+        p = measure_pressure([self._bot() for _ in range(10)])
+        self.assertEqual(p.bot_commits, 10)
+        self.assertEqual(p.sample, 0)
+        self.assertEqual(p.remediation, 0)
+        self.assertFalse(p.is_measurable())
+        self.assertFalse(p.is_pressured())
+
+    def test_M_no_signal_is_emitted_from_an_all_bot_window(self):
+        from foundation.target_mapping import source_native_target
+        from foundation.tentacles import code_pressure_signal
+        p = measure_pressure([self._bot() for _ in range(10)])
+        self.assertIsNone(code_pressure_signal(
+            p, source_native_target("acme/widget"), "acme/widget"))
+
+    def test_M_bots_do_not_dilute_or_inflate_a_human_window(self):
+        """Excluded entirely -- neither counted as repair nor as health."""
+        humans = [self._human(), self._human("hotfix b"), self._human("revert c"),
+                  self._human("add d", "bob"), self._human("bump e", "bob"),
+                  self._human("implement f", "carol")]
+        alone = measure_pressure(humans)
+        mixed = measure_pressure(humans + [self._bot() for _ in range(20)])
+        self.assertEqual(alone.share(), mixed.share())
+        self.assertEqual(alone.sample, mixed.sample)
+        self.assertEqual(mixed.bot_commits, 20)
+
+    def test_bots_are_reported_not_silently_dropped(self):
+        p = measure_pressure(
+            [self._human(), self._human("hotfix b"), self._human("revert c"),
+             self._human("add d"), self._human("bump e"), self._bot()])
+        self.assertEqual(p.bot_commits, 1)
+        self.assertIn("bot commits", p.show_the_math())
+        self.assertIn("machine noise", p.show_the_math())
+
+    def test_M_real_human_pressure_still_registers(self):
+        """Positive control from the live sweep: six distinct human authors,
+        mixed feature and repair work."""
+        p = measure_pressure([
+            self._human("fix: reject whitespace-only RPC method names", "alex"),
+            self._human("Fix stale decode cancellation", "umu"),
+            self._human("fix flaky worker test", "dee"),
+            self._human("Add dry-run mode to issue publishing", "grace"),
+            self._human("Add issue-data uniqueness validation", "grace"),
+            self._human("Add arrow-key navigation", "didi")])
+        self.assertTrue(p.is_pressured())
+        self.assertEqual(p.bot_commits, 0)
