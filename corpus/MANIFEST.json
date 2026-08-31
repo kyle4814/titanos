@@ -1,0 +1,136 @@
+{
+  "archives": 24,
+  "exact_duplicates": 990,
+  "files": 14215,
+  "name": "The Cosmic Library",
+  "per_archive": {
+    "TITANOS_2099_CIGIL_750_CANON": {
+      "bytes": 1967167,
+      "files": 750,
+      "tree_hash": "1705df1d3f5a9ecc10ce417330ee90afe4437cd0ddcafb8f7650899ec5f31cfa"
+    },
+    "TITANOS_2099_FRONTLOAD_750": {
+      "bytes": 164836,
+      "files": 753,
+      "tree_hash": "ffdb609fdd8938158235d1bc273236c7ee0591108d0eeb6ea1a43629e751b486"
+    },
+    "TITANOS_BACKBONE_750_MACHINE_YAML": {
+      "bytes": 156642,
+      "files": 763,
+      "tree_hash": "4fe1816594a02a3f2efeb39e03cee6e351eb0fa9dfc0eafc4f7ba423f3c39322"
+    },
+    "TITANOS_BUSINESS_LEGAL_REGISTRATION_MASTER_008": {
+      "bytes": 21443,
+      "files": 32,
+      "tree_hash": "e18f6dd9eca930630c572604decf6f0c3a4b7dda53d012aea11c1e88e02a5993"
+    },
+    "TITANOS_EMERALD_CORE_2099_FINAL_2000_FILE_ENTERPRISE_PACK": {
+      "bytes": 1386810,
+      "files": 2001,
+      "tree_hash": "78c1de6e6fe2d2b6b4ce9580b03962739439fc279c4518bda79c7c12ae0ee80e"
+    },
+    "TITANOS_EMERALD_CORE_750": {
+      "bytes": 446515,
+      "files": 878,
+      "tree_hash": "2d268528534624a32f2bc0ef8ffa8ad62b55713a5c019a8937d845192eacaba4"
+    },
+    "TITANOS_EMERALD_CORE_ENTERPRISE_BOLT_ON_750": {
+      "bytes": 471124,
+      "files": 750,
+      "tree_hash": "bbab3b451c0f66534665dde84d1f6def1a9b15dfdaa40d3874f5685751fdd09c"
+    },
+    "TITANOS_EMERALD_CORE_RUNTIME_LAW_750": {
+      "bytes": 228035,
+      "files": 776,
+      "tree_hash": "343eb5587845fac86d03386a23411ee5f2af168bcaac658997785725ce37a8d7"
+    },
+    "TITANOS_MAXZIP_015_GLOBAL_MONEY_750": {
+      "bytes": 285413,
+      "files": 750,
+      "tree_hash": "86113af684d5cf183fa0c849a6e07aad9bf18cc1899132bd247d0a3e00928edb"
+    },
+    "TITANOS_MAXZIP_016_WORLD_RAID_750": {
+      "bytes": 294779,
+      "files": 751,
+      "tree_hash": "93f713a62f8599da8fa418677694408a4a59e735338ec3b3b0cfb096138b6ccb"
+    },
+    "TITANOS_MAXZIP_018_CONTROL_PLANE_750": {
+      "bytes": 279233,
+      "files": 751,
+      "tree_hash": "9e44baab6a380128c2eea1ece586b7b6a5fd750fd526d3db30ca6af9bc3da5f6"
+    },
+    "TITANOS_MAX_HIT_009_01_CORE_ENGINE": {
+      "bytes": 63453,
+      "files": 103,
+      "tree_hash": "d9045e55a2b2e7d004b9a025efec542ecfcc7a9fe747b340eed04c934de7539e"
+    },
+    "TITANOS_MAX_HIT_009_02_FINANCE_VALUE": {
+      "bytes": 64332,
+      "files": 103,
+      "tree_hash": "df950564ebda0a485aac2cf5aba845083556b4f754709728d9e0bf4acc27bfb0"
+    },
+    "TITANOS_MAX_HIT_009_05_REPO_OPS": {
+      "bytes": 63834,
+      "files": 103,
+      "tree_hash": "78e50eb26ae94198e24e4f56ec08c8f88d569dfbecfd4a520c3c66a8d32c8d19"
+    },
+    "TITANOS_MAX_NUKE_010_MASTER_750": {
+      "bytes": 741821,
+      "files": 751,
+      "tree_hash": "1d8ffaacfd5415bc979189b4e1e7d4b67b0a53f1930f79dfbe650fb0bb92c817"
+    },
+    "TITANOS_MAX_NUKE_011_MASTER_750": {
+      "bytes": 582610,
+      "files": 751,
+      "tree_hash": "0d4c9318235ed70f24e1028f816aa6642ff1d30c51594ddd01c320c1918b958a"
+    },
+    "TITANOS_MAX_NUKE_012_MASTER_750": {
+      "bytes": 534851,
+      "files": 751,
+      "tree_hash": "9ae94a2edfae3b0eb6f4b456d901e5c302afc034922f482b748c5a6f0249d81e"
+    },
+    "TITANOS_MAX_NUKE_013_MASTER_750": {
+      "bytes": 550770,
+      "files": 751,
+      "tree_hash": "9922aa8c5dd5e03945058b234c230f2dcc5266d12a7680af0c76f011464d94c6"
+    },
+    "TITANOS_MAX_NUKE_014_MASTER_SENSOR_750": {
+      "bytes": 544303,
+      "files": 751,
+      "tree_hash": "01596acbaf80da44b3b9cf6184c81cbedf64a5b68d8284476b6512b262630fcd"
+    },
+    "TITANOS_MAX_ZIP_BRICK_BATCH_001": {
+      "bytes": 57451,
+      "files": 114,
+      "tree_hash": "59a9017e291b57399f9a53d3be9306e4ac8998527c95001288319db375ef290d"
+    },
+    "TITANOS_MAX_ZIP_BRICK_BATCH_002_HARDENED": {
+      "bytes": 100542,
+      "files": 141,
+      "tree_hash": "9eebb048e8c78c90a43cd0ecba8d2496ccf38bf3630538195a1d22c68bd1cf09"
+    },
+    "TITANOS_MAX_ZIP_BRICK_BATCH_003": {
+      "bytes": 102878,
+      "files": 148,
+      "tree_hash": "6cd63c2eaf85ce0ae463f4780dd03fce09a4eca03a949ef535b620be07f5db7a"
+    },
+    "TITANOS_MOONSHINE_0750_YAML": {
+      "bytes": 141521,
+      "files": 752,
+      "tree_hash": "34a748bbd91f64be2f87696d5b8379fa8717f63691eecd660147554e1e90c128"
+    },
+    "TITANOS_WAX_MAXZIP_COMMERCIAL_10_PAYLOADS": {
+      "bytes": 25685,
+      "files": 41,
+      "tree_hash": "8d74023bfe1cf0170f05fe4647dd2a3c00eee44a2bc1cfc6ad2397ecfce9a07b"
+    }
+  },
+  "provenance": "delivered as 29 zip archives during the TITANOS build campaign; extracted verbatim, no file edited",
+  "screened_before_publication": [
+    "foundation.secret_scanner: 0 findings at any confidence",
+    "no email addresses, no local filesystem paths, no phone numbers",
+    "no ABN/ACN values -- the only matches are blank template fields"
+  ],
+  "unique_by_content": 13225,
+  "what_this_is": "The raw TITANOS corpus as delivered, one directory per archive, byte-for-byte. This is INPUT MATERIAL, not this repository's code: nothing here is imported, executed, or tested by any suite, and it is excluded from the production-code scanners for that reason."
+}

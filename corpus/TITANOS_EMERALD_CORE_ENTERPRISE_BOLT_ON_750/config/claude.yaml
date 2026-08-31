@@ -1,0 +1,8 @@
+claude:
+  command_centre: true
+  search_before_build: enforced
+  stateless_sessions: true
+  durable_context: external
+  receipt_every_material_mutation: true
+  checkpoint_before_risky_mutation: true
+  adaptive_parallelism: true

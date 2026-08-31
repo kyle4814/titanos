@@ -1,0 +1,14 @@
+# RECOVERY RUNBOOK
+
+INPUT → VALIDATE → EXECUTE → OBSERVE → VERIFY → RECEIPT → STATE UPDATE
+
+STOP CONDITIONS:
+- missing authority
+- unsafe or unlawful request
+- contradictory canonical state
+- unverifiable critical result
+- uncontrolled side effect
+- exceeded execution budget
+
+OUTPUT:
+A machine-readable result, evidence references, status and next action.

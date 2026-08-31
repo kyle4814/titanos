@@ -1,0 +1,16 @@
+schema: titanos_storage_boundary
+version: "1.0"
+domain: "01_PLATFORM_STACK"
+status: draft
+contract:
+  scope: bounded
+  inputs: explicit
+  outputs: explicit
+  dependencies: versioned
+  evidence: required
+  receipt: required
+guards:
+  - authority
+  - provenance
+  - validation
+  - acceptance

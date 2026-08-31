@@ -1,0 +1,3 @@
+external_content: untrusted
+default_action: deny
+secrets: never log

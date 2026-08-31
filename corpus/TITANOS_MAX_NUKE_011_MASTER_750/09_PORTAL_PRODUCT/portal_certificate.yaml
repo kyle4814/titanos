@@ -1,0 +1,20 @@
+schema: titanos_portal_certificate
+version: "1.0"
+domain: "09_PORTAL_PRODUCT"
+status: draft
+contract:
+  inputs: bounded
+  outputs: explicit
+  evidence: required
+  receipt: required
+guards:
+  - authority
+  - provenance
+  - validation
+  - acceptance
+states:
+  - proposed
+  - active
+  - tested
+  - verified
+  - superseded

@@ -1,0 +1,17 @@
+task_id: TITANOS-015-13_OPPORTUNITY_ENGINE-brick
+domain: 13_OPPORTUNITY_ENGINE
+objective: "brick"
+search_before_build: true
+reuse_before_build: true
+provenance_required: true
+receipt_required: true
+human_gate_for_material_action: true
+states:
+  - DISCOVERED
+  - VERIFIED
+  - QUALIFIED
+  - EXECUTING
+  - VERIFIED_RESULT
+  - RECEIPTED
+  - PROMOTED
+  - QUARANTINED

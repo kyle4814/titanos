@@ -1,0 +1,14 @@
+{
+  "brick_id": "BRICK-004",
+  "name": "AI-First Task Harness",
+  "version": "MAGL-V12",
+  "files": [
+    "BRICK.md",
+    "BRICK.yaml",
+    "RECEIPT.yaml",
+    "CERTIFICATE.yaml",
+    "SIGILS.yaml",
+    "METRICS.yaml"
+  ],
+  "lineage": "TITANOS-CANONICAL-V12"
+}

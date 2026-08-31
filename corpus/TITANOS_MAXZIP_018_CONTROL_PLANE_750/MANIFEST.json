@@ -1,0 +1,23 @@
+{
+  "package": "TITANOS-MAXZIP-018-CONTROL-PLANE-750",
+  "documents": 750,
+  "domains": 150,
+  "purpose": "Frontloaded control-plane contracts for MAGL v12, CIGIL command/state, Claude configuration, operation controls, multi-agent orchestration, P0-P4 queueing, world sensors, brick/receipt/value engines, and German engineering.",
+  "agent_topology": {
+    "opus_1": "master orchestrator",
+    "opus_2": "independent blue team",
+    "opus_3": "calibration/value/model-risk",
+    "sonnet": "bounded specialist implementation",
+    "haiku": "fast inspection/classification/test assistance"
+  },
+  "invariants": [
+    "switches enforced at execution boundary",
+    "search before build",
+    "reuse before build",
+    "provenance required",
+    "durable receipt required",
+    "modelled_observed_realized_value_separated",
+    "human gates for material financial/legal/deployment actions",
+    "bounded micro-tasks and explicit stop conditions"
+  ]
+}

@@ -1,0 +1,15 @@
+schema: titanos_content_relevance
+version: "1.0"
+domain: "03_SEO_CONTENT"
+status: draft
+inputs: explicit
+outputs: explicit
+provenance: required
+measurement: required
+guards:
+  - authorization
+  - rate_limit
+  - privacy
+  - provenance
+  - validation
+  - audit

@@ -1,0 +1,56 @@
+schema: titanos_registration_matrix
+jurisdiction: Australia
+status_rule: "ASSESS -> PREPARE -> LEGAL/ACCOUNTING REVIEW -> FILE -> CONFIRM -> RECORD"
+
+agencies:
+  ASIC:
+    purpose:
+      - company registration
+      - business names
+      - corporate records
+    action: "Determine applicable registrations and maintain records."
+  ABR:
+    purpose:
+      - ABN
+      - business tax identity
+    action: "Confirm ABN/entity details."
+  ATO:
+    purpose:
+      - GST
+      - income tax
+      - PAYG
+      - record obligations
+    action: "Determine obligations from actual structure and activity."
+  OAIC:
+    purpose:
+      - privacy regulation
+    action: "Assess Privacy Act coverage and APP obligations."
+  ACMA:
+    purpose:
+      - electronic marketing / communications
+    action: "Assess spam, telemarketing and communications obligations."
+  ACCC:
+    purpose:
+      - Australian Consumer Law
+    action: "Review consumer-facing terms, claims, pricing and representations."
+  IP_AUSTRALIA:
+    purpose:
+      - trademarks
+      - patents
+      - designs
+    action: "Search and file relevant IP."
+  ACSC:
+    purpose:
+      - cyber security guidance
+    action: "Use applicable security guidance; no registration implied."
+  FAIR_WORK_OMBUDSMAN:
+    purpose:
+      - employment obligations
+    action: "Assess if employees/contractors are engaged."
+  ASIC_AFSL:
+    purpose:
+      - financial services licensing
+    action: "Obtain specialist legal advice before offering financial products/services or investment-related arrangements."
+
+IMPORTANT:
+Not every business must register with every agency listed. The matrix is a compliance assessment list, not a declaration that registration is required.

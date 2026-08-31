@@ -1,0 +1,3 @@
+agent:
+  role: adversarial_verification
+  authority: read_and_test

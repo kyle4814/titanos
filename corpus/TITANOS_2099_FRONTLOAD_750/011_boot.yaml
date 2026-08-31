@@ -1,0 +1,7 @@
+workflow:
+  name: boot
+  steps:
+  - environment
+  - config
+  - state
+  - receipts

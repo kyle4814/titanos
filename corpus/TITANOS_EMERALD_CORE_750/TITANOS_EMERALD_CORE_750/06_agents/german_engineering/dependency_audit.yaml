@@ -1,0 +1,2 @@
+role: dependency_audit
+scope: unused_dependency_detection

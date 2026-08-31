@@ -1,0 +1,12 @@
+required:
+  - task_id
+  - state
+  - config_hash
+  - repo_revision
+  - receipt_head
+  - next_action
+properties:
+  recoverable:
+    type: boolean
+  replay_safe:
+    type: boolean

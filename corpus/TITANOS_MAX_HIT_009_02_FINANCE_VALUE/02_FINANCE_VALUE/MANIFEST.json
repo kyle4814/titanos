@@ -1,0 +1,515 @@
+{
+  "package_id": "TITANOS-009-02_FINANCE_VALUE",
+  "files": [
+    {
+      "path": "001_brick_value_1.md",
+      "bytes": 366,
+      "sha256": "d71c814e7e9db9f43a8143010c17997fd758ea38936319801244a77e9e1d45bd"
+    },
+    {
+      "path": "002_brick_value_2.yaml",
+      "bytes": 428,
+      "sha256": "184eeb39787722517fc7e72163217834c9ce9da219437aee7b302a641db198f5"
+    },
+    {
+      "path": "003_brick_value_3.md",
+      "bytes": 372,
+      "sha256": "a7d274ddd2cb33650c0fa2b51b7e08d95dd45219858ebcdb85854a3ba4704e28"
+    },
+    {
+      "path": "004_brick_value_4.md",
+      "bytes": 752,
+      "sha256": "838c7675ade2a916bed1cd789daac8a7162908e0e1aeebd65d33af5ec4ed0a39"
+    },
+    {
+      "path": "005_brick_value_5.yaml",
+      "bytes": 366,
+      "sha256": "d71c814e7e9db9f43a8143010c17997fd758ea38936319801244a77e9e1d45bd"
+    },
+    {
+      "path": "006_portfolio_value_1.md",
+      "bytes": 432,
+      "sha256": "550afe08315a50709cb7c5d7b993ac53ed2df6e3ae5355fcad789e6c3cc3d822"
+    },
+    {
+      "path": "007_portfolio_value_2.yaml",
+      "bytes": 376,
+      "sha256": "bb298c5152418b5804a56b50327b84e5753dc6edaf7f2fcac6fa6de34b488d6d"
+    },
+    {
+      "path": "008_portfolio_value_3.md",
+      "bytes": 764,
+      "sha256": "20dd7a06d5befee948ecc0e440b7ea0cf843fa65c330ec6e097780bd1fa94747"
+    },
+    {
+      "path": "009_portfolio_value_4.md",
+      "bytes": 374,
+      "sha256": "177421da460bc4a8013fe05f43dd2b0e53509f2576a8511256fd74859458c478"
+    },
+    {
+      "path": "010_portfolio_value_5.yaml",
+      "bytes": 432,
+      "sha256": "550afe08315a50709cb7c5d7b993ac53ed2df6e3ae5355fcad789e6c3cc3d822"
+    },
+    {
+      "path": "011_forecast_1.md",
+      "bytes": 369,
+      "sha256": "6db61561f9b12e2d9117e647275ecd53a9dea2f06254a7477e54b23be61febbd"
+    },
+    {
+      "path": "012_forecast_2.yaml",
+      "bytes": 743,
+      "sha256": "81d985fe439b3a6d4b53cc4b544666020505d1b0376054b4dae0c29094a63d5c"
+    },
+    {
+      "path": "013_forecast_3.md",
+      "bytes": 360,
+      "sha256": "f0cdc4fc413bd8b57943a6a4b9ca5461df317a3ebbd2b3ab328e6dae698f752c"
+    },
+    {
+      "path": "014_forecast_4.md",
+      "bytes": 425,
+      "sha256": "1999e313f120d557f55e3cffe0ed0d8def0068fdeb5dfb64b3c9cdf95c8abf6e"
+    },
+    {
+      "path": "015_forecast_5.yaml",
+      "bytes": 369,
+      "sha256": "6db61561f9b12e2d9117e647275ecd53a9dea2f06254a7477e54b23be61febbd"
+    },
+    {
+      "path": "016_monte_carlo_1.md",
+      "bytes": 752,
+      "sha256": "3ea475a9806c416105ebbb946cbdb840e0350711cc0368c2ea21e8733c9af216"
+    },
+    {
+      "path": "017_monte_carlo_2.yaml",
+      "bytes": 366,
+      "sha256": "fb96481e6b8c97ee1b977eb82f3324152cd0eb85fdbf918fb658640971945fd2"
+    },
+    {
+      "path": "018_monte_carlo_3.md",
+      "bytes": 428,
+      "sha256": "72f1804be51827222ca523ff9fb2a71c88b411e9f664d5887a7d3c634a6b074f"
+    },
+    {
+      "path": "019_monte_carlo_4.md",
+      "bytes": 372,
+      "sha256": "e8d3482710cd6fc15fd5d5b973f65e62dfcd1fce0f56c169749431d2935eaf9d"
+    },
+    {
+      "path": "020_monte_carlo_5.yaml",
+      "bytes": 752,
+      "sha256": "3ea475a9806c416105ebbb946cbdb840e0350711cc0368c2ea21e8733c9af216"
+    },
+    {
+      "path": "021_sensitivity_1.md",
+      "bytes": 366,
+      "sha256": "b729a0ba730a5d90929f3fb121c60eb3eea09a0908cd9f1f3dc8dedaf2a360af"
+    },
+    {
+      "path": "022_sensitivity_2.yaml",
+      "bytes": 428,
+      "sha256": "2d978117a3f5d9aaff17c1505e6ed8bd3c010eb7d8b2b81b3e4f55515adbcca7"
+    },
+    {
+      "path": "023_sensitivity_3.md",
+      "bytes": 372,
+      "sha256": "9f04a9907f0f28e8a6a9b3cd4351827295217b3de66fb3345ea907ecc3aaa7a4"
+    },
+    {
+      "path": "024_sensitivity_4.md",
+      "bytes": 752,
+      "sha256": "12824ea228f27d9aba1b1653dc5e148ec9970db4b27d843a545a3af02c222d20"
+    },
+    {
+      "path": "025_sensitivity_5.yaml",
+      "bytes": 366,
+      "sha256": "b729a0ba730a5d90929f3fb121c60eb3eea09a0908cd9f1f3dc8dedaf2a360af"
+    },
+    {
+      "path": "026_unit_economics_1.md",
+      "bytes": 431,
+      "sha256": "2edb220b5fce0b79412b3ea2d43f9074c231efc4d217fb317ad352cad6591218"
+    },
+    {
+      "path": "027_unit_economics_2.yaml",
+      "bytes": 375,
+      "sha256": "b0b4a4ac5a5fe37d253d8991e62d21f004a4628d46301518b3278c145439ac4b"
+    },
+    {
+      "path": "028_unit_economics_3.md",
+      "bytes": 761,
+      "sha256": "7727800eec1788c1b6d3717ab28f96d2fa8ce0087e73d0cdfa456b388c770267"
+    },
+    {
+      "path": "029_unit_economics_4.md",
+      "bytes": 372,
+      "sha256": "f5dee6cf0b4455e8a92637387393b8ec6c356e0d54aa70de9b87602168eb82be"
+    },
+    {
+      "path": "030_unit_economics_5.yaml",
+      "bytes": 431,
+      "sha256": "2edb220b5fce0b79412b3ea2d43f9074c231efc4d217fb317ad352cad6591218"
+    },
+    {
+      "path": "031_revenue_1.md",
+      "bytes": 368,
+      "sha256": "8def6270a0739a6c309ddaa7a39a72ee0410ec19b3b57530f1c84d9bb3af9ecd"
+    },
+    {
+      "path": "032_revenue_2.yaml",
+      "bytes": 740,
+      "sha256": "dd9bb59f1d542233c3ac2cc46dd2df988808740d040e73a8f25f9a6bf8dca175"
+    },
+    {
+      "path": "033_revenue_3.md",
+      "bytes": 358,
+      "sha256": "770154d3bde150b23f7380dde408d5266a029b5814bc4d9e88109ec2c9c7e2ca"
+    },
+    {
+      "path": "034_revenue_4.md",
+      "bytes": 424,
+      "sha256": "07422856ada5a331fc56837938f07b4cccc73d526379b4e4ba5fda6ec61e7530"
+    },
+    {
+      "path": "035_revenue_5.yaml",
+      "bytes": 368,
+      "sha256": "8def6270a0739a6c309ddaa7a39a72ee0410ec19b3b57530f1c84d9bb3af9ecd"
+    },
+    {
+      "path": "036_cost_1.md",
+      "bytes": 731,
+      "sha256": "790855aa63f40bf721a7538c0019c9b97bed0e7a51cf12abc830328aa3036ccb"
+    },
+    {
+      "path": "037_cost_2.yaml",
+      "bytes": 352,
+      "sha256": "456fc8441fb393a3c5c50c2d07e8d1ea24a116cbfc4c9e537d271d85398a9855"
+    },
+    {
+      "path": "038_cost_3.md",
+      "bytes": 421,
+      "sha256": "256903b91b80f0119222e86f5f17aa37e70fe6775a289f0c1dfaf377c2347737"
+    },
+    {
+      "path": "039_cost_4.md",
+      "bytes": 365,
+      "sha256": "2ecd39614e6616f9c38f1832db39d7399fc4860fcb615a97cb1ecf86aab3e78a"
+    },
+    {
+      "path": "040_cost_5.yaml",
+      "bytes": 731,
+      "sha256": "790855aa63f40bf721a7538c0019c9b97bed0e7a51cf12abc830328aa3036ccb"
+    },
+    {
+      "path": "041_profit_1.md",
+      "bytes": 356,
+      "sha256": "bafc6387aaf3479f0ad238cb0c59ea6b4ff9414a0563c1d71c69e76a1f91b0e9"
+    },
+    {
+      "path": "042_profit_2.yaml",
+      "bytes": 423,
+      "sha256": "fc99a788448b3d4bdf8f4d136b0c17fa375794768334a5d4ee76681ef2b5f523"
+    },
+    {
+      "path": "043_profit_3.md",
+      "bytes": 367,
+      "sha256": "3e04824d4db6c35d0ddc6c06e74240832770de04f93562c3611957a0abd128ee"
+    },
+    {
+      "path": "044_profit_4.md",
+      "bytes": 737,
+      "sha256": "81dbcb048cdc651eb01e56fc524138a46e58077694e313838c4b10b4eba98ac9"
+    },
+    {
+      "path": "045_profit_5.yaml",
+      "bytes": 356,
+      "sha256": "bafc6387aaf3479f0ad238cb0c59ea6b4ff9414a0563c1d71c69e76a1f91b0e9"
+    },
+    {
+      "path": "046_cashflow_1.md",
+      "bytes": 425,
+      "sha256": "35c0d5980d3899ccd3eb6bc58f7ad3944e59360e3fcb9b9f84d9f82b009344f8"
+    },
+    {
+      "path": "047_cashflow_2.yaml",
+      "bytes": 369,
+      "sha256": "45434b43a8ef14056fdd8c96b06a2ea2525d459e3602f0154fe6e3cb5d099bf4"
+    },
+    {
+      "path": "048_cashflow_3.md",
+      "bytes": 743,
+      "sha256": "7527a93de74eb206716fa0a15391948303607274cd6fb81aa334d89cc5f5a115"
+    },
+    {
+      "path": "049_cashflow_4.md",
+      "bytes": 360,
+      "sha256": "64278da2c47582c14fb177ea60578b071dbae7532a8c20ba9cc0e6e07a71231a"
+    },
+    {
+      "path": "050_cashflow_5.yaml",
+      "bytes": 425,
+      "sha256": "35c0d5980d3899ccd3eb6bc58f7ad3944e59360e3fcb9b9f84d9f82b009344f8"
+    },
+    {
+      "path": "051_relationship_value_1.md",
+      "bytes": 379,
+      "sha256": "5ec6c41f16c290a0ef4b040935f1c8356bc8706778bca8c77efb985f1d8c39a7"
+    },
+    {
+      "path": "052_relationship_value_2.yaml",
+      "bytes": 773,
+      "sha256": "42286db54741708f7fe0b997203266932a6bbc797a429717c7d14bbba1360ee2"
+    },
+    {
+      "path": "053_relationship_value_3.md",
+      "bytes": 380,
+      "sha256": "e9265e29e22795cb65e05b9df9f5ab30d9fb0eee4145ca55175c8e22aa923bcf"
+    },
+    {
+      "path": "054_relationship_value_4.md",
+      "bytes": 435,
+      "sha256": "55c2917ac8b8a120001243a8efb6a478127f92f6de7c2254af29806074ede419"
+    },
+    {
+      "path": "055_relationship_value_5.yaml",
+      "bytes": 379,
+      "sha256": "5ec6c41f16c290a0ef4b040935f1c8356bc8706778bca8c77efb985f1d8c39a7"
+    },
+    {
+      "path": "056_synergy_1.md",
+      "bytes": 740,
+      "sha256": "4d470112644ef635e71feec52ea13a5a399b8309bb3d0429f2c572b1e79b8467"
+    },
+    {
+      "path": "057_synergy_2.yaml",
+      "bytes": 358,
+      "sha256": "b54f469dcd37df93d0de5c0b18a6afe1e0e27d16900a5ce8ff8c59410b842f98"
+    },
+    {
+      "path": "058_synergy_3.md",
+      "bytes": 424,
+      "sha256": "66cac1ebeaa95af22e4c40a55102d2eb567900b6a7c4c8022cef4feddbc34dcc"
+    },
+    {
+      "path": "059_synergy_4.md",
+      "bytes": 368,
+      "sha256": "678e323eef459fd48dc2f2fd7b3c6196a3bc57fd390902cf51e8ef464547ee74"
+    },
+    {
+      "path": "060_synergy_5.yaml",
+      "bytes": 740,
+      "sha256": "4d470112644ef635e71feec52ea13a5a399b8309bb3d0429f2c572b1e79b8467"
+    },
+    {
+      "path": "061_reuse_1.md",
+      "bytes": 354,
+      "sha256": "9ed4980cbb8c321fbdf37671a900806086acbb43610ac638b14f3fc88b222889"
+    },
+    {
+      "path": "062_reuse_2.yaml",
+      "bytes": 422,
+      "sha256": "7115c73d097dc39792a38bd12c753feeb7feba67cefe6c73b028e95012a127cf"
+    },
+    {
+      "path": "063_reuse_3.md",
+      "bytes": 366,
+      "sha256": "9770378177cb998fd9bd55a3b461849943bcf23a009c061ee2b40dd52c8ecef9"
+    },
+    {
+      "path": "064_reuse_4.md",
+      "bytes": 734,
+      "sha256": "21cbb66ac0f125e0e0420f91a8fb89363afa54a6e196d68117c8405d18621720"
+    },
+    {
+      "path": "065_reuse_5.yaml",
+      "bytes": 354,
+      "sha256": "9ed4980cbb8c321fbdf37671a900806086acbb43610ac638b14f3fc88b222889"
+    },
+    {
+      "path": "066_compute_economics_1.md",
+      "bytes": 434,
+      "sha256": "bc88081c4e811f64a7e70fb162ded1c87b39fd5c50c508d88ca72bbe012b6475"
+    },
+    {
+      "path": "067_compute_economics_2.yaml",
+      "bytes": 378,
+      "sha256": "deddea3dc687ca826975c0483f7868392eb9c92cb385575deaa09f51ceb59c1c"
+    },
+    {
+      "path": "068_compute_economics_3.md",
+      "bytes": 770,
+      "sha256": "4c3b52b0004270b4162788fd08affcb81b5879bb1bac36a30d30d4871ba87537"
+    },
+    {
+      "path": "069_compute_economics_4.md",
+      "bytes": 378,
+      "sha256": "b8ec14e60a05d71eb1640d72bc3e0a3ce0c972f9e21ad9e233e0575f3a52bbad"
+    },
+    {
+      "path": "070_compute_economics_5.yaml",
+      "bytes": 434,
+      "sha256": "bc88081c4e811f64a7e70fb162ded1c87b39fd5c50c508d88ca72bbe012b6475"
+    },
+    {
+      "path": "071_risk_1.md",
+      "bytes": 365,
+      "sha256": "53cff6642799daf65feceebc855927fda9047ed6d393e6133258b12e6b62ea9e"
+    },
+    {
+      "path": "072_risk_2.yaml",
+      "bytes": 731,
+      "sha256": "71fe423e3dfb4fef3349f15b175a15d6e21ae2c02d5a5cab839b397a3fbb2f63"
+    },
+    {
+      "path": "073_risk_3.md",
+      "bytes": 352,
+      "sha256": "1e1f5a3fd6dd35c7bd103a0cfb41771d5920faea4a9631c6df60fee9e9528c2f"
+    },
+    {
+      "path": "074_risk_4.md",
+      "bytes": 421,
+      "sha256": "08e201a02ac7d69b5be65b54f238d2f6d1e8b7f725247e3bafb2201bc70360f8"
+    },
+    {
+      "path": "075_risk_5.yaml",
+      "bytes": 365,
+      "sha256": "53cff6642799daf65feceebc855927fda9047ed6d393e6133258b12e6b62ea9e"
+    },
+    {
+      "path": "076_confidence_1.md",
+      "bytes": 749,
+      "sha256": "ad5857812cca2c48ccf45771b1bbe3b294150e82d975481738edfe951ccab5c9"
+    },
+    {
+      "path": "077_confidence_2.yaml",
+      "bytes": 364,
+      "sha256": "03eb058370c88eb176120c215443133c3bd37b947b66cff94313851c81cba046"
+    },
+    {
+      "path": "078_confidence_3.md",
+      "bytes": 427,
+      "sha256": "41c858eeaff86124598a4f73f64a6e66c488994536d83274f1f092d5497d2c8e"
+    },
+    {
+      "path": "079_confidence_4.md",
+      "bytes": 371,
+      "sha256": "69c0d01de4642e92bced2779d0613621b1ea51de8b94a1d3c85cea1b9825cff8"
+    },
+    {
+      "path": "080_confidence_5.yaml",
+      "bytes": 749,
+      "sha256": "ad5857812cca2c48ccf45771b1bbe3b294150e82d975481738edfe951ccab5c9"
+    },
+    {
+      "path": "081_metrics_1.md",
+      "bytes": 358,
+      "sha256": "5320965ea67371fc8782d976c6ae77a731cbef28e69139e9ee3356b26ef57938"
+    },
+    {
+      "path": "082_metrics_2.yaml",
+      "bytes": 424,
+      "sha256": "016f2cb30ad80662395e5509e927573625d5f591d723f41f82b49767bf47e8e0"
+    },
+    {
+      "path": "083_metrics_3.md",
+      "bytes": 368,
+      "sha256": "beab5c9be8250419aac40a7ff130dbe5b955104e772cccc63e1475a5172360bf"
+    },
+    {
+      "path": "084_metrics_4.md",
+      "bytes": 740,
+      "sha256": "93533933ce81cd37cd8d6da8e0414f0f1741a2b2b91785f332b68bed91defc38"
+    },
+    {
+      "path": "085_metrics_5.yaml",
+      "bytes": 358,
+      "sha256": "5320965ea67371fc8782d976c6ae77a731cbef28e69139e9ee3356b26ef57938"
+    },
+    {
+      "path": "086_receipt_value_1.md",
+      "bytes": 430,
+      "sha256": "5a867a63622c852600878b03c22f8491ed9f007f4d02079fd76c0a3e043df1e5"
+    },
+    {
+      "path": "087_receipt_value_2.yaml",
+      "bytes": 374,
+      "sha256": "31a34d4fd65962c007ef66e08e39fc24a8b5eab86c7396e4103e932827330f84"
+    },
+    {
+      "path": "088_receipt_value_3.md",
+      "bytes": 758,
+      "sha256": "09f8622d4ddcf54a4ab8e904c9be763d3453fa7569a3524a38991d9cf0856538"
+    },
+    {
+      "path": "089_receipt_value_4.md",
+      "bytes": 370,
+      "sha256": "ea0bdededf30764a96427d66647eafbe278ebce9e64140b2bce5cef19a98da71"
+    },
+    {
+      "path": "090_receipt_value_5.yaml",
+      "bytes": 430,
+      "sha256": "5a867a63622c852600878b03c22f8491ed9f007f4d02079fd76c0a3e043df1e5"
+    },
+    {
+      "path": "091_calibration_1.md",
+      "bytes": 372,
+      "sha256": "c4c99a7769d8603b25e58c8ef311b23228c1ccac4cd527e05ba423d0fdac6505"
+    },
+    {
+      "path": "092_calibration_2.yaml",
+      "bytes": 752,
+      "sha256": "223fede54ee84f8187adc337e0a70a294c0d2df31e78543c453732f3520542ad"
+    },
+    {
+      "path": "093_calibration_3.md",
+      "bytes": 366,
+      "sha256": "2b24984620c12f7a6c299404fb9efbbf6a2eb762918a594b34e9fa454833366b"
+    },
+    {
+      "path": "094_calibration_4.md",
+      "bytes": 428,
+      "sha256": "aa8d879d825d9ec6984367d0c7d2eea6e975cb64a955ebf54a30e3acae53cc92"
+    },
+    {
+      "path": "095_calibration_5.yaml",
+      "bytes": 372,
+      "sha256": "c4c99a7769d8603b25e58c8ef311b23228c1ccac4cd527e05ba423d0fdac6505"
+    },
+    {
+      "path": "096_scenarios_1.md",
+      "bytes": 746,
+      "sha256": "d1f82d35595a752c08103ba631a78b4e07126d93b805474642c991bd99a43cbb"
+    },
+    {
+      "path": "097_scenarios_2.yaml",
+      "bytes": 362,
+      "sha256": "913782eb6555fa40cfa6f27f9a8cebe05567a02e97cc61ea0c2fdaf09dc09549"
+    },
+    {
+      "path": "098_scenarios_3.md",
+      "bytes": 426,
+      "sha256": "24c2ec7deec31ed9b5cfb2b6c63a4072b9df2c586c80a6760db0fcb07c1efa73"
+    },
+    {
+      "path": "099_scenarios_4.md",
+      "bytes": 370,
+      "sha256": "50cbdd45b530c92ff678dd82c5c31fd210a9ead9cc0d5f5037c8f62729ecba6d"
+    },
+    {
+      "path": "100_scenarios_5.yaml",
+      "bytes": 746,
+      "sha256": "d1f82d35595a752c08103ba631a78b4e07126d93b805474642c991bd99a43cbb"
+    },
+    {
+      "path": "INDEX.json",
+      "bytes": 510,
+      "sha256": "57c597a6ba44076f9f0bb4c4482f50b00b60dea5a7f4f0690e2d0aa8f85e7c42"
+    },
+    {
+      "path": "README.md",
+      "bytes": 393,
+      "sha256": "945753b54e22b7b1cd4ce6f790ae060920be9d18cc5bd0ea7d09ffe80b3eaeef"
+    }
+  ]
+}

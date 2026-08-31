@@ -1,0 +1,15 @@
+mutation:
+  propose: true
+  benchmark: true
+  checkpoint: true
+  test: true
+  adversarial_test: true
+  receipt: true
+  rollback: true
+  governance_self_edit: false
+promotion:
+  require:
+    - measurable_delta
+    - regression_green
+    - security_green
+    - rollback_available

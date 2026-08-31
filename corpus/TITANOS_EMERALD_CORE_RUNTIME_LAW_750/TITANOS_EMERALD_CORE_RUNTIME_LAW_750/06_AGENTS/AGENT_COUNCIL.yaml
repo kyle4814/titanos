@@ -1,0 +1,14 @@
+council:
+  OPUS:
+    missions: [architecture, arbitration, security, final_review]
+  SONNET:
+    missions: [implementation, integration, testing, refactoring, config]
+  HAIKU:
+    missions: [indexing, extraction, normalization, classification]
+  BLUE_TEAM:
+    missions: [adversarial_security, injection, authority, recovery, false_positive]
+rules:
+  independent_tasks_parallel: true
+  conflicting_mutations_parallel: false
+  every_worker_rehydrates_state: true
+  every_worker_receipts_material_mutations: true

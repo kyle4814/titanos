@@ -1,0 +1,8 @@
+task_id: TITANOS-WAX-02
+name: 02_TENDER_HUNTER
+mission: "Detect, verify, deduplicate and qualify current procurement opportunities."
+command: "WAX ON WAX OFF RINSE REPEAT — MAX ZIP — PARETO MUTATE"
+search_before_build: true
+provenance_required: true
+receipt_required: true
+gold_brick_requires_verification: true

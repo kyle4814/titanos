@@ -1,0 +1,3 @@
+security:
+  scope_enforced: true
+  credential_exfiltration: deny

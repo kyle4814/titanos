@@ -1,0 +1,8 @@
+task_id: TITANOS-WAX-07
+name: 07_CAPITAL_OPPORTUNITY_RADAR
+mission: "Find and analyse legitimate capital, grant and investment opportunities with strict eligibility and evidence gates."
+command: "WAX ON WAX OFF RINSE REPEAT — MAX ZIP — PARETO MUTATE"
+search_before_build: true
+provenance_required: true
+receipt_required: true
+gold_brick_requires_verification: true

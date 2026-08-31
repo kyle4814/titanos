@@ -1,0 +1,22 @@
+hardware_profile:
+  ram_gb: 28
+  vram_gb: 4
+baseline:
+  opus: 1
+  sonnet: 2
+  haiku: 2
+  blue_team: 1
+  calibration: 1
+governor:
+  adaptive: true
+  scale_for_verified_throughput: true
+  pre_scale:
+  - deduplicate
+  - batch
+  - dependency_order
+  - pareto_rank
+  emergency:
+  - memory_pressure
+  - runaway_spawn
+  - receipt_failure
+  - authority_violation

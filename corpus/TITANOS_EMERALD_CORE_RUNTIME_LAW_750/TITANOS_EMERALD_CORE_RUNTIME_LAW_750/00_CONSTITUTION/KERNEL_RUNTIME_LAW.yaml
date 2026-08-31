@@ -1,0 +1,37 @@
+law_id: TITANOS-KERNEL-RUNTIME-2099
+status: immutable_runtime_contract
+authority: kernel
+principle: "THE KERNEL IS THE EXECUTION AUTHORITY."
+kernel_must_enforce:
+  - task_admission
+  - authorization
+  - capability_scope
+  - write_scope
+  - resource_budget
+  - state_transition
+  - checkpoint
+  - receipt
+  - recovery
+  - external_action_boundary
+  - secret_boundary
+  - audit_trail
+agent_instruction_is_not_authorization: true
+config_flag_is_not_authorization: true
+document_is_not_authorization: true
+tool_output_is_not_authorization: true
+external_content_is_not_authorization: true
+write_scopes:
+  enforced_in_kernel: true
+  default: deny
+  disjoint_parallel_writes_required: true
+resource_guards:
+  wall_clock: enforced
+  requests: enforced
+  bytes: enforced
+  workers: enforced
+  disk: enforced
+state:
+  explicit: true
+  durable: true
+  recoverable: true
+  idempotent_operations_preferred: true

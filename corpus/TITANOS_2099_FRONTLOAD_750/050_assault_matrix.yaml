@@ -1,0 +1,10 @@
+assault:
+  tests:
+  - queue_bypass
+  - authority_escape
+  - lost_receipt
+  - false_success
+  - double_count
+  - stale_context
+  - rollback_failure
+  - crash_resume

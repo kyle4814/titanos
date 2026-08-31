@@ -1,0 +1,15 @@
+system:
+  system: titanos
+  codename: demonblade-2099
+  architecture: offline_first_circular_rail
+  authority: local_kernel
+  principles:
+  - kernel_owns_state
+  - agents_are_bounded_workers
+  - tests_are_witnesses
+  - receipts_are_durable_memory
+  - provenance_is_required
+  - modelled_value_never_equals_realized_value
+  - mutations_require_baselines_and_rollback
+  - pareto_selects_work
+offline_first: true

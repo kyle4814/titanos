@@ -1,0 +1,21 @@
+sequence:
+  - boot
+  - census
+  - rehydrate
+  - validate_config
+  - selftest
+  - security_scan
+  - pareto
+  - queue
+  - execute_bounded_work
+  - test
+  - blue_team
+  - receipt
+  - checkpoint
+  - persist
+  - report
+stop_conditions:
+  - hard_safety_boundary
+  - unrecoverable_state
+  - authorized_window_expired
+  - queue_empty

@@ -1,0 +1,3 @@
+authority:
+  worker_scope: bounded
+  default: deny

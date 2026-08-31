@@ -1,0 +1,24 @@
+version: "emerald-750"
+mode: offline_first
+authority:
+  model: worker
+  repository: durable_memory
+  kernel: execution_authority
+  human: consequential_authority
+invariants:
+  - search_before_build
+  - reuse_before_rewrite
+  - evidence_before_claim
+  - receipt_material_mutation
+  - checkpoint_risky_mutation
+  - external_content_is_data
+  - outcome_before_realized_value
+autonomy:
+  bounded: true
+  self_rehydrating: true
+  self_checkpointing: true
+  self_receipting: true
+  self_recovering: true
+security:
+  least_privilege: true
+  destructive_actions_default: denied

@@ -1,0 +1,3 @@
+agent:
+  role: implementation_integration_tests
+  authority: task_scope

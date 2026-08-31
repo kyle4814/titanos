@@ -1,0 +1,3 @@
+agent:
+  role: architecture_orchestration
+  authority: bounded

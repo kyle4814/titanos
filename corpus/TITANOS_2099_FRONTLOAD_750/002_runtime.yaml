@@ -1,0 +1,4 @@
+runtime:
+  state_local: true
+  queue_local: true
+  receipts_local: true

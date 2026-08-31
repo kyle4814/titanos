@@ -1,0 +1,3 @@
+policy:
+  default_filesystem_write: deny
+  external_irreversible_action: deny

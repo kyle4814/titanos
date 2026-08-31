@@ -1,0 +1,18 @@
+scope: lawful_public_information
+allowed:
+  - public_procurement
+  - public_repositories
+  - public_technical_documents
+  - public_company_information
+  - public_blockchain_data
+required:
+  - provenance
+  - timestamp
+  - source
+  - collection_method
+forbidden:
+  - access_control_bypass
+  - credential_harvesting
+  - private_data_extraction
+  - unauthorized_execution
+  - rate_limit_evasion

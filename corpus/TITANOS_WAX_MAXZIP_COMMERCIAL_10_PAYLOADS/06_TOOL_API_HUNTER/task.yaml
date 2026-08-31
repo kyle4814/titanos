@@ -1,0 +1,8 @@
+task_id: TITANOS-WAX-06
+name: 06_TOOL_API_HUNTER
+mission: "Search existing repo, APIs, open-source tools and GitHub before building."
+command: "WAX ON WAX OFF RINSE REPEAT — MAX ZIP — PARETO MUTATE"
+search_before_build: true
+provenance_required: true
+receipt_required: true
+gold_brick_requires_verification: true

@@ -1,0 +1,4 @@
+switches:
+  declaration: true
+  runtime_binding: true
+  test: true

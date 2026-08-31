@@ -1,0 +1,23 @@
+schema: titanos_brick_repository
+version: "1.0"
+domain: "03_BRICK_FACTORY"
+status: draft
+inputs:
+  - canonical_state
+  - task_scope
+  - authorised_dependencies
+outputs:
+  - result
+  - status
+  - evidence
+  - receipt
+states:
+  - proposed
+  - active
+  - verified
+  - superseded
+guards:
+  - provenance_present
+  - authority_present
+  - acceptance_defined
+  - test_defined

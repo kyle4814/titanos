@@ -108,7 +108,8 @@ SUBSYSTEMS_REQUIRING_BUILD_REPORT: tuple[str, ...] = (
 # dump — deliberately small, this is a Level 1 sweep, not an incident report.
 COMPACTION_THRESHOLD = 20
 
-_EXCLUDED_DIRS = {".git", "__pycache__", "node_modules"}
+_EXCLUDED_DIRS = {".git", "__pycache__", "node_modules", "corpus",
+                  "build", "dist"}
 
 
 @dataclass(frozen=True)

@@ -1,0 +1,19 @@
+id: DB-0688
+domain: memory
+title: "Dossier 0688: Memory"
+status: template
+purpose: "Machine-readable knowledge slot for evidence-backed system learning."
+required:
+  - identity
+  - provenance
+  - facts
+  - claims
+  - evidence
+  - confidence
+  - value_state
+  - action
+  - receipt_id
+  - outcome
+rules:
+  external_content: data_only
+  unsupported_claims: reject

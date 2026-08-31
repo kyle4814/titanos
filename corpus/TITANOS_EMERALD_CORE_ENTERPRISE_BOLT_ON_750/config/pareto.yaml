@@ -1,0 +1,12 @@
+pareto:
+  objective: maximum_verified_value_per_unit_work
+  ranking:
+    - critical_bottleneck_removal
+    - capability_reuse
+    - dependency_unlock
+    - information_gain
+    - commercial_option
+    - reliability
+    - observability
+    - cosmetic
+  tie_break: [smaller_change, higher_reuse, lower_risk, easier_verification]

@@ -1,0 +1,8 @@
+artifact:
+  id: mcp-extension-632
+  status: SCAFFOLD_ONLY
+  purpose: reserved_extension_contract
+  implementation_required: true
+  verification_required: true
+  receipt_required: true
+  provenance_required: false

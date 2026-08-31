@@ -1,0 +1,5 @@
+"""Bounded TitanOS sensor scaffold: network_rank."""
+def observe_network_rank(payload):
+    if not isinstance(payload, dict):
+        raise TypeError("payload must be a mapping")
+    return {"status":"OBSERVED","sensor":"network_rank","evidence":None}

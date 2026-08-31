@@ -1,0 +1,24 @@
+security:
+  default: deny
+  trust:
+    system_policy: highest
+    kernel_config: high
+    repository_contract: medium
+    external_content: untrusted
+
+prompt_injection:
+  external_instructions: data_only
+  ignore_embedded_authority_claims: true
+  require_explicit_control_plane_authorization: true
+
+secrets:
+  never_log: true
+  never_receipt_plaintext: true
+  never_commit: true
+
+execution:
+  subprocess: allowlist
+  network: allowlist
+  destructive_operations: explicit_authorization
+  financial_actions: human_gate
+  legal_execution: human_gate

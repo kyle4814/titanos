@@ -1,0 +1,10 @@
+domain: manufacturing
+allowed_research:
+  - public_information
+  - technical_documentation
+  - public_procurement
+  - public_company_information
+constraints:
+  - no_access_control_bypass
+  - no_credential_harvesting
+  - preserve_provenance

@@ -1,0 +1,17 @@
+task_id: TITANOS-015-09_TOOL_API_GITHUB_HUNTER-compute
+domain: 09_TOOL_API_GITHUB_HUNTER
+objective: "compute"
+search_before_build: true
+reuse_before_build: true
+provenance_required: true
+receipt_required: true
+human_gate_for_material_action: true
+states:
+  - DISCOVERED
+  - VERIFIED
+  - QUALIFIED
+  - EXECUTING
+  - VERIFIED_RESULT
+  - RECEIPTED
+  - PROMOTED
+  - QUARANTINED

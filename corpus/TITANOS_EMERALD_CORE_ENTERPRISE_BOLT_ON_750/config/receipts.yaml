@@ -1,0 +1,7 @@
+receipts:
+  storage: append_only_jsonl
+  hash_chain: sha256_previous_hash
+  required: [receipt_id, task_id, run_id, timestamp, actor, action,
+             inputs, outputs, evidence, changed_files, tests, status,
+             previous_hash, hash]
+  unverifiable_claim: failure

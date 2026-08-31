@@ -1,0 +1,54 @@
+mission: absorb_and_operationalize_titanos_backbone
+authority: local_kernel
+order:
+- inventory_real_repo
+- validate_yaml
+- reconcile_existing_architecture
+- reuse_before_build
+- implement_kernel
+- implement_durable_state_queue_receipts
+- wire_config_switches
+- wire_bounded_agent_adapters
+- implement_pareto
+- implement_brick_registry
+- implement_value_separation
+- run_tests
+- run_blue_team
+- run_red_team_safe_local_resilience
+- run_recovery_test
+- defrag
+- receipt_every_material_change
+- rank_next_action
+- continue_until_blocked_or_queue_empty
+agent_roles:
+  opus: architecture_orchestration_arbitration
+  sonnet: implementation_refactoring_integration
+  haiku: bounded_extraction_indexing_normalization
+  blue_opus: adversarial_verification
+  calibration: benchmark_outcome_comparison
+hard_rules:
+- agents_are_workers_not_authority
+- no_unbounded_filesystem_write
+- no_unreceipted_mutation
+- no_fabricated_value
+- no_modelled_value_as_realized_cash
+- no_promotion_without_tests
+- no_network_dependency_for_core_state
+- kill_worker_then_recover_checkpoint
+- prefer_verified_capability_over_file_count
+final_loop:
+- LOAD
+- RECON
+- MAGL
+- PARETO
+- QUEUE
+- ROUTE
+- EXECUTE
+- TEST
+- BLUE_TEAM
+- RED_TEAM
+- RECEIPT
+- CALIBRATE
+- MUTATE
+- PERSIST
+- NEXT

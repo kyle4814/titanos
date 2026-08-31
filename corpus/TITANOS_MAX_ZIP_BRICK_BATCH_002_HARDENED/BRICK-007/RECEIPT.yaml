@@ -1,0 +1,5 @@
+receipt_id: RECEIPT-BRICK-007
+brick_id: BRICK-007
+event: FOUNDATION_PACKAGE_PRINTED
+basis: "Current TitanOS canonical doctrine available in conversation context"
+evidence: "Generated from canonical architecture summary; implementation claims are not asserted."

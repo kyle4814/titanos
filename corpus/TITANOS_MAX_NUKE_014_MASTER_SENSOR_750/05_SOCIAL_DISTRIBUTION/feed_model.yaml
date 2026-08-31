@@ -1,0 +1,15 @@
+schema: titanos_feed_model
+version: "1.0"
+domain: "05_SOCIAL_DISTRIBUTION"
+status: draft
+inputs: explicit
+outputs: explicit
+provenance: required
+measurement: required
+guards:
+  - authorization
+  - rate_limit
+  - privacy
+  - provenance
+  - validation
+  - audit

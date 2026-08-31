@@ -1,0 +1,12 @@
+sigil_schema: titan_os
+version: MAGL-V12
+core:
+  TITANOS: "🜏"
+  PROMETHIUS: "✦"
+  GOLD_BRICK: "🧱"
+  BALANCE: "☯"
+  DEMONBLADE: "⚔"
+  PARETO: "𝚫"
+  RECEIPT: "🧾"
+  UPGRADE: "🧬"
+  ENGINEER: "🇩🇪"

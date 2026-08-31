@@ -1,0 +1,15 @@
+schema: titanos_dashboard_definition
+version: "1.0"
+domain: "07_ANALYTICS_ATTRIBUTION"
+status: draft
+inputs: explicit
+outputs: explicit
+provenance: required
+measurement: required
+guards:
+  - authorization
+  - rate_limit
+  - privacy
+  - provenance
+  - validation
+  - audit

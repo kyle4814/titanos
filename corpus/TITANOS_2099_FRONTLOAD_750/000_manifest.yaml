@@ -1,0 +1,24 @@
+system: titanos
+codename: demonblade-2099
+architecture: offline_first_circular_rail
+authority: local_kernel
+principles:
+- kernel_owns_state
+- agents_are_bounded_workers
+- tests_are_witnesses
+- receipts_are_durable_memory
+- provenance_is_required
+- modelled_value_never_equals_realized_value
+- mutations_require_baselines_and_rollback
+- pareto_selects_work
+package:
+  id: titanos-2099-frontload-750
+  file_count: 750
+  format: yaml
+  purpose: frontload_architecture_and_receipt_contracts
+status_semantics:
+- VERIFIED
+- PARTIAL
+- UNKNOWN
+- FAILED
+- SCAFFOLD_ONLY

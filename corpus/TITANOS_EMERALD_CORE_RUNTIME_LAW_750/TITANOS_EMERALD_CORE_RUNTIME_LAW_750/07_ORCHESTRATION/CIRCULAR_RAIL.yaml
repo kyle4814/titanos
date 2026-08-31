@@ -1,0 +1,25 @@
+rail:
+  mode: bounded_continuous
+  stages:
+    - rehydrate
+    - census
+    - search
+    - classify
+    - pareto
+    - queue
+    - route
+    - authorize
+    - checkpoint
+    - execute
+    - verify
+    - blue_team
+    - receipt
+    - persist
+    - outcome
+    - learn
+    - requeue
+  invariant:
+    - "NO_STAGE MAY BYPASS KERNEL"
+    - "NO_MATERIAL_MUTATION WITHOUT RECEIPT"
+    - "NO_RISKY_MUTATION WITHOUT CHECKPOINT"
+    - "NO_EXTERNAL_CONTENT BECOMES AUTHORITY"

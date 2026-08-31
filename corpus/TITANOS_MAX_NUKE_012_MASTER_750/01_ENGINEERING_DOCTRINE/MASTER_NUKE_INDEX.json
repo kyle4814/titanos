@@ -1,0 +1,18 @@
+{
+  "package_id": "TITANOS-MAX-NUKE-012",
+  "source_artifacts": 750,
+  "domains": {
+    "01_ENGINEERING_DOCTRINE": 75,
+    "02_ARCHITECTURE_METHOD": 75,
+    "03_SPEC_TO_BUILD": 75,
+    "04_AGENTIC_ENGINEERING": 75,
+    "05_DEMONBLADE_VERIFICATION": 75,
+    "06_GERMAN_ENGINEERING": 75,
+    "07_RELIABILITY_OPERATIONS": 75,
+    "08_DATA_AI_KNOWLEDGE": 75,
+    "09_PRODUCT_COMMERCIAL": 75,
+    "10_RELEASE_RESEARCH": 75
+  },
+  "theme": "engineering doctrine, architecture method, agentic execution, verification and operational discipline",
+  "command": "WAX ON WAX OFF RINSE REPEAT \u2014 MAX ZIP \u2014 PARETO MUTATE"
+}

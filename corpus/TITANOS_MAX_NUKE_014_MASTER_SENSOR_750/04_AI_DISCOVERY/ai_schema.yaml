@@ -1,0 +1,15 @@
+schema: titanos_ai_schema
+version: "1.0"
+domain: "04_AI_DISCOVERY"
+status: draft
+inputs: explicit
+outputs: explicit
+provenance: required
+measurement: required
+guards:
+  - authorization
+  - rate_limit
+  - privacy
+  - provenance
+  - validation
+  - audit

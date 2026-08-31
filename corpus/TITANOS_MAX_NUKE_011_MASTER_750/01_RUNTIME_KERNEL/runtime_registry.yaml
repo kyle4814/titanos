@@ -1,0 +1,20 @@
+schema: titanos_runtime_registry
+version: "1.0"
+domain: "01_RUNTIME_KERNEL"
+status: draft
+contract:
+  inputs: bounded
+  outputs: explicit
+  evidence: required
+  receipt: required
+guards:
+  - authority
+  - provenance
+  - validation
+  - acceptance
+states:
+  - proposed
+  - active
+  - tested
+  - verified
+  - superseded

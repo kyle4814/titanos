@@ -1,0 +1,9 @@
+states:
+- signal
+- prospect
+- qualified
+- opportunity
+- proposal
+- contract
+- invoice
+- realized_cash

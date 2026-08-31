@@ -1,0 +1,19 @@
+schema: titan_os_state_transition
+version: "1.0"
+states:
+  - INBOX
+  - INSPECTING
+  - READY
+  - CLAIMED
+  - EXECUTING
+  - VERIFYING
+  - PROMOTABLE
+  - PROMOTED
+  - BRICKED
+  - REUSABLE
+  - BLOCKED
+  - QUARANTINED
+  - REJECTED
+  - HUMAN_REVIEW
+  - ROLLED_BACK
+rule: "No undocumented state transition."

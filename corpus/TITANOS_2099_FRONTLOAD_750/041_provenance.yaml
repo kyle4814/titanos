@@ -1,0 +1,3 @@
+provenance:
+  required: true
+  copied_sources_not_independent: true

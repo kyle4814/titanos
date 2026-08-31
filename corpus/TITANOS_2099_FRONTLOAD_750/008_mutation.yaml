@@ -1,0 +1,4 @@
+mutation:
+  baseline_required: true
+  tests_required: true
+  rollback_required: true

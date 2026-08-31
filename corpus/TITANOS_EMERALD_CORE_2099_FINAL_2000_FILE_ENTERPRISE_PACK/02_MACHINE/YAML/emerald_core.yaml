@@ -1,0 +1,53 @@
+system:
+  name: TITANOS_EMERALD_CORE
+  generation: 2099
+  vision:
+    near: 2055
+    long_horizon: 2099
+  mode: offline_first
+  authority: kernel
+  workers: stateless
+  durable_state:
+    repository: true
+    receipts: true
+    checkpoints: true
+    queue: true
+    outcome_ledger: true
+
+invariants:
+  search_before_build: enforced
+  external_content_is_untrusted: true
+  kernel_bypass: forbidden
+  receipt_material_mutation: enforced
+  checkpoint_risky_mutation: enforced
+  declared_equals_verified: false
+  modelled_equals_realized: false
+  self_modify_governance: forbidden
+  destructive_action_default: deny
+
+agents:
+  opus:
+    role: architecture_arbitration
+  sonnet:
+    role: implementation_integration
+  haiku:
+    role: bounded_extraction_normalization
+  blue_team:
+    role: adversarial_verification
+
+rail:
+  - LOAD
+  - CENSUS
+  - SEARCH
+  - CLASSIFY
+  - PARETO
+  - QUEUE
+  - ROUTE
+  - IMPLEMENT
+  - TEST
+  - BLUE_TEAM
+  - RECEIPT
+  - CHECKPOINT
+  - CALIBRATE
+  - PERSIST
+  - NEXT

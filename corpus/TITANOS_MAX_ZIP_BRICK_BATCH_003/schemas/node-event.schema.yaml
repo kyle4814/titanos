@@ -1,0 +1,22 @@
+schema: titan_os_node_event
+version: "1.0"
+required:
+  - event_id
+  - node_id
+  - event_type
+  - timestamp
+  - payload
+  - provenance
+  - state_version
+event_types:
+  - NODE_HEALTH_CHANGED
+  - DEPENDENCY_UPDATED
+  - TASK_READY
+  - TASK_BLOCKED
+  - CAPABILITY_UPDATED
+  - VERIFICATION_RESULT
+  - RECEIPT_CREATED
+  - CERTIFICATE_CHANGED
+  - MUTATION_PROPOSED
+  - STATE_RECONCILIATION_REQUIRED
+rule: "Events are observations; consequential state transitions require validation."

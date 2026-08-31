@@ -1,0 +1,15 @@
+# Runbook — api_cost
+
+DISCOVER
+VERIFY
+QUALIFY
+EXECUTE
+TEST
+RECEIPT
+PROMOTE
+REVALUE
+PARETO MUTATE
+
+If evidence fails: UNKNOWN / DISPROVEN / QUARANTINED.
+If capability exists: REUSE.
+If no capability exists: SEARCH API → OPEN TOOL → GITHUB → MINIMUM BUILD.

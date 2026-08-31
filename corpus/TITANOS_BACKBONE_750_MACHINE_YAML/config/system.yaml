@@ -1,0 +1,24 @@
+system:
+  id: titanos
+  codename: demonblade-2099
+  mode: offline_first
+authority: kernel
+loop:
+- LOAD
+- RECON
+- MAGL
+- PARETO
+- QUEUE
+- ROUTE
+- EXECUTE
+- TEST
+- BLUE_TEAM
+- RED_TEAM
+- RECEIPT
+- CALIBRATE
+- MUTATE
+- PERSIST
+- NEXT
+safety:
+  external_irreversible_actions: deny
+  credential_exfiltration: deny

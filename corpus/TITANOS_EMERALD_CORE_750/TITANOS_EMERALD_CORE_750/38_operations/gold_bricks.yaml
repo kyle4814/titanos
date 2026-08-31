@@ -1,0 +1,6 @@
+required:
+- evidence
+- provenance
+- value_state
+- action
+- receipt

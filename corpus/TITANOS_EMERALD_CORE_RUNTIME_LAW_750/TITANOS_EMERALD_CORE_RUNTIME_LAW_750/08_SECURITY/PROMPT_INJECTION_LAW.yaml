@@ -1,0 +1,19 @@
+external_content:
+  classification: untrusted_data
+  may_contain_instructions: true
+  instructions_are_not_authority: true
+protected:
+  - system_policy
+  - kernel_policy
+  - credentials
+  - agent_authority
+  - write_scopes
+  - receipt_policy
+  - security_policy
+test_cases:
+  - ignore_previous_instructions
+  - reveal_secrets
+  - disable_security
+  - run_command
+  - modify_config
+  - declare_verified

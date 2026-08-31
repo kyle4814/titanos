@@ -1,0 +1,19 @@
+{
+  "package_id": "TITANOS-BUSINESS-LEGAL-REGISTRATION-008",
+  "status": "pre-registration / draft / due-diligence feedstock",
+  "revenue_status": "no revenue stated",
+  "sections": [
+    "00_MAIN",
+    "01_CORPORATE",
+    "02_COMMERCIAL",
+    "03_LEGAL",
+    "04_PRIVACY_SECURITY",
+    "05_IP",
+    "06_FINANCE",
+    "07_INVESTORS",
+    "08_AGENCIES",
+    "09_GOLD_BRICK"
+  ],
+  "documents": 30,
+  "identity_verification_required": true
+}

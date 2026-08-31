@@ -1,0 +1,20 @@
+{
+  "package_id": "TITANOS-MAX-NUKE-010",
+  "target_source_files": 750,
+  "domain_count": 10,
+  "files_per_domain": 75,
+  "domains": {
+    "01_CORE_STATE": 75,
+    "02_TASK_ENGINE": 75,
+    "03_BRICK_FACTORY": 75,
+    "04_RECEIPTS_PROVENANCE": 75,
+    "05_AGENT_FABRIC": 75,
+    "06_DEMONBLADE_SECURITY": 75,
+    "07_FINANCE_VALUE": 75,
+    "08_INFRASTRUCTURE": 75,
+    "09_COMMERCIAL_LEGAL": 75,
+    "10_TESTING_RELEASE": 75
+  },
+  "status": "draft engineering feedstock",
+  "operating_command": "WAX ON WAX OFF RINSE REPEAT \u2014 MAX ZIP \u2014 PARETO MUTATE"
+}

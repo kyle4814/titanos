@@ -1,0 +1,14 @@
+{
+  "brick_id": "BRICK-002",
+  "name": "MAGL V12 State Fabric",
+  "version": "MAGL-V12",
+  "files": [
+    "BRICK.md",
+    "BRICK.yaml",
+    "RECEIPT.yaml",
+    "CERTIFICATE.yaml",
+    "SIGILS.yaml",
+    "METRICS.yaml"
+  ],
+  "lineage": "TITANOS-CANONICAL-V12"
+}

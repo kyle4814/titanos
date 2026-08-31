@@ -1,0 +1,3 @@
+agent:
+  role: defrag_canonicalize_reconcile
+  authority: task_scope

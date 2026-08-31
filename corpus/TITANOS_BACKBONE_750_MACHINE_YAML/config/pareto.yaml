@@ -1,0 +1,6 @@
+objective: verified_value_per_cost_and_complexity
+formula: (verified_value*confidence*information_gain*dependency_unlock*reuse*risk_reduction)/(cost+risk+complexity)
+rule:
+- deduplicate_before_scale
+- rank_before_spawn
+- evidence_before_promotion

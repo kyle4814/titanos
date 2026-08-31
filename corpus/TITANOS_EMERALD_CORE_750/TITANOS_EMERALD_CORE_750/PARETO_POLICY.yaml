@@ -1,0 +1,15 @@
+priority_order:
+  - critical_bottleneck
+  - dependency_unlock
+  - verified_reuse
+  - information_gain
+  - commercial_option
+  - reliability
+  - observability
+  - cosmetic
+score_dimensions:
+  value: 0.30
+  unlock: 0.25
+  evidence: 0.20
+  risk_reduction: 0.15
+  complexity: -0.10

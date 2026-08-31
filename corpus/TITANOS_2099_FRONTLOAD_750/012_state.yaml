@@ -1,0 +1,4 @@
+state:
+  owner: kernel
+  durable: true
+  checkpointed: true

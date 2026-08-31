@@ -1,0 +1,20 @@
+schema: titanos_03_api_integrations_extension_072
+version: "1.0"
+domain: "03_API_INTEGRATIONS"
+status: draft
+contract:
+  inputs: bounded
+  outputs: explicit
+  evidence: required
+  receipt: required
+guards:
+  - authority
+  - provenance
+  - validation
+  - acceptance
+states:
+  - proposed
+  - active
+  - tested
+  - verified
+  - superseded

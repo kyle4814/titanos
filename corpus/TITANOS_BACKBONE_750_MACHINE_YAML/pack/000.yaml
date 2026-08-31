@@ -1,0 +1,11 @@
+artifact:
+  id: TB-000
+  class: canonical
+  status: VERIFIED
+  purpose: package_manifest
+package:
+  range: 0-750
+  count: 751
+  format: yaml
+runtime:
+  entrypoint: python -m titanos.cli run

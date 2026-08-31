@@ -1,0 +1,23 @@
+schema: titanos_commercial_fixtures
+version: "1.0"
+domain: "09_COMMERCIAL_LEGAL"
+status: draft
+inputs:
+  - canonical_state
+  - task_scope
+  - authorised_dependencies
+outputs:
+  - result
+  - status
+  - evidence
+  - receipt
+states:
+  - proposed
+  - active
+  - verified
+  - superseded
+guards:
+  - provenance_present
+  - authority_present
+  - acceptance_defined
+  - test_defined

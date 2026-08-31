@@ -1,0 +1,18 @@
+brick_id: BRICK-007
+name: "Receipt + Certificate System"
+version: "MAGL-V12"
+status: canonical_foundation
+purpose: "Evidence, provenance, authorization, governance status, lineage, and revocation."
+doctrine: "BUILD -> VERIFY -> BRICK -> REUSE -> COMPOUND"
+network:
+  conceptual_capacity: 144000
+  elastic_compute: true
+state:
+  pre_run_command_switch: true
+verification:
+  demonblade: true
+governance:
+  human_escalation: true
+economics:
+  guaranteed_returns: false
+quality_gate: "NICHT MEHR. NICHT WENIGER."

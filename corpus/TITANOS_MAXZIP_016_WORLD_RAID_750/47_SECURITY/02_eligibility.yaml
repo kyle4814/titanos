@@ -1,0 +1,17 @@
+task_id: TITANOS-016-47_SECURITY-eligibility
+domain: 47_SECURITY
+topic: eligibility
+search_before_build: true
+reuse_before_build: true
+provenance_required: true
+receipt_required: true
+verification_required: true
+human_gate_for_material_financial_or_legal_action: true
+value_class: MODELLED_UNLESS_REALIZED
+states:
+  - UNKNOWN
+  - OBSERVED
+  - INFERRED
+  - VERIFIED
+  - DISPROVEN
+  - QUARANTINED

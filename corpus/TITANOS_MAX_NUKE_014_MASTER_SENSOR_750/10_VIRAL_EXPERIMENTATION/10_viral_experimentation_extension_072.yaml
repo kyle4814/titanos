@@ -1,0 +1,15 @@
+schema: titanos_10_viral_experimentation_extension_072
+version: "1.0"
+domain: "10_VIRAL_EXPERIMENTATION"
+status: draft
+inputs: explicit
+outputs: explicit
+provenance: required
+measurement: required
+guards:
+  - authorization
+  - rate_limit
+  - privacy
+  - provenance
+  - validation
+  - audit

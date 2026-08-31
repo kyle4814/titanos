@@ -1,0 +1,15 @@
+system: TITANOS
+core: EMERALD_CORE
+doctrine: DEMONBLADE_2099
+vision:
+  2055: global evidence-first opportunity intelligence
+  2099: durable human-benefit engineering and knowledge infrastructure
+runtime:
+  kernel_authoritative: true
+  stateless_workers: true
+  durable_memory: true
+  receipts: true
+  checkpoints: true
+  self_evolution: bounded_and_receipted
+  transparency: maximum_safe_transparency
+  consequence_authority: human

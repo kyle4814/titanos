@@ -1,0 +1,8 @@
+task_id: TITANOS-WAX-04
+name: 04_BRICK_MATCH_ENGINE
+mission: "Match verified opportunities to existing reusable TitanOS capabilities."
+command: "WAX ON WAX OFF RINSE REPEAT — MAX ZIP — PARETO MUTATE"
+search_before_build: true
+provenance_required: true
+receipt_required: true
+gold_brick_requires_verification: true

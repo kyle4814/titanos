@@ -1,0 +1,11 @@
+batch_id: MAX-ZIP-003
+parent_batch: TITANOS_MAX_ZIP_BRICK_BATCH_002_HARDENED
+mutation_focus:
+  - task_contracts
+  - state_snapshots
+  - node_events
+  - execution_protocol
+  - pareto_scorecard
+  - brick_promotion
+command: "WAX ON WAX OFF RINSE REPEAT — MAX ZIP — PARETO MUTATE"
+status: documentation_feedstock

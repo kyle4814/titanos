@@ -1,0 +1,18 @@
+schema: titan_os_receipt
+version: "1.0"
+required:
+  - receipt_id
+  - brick_id
+  - event
+  - timestamp
+  - actor
+  - evidence
+  - outcome
+properties:
+  receipt_id: string
+  brick_id: string
+  event: string
+  timestamp: string
+  actor: string
+  evidence: array
+  outcome: string

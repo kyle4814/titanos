@@ -1,0 +1,19 @@
+law_id: TITANOS-METADATA-CODE-2099
+principle: >
+  METADATA DESCRIBES INTENT AND CONSTRAINTS; THE KERNEL ENFORCES THEM.
+pipeline:
+  metadata:
+    - parse
+    - validate
+    - normalize
+    - compile_to_internal_policy
+    - validate_compiled_policy
+    - activate
+  code:
+    - consume_compiled_policy
+    - enforce
+    - observe
+    - receipt
+rule: >
+  YAML MUST NEVER BE TREATED AS MAGIC AUTHORITY. IT MUST COMPILE INTO
+  A VALIDATED INTERNAL REPRESENTATION BEFORE RUNTIME USE.

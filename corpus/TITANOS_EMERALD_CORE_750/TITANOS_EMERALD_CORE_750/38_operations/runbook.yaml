@@ -1,0 +1,12 @@
+boot:
+- read constitution
+- load config
+- rehydrate state
+- run selftest
+loop:
+- pareto
+- queue
+- execute
+- verify
+- receipt
+- checkpoint

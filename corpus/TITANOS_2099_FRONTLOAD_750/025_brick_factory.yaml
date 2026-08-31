@@ -1,0 +1,11 @@
+workflow:
+  steps:
+  - discover
+  - qualify
+  - investigate
+  - verify
+  - package
+  - test
+  - receipt
+  - register
+  - outcome

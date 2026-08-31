@@ -1,0 +1,21 @@
+titanos:
+  codename: demonblade-2099
+  mode: offline_first
+  architecture: circular_rail
+  authority: kernel
+  loop:
+  - LOAD
+  - RECON
+  - MAGL
+  - PARETO
+  - QUEUE
+  - ROUTE
+  - EXECUTE
+  - TEST
+  - BLUE_TEAM
+  - RED_TEAM
+  - RECEIPT
+  - CALIBRATE
+  - MUTATE
+  - PERSIST
+  - NEXT

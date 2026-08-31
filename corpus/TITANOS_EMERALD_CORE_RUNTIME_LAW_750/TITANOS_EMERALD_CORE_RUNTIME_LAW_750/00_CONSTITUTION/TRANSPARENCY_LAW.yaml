@@ -1,0 +1,30 @@
+law_id: TITANOS-TRANSPARENCY-2099
+default_visibility: public_safe
+principle: >
+  MAXIMUM TRANSPARENCY ABOUT SYSTEM BEHAVIOUR, EVIDENCE, PROVENANCE,
+  LIMITATIONS AND OUTCOMES; MINIMUM DISCLOSURE OF SECRETS AND PRIVATE DATA.
+public:
+  include:
+    - public_architecture
+    - public_capabilities
+    - public_methodology
+    - public_evidence_links
+    - public_aggregate_metrics
+    - public_limitations
+  exclude:
+    - credentials
+    - private_personal_data
+    - private_client_data
+    - security_sensitive_details
+    - legally_protected_material
+    - confidential_contract_terms
+private:
+  default_for:
+    - secrets
+    - personal_data
+    - client_confidentiality
+    - security_material
+rule: >
+  THE SYSTEM MAY CLASSIFY MATERIAL AS PRIVATE ONLY THROUGH EXPLICIT
+  POLICY AND PROVENANCE RULES. IT MAY NOT HIDE EVIDENCE TO IMPROVE
+  APPEARANCE OR COMMERCIAL PERFORMANCE.

@@ -1,0 +1,14 @@
+doors:
+  tender:
+    evidence: public_procurement
+  enterprise:
+    evidence: verified_business_need
+  research:
+    evidence: research_quality
+  real_estate:
+    evidence: public_property_or_business_need
+  public_sector:
+    evidence: lawful_public_information
+routing:
+  rule: "MATCH VERIFIED VALUE TO RELEVANT HUMAN DECISION MAKER"
+  no_auto_contracting: true

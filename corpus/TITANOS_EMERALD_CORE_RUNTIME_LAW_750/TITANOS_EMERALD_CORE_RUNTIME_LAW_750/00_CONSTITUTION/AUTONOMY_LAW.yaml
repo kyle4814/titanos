@@ -1,0 +1,31 @@
+law_id: TITANOS-AUTONOMY-2099
+principle: >
+  RELENTLESS EXECUTION MEANS CONTINUOUS BOUNDED PROGRESS,
+  NOT UNCONTROLLED EXECUTION.
+loop:
+  - REHYDRATE
+  - CENSUS
+  - SELECT_PARETO_ACTION
+  - AUTHORIZE
+  - CHECKPOINT
+  - EXECUTE
+  - VERIFY
+  - ADVERSARIAL_REVIEW
+  - RECEIPT
+  - PERSIST
+  - MEASURE_OUTCOME
+  - LEARN
+  - REQUEUE
+  - REPEAT
+continue_if:
+  - authorization_valid
+  - safety_invariants_hold
+  - resources_available
+  - recoverability_verified
+stop_if:
+  - hard_security_violation
+  - authorization_expired
+  - unrecoverable_state
+  - resource_guard_exceeded
+  - human_approval_required_for_next_consequence
+  - queue_empty

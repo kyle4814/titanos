@@ -1,0 +1,3 @@
+agent:
+  role: benchmark_compare_calibrate
+  authority: read_and_test

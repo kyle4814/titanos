@@ -1,0 +1,4 @@
+swarm:
+  adaptive: true
+  baseline_workers: 7
+  max_start_workers: 11

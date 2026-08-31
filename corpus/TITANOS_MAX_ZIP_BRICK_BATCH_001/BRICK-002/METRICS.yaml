@@ -1,0 +1,14 @@
+metric_schema: titan_os_999
+target_scale: 999
+active_dimensions:
+  - correctness
+  - verification
+  - reuse
+  - throughput
+  - latency
+  - cost_efficiency
+  - state_integrity
+  - security
+  - recoverability
+  - maintainability
+rule: "Expose active bottlenecks at run time; retain full registry for on-demand retrieval."

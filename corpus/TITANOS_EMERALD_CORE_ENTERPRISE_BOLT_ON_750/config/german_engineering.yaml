@@ -1,0 +1,16 @@
+german_engineering:
+  objective: simplify_without_losing_capability
+  inspect:
+    - duplicated_logic
+    - stale_docs
+    - dead_config
+    - unreachable_switches
+    - hidden_side_effects
+    - ambiguous_names
+    - inconsistent_interfaces
+    - untested_paths
+  rules:
+    one_source_of_truth: true
+    deterministic_state_transitions: true
+    explicit_interfaces: true
+    tests_prove_behavior: true

@@ -1,0 +1,20 @@
+schema: titanos_incident_owner
+version: "1.0"
+domain: "07_RELIABILITY_OPERATIONS"
+status: draft
+contract:
+  inputs: bounded
+  outputs: explicit
+  evidence: required
+  receipt: required
+guards:
+  - authority
+  - provenance
+  - validation
+  - acceptance
+states:
+  - proposed
+  - active
+  - tested
+  - verified
+  - superseded

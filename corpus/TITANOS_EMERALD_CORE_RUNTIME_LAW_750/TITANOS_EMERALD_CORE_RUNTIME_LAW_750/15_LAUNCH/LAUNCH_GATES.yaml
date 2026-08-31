@@ -1,0 +1,19 @@
+gates:
+  - repository_census
+  - kernel_authority
+  - enforced_write_scopes
+  - runtime_budgets
+  - durable_receipts
+  - checkpoints
+  - recovery
+  - injection_tests
+  - secret_scan
+  - self_dealing_defence
+  - radar_tentacle_wiring
+  - target_mapping_wiring
+  - queue_wiring
+  - autonomy_wiring
+  - end_to_end_test
+  - bounded_soak
+  - launch_report
+rule: "NO_FALSE_PASS"

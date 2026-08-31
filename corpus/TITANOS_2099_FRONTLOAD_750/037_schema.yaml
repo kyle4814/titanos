@@ -1,0 +1,15 @@
+receipt:
+  required:
+  - receipt_id
+  - task_id
+  - run_id
+  - actor
+  - action
+  - inputs
+  - outputs
+  - evidence
+  - files_changed
+  - tests
+  - value_class
+  - outcome
+  - provenance

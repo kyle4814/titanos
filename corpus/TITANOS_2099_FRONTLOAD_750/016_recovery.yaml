@@ -1,0 +1,2 @@
+recovery:
+  resume_from_checkpoint: true

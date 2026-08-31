@@ -1,0 +1,15 @@
+schema: titanos_sensor_protocol
+version: "1.0"
+domain: "01_DISCOVERY_TELEMETRY"
+status: draft
+inputs: explicit
+outputs: explicit
+provenance: required
+measurement: required
+guards:
+  - authorization
+  - rate_limit
+  - privacy
+  - provenance
+  - validation
+  - audit

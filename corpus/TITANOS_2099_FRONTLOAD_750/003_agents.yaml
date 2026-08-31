@@ -1,0 +1,4 @@
+agents:
+  opus: orchestrator
+  sonnet: builder
+  haiku: micro_worker

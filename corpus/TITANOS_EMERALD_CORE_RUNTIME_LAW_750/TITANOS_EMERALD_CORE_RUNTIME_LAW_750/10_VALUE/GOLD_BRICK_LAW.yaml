@@ -1,0 +1,22 @@
+states: [MODELLED, OBSERVED, VERIFIED, REALIZED]
+gold_brick:
+  required:
+    - evidence
+    - provenance
+    - value_state
+    - action
+    - receipt
+  forbidden:
+    - invented_customer
+    - invented_revenue
+    - unsupported_social_proof
+    - signal_presented_as_contract
+commercial_chain:
+  - SIGNAL
+  - PROSPECT
+  - QUALIFIED
+  - OPPORTUNITY
+  - PROPOSAL
+  - CONTRACT
+  - INVOICE
+  - REALIZED_CASH

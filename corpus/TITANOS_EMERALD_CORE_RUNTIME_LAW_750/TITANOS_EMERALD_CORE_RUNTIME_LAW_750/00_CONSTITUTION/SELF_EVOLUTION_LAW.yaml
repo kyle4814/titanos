@@ -1,0 +1,26 @@
+law_id: TITANOS-SELF-EVOLUTION-33_33
+cadence_model:
+  nominal_cycle: 33.33
+  unit: percent_of_available_iteration_budget
+  meaning: >
+    A target allocation for continuous improvement work; never a guarantee
+    of resource usage and never permission to bypass production safeguards.
+cycle:
+  observe: 1
+  hypothesize: 2
+  propose: 3
+  benchmark: 4
+  checkpoint: 5
+  mutate: 6
+  test: 7
+  blue_team: 8
+  receipt: 9
+  promote_or_rollback: 10
+promotion_requires:
+  - measurable_improvement
+  - regression_suite_green
+  - security_review
+  - rollback_path
+  - durable_receipt
+governance_changes:
+  require_human_authorization: true

@@ -1,0 +1,19 @@
+{
+  "package_id": "TITANOS-MAX-NUKE-014",
+  "source_artifacts": 750,
+  "domains": {
+    "01_DISCOVERY_TELEMETRY": 75,
+    "02_WEB_SEARCH_DISCOVERY": 75,
+    "03_SEO_CONTENT": 75,
+    "04_AI_DISCOVERY": 75,
+    "05_SOCIAL_DISTRIBUTION": 75,
+    "06_REPUTATION_AUTHORITY": 75,
+    "07_ANALYTICS_ATTRIBUTION": 75,
+    "08_MONETIZATION_GROWTH": 75,
+    "09_GLOBAL_NETWORK": 75,
+    "10_VIRAL_EXPERIMENTATION": 75
+  },
+  "theme": "lawful global discoverability, AI search, SEO, distribution, authority, analytics, monetization and network sensing",
+  "principle": "maximize measurable discovery and conversion without fabricated claims or abusive automation",
+  "command": "WAX ON WAX OFF RINSE REPEAT \u2014 MAX ZIP \u2014 PARETO MUTATE"
+}

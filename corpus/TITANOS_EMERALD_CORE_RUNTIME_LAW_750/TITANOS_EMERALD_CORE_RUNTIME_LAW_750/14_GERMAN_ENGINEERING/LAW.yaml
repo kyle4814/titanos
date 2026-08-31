@@ -1,0 +1,17 @@
+principles:
+  - explicit_interfaces
+  - deterministic_state
+  - one_source_of_truth
+  - minimal_duplication
+  - strong_tests
+  - recoverable_mutations
+  - observable_behaviour
+audit:
+  find:
+    - dead_code
+    - dead_config
+    - duplicate_capability
+    - contradictory_docs
+    - hidden_side_effects
+    - bypass_paths
+    - untested_switches

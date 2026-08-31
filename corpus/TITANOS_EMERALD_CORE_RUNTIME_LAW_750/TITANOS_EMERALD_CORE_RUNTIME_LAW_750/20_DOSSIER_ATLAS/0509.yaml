@@ -1,0 +1,6 @@
+id: DB-0509
+class: doctrine_slot
+status: template
+authority: inherited_from_kernel_runtime_law
+evidence_required: true
+receipt_required_for_mutation: true

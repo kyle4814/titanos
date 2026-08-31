@@ -1,0 +1,25 @@
+schema: titanos_business_profile
+version: "1.0"
+brand: "TitanOS"
+legal_entity_name: "VERIFY BEFORE FILING"
+abn: "VERIFY BEFORE FILING"
+acn: "VERIFY BEFORE FILING"
+business_name_registration: "VERIFY BEFORE FILING"
+registered_address: "VERIFY BEFORE FILING"
+principal_place_of_business: "VERIFY BEFORE FILING"
+founder: "VERIFY AUTHORISED LEGAL NAME"
+revenue_status: "NO REVENUE STATED"
+gst_status: "VERIFY"
+primary_activity:
+  - AI engineering
+  - automation
+  - software and capability licensing
+  - consulting
+  - reusable Gold Brick capability library
+secondary_activity:
+  - research and development
+  - enterprise AI infrastructure
+  - partner ecosystem
+long_horizon:
+  2055: "Demonblade verification / defensive AI engineering era"
+  2099: "distributed reusable AI capability infrastructure vision"

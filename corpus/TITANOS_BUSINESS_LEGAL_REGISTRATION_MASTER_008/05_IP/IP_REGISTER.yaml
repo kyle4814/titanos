@@ -1,0 +1,21 @@
+schema: titanos_ip_register
+version: "1.0"
+categories:
+  trademarks:
+    status: "SEARCH / FILE AS APPROPRIATE"
+  copyright:
+    status: "AUTOMATIC RIGHTS SUBJECT TO LAW"
+  patents:
+    status: "ASSESS WHETHER PATENTABLE"
+  trade_secrets:
+    status: "IDENTIFY AND PROTECT"
+  software:
+    status: "REPOSITORY / LICENCE CONTROL"
+fields:
+  asset_id: required
+  owner: required
+  creator: required
+  creation_date: required
+  jurisdiction: required
+  registration_status: required
+  evidence: required

@@ -1,0 +1,9 @@
+schema:
+  id: titanos-artifact
+  version: '1'
+  required:
+  - id
+  - status
+  - purpose
+  - verification
+  - receipt

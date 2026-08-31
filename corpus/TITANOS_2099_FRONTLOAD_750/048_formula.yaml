@@ -1,0 +1,2 @@
+pareto:
+  formula: (verified_value*confidence*information_gain*dependency_unlock*reuse*risk_reduction)/(cost+risk+complexity)

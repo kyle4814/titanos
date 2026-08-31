@@ -1,0 +1,13 @@
+brick:
+  required:
+  - id
+  - version
+  - inputs
+  - outputs
+  - code
+  - config
+  - tests
+  - provenance
+  - receipts
+  - value_model
+  - outcomes

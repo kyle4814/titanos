@@ -1,0 +1,8 @@
+artifact:
+  id: TB-002
+  class: receipt_contract
+  status: VERIFIED
+receipt:
+  append_only: true
+  hash_chain: true
+  provenance_required: true

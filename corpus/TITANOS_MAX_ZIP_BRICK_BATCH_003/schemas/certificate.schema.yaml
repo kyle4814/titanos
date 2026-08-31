@@ -1,0 +1,18 @@
+schema: titan_os_certificate
+version: "1.0"
+required:
+  - certificate_id
+  - brick_id
+  - status
+  - scope
+  - issued_at
+  - issuer
+  - evidence_refs
+properties:
+  certificate_id: string
+  brick_id: string
+  status: string
+  scope: string
+  issued_at: string
+  issuer: string
+  evidence_refs: array

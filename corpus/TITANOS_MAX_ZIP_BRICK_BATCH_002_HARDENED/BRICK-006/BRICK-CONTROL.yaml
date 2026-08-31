@@ -1,0 +1,52 @@
+brick_id: BRICK-006
+schema_version: '1.0'
+status: foundation
+inherits: TITANOS-CANONICAL-V12
+required_artifacts:
+- BRICK.md
+- BRICK.yaml
+- RECEIPT.yaml
+- CERTIFICATE.yaml
+- SIGILS.yaml
+- METRICS.yaml
+state_machine:
+  allowed:
+  - INBOX
+  - INSPECTING
+  - READY
+  - CLAIMED
+  - EXECUTING
+  - VERIFYING
+  - PROMOTABLE
+  - PROMOTED
+  - BRICKED
+  - REUSABLE
+  - BLOCKED
+  - QUARANTINED
+  - REJECTED
+  - HUMAN_REVIEW
+  - ROLLED_BACK
+  promotion_path:
+  - INBOX
+  - INSPECTING
+  - READY
+  - CLAIMED
+  - EXECUTING
+  - VERIFYING
+  - PROMOTABLE
+  - PROMOTED
+  - BRICKED
+  - REUSABLE
+verification:
+  demonblade: CLAIM -> ATTACK -> TEST -> CHALLENGE -> VERIFY -> PROVE
+  required_evidence: true
+  unknowns_must_be_disclosed: true
+governance:
+  human_escalation: true
+  permission_gate: true
+  privacy_gate: true
+  security_gate: true
+  legal_review_when_required: true
+lineage:
+  parent: TITANOS-CANONICAL-V12
+  children: []

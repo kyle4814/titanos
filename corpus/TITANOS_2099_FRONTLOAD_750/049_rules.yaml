@@ -1,0 +1,3 @@
+pareto_rules:
+  deduplicate_before_scale: true
+  rank_before_spawn: true

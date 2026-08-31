@@ -1,0 +1,16 @@
+schema: titanos_legal_status
+version: "1.0"
+domain: "06_SECURITY_GOVERNANCE"
+status: draft
+contract:
+  scope: bounded
+  inputs: explicit
+  outputs: explicit
+  dependencies: versioned
+  evidence: required
+  receipt: required
+guards:
+  - authority
+  - provenance
+  - validation
+  - acceptance

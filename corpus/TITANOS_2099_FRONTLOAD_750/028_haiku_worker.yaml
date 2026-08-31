@@ -1,0 +1,3 @@
+agent:
+  role: index_extract_classify_normalize
+  authority: task_scope

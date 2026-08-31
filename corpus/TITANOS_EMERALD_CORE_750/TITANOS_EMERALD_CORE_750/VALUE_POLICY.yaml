@@ -1,0 +1,11 @@
+states:
+  - MODELLED
+  - OBSERVED
+  - VERIFIED
+  - REALIZED
+rules:
+  - "MODELLED != CASH"
+  - "SIGNAL != DEMAND"
+  - "PROSPECT != CUSTOMER"
+  - "OPPORTUNITY != CONTRACT"
+  - "PROPOSAL != REVENUE"

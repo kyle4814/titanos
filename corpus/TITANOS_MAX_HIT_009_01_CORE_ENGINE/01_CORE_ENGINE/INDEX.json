@@ -1,0 +1,28 @@
+{
+  "package_id": "TITANOS-009-01_CORE_ENGINE",
+  "title": "CORE ENGINE",
+  "artifact_count": 101,
+  "topics": [
+    "architecture",
+    "state",
+    "task",
+    "queue",
+    "scheduler",
+    "worker",
+    "agent",
+    "orchestration",
+    "context",
+    "magl",
+    "pareto",
+    "mutation",
+    "receipt",
+    "certificate",
+    "lineage",
+    "manifest",
+    "schema",
+    "event",
+    "audit",
+    "recovery"
+  ],
+  "status": "draft feedstock"
+}

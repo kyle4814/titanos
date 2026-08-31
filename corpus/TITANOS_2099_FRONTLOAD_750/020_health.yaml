@@ -1,0 +1,8 @@
+health:
+  checks:
+  - ram
+  - cpu
+  - io
+  - queue
+  - receipt_rate
+  - failure_rate

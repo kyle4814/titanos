@@ -1,0 +1,20 @@
+required:
+  - receipt_id
+  - task_id
+  - run_id
+  - actor
+  - action
+  - timestamp
+  - evidence
+  - status
+  - previous_hash
+  - hash
+properties:
+  evidence:
+    type: array
+  status:
+    enum: [PROPOSED, EXECUTED, VERIFIED, FAILED, ROLLED_BACK]
+chain:
+  append_only: true
+  hash_linked: true
+  deletion_is_tampering: true

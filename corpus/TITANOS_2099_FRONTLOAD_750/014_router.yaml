@@ -1,0 +1,6 @@
+router:
+  authority: kernel
+  workers:
+  - opus
+  - sonnet
+  - haiku

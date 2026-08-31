@@ -1,0 +1,19 @@
+append_only: true
+hash_chain: true
+required_fields:
+- receipt_id
+- timestamp
+- task_id
+- run_id
+- actor
+- action
+- inputs
+- outputs
+- evidence
+- files_changed
+- tests
+- provenance
+- value_class
+- outcome
+- config_hash
+- code_revision

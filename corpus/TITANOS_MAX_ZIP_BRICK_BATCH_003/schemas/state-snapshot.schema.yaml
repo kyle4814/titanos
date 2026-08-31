@@ -1,0 +1,28 @@
+schema: titan_os_state_snapshot
+version: "1.0"
+required:
+  - snapshot_id
+  - state_version
+  - generated_at
+  - freshness
+  - mission
+  - active_task
+  - queue
+  - dependencies
+  - capabilities
+  - governance
+  - verification
+properties:
+  snapshot_id: string
+  state_version: string
+  generated_at: string
+  freshness: object
+  mission: object
+  active_task: object
+  queue: object
+  dependencies: object
+  capabilities: object
+  governance: object
+  verification: object
+  metrics: object
+  mutations: object

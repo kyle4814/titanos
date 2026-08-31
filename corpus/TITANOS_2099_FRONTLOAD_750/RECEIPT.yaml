@@ -1,0 +1,12 @@
+receipt_id: TB2099-FRONTLOAD-750-PACKAGE
+run_type: frontload_package_generation
+status: GENERATED
+package: titanos_2099_frontload_750
+file_count: 750
+format: yaml
+evidence:
+  generated_locally: true
+  deterministic_manifest: true
+  scaffold_files_explicitly_marked: true
+  no_claim_of_runtime_implementation: true
+next_action: execute_implementation_prompt_against_real_repository

@@ -1,0 +1,8 @@
+task_id: TITANOS-WAX-01
+name: 01_COMMERCIAL_RADAR
+mission: "Discover and rank lawful public commercial opportunity sources."
+command: "WAX ON WAX OFF RINSE REPEAT — MAX ZIP — PARETO MUTATE"
+search_before_build: true
+provenance_required: true
+receipt_required: true
+gold_brick_requires_verification: true

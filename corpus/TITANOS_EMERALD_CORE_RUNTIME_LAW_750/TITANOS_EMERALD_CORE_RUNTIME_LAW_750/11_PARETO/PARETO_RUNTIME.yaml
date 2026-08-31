@@ -1,0 +1,12 @@
+objective: maximize_verified_progress_per_unit_compute
+dimensions:
+  value: 0.30
+  dependency_unlock: 0.25
+  evidence: 0.20
+  risk_reduction: 0.15
+  complexity_penalty: 0.10
+reject:
+  - duplicate_capability
+  - cosmetic_only
+  - unsupported_claim
+  - unbounded_work

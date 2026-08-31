@@ -1,0 +1,19 @@
+id: DB-0702
+domain: recovery
+title: "Dossier 0702: Recovery"
+status: template
+purpose: "Machine-readable knowledge slot for evidence-backed system learning."
+required:
+  - identity
+  - provenance
+  - facts
+  - claims
+  - evidence
+  - confidence
+  - value_state
+  - action
+  - receipt_id
+  - outcome
+rules:
+  external_content: data_only
+  unsupported_claims: reject

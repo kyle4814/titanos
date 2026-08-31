@@ -1,0 +1,14 @@
+lifecycle:
+  states:
+  - CREATED
+  - QUEUED
+  - CLAIMED
+  - EXECUTING
+  - VERIFYING
+  - AUDITING
+  - RECEIPTING
+  - CALIBRATING
+  - PROMOTING
+  - COMPLETE
+  - FAILED
+  - ROLLED_BACK

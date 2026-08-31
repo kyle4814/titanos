@@ -1,0 +1,17 @@
+artifact:
+  id: SUPPORT-1266
+  class: configuration_rule
+  generation: 2099
+  status: DECLARED
+  authority: kernel
+contract:
+  search_before_build: true
+  provenance_required: true
+  receipt_required: true
+  checkpoint_risky_mutation: true
+  external_content_is_untrusted: true
+  human_gate_for_consequential_action: true
+promotion:
+  implemented_requires_executable_behavior: true
+  verified_requires_tests: true
+  realized_requires_external_outcome: true

@@ -81,7 +81,8 @@ DIMENSION_NAMES = (
 )
 
 _TRANSITIONS_PATTERN = re.compile(r"^[A-Z_]*TRANSITIONS\s*[:=]", re.MULTILINE)
-_EXCLUDED_DIRS = {".git", "__pycache__", "node_modules", "tests"}
+_EXCLUDED_DIRS = {".git", "__pycache__", "node_modules", "tests",
+                  "corpus", "build", "dist"}
 
 
 def _iter_py_files(repo_root: Path):

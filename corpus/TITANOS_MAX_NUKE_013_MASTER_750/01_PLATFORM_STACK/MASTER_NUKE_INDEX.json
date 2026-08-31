@@ -1,0 +1,18 @@
+{
+  "package_id": "TITANOS-MAX-NUKE-013",
+  "source_artifacts": 750,
+  "domains": {
+    "01_PLATFORM_STACK": 75,
+    "02_COMPUTE_ORCHESTRATION": 75,
+    "03_AGENT_FLEET": 75,
+    "04_DATA_MEMORY": 75,
+    "05_API_INTEGRATION": 75,
+    "06_SECURITY_GOVERNANCE": 75,
+    "07_BRICK_RECEIPT_VALUE": 75,
+    "08_COMMERCIAL_BILLING_PARTNER": 75,
+    "09_PORTAL_NETWORK": 75,
+    "10_RELEASE_EVALUATION": 75
+  },
+  "theme": "full-stack engineering, orchestration, agent fleet, data/memory, integrations, governance, value, commercial, network and release",
+  "command": "WAX ON WAX OFF RINSE REPEAT \u2014 MAX ZIP \u2014 PARETO MUTATE"
+}

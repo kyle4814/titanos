@@ -1,0 +1,11 @@
+orchestration:
+  controller: opus
+  implementer: sonnet
+  micro_worker: haiku
+  verifier: opus_blue_team
+  consolidator: german_engineering
+dispatch:
+  bounded_parallelism: true
+  no_shared_mutation_scope: true
+  deterministic_merge: true
+  failed_worker: checkpoint_and_requeue

@@ -1,0 +1,19 @@
+{
+  "package_id": "TITANOS-MAX-NUKE-011",
+  "source_artifacts": 750,
+  "domains": {
+    "01_RUNTIME_KERNEL": 75,
+    "02_DATA_PLATFORM": 75,
+    "03_API_INTEGRATIONS": 75,
+    "04_AGENT_RUNTIME": 75,
+    "05_SEARCH_MEMORY": 75,
+    "06_VALUE_ENGINE_IMPLEMENTATION": 75,
+    "07_GOVERNANCE_COMPLIANCE": 75,
+    "08_BILLING_PARTNERS": 75,
+    "09_PORTAL_PRODUCT": 75,
+    "10_RELEASE_OPERATIONS": 75
+  },
+  "purpose": "implementation infrastructure expansion",
+  "status": "draft feedstock",
+  "command": "WAX ON WAX OFF RINSE REPEAT \u2014 MAX ZIP \u2014 PARETO MUTATE"
+}

@@ -1,0 +1,9 @@
+artifact:
+  id: TB-001
+  class: runtime_contract
+  status: VERIFIED
+execution:
+  offline_first: true
+  kernel_authority: true
+  durable_state: true
+  durable_receipts: true

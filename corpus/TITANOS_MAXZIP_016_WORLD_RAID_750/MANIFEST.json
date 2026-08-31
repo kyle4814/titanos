@@ -1,0 +1,17 @@
+{
+  "package": "TITANOS-MAXZIP-016-WORLD-RAID-VALUATION",
+  "files": 750,
+  "domains": 50,
+  "command": "WAX ON WAX OFF RINSE REPEAT \u2014 MAX ZIP \u2014 PARETO MUTATE",
+  "valuation_warning": "All dollar values are modelled unless backed by realized financial evidence.",
+  "hard_gates": [
+    "SEARCH_BEFORE_BUILD",
+    "REUSE_BEFORE_BUILD",
+    "PROVENANCE",
+    "RECEIPT",
+    "VERIFICATION",
+    "HUMAN_GATE"
+  ],
+  "search_policy": "Public/authorised sources only; respect rate limits, access controls and source terms.",
+  "github_policy": "Use authenticated/cached/conditional requests, queueing and backoff; do not hammer APIs."
+}

@@ -1,0 +1,9 @@
+receipt:
+  required: true
+  append_only: true
+  provenance_required: true
+  value_classes:
+  - MODELLED
+  - OBSERVED
+  - EXPECTED
+  - REALIZED

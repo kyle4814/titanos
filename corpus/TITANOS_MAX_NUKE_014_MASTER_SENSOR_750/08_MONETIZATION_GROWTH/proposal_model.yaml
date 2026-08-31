@@ -1,0 +1,15 @@
+schema: titanos_proposal_model
+version: "1.0"
+domain: "08_MONETIZATION_GROWTH"
+status: draft
+inputs: explicit
+outputs: explicit
+provenance: required
+measurement: required
+guards:
+  - authorization
+  - rate_limit
+  - privacy
+  - provenance
+  - validation
+  - audit

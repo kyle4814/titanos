@@ -1,0 +1,4 @@
+queue:
+  durable: true
+  duplicate_detection: true
+  lease_required: true

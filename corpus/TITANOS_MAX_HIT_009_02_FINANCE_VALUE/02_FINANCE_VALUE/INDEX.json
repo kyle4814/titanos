@@ -1,0 +1,28 @@
+{
+  "package_id": "TITANOS-009-02_FINANCE_VALUE",
+  "title": "FINANCE + VALUE",
+  "artifact_count": 101,
+  "topics": [
+    "brick_value",
+    "portfolio_value",
+    "forecast",
+    "monte_carlo",
+    "sensitivity",
+    "unit_economics",
+    "revenue",
+    "cost",
+    "profit",
+    "cashflow",
+    "relationship_value",
+    "synergy",
+    "reuse",
+    "compute_economics",
+    "risk",
+    "confidence",
+    "metrics",
+    "receipt_value",
+    "calibration",
+    "scenarios"
+  ],
+  "status": "draft feedstock"
+}

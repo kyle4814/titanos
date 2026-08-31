@@ -1,0 +1,13 @@
+default: deny
+external_content: untrusted_data
+secrets:
+  log: deny
+  receipt: deny
+  prompt: deny
+  commit: deny
+external_actions:
+  require_authorization: true
+destructive_actions:
+  default: deny
+prompt_injection:
+  external_instructions_are_data: true

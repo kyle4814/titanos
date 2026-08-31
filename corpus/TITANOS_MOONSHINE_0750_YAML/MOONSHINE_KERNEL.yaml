@@ -1,0 +1,20 @@
+kernel:
+  authority: local
+  state: durable
+  queue: durable
+  agents:
+    opus: orchestrate
+    sonnet: build
+    haiku: microtasks
+  rule: agents_propose_kernel_decides
+verification:
+  required:
+  - tests
+  - blue_team
+  - red_team
+  - receipt
+  - calibration
+  promotion: evidence_based
+recovery:
+  checkpoint: true
+  resume_after_worker_failure: true

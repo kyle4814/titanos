@@ -31,7 +31,7 @@ import unittest
 # the copy as a second network caller -- a false alarm about a file that is
 # byte-identical to one already checked. They are gitignored; walking the
 # filesystem does not respect that, so the exclusion is explicit.
-_BUILD_DIRS = ("build/", "dist/", ".eggs/")
+_BUILD_DIRS = ("build/", "dist/", ".eggs/", "corpus/")
 
 
 def _is_build_output(rel: str) -> bool:

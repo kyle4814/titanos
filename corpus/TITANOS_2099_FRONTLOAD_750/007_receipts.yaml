@@ -1,0 +1,4 @@
+receipts:
+  append_only: true
+  immutable: true
+  required: true

@@ -1,0 +1,10 @@
+workflow:
+  steps:
+  - baseline
+  - hypothesis
+  - implement
+  - test
+  - attack
+  - benchmark
+  - calibrate
+  - promote_or_rollback

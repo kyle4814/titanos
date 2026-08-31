@@ -1,0 +1,16 @@
+system:
+  name: TITANOS_EMERALD_CORE
+  doctrine: DEMONBLADE_2099
+  mode: offline_first
+  authority: kernel
+  state: durable_external
+  agents: stateless
+invariants:
+  search_before_build: true
+  receipt_material_mutation: true
+  checkpoint_risky_mutation: true
+  kernel_authority: true
+  no_fabricated_outcomes: true
+  declared_not_equal_verified: true
+rail: [LOAD, CENSUS, SEARCH, PARETO, QUEUE, ROUTE, IMPLEMENT, TEST,
+       BLUE_TEAM, RECEIPT, CHECKPOINT, CALIBRATE, PERSIST, NEXT]

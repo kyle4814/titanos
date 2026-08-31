@@ -1,0 +1,13 @@
+schema: titan_os_dependency
+version: "1.0"
+required:
+  - source
+  - target
+  - relation
+  - status
+relations:
+  - requires
+  - blocks
+  - derived_from
+  - supersedes
+  - verifies

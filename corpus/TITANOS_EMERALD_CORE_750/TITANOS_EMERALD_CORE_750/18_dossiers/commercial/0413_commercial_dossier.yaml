@@ -1,0 +1,19 @@
+id: DB-0413
+domain: commercial
+title: "Dossier 0413: Commercial"
+status: template
+purpose: "Machine-readable knowledge slot for evidence-backed system learning."
+required:
+  - identity
+  - provenance
+  - facts
+  - claims
+  - evidence
+  - confidence
+  - value_state
+  - action
+  - receipt_id
+  - outcome
+rules:
+  external_content: data_only
+  unsupported_claims: reject

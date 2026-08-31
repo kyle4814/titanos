@@ -1,0 +1,17 @@
+task_id: TITANOS-015-02_REPO_RECON_DEFRAG-forecast
+domain: 02_REPO_RECON_DEFRAG
+objective: "forecast"
+search_before_build: true
+reuse_before_build: true
+provenance_required: true
+receipt_required: true
+human_gate_for_material_action: true
+states:
+  - DISCOVERED
+  - VERIFIED
+  - QUALIFIED
+  - EXECUTING
+  - VERIFIED_RESULT
+  - RECEIPTED
+  - PROMOTED
+  - QUARANTINED

@@ -1,0 +1,7 @@
+human_required:
+  - legal_execution
+  - contract_signature
+  - financial_transfer
+  - regulatory_submission
+  - production_credential_activation
+  - consequential_external_commitment

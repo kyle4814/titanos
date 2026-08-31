@@ -1,0 +1,161 @@
+{
+  "schema": "titanos_master_business_package",
+  "package_id": "TITANOS-BUSINESS-LEGAL-REGISTRATION-008",
+  "files": [
+    {
+      "path": "00_MAIN/BUSINESS_MODEL.md",
+      "bytes": 1032,
+      "sha256": "77df2887437a9702508cafecaf98d0cf4db90866065003843879f96e467fc0bf"
+    },
+    {
+      "path": "00_MAIN/BUSINESS_PROFILE.yaml",
+      "bytes": 804,
+      "sha256": "2b6a9ad0e8a84327fc4b1e08f751bc1cdcd73f2751cec1ace9508124ff2c01e3"
+    },
+    {
+      "path": "00_MAIN/LEGAL_STATUS.md",
+      "bytes": 384,
+      "sha256": "b7f571a4f07d5f5627dc643a99ff7213e917b17a0ba3fd9ec1e7dff541e9da26"
+    },
+    {
+      "path": "00_MAIN/README.md",
+      "bytes": 934,
+      "sha256": "070cbdfe46346484195f4f4ba53cb0446fc3bbf451344b21f898de2751c82c22"
+    },
+    {
+      "path": "01_CORPORATE/CONSTITUTION_PLACEHOLDER.md",
+      "bytes": 447,
+      "sha256": "b77946f4b763842c7ae0d687c8a6374f57d60052bc9e4920098f936ac618277e"
+    },
+    {
+      "path": "01_CORPORATE/CORPORATE_SETUP_CHECKLIST.md",
+      "bytes": 643,
+      "sha256": "0081ecb1de2551d7ae1d18865ef7dcd1a262d7f95c6231a1037a20558e7624b7"
+    },
+    {
+      "path": "01_CORPORATE/FOUNDERS_AGREEMENT_PLACEHOLDER.md",
+      "bytes": 510,
+      "sha256": "7cb7a3edad435eba946cf150b19860b86279820f7cfef00ebeb9514d375e5e3b"
+    },
+    {
+      "path": "02_COMMERCIAL/GOLD_BRICK_LICENSE_AGREEMENT.md",
+      "bytes": 457,
+      "sha256": "e983f4fb1e67213422c500aa24874bb30973c6b23f98ca080edd30a0fb13a49e"
+    },
+    {
+      "path": "02_COMMERCIAL/MASTER_SERVICES_AGREEMENT.md",
+      "bytes": 420,
+      "sha256": "3288747b83b7d4230a2d201d1cb3baeec25e1057a6eb76543786595e34a8ff60"
+    },
+    {
+      "path": "02_COMMERCIAL/NDA.md",
+      "bytes": 256,
+      "sha256": "75bede70e3afff1aef3f92ad8c15f6fc57d36fcbe9a6f6cbe720e696c232df46"
+    },
+    {
+      "path": "02_COMMERCIAL/PARTNER_AGREEMENT.md",
+      "bytes": 453,
+      "sha256": "2b0d955e5100b3c988b2e82eb1e24874ef3cff381ff9c97e22ab5c4761141a48"
+    },
+    {
+      "path": "02_COMMERCIAL/SAAS_SUBSCRIPTION_TERMS.md",
+      "bytes": 324,
+      "sha256": "5681d39558a00844dd03c3d22245f55e85ea7f28c3cb4c3a76d64e9927a35d11"
+    },
+    {
+      "path": "02_COMMERCIAL/STATEMENT_OF_WORK.md",
+      "bytes": 340,
+      "sha256": "9f1925cc35cc3e50dfe5f3a5d4a0d159d7cb6ac327166c50b8171ec30f79f378"
+    },
+    {
+      "path": "03_LEGAL/ACCEPTABLE_USE_POLICY.md",
+      "bytes": 316,
+      "sha256": "11fe7553b7a5bce5c680214c6d2df3ebe24fb77fdc90dbac407336bb63dfa687"
+    },
+    {
+      "path": "03_LEGAL/AI_USE_DISCLOSURE.md",
+      "bytes": 420,
+      "sha256": "2bb2c5e22a868519518b3e95375cc648329bc61616bac763ba8358db4855c08d"
+    },
+    {
+      "path": "03_LEGAL/PRIVACY_POLICY_PLACEHOLDER.md",
+      "bytes": 461,
+      "sha256": "d96334b5a2301d5204cc154e8c2cf5cce51b4513ed6675fe1fdc28d672fc5968"
+    },
+    {
+      "path": "03_LEGAL/TERMS_OF_BUSINESS.md",
+      "bytes": 404,
+      "sha256": "f0f6f9b78d95217bb06b7a3b36d7f7bfe712171b639cc2ca11a585c70b66e38b"
+    },
+    {
+      "path": "04_PRIVACY_SECURITY/DATA_PROCESSING_ADDENDUM.md",
+      "bytes": 229,
+      "sha256": "cc8174c69a4b75073aa18af8e19a39d2fec55bc4ff61de5cc6c361f5ada1331a"
+    },
+    {
+      "path": "04_PRIVACY_SECURITY/SECURITY_SCHEDULE.md",
+      "bytes": 332,
+      "sha256": "4ab0b0d0a8d4bc035e410c494d08a98b0db5647545cdddad4a8b577924993ee9"
+    },
+    {
+      "path": "05_IP/IP_ASSIGNMENT_PLACEHOLDER.md",
+      "bytes": 253,
+      "sha256": "65e3bb759f5e7849c219cbaf15c224093ef40f7baf03d2fc30f0a43dc5f6ac2b"
+    },
+    {
+      "path": "05_IP/IP_REGISTER.yaml",
+      "bytes": 500,
+      "sha256": "7744233dc81d27c962b1ce1ab1308f6e500fd0f2645cfcc4afcda553f8996dcf"
+    },
+    {
+      "path": "06_FINANCE/FINANCE_CONTROL.md",
+      "bytes": 416,
+      "sha256": "f3e56fe450ed8859e11e18f2a2e86e334aa3dee6bbdf6d5a485dbb8a9ae63fcf"
+    },
+    {
+      "path": "06_FINANCE/INVOICE_TEMPLATE.md",
+      "bytes": 181,
+      "sha256": "1f85addcc017a9bbe0c7fc2742402e744042b9a3950a0309764bed457ceb5d13"
+    },
+    {
+      "path": "07_INVESTORS/INVESTOR_DISCLOSURE_FRAMEWORK.md",
+      "bytes": 572,
+      "sha256": "b1b984732ce3e9fdb50f64d283ff014d01f20e043bafa1e967791aab1663ed12"
+    },
+    {
+      "path": "08_AGENCIES/OFFICIAL_RESOURCE_INDEX.md",
+      "bytes": 547,
+      "sha256": "c66619f79c13a3b11547daab9adbcd30c9cb4895693982728adbb34dd66caf31"
+    },
+    {
+      "path": "08_AGENCIES/REGISTRATION_MATRIX.yaml",
+      "bytes": 1709,
+      "sha256": "1380ecb922bffe377797ab7e50b4107d95f8ccad0d04390fa9450572c56f4301"
+    },
+    {
+      "path": "08_AGENCIES/TITANOS_IDENTITY_RESEARCH.md",
+      "bytes": 808,
+      "sha256": "840598e1b28d7aa02d8812c7d427f1192266afe49c651c2adbe2756dbd3f6c26"
+    },
+    {
+      "path": "09_GOLD_BRICK/BRICK_FACTORY_OPERATING_MODEL.md",
+      "bytes": 561,
+      "sha256": "950adac6bee67ad86cc265614856a5ef459fd13505891bda3e6e20dc2771fbe7"
+    },
+    {
+      "path": "09_GOLD_BRICK/GOLD_BRICK_MASTER_LICENSE.md",
+      "bytes": 542,
+      "sha256": "dff93c725d8c4a8575555a95398b15202c5830b9ed94e7572041e31de49780ed"
+    },
+    {
+      "path": "09_GOLD_BRICK/RECEIPT_VALUE_CERTIFICATE.md",
+      "bytes": 394,
+      "sha256": "6392657b7541ff9b1e52f462907d75792fb6c59eaa73d1b618ce3ce067d8cb64"
+    },
+    {
+      "path": "PACKAGE-INDEX.json",
+      "bytes": 439,
+      "sha256": "6ca186eebb73ef8e2d91c0847277c7312c399a4ec7dc784de986d4f842373eb1"
+    }
+  ]
+}

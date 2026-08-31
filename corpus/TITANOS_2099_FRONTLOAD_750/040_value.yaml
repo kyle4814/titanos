@@ -1,0 +1,7 @@
+value:
+  classes:
+  - MODELLED
+  - OBSERVED
+  - EXPECTED
+  - REALIZED
+  separate: true

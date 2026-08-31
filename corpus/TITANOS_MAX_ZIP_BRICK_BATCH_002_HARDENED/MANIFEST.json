@@ -1,0 +1,706 @@
+{
+  "schema": "titan_os_repo_manifest",
+  "version": "1.0",
+  "files": [
+    {
+      "path": "BRICK-001/BRICK-CONTROL.yaml",
+      "bytes": 914,
+      "sha256": "31d6d360643f297dee78f390b8f5049321d1121e0e8d363c437d3e5cdd712bc2"
+    },
+    {
+      "path": "BRICK-001/BRICK.md",
+      "bytes": 1642,
+      "sha256": "3a46c9f1754009d62c2cc6389d2cef603345b0fb4697d74749f2b61b85f441f5"
+    },
+    {
+      "path": "BRICK-001/BRICK.yaml",
+      "bytes": 486,
+      "sha256": "b8cc1bc1324ae287983e7789a56834dff1c443ec79acd962a06bd466d56c104c"
+    },
+    {
+      "path": "BRICK-001/CERTIFICATE.yaml",
+      "bytes": 421,
+      "sha256": "14770674b4557e3431e286c65f960ed1da927d636dd988710e86c53c27fdde08"
+    },
+    {
+      "path": "BRICK-001/MANIFEST.json",
+      "bytes": 262,
+      "sha256": "b99fa2586eac7ffc52527349f9210b7e01d1ea8dc3fdd7aeeb984ace47d78818"
+    },
+    {
+      "path": "BRICK-001/METRICS.yaml",
+      "bytes": 320,
+      "sha256": "3d0ff2374ab1861e5a2a3a32f1e152095f6537de6af792dcacc60b6eaef69c0e"
+    },
+    {
+      "path": "BRICK-001/RECEIPT.yaml",
+      "bytes": 261,
+      "sha256": "fcc1b050f8bac4f254713a845944641440e0308c01dd41ad46049342af539e4d"
+    },
+    {
+      "path": "BRICK-001/SIGILS.yaml",
+      "bytes": 219,
+      "sha256": "db3edb67afab38dfbc54753f4f99705f146421f096355e866150b78118a316b2"
+    },
+    {
+      "path": "BRICK-002/BRICK-CONTROL.yaml",
+      "bytes": 914,
+      "sha256": "33c6ce56e1b79ac375a4c0c615403073e12156254100ed1bf8f5b4589ad81c79"
+    },
+    {
+      "path": "BRICK-002/BRICK.md",
+      "bytes": 1660,
+      "sha256": "7a448c42015b59f2f413c644ad74b58784be6d4fe78e8adc1b3ac6464299c980"
+    },
+    {
+      "path": "BRICK-002/BRICK.yaml",
+      "bytes": 504,
+      "sha256": "cad7e6f072addc2617df1596cc46b95c809292f265902d21d30abb1c17f33bec"
+    },
+    {
+      "path": "BRICK-002/CERTIFICATE.yaml",
+      "bytes": 421,
+      "sha256": "e23f6dfe213344eec12fa9fd95f2f06f279f637b0cf501d7d175ff8dddee0560"
+    },
+    {
+      "path": "BRICK-002/MANIFEST.json",
+      "bytes": 261,
+      "sha256": "da27ee069a1f8dc6b121f1fedc09f6a63e6d6c7d048dad0f9159e6e29171ce8c"
+    },
+    {
+      "path": "BRICK-002/METRICS.yaml",
+      "bytes": 320,
+      "sha256": "3d0ff2374ab1861e5a2a3a32f1e152095f6537de6af792dcacc60b6eaef69c0e"
+    },
+    {
+      "path": "BRICK-002/RECEIPT.yaml",
+      "bytes": 261,
+      "sha256": "95cbf49bebf580cf3c483f256baebd11571ba07d92d6531a9e9b35566fce8ecf"
+    },
+    {
+      "path": "BRICK-002/SIGILS.yaml",
+      "bytes": 219,
+      "sha256": "db3edb67afab38dfbc54753f4f99705f146421f096355e866150b78118a316b2"
+    },
+    {
+      "path": "BRICK-003/BRICK-CONTROL.yaml",
+      "bytes": 914,
+      "sha256": "d719f6056ddda9b97eb64fe69ff1f49424fd37ed9428a351d7ff3486cb1d83ba"
+    },
+    {
+      "path": "BRICK-003/BRICK.md",
+      "bytes": 1667,
+      "sha256": "e8127b470568f1358d05d46050382e7d7a0b8d38ab54f343f5774c9f4420a1ae"
+    },
+    {
+      "path": "BRICK-003/BRICK.yaml",
+      "bytes": 511,
+      "sha256": "d7757b8fa8e439c35607111c4d923fb8692b6ee1c3eb7a2906f5d7662acf11c3"
+    },
+    {
+      "path": "BRICK-003/CERTIFICATE.yaml",
+      "bytes": 421,
+      "sha256": "a6804fd0f295dc1071ae3efcc6c86bdf1fb52792f3524e73c12d06252dc0e126"
+    },
+    {
+      "path": "BRICK-003/MANIFEST.json",
+      "bytes": 257,
+      "sha256": "0437734a68c164916615f37dba53adcc057b7945728776aab3d7b3ecd509e972"
+    },
+    {
+      "path": "BRICK-003/METRICS.yaml",
+      "bytes": 320,
+      "sha256": "3d0ff2374ab1861e5a2a3a32f1e152095f6537de6af792dcacc60b6eaef69c0e"
+    },
+    {
+      "path": "BRICK-003/RECEIPT.yaml",
+      "bytes": 261,
+      "sha256": "334abca62e28b405f77bfb6ae0a9be77167c587f02982e4917414f475d3be36e"
+    },
+    {
+      "path": "BRICK-003/SIGILS.yaml",
+      "bytes": 219,
+      "sha256": "db3edb67afab38dfbc54753f4f99705f146421f096355e866150b78118a316b2"
+    },
+    {
+      "path": "BRICK-004/BRICK-CONTROL.yaml",
+      "bytes": 914,
+      "sha256": "8965b47ca47924f63d92c45222ec5024c50f5b5d0d7db2e49973cebf4be89534"
+    },
+    {
+      "path": "BRICK-004/BRICK.md",
+      "bytes": 1671,
+      "sha256": "efb33bf6b9f01b7e57bcf943533e7ae0af1a42213f580da0b021c15483f3d0f8"
+    },
+    {
+      "path": "BRICK-004/BRICK.yaml",
+      "bytes": 515,
+      "sha256": "a012946479ce1481ca6aed82a87e9dd4f3252e181abd1cb52858449e39f63d34"
+    },
+    {
+      "path": "BRICK-004/CERTIFICATE.yaml",
+      "bytes": 421,
+      "sha256": "880947f9f5850da4e296550924deed5e3781c588666617ef4a5db9b055d0895e"
+    },
+    {
+      "path": "BRICK-004/MANIFEST.json",
+      "bytes": 261,
+      "sha256": "cc4437f720ab1ba63954f22710d943aa1057e0ac07f1596eead5fdedd75dc744"
+    },
+    {
+      "path": "BRICK-004/METRICS.yaml",
+      "bytes": 320,
+      "sha256": "3d0ff2374ab1861e5a2a3a32f1e152095f6537de6af792dcacc60b6eaef69c0e"
+    },
+    {
+      "path": "BRICK-004/RECEIPT.yaml",
+      "bytes": 261,
+      "sha256": "ef0db726ef5d7e82eacfa3684d280927eea1b9b8314de3d3673cf56cd371f077"
+    },
+    {
+      "path": "BRICK-004/SIGILS.yaml",
+      "bytes": 219,
+      "sha256": "db3edb67afab38dfbc54753f4f99705f146421f096355e866150b78118a316b2"
+    },
+    {
+      "path": "BRICK-005/BRICK-CONTROL.yaml",
+      "bytes": 914,
+      "sha256": "4ed3477ee8ad30818b0d352aa0f0c96c40d3cd684d36222528601abb44f37970"
+    },
+    {
+      "path": "BRICK-005/BRICK.md",
+      "bytes": 1676,
+      "sha256": "1a847a653e62c73b5eadf7b441738784d131867dc5a3092f3a01b18fdd25c299"
+    },
+    {
+      "path": "BRICK-005/BRICK.yaml",
+      "bytes": 520,
+      "sha256": "2d4f61d773c4c4ac72d9df6eecc2fc389a8c2777ba346ba272e3cd4fc5464a12"
+    },
+    {
+      "path": "BRICK-005/CERTIFICATE.yaml",
+      "bytes": 421,
+      "sha256": "3c347072929caa2d0a66e1cb59dd7e924160d6e66c90d2ea8b312feafca0d128"
+    },
+    {
+      "path": "BRICK-005/MANIFEST.json",
+      "bytes": 262,
+      "sha256": "f23fd938c61e125145f0c6acd2b2b59a5fcede9e335c49cede59052fb407e041"
+    },
+    {
+      "path": "BRICK-005/METRICS.yaml",
+      "bytes": 320,
+      "sha256": "3d0ff2374ab1861e5a2a3a32f1e152095f6537de6af792dcacc60b6eaef69c0e"
+    },
+    {
+      "path": "BRICK-005/RECEIPT.yaml",
+      "bytes": 261,
+      "sha256": "d229f691dbf017b78eb9cb4c3977bf6a9c411ba56f001c7566a640c85f1fdda9"
+    },
+    {
+      "path": "BRICK-005/SIGILS.yaml",
+      "bytes": 219,
+      "sha256": "db3edb67afab38dfbc54753f4f99705f146421f096355e866150b78118a316b2"
+    },
+    {
+      "path": "BRICK-006/BRICK-CONTROL.yaml",
+      "bytes": 914,
+      "sha256": "0fe2c61c7da3ebc55cbf9b6f56410e02ccdce5f5fe5811da95d4c0b16d7280c4"
+    },
+    {
+      "path": "BRICK-006/BRICK.md",
+      "bytes": 1659,
+      "sha256": "6e323a18c890819bc7eb87016fbd5d2ac738149e436275916429b840d6f8cf56"
+    },
+    {
+      "path": "BRICK-006/BRICK.yaml",
+      "bytes": 503,
+      "sha256": "e33cb3dfaa74d78c7481a2c72638da111344fd8e33c416ddedfa3409fc10f7ca"
+    },
+    {
+      "path": "BRICK-006/CERTIFICATE.yaml",
+      "bytes": 421,
+      "sha256": "4be2fd260ca8500c1a8026e8b341bc8630f3605ccd65abba1f270c0480bfeca8"
+    },
+    {
+      "path": "BRICK-006/MANIFEST.json",
+      "bytes": 263,
+      "sha256": "8cb2fa82ff906461d0fd8dc1fd95021e7287d427a7e5c5c0cd11b9eaf34c40fa"
+    },
+    {
+      "path": "BRICK-006/METRICS.yaml",
+      "bytes": 320,
+      "sha256": "3d0ff2374ab1861e5a2a3a32f1e152095f6537de6af792dcacc60b6eaef69c0e"
+    },
+    {
+      "path": "BRICK-006/RECEIPT.yaml",
+      "bytes": 261,
+      "sha256": "1beec749ea2eb31619b74de0f437ca8519ad1e0e03ebbb1dff530029672315c7"
+    },
+    {
+      "path": "BRICK-006/SIGILS.yaml",
+      "bytes": 219,
+      "sha256": "db3edb67afab38dfbc54753f4f99705f146421f096355e866150b78118a316b2"
+    },
+    {
+      "path": "BRICK-007/BRICK-CONTROL.yaml",
+      "bytes": 914,
+      "sha256": "5e57f0636fd8e2d4f46077500489d6ba6c91c2699d515ad0c6a93005671a6317"
+    },
+    {
+      "path": "BRICK-007/BRICK.md",
+      "bytes": 1665,
+      "sha256": "80535bd452a569885f333ffcc2e709a4e17459d2ddd1687ca7dd72373a186814"
+    },
+    {
+      "path": "BRICK-007/BRICK.yaml",
+      "bytes": 509,
+      "sha256": "45d65b1aed0ed9bdfe483113a9ba47225e7c4d355977977b9d553be197e2729f"
+    },
+    {
+      "path": "BRICK-007/CERTIFICATE.yaml",
+      "bytes": 421,
+      "sha256": "76e867698f3b71d1ba07cea7747c5e87d2e802d12e36082e22b026d3c486e2a7"
+    },
+    {
+      "path": "BRICK-007/MANIFEST.json",
+      "bytes": 268,
+      "sha256": "2d19d02abcffeb8d8835e65eaf18bc4e2c56d3d43f3775c2d7ce3b71f7917eeb"
+    },
+    {
+      "path": "BRICK-007/METRICS.yaml",
+      "bytes": 320,
+      "sha256": "3d0ff2374ab1861e5a2a3a32f1e152095f6537de6af792dcacc60b6eaef69c0e"
+    },
+    {
+      "path": "BRICK-007/RECEIPT.yaml",
+      "bytes": 261,
+      "sha256": "6f26d6fdd8cc890034839f2869e09dc9641547161f19f3fec3e47009205f3fc0"
+    },
+    {
+      "path": "BRICK-007/SIGILS.yaml",
+      "bytes": 219,
+      "sha256": "db3edb67afab38dfbc54753f4f99705f146421f096355e866150b78118a316b2"
+    },
+    {
+      "path": "BRICK-008/BRICK-CONTROL.yaml",
+      "bytes": 914,
+      "sha256": "1cda8160fed2343b76e53b1c4eb1fc6b09ec10448ffa511985fc2e69d507f9f2"
+    },
+    {
+      "path": "BRICK-008/BRICK.md",
+      "bytes": 1662,
+      "sha256": "27a5582bd14e6a2ff0198a4affccfe7b7242066b631e1b9532b6eb50ca0e41c5"
+    },
+    {
+      "path": "BRICK-008/BRICK.yaml",
+      "bytes": 506,
+      "sha256": "9151d7e92ee766d635442b44ce338562155a45d6f25fbb71c204085bc18f527e"
+    },
+    {
+      "path": "BRICK-008/CERTIFICATE.yaml",
+      "bytes": 421,
+      "sha256": "682b1a13aea9ca5eaaa6463ce3ec1ed2c42cb35b684e7ab75ebb8a3fdfe89eb5"
+    },
+    {
+      "path": "BRICK-008/MANIFEST.json",
+      "bytes": 258,
+      "sha256": "659864340878253a9294810eb01845deae148244651204a761efb3995056b97c"
+    },
+    {
+      "path": "BRICK-008/METRICS.yaml",
+      "bytes": 320,
+      "sha256": "3d0ff2374ab1861e5a2a3a32f1e152095f6537de6af792dcacc60b6eaef69c0e"
+    },
+    {
+      "path": "BRICK-008/RECEIPT.yaml",
+      "bytes": 261,
+      "sha256": "d370b5e35bdecf567085c65529f7098ad02144c8af00a9ca4bbaf12cf9238b7a"
+    },
+    {
+      "path": "BRICK-008/SIGILS.yaml",
+      "bytes": 219,
+      "sha256": "db3edb67afab38dfbc54753f4f99705f146421f096355e866150b78118a316b2"
+    },
+    {
+      "path": "BRICK-009/BRICK-CONTROL.yaml",
+      "bytes": 914,
+      "sha256": "a2f17accd26e305112d8e91c6d73832805cb99c80cdc02038fa5b0b134ce1c63"
+    },
+    {
+      "path": "BRICK-009/BRICK.md",
+      "bytes": 1651,
+      "sha256": "05fb8e413289732c4cfc92c076570dd5e0cf3d3c2ba752e0f054cf28c299f88b"
+    },
+    {
+      "path": "BRICK-009/BRICK.yaml",
+      "bytes": 495,
+      "sha256": "e7333ee8555e76e687cc3134e7ab7052221ce21aca0339a15bcda0008cbd4a72"
+    },
+    {
+      "path": "BRICK-009/CERTIFICATE.yaml",
+      "bytes": 421,
+      "sha256": "be061dd3c0f88851fe604007e25a2a1a7ab561278b66e2a25047e858b512939e"
+    },
+    {
+      "path": "BRICK-009/MANIFEST.json",
+      "bytes": 255,
+      "sha256": "0f54524b97bd5973f41c98a9472042595ddbc39152276b4ea1d5ed6fcc850fb0"
+    },
+    {
+      "path": "BRICK-009/METRICS.yaml",
+      "bytes": 320,
+      "sha256": "3d0ff2374ab1861e5a2a3a32f1e152095f6537de6af792dcacc60b6eaef69c0e"
+    },
+    {
+      "path": "BRICK-009/RECEIPT.yaml",
+      "bytes": 261,
+      "sha256": "01ac6aad96d4499fd7fcf6bdd9093b93f360f95b263eb82f62f05812d3cb157b"
+    },
+    {
+      "path": "BRICK-009/SIGILS.yaml",
+      "bytes": 219,
+      "sha256": "db3edb67afab38dfbc54753f4f99705f146421f096355e866150b78118a316b2"
+    },
+    {
+      "path": "BRICK-010/BRICK-CONTROL.yaml",
+      "bytes": 914,
+      "sha256": "b7c0403fccd30780a578244888a3591a6469dd920f401af2a7b516b272241294"
+    },
+    {
+      "path": "BRICK-010/BRICK.md",
+      "bytes": 1683,
+      "sha256": "66e1ccfb1b3b12ac44cbeed9541c557aadf583facf54c235fe15e0b7e814ee47"
+    },
+    {
+      "path": "BRICK-010/BRICK.yaml",
+      "bytes": 527,
+      "sha256": "e4f9f40d6668eee610a626e788867509f341d57568aeba5d3fb70c0b750d0fb7"
+    },
+    {
+      "path": "BRICK-010/CERTIFICATE.yaml",
+      "bytes": 421,
+      "sha256": "10d2269e6baa03daf82f1526808d140cd428fa4ae48f98f48d607bdf228f314c"
+    },
+    {
+      "path": "BRICK-010/MANIFEST.json",
+      "bytes": 265,
+      "sha256": "707492cdb4d4179642a9945ba250c42aafd3c80dc08c5a697703c944f8afd07f"
+    },
+    {
+      "path": "BRICK-010/METRICS.yaml",
+      "bytes": 320,
+      "sha256": "3d0ff2374ab1861e5a2a3a32f1e152095f6537de6af792dcacc60b6eaef69c0e"
+    },
+    {
+      "path": "BRICK-010/RECEIPT.yaml",
+      "bytes": 261,
+      "sha256": "665d8f64672477827a9b3c74b85277538a6d5a151157ddc5681186322eed6996"
+    },
+    {
+      "path": "BRICK-010/SIGILS.yaml",
+      "bytes": 219,
+      "sha256": "db3edb67afab38dfbc54753f4f99705f146421f096355e866150b78118a316b2"
+    },
+    {
+      "path": "BRICK-011/BRICK-CONTROL.yaml",
+      "bytes": 914,
+      "sha256": "5a81966550a7dcc118c4f148a624aea3bfeaef4c44f3abb0b01509bfb75fff37"
+    },
+    {
+      "path": "BRICK-011/BRICK.md",
+      "bytes": 1667,
+      "sha256": "1313afe3f371c5de5f5030a989ad32dc905733d2c46a8dfba0b24d5f4f50ab76"
+    },
+    {
+      "path": "BRICK-011/BRICK.yaml",
+      "bytes": 511,
+      "sha256": "3f1a80b02028564703cf2d56b45d592fe107631b8e6c4a4166c77838315f875a"
+    },
+    {
+      "path": "BRICK-011/CERTIFICATE.yaml",
+      "bytes": 421,
+      "sha256": "74f9a14b70f000e61f7afcf7c40c6f1c408642d213a812c1831c16e97759e5e5"
+    },
+    {
+      "path": "BRICK-011/MANIFEST.json",
+      "bytes": 256,
+      "sha256": "2a9233fc49aff7f935d6974dba11a2f4747d1d6cf951135c32a705c109b9a279"
+    },
+    {
+      "path": "BRICK-011/METRICS.yaml",
+      "bytes": 320,
+      "sha256": "3d0ff2374ab1861e5a2a3a32f1e152095f6537de6af792dcacc60b6eaef69c0e"
+    },
+    {
+      "path": "BRICK-011/RECEIPT.yaml",
+      "bytes": 261,
+      "sha256": "0a47de3a721d5504d73eebca4ec4260e625b18c5b86b1daccb946e926318fdc1"
+    },
+    {
+      "path": "BRICK-011/SIGILS.yaml",
+      "bytes": 219,
+      "sha256": "db3edb67afab38dfbc54753f4f99705f146421f096355e866150b78118a316b2"
+    },
+    {
+      "path": "BRICK-012/BRICK-CONTROL.yaml",
+      "bytes": 914,
+      "sha256": "01878730e4c3d42892d132636bb00e4c7444ff72dffa8a8ced08c51ca9bc4195"
+    },
+    {
+      "path": "BRICK-012/BRICK.md",
+      "bytes": 1673,
+      "sha256": "68bde51db5cfe335ed9009b838b65205d46c91264d8f99fa63ba7ae6f0cf2380"
+    },
+    {
+      "path": "BRICK-012/BRICK.yaml",
+      "bytes": 517,
+      "sha256": "0995f120581dd16275ed442eb7211ea5e1e7c7c825b3391b357137bf6de4465e"
+    },
+    {
+      "path": "BRICK-012/CERTIFICATE.yaml",
+      "bytes": 421,
+      "sha256": "681d453c7eab42995124c955a70558a04e8253f81639d124b3dd5a0b56b68608"
+    },
+    {
+      "path": "BRICK-012/MANIFEST.json",
+      "bytes": 268,
+      "sha256": "244953b725e9a102decd592eb0605f4817c9cf94b1fa75c88e58a48f9998e884"
+    },
+    {
+      "path": "BRICK-012/METRICS.yaml",
+      "bytes": 320,
+      "sha256": "3d0ff2374ab1861e5a2a3a32f1e152095f6537de6af792dcacc60b6eaef69c0e"
+    },
+    {
+      "path": "BRICK-012/RECEIPT.yaml",
+      "bytes": 261,
+      "sha256": "f2756399a4beeadc3ccc4173051fc036a913bda297183022f5ef97837d5d5583"
+    },
+    {
+      "path": "BRICK-012/SIGILS.yaml",
+      "bytes": 219,
+      "sha256": "db3edb67afab38dfbc54753f4f99705f146421f096355e866150b78118a316b2"
+    },
+    {
+      "path": "BRICK-013/BRICK-CONTROL.yaml",
+      "bytes": 914,
+      "sha256": "57d9d53db37d2a04e410a98f725d37f43631bfc09b0f059eaca4049a12f89365"
+    },
+    {
+      "path": "BRICK-013/BRICK.md",
+      "bytes": 1659,
+      "sha256": "acf767a9ded6d3b78a83c4494a424c0b7c6fd03aa1b05956af3e2fff30750b2c"
+    },
+    {
+      "path": "BRICK-013/BRICK.yaml",
+      "bytes": 503,
+      "sha256": "463b3b45d04f595c8d3cb4c8a680a1ccd288bb4f8216a2e99fcc38622e7fb99e"
+    },
+    {
+      "path": "BRICK-013/CERTIFICATE.yaml",
+      "bytes": 421,
+      "sha256": "962d81b6934503781374806bd8e479dd8e533f2eeca6fbc8986fe87e0e860727"
+    },
+    {
+      "path": "BRICK-013/MANIFEST.json",
+      "bytes": 260,
+      "sha256": "adc0c8863cbdcfd2b36489d1c73258c2c5ea7ed5ace14c78afa708cacf5b786c"
+    },
+    {
+      "path": "BRICK-013/METRICS.yaml",
+      "bytes": 320,
+      "sha256": "3d0ff2374ab1861e5a2a3a32f1e152095f6537de6af792dcacc60b6eaef69c0e"
+    },
+    {
+      "path": "BRICK-013/RECEIPT.yaml",
+      "bytes": 261,
+      "sha256": "3a63776989297c794b3bfb747ceb07490864bf9bf77606c656919e5d64ca064e"
+    },
+    {
+      "path": "BRICK-013/SIGILS.yaml",
+      "bytes": 219,
+      "sha256": "db3edb67afab38dfbc54753f4f99705f146421f096355e866150b78118a316b2"
+    },
+    {
+      "path": "BRICK-014/BRICK-CONTROL.yaml",
+      "bytes": 914,
+      "sha256": "19e8ba57965a739f42397c9f789cbc651d8c7af2c52d93563a056aee98966467"
+    },
+    {
+      "path": "BRICK-014/BRICK.md",
+      "bytes": 1659,
+      "sha256": "99bb351cadb86d49deabfc1ced7635db94eea549ebb241c7119f30a33b6b1f9e"
+    },
+    {
+      "path": "BRICK-014/BRICK.yaml",
+      "bytes": 503,
+      "sha256": "a5e10c72359011641cce6db7e028379841a47860447c8b52a8532f528c896bae"
+    },
+    {
+      "path": "BRICK-014/CERTIFICATE.yaml",
+      "bytes": 421,
+      "sha256": "59aecc58b6bb8763197a1b1b79e6766eef96a97c3698c33ee8f8a264f013678a"
+    },
+    {
+      "path": "BRICK-014/MANIFEST.json",
+      "bytes": 264,
+      "sha256": "8f2e1cceea820defeb111934b2a597fc5c0234cf91e2738eb49ae0cd7e442831"
+    },
+    {
+      "path": "BRICK-014/METRICS.yaml",
+      "bytes": 320,
+      "sha256": "3d0ff2374ab1861e5a2a3a32f1e152095f6537de6af792dcacc60b6eaef69c0e"
+    },
+    {
+      "path": "BRICK-014/RECEIPT.yaml",
+      "bytes": 261,
+      "sha256": "99dc0f67b261ac0147f83d66302c701a579cfa21db8924332d3d871dd7dd99d3"
+    },
+    {
+      "path": "BRICK-014/SIGILS.yaml",
+      "bytes": 219,
+      "sha256": "db3edb67afab38dfbc54753f4f99705f146421f096355e866150b78118a316b2"
+    },
+    {
+      "path": "BRICK-015/BRICK-CONTROL.yaml",
+      "bytes": 914,
+      "sha256": "5518afce9b35e888106af5e1f4357c3df10c2a3457cf469d5194145746b7c06c"
+    },
+    {
+      "path": "BRICK-015/BRICK.md",
+      "bytes": 1667,
+      "sha256": "9cea5008b4c7e52943744b231e46cd9c1d0aa87cac01ed19694627e690206926"
+    },
+    {
+      "path": "BRICK-015/BRICK.yaml",
+      "bytes": 511,
+      "sha256": "851f5681a02482d9deac83c70d7016ea19634ad6809007347b15676dac86b513"
+    },
+    {
+      "path": "BRICK-015/CERTIFICATE.yaml",
+      "bytes": 421,
+      "sha256": "2d84a4bf549fa5f1675f96bedd9b8aae1d3803485f415511f34d7bc0e033060d"
+    },
+    {
+      "path": "BRICK-015/MANIFEST.json",
+      "bytes": 261,
+      "sha256": "788d72dc3527fa379bfa94fb4fd048c85010136194bf35d5c36206e5b9bd2d0e"
+    },
+    {
+      "path": "BRICK-015/METRICS.yaml",
+      "bytes": 320,
+      "sha256": "3d0ff2374ab1861e5a2a3a32f1e152095f6537de6af792dcacc60b6eaef69c0e"
+    },
+    {
+      "path": "BRICK-015/RECEIPT.yaml",
+      "bytes": 261,
+      "sha256": "3991af7651e2f63e1f43c0d9f8e5d10574163f63d94bb263b848c26ffa3139f7"
+    },
+    {
+      "path": "BRICK-015/SIGILS.yaml",
+      "bytes": 219,
+      "sha256": "db3edb67afab38dfbc54753f4f99705f146421f096355e866150b78118a316b2"
+    },
+    {
+      "path": "BRICK-016/BRICK-CONTROL.yaml",
+      "bytes": 914,
+      "sha256": "f27a72e2d3058ea31b79ea343520811a0dd8109b5ebe49c1f2f46f4422035c03"
+    },
+    {
+      "path": "BRICK-016/BRICK.md",
+      "bytes": 1661,
+      "sha256": "6cc2d87ad591b434389dbfcf3c6f91c0aab5bd9403942ff0e5c086d654d50f71"
+    },
+    {
+      "path": "BRICK-016/BRICK.yaml",
+      "bytes": 505,
+      "sha256": "cd090bd22bf7c8036756cbb1ba6d06cef9ee82829e2d9dea246bf89eb5c535de"
+    },
+    {
+      "path": "BRICK-016/CERTIFICATE.yaml",
+      "bytes": 421,
+      "sha256": "dfd63352fc71c025e020040fe5e9f43e0893a53824e789c488d61e0adb657616"
+    },
+    {
+      "path": "BRICK-016/MANIFEST.json",
+      "bytes": 263,
+      "sha256": "9994eed64d7d9bdbe35c85c0d665a081dfc2a07668efdf1d8883c31bb543e6d3"
+    },
+    {
+      "path": "BRICK-016/METRICS.yaml",
+      "bytes": 320,
+      "sha256": "3d0ff2374ab1861e5a2a3a32f1e152095f6537de6af792dcacc60b6eaef69c0e"
+    },
+    {
+      "path": "BRICK-016/RECEIPT.yaml",
+      "bytes": 261,
+      "sha256": "a21d8f84e42b9d2ee96f93cbcb3a3622001311d50be05797297ed4d35a34dba5"
+    },
+    {
+      "path": "BRICK-016/SIGILS.yaml",
+      "bytes": 219,
+      "sha256": "db3edb67afab38dfbc54753f4f99705f146421f096355e866150b78118a316b2"
+    },
+    {
+      "path": "CONSTITUTION.md",
+      "bytes": 1286,
+      "sha256": "6e0c83ea235ff8a880825f7b5ff4c383172356c31c203ea9284dc952e74a64fa"
+    },
+    {
+      "path": "GOVERNANCE.md",
+      "bytes": 291,
+      "sha256": "97724c1a3c2c4c0a786cf465a45c36d705505d6933584c13bddc67b55fca9b12"
+    },
+    {
+      "path": "LIBRARY-INDEX.yaml",
+      "bytes": 169,
+      "sha256": "7c321efed6031962f8fdeb7ec8ee2bcf1266a653a9dda3badc29f7fc1d6319a7"
+    },
+    {
+      "path": "MUTATION.md",
+      "bytes": 399,
+      "sha256": "ddbfc0f6aaaf4d82f5a3b89b36d8552eddfe230c47fb9a24dbe0d78fb723ce54"
+    },
+    {
+      "path": "PARETO.md",
+      "bytes": 341,
+      "sha256": "7d12ad2e80a4fa670483984b8528852ae7dededd087f74679cc015f4b8b5311b"
+    },
+    {
+      "path": "REPO-README.md",
+      "bytes": 1010,
+      "sha256": "b4b6f52de2997d20ad184bcfb225ba8b740e242afb5a0b23ade4543b2ddb8abc"
+    },
+    {
+      "path": "SECURITY.md",
+      "bytes": 636,
+      "sha256": "6373b3882e54d9da95f9d0e5bd8a9716c279967fe4061d8852f35c43cb6e6e45"
+    },
+    {
+      "path": "schemas/brick.schema.yaml",
+      "bytes": 287,
+      "sha256": "df14e7cadde8d458ed78422f0bb3fe3a32e70a75fb5b4c74293f1dff6e27c845"
+    },
+    {
+      "path": "schemas/certificate.schema.yaml",
+      "bytes": 299,
+      "sha256": "51cd31be8ed1ebab3fedf699bf946e97ca07ebf35f3a6784be1858d38d6029c3"
+    },
+    {
+      "path": "schemas/dependency.schema.yaml",
+      "bytes": 179,
+      "sha256": "47ca115192e944af2e212cbba6b4f8e55fcd46c7d46f13c173863b6e65f5ace2"
+    },
+    {
+      "path": "schemas/receipt.schema.yaml",
+      "bytes": 277,
+      "sha256": "abddf4e08cf96c913fc1238867cf28bb5669fd804b690b57f4047597b3ff9d36"
+    },
+    {
+      "path": "schemas/state-transition.schema.yaml",
+      "bytes": 301,
+      "sha256": "688e9d28bc924a9dfded558e2ffe505311694db3933b0d99b54c8b544e7d30bc"
+    }
+  ]
+}

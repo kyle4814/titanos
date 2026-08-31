@@ -1,0 +1,20 @@
+memory:
+  model: stateless_agent_durable_system
+  authoritative:
+    - repository
+    - configuration
+    - task_queue
+    - receipts
+    - checkpoints
+    - outcome_ledger
+  session_load:
+    - constitution
+    - active_state
+    - open_tasks
+    - recent_receipts
+    - relevant_dossier
+    - context_digest
+  forbidden:
+    - implicit_model_memory_as_source_of_truth
+    - silent_state
+    - undocumented_mutation

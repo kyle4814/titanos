@@ -1,0 +1,2 @@
+role: prompt_injection
+scope: untrusted_input_fixtures

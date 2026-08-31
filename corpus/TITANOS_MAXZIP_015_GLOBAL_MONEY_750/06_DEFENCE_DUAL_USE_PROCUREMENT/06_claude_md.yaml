@@ -1,0 +1,12 @@
+schema: titanos_claude_md
+version: "1.0"
+provenance:
+  required: true
+evidence:
+  status: [UNKNOWN, OBSERVED, VERIFIED, INFERRED, MODELLED, REALIZED]
+commercial:
+  claim_gate: human_review
+automation:
+  bounded: true
+audit:
+  required: true

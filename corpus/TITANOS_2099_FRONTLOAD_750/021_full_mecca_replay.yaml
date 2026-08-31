@@ -1,0 +1,21 @@
+workflow:
+  steps:
+  - load
+  - recon
+  - defrag
+  - context
+  - pareto
+  - queue
+  - route
+  - execute
+  - test
+  - blue_team
+  - red_team
+  - calibrate
+  - receipt
+  - value
+  - brick
+  - outcome
+  - mutate
+  - persist
+  - next

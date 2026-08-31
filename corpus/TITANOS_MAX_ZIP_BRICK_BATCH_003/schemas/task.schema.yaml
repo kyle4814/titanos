@@ -1,0 +1,25 @@
+schema: titan_os_task
+version: "1.0"
+required:
+  - task_id
+  - mission
+  - status
+  - priority
+  - acceptance_criteria
+  - verification_plan
+  - scope
+  - permissions
+properties:
+  task_id: string
+  mission: string
+  status: enum
+  priority: number
+  dependencies: array
+  acceptance_criteria: array
+  verification_plan: array
+  scope: object
+  permissions: object
+  compute_budget: object
+  stop_conditions: array
+  receipt_id: string|null
+  next_action: string|null

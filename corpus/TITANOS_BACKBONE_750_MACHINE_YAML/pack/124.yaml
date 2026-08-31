@@ -1,0 +1,8 @@
+artifact:
+  id: TB-124
+  class: receipts
+  status: SCAFFOLD_ONLY
+  purpose: reserved_machine_readable_extension
+  implementation_required: true
+  verification_required: true
+  receipt_required: true

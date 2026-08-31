@@ -1,0 +1,8 @@
+task_id: TITANOS-WAX-09
+name: 09_COMMERCIAL_COMMAND_BOARD
+mission: "Unify opportunities, tenders, bricks, receipts, value and system health."
+command: "WAX ON WAX OFF RINSE REPEAT — MAX ZIP — PARETO MUTATE"
+search_before_build: true
+provenance_required: true
+receipt_required: true
+gold_brick_requires_verification: true

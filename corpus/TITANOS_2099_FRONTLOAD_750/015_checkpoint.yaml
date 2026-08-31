@@ -1,0 +1,3 @@
+checkpoint:
+  atomic: true
+  recovery_required: true

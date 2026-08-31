@@ -1,0 +1,3 @@
+snapshot:
+  purpose: fast_recovery
+  immutable: true

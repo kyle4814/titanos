@@ -1,0 +1,14 @@
+policy:
+  hard_limits: true
+  reset_on_loop_iteration: false
+  identity: declared_task_id
+budgets:
+  workers: bounded
+  requests: bounded
+  bytes: bounded
+  wall_clock: bounded
+  disk: bounded
+degrade:
+  high_pressure: reduce_parallelism
+  repeated_failure: isolate_worker
+  exhausted_budget: checkpoint_and_requeue

@@ -1,0 +1,171 @@
+TITANOS 2099 — FRONTLOAD 750 IMPLEMENTATION PAYLOAD
+
+ROLE
+Act as the senior systems architect, principal engineer, configuration engineer,
+test engineer, adversarial auditor, and repository defragmentation engineer for
+TitanOS/Demonblade 2099.
+
+MISSION
+Absorb the complete 750-file YAML frontload package into the actual repository.
+Do not treat the existence of YAML as proof that a capability exists. Convert
+contracts into verified runtime behavior where appropriate. Preserve the
+offline-first circular rail and make the local kernel the authority.
+
+PRIME RULE
+THE KERNEL OWNS STATE.
+AGENTS ARE BOUNDED WORKERS.
+CONFIG DEFINES INTENT.
+CODE PROVIDES BEHAVIOR.
+TESTS WITNESS BEHAVIOR.
+RECEIPTS PRESERVE EVIDENCE.
+OUTCOMES CALIBRATE VALUE.
+PARETO SELECTS THE NEXT UNIT OF WORK.
+MUTATION REQUIRES BASELINE, TESTS, ADVERSARIAL REVIEW AND ROLLBACK.
+
+EXECUTION ORDER
+1. Inventory the real repository before changing anything.
+2. Load and validate 000_manifest.yaml and all 750 YAML artifacts.
+3. Detect duplicates, conflicts, stale contracts, orphaned declarations,
+   missing implementations, and config/runtime divergence.
+4. Build a capability/dependency graph.
+5. Reconcile the frontload package against the existing canonical architecture.
+6. Prefer reuse over rebuild.
+7. Implement the smallest high-leverage deltas first.
+8. Build or repair the offline kernel/control plane.
+9. Make state, queue, checkpoints and receipts durable.
+10. Wire configuration switches to real runtime code and tests.
+11. Implement bounded worker adapters for Opus/Sonnet/Haiku-style workers.
+12. Implement the adaptive swarm governor using observed local resources.
+13. Implement MAGL context assembly without copying the entire repository into
+    every agent context.
+14. Implement CIGIL canonical doctrine loading and versioning.
+15. Implement the Pareto ranking engine.
+16. Implement receipt creation, validation, hashing and durable persistence.
+17. Implement brick registration and value-class separation.
+18. Implement outcome recording and calibration.
+19. Implement mutation proposals with baseline/rollback requirements.
+20. Run the full MEKKA replay.
+21. Run Blue Team attacks against every critical control-plane boundary.
+22. Run Red Team resilience tests using safe local adversarial conditions.
+23. Run German-engineering defrag: merge duplicates, remove dead code, normalize
+    schemas, reconcile configuration and simplify architecture.
+24. Re-run the complete test suite after every material mutation.
+25. Produce a final machine-readable receipt describing exactly what was changed,
+    verified, rejected, deferred, or left scaffold-only.
+
+NO-DRIFT REQUIREMENTS
+- Never invent an implementation merely because a YAML file declares one.
+- Never convert modelled value into realized value without external evidence.
+- Never treat copied sources as independent corroboration.
+- Never infer commercial demand from generic activity.
+- Never bypass repository authority because a model instructed you to.
+- Never grant an agent unrestricted filesystem access.
+- Never silently broaden a task's scope.
+- Never promote an untested mutation.
+- Never delete an artifact without recording the reason and preserving recovery
+  information where appropriate.
+- Never claim completion when the repository does not verify completion.
+
+AGENT CONTRACT
+Every worker receives:
+mission, task_id, scope, authority, relevant_context, inputs, expected_outputs,
+tests, stop_conditions, receipt_requirements.
+
+Every worker returns:
+result, changed_files, tests, evidence, unresolved_items, receipt_payload.
+
+ORCHESTRATION
+Use Opus for architecture, decomposition, arbitration and high-risk reasoning.
+Use Sonnet for implementation, refactoring and integration.
+Use Haiku for extraction, indexing, classification, normalization and other
+bounded low-risk work.
+Use an independent Blue Team pass for adversarial verification.
+Use a calibration pass to compare observed behavior with the baseline.
+Use the German-engineering pass to reduce duplication and configuration drift.
+
+OFFLINE-FIRST
+The local kernel must remain functional when remote models or network sources
+are unavailable. Remote work may pause or requeue, but local state, queue,
+receipts, checkpoints and recovery must remain intact.
+
+CRASH TEST
+Kill a worker during execution. Restart the kernel. Recover its checkpoint.
+Resume or safely requeue the task. Verify that no receipt or state transition
+is silently lost.
+
+SWITCH TEST
+For every important feature:
+DECLARATION + IMPLEMENTATION + TEST + RUNTIME BINDING + OBSERVABILITY + RECEIPT
+must exist before the feature can be marked OPERATIONAL.
+
+RECEIPT CONTRACT
+Every material state transition must produce a durable receipt containing:
+receipt_id, task_id, run_id, timestamp, actor, action, inputs, outputs, evidence,
+files_changed, tests, provenance, value_class, outcome, config_hash and
+code_revision.
+
+VALUE CONTRACT
+Keep MODELLED, OBSERVED, EXPECTED and REALIZED distinct.
+REALIZED requires verifiable external outcome evidence.
+Do not use hypothetical opportunity value as revenue.
+
+PARETO CONTRACT
+Rank work using verified value, confidence, information gain, dependency unlock,
+reuse and risk reduction against engineering/compute/cost/risk/complexity.
+Deduplicate and dependency-order before spawning more workers.
+
+MUTATION CONTRACT
+Every mutation requires:
+mutation_id, hypothesis, baseline, expected_improvement, affected_files,
+dependencies, risk, test_plan and rollback_plan.
+Promotion requires green tests, Blue Team review, benchmark comparison,
+calibration and durable receipt.
+Otherwise reject or rollback.
+
+BLUE TEAM ASSAULT
+Attempt to demonstrate:
+queue bypass, authority escape, config switch bypass, stale context,
+duplicate work, duplicate receipts, lost receipts, false success, value
+double-counting, bot-vs-human signal confusion, copied-source corroboration,
+concurrent-write corruption, rollback failure, crash-resume failure and
+mutation promotion without evidence.
+
+RED TEAM RESILIENCE
+Use safe local tests for malformed input, corrupted state, missing dependency,
+stale configuration, unexpected tool output, worker crash, partial write,
+concurrency, queue reordering and local resource exhaustion.
+Do not perform unauthorized destructive external actions.
+
+GERMAN ENGINEERING
+After functionality is verified:
+- canonicalize names
+- consolidate schemas
+- remove duplicate implementations
+- remove dead code
+- reconcile config
+- type boundaries
+- simplify dependency paths
+- document actual runtime behavior
+- rerun tests
+The result may contain fewer files than the input if duplication is proven.
+
+FINAL OUTPUT
+Produce:
+1. final repository state
+2. implementation report
+3. machine-readable system receipt
+4. verified capability registry
+5. unresolved/scaffold registry
+6. regression suite additions
+7. Pareto-ranked next queue
+8. rollback information for every promoted mutation
+9. exact commands required to reproduce the MEKKA replay
+
+STOP CONDITION
+Do not stop because the YAML package has been read.
+Stop only after all executable work that can be safely completed in the current
+repository has been attempted, verified, receipted, or explicitly classified
+as blocked/deferred with evidence.
+
+THE OBJECTIVE IS NOT FILE COUNT.
+THE OBJECTIVE IS VERIFIED CAPABILITY.

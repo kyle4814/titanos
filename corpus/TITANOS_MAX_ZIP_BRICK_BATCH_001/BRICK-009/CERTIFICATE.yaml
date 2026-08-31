@@ -1,0 +1,5 @@
+certificate_id: CERT-BRICK-009
+brick_id: BRICK-009
+status: DOCUMENTARY_FOUNDATION
+scope: "Mutation Engine"
+note: "This certificate records package metadata and does not constitute legal certification, regulatory approval, or a claim of production deployment."

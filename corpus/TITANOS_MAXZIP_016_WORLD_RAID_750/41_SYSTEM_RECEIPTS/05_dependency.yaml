@@ -1,0 +1,24 @@
+# Agent Brief — 41_SYSTEM_RECEIPTS / dependency
+
+FIRST: inspect repository state.
+
+SECOND: search existing capability.
+
+THIRD: search public/authorised external sources.
+
+FOURTH: reuse before adapting; adapt before building.
+
+RETURN:
+RECON
+SEARCHES
+EVIDENCE
+ASSUMPTIONS
+EXISTING_CAPABILITY
+GAPS
+TOP_PARETO_ACTION
+IMPLEMENTATION
+TESTS
+DEMONBLADE
+RECEIPT
+VALUE_STATUS
+NEXT_ACTION

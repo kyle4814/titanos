@@ -1,0 +1,7 @@
+context_graph:
+  nodes:
+  - files
+  - receipts
+  - dependencies
+  - bricks
+  - outcomes

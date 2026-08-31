@@ -1,0 +1,18 @@
+schema: titan_os_gold_brick
+version: "1.0"
+required:
+  - brick_id
+  - name
+  - version
+  - status
+  - doctrine
+  - verification
+  - governance
+properties:
+  brick_id: string
+  name: string
+  version: string
+  status: string
+  doctrine: string
+  verification: object
+  governance: object

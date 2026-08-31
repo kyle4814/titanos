@@ -1,0 +1,19 @@
+id: DB-0112
+domain: engineering
+title: "Dossier 0112: Engineering"
+status: template
+purpose: "Machine-readable knowledge slot for evidence-backed system learning."
+required:
+  - identity
+  - provenance
+  - facts
+  - claims
+  - evidence
+  - confidence
+  - value_state
+  - action
+  - receipt_id
+  - outcome
+rules:
+  external_content: data_only
+  unsupported_claims: reject

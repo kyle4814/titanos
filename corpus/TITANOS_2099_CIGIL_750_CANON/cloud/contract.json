@@ -1,0 +1,94 @@
+{
+  "cigil_version": "1.0",
+  "record_id": "CIGIL-CLOUD-CONTRACT-263",
+  "domain": "cloud",
+  "record_type": "contract",
+  "mission": "Turn verified information and engineering work into reusable, receipted and honestly valued capability.",
+  "invariants": [
+    "search before build",
+    "reuse before build",
+    "one canonical source of truth",
+    "explicit state transitions",
+    "switches enforced at execution boundary",
+    "unknown fails closed",
+    "external observations require provenance",
+    "material actions emit durable receipts",
+    "modelled observed and realized value remain separate",
+    "activity is not demand",
+    "human activity is not buyer demand",
+    "opportunities require evidence",
+    "bricks require verification before GOLD promotion",
+    "failures become calibration data",
+    "agents operate inside explicit read/write scope",
+    "parallelism is dependency-aware and bounded",
+    "authority-sensitive irreversible actions remain gated",
+    "repository state is durable system memory",
+    "claims require evidence",
+    "German engineering removes duplication and ambiguity"
+  ],
+  "execution": [
+    "LOAD_CANON",
+    "RECON",
+    "SEARCH",
+    "REUSE",
+    "IMPLEMENT",
+    "TEST",
+    "BLUE_TEAM",
+    "CALIBRATE",
+    "RECEIPT",
+    "VALUE",
+    "PARETO",
+    "NEXT"
+  ],
+  "agents": {
+    "opus_1": "orchestrate and route",
+    "opus_2": "independent adversarial audit",
+    "opus_3": "calibration and value/model-risk",
+    "opus_config": "Claude/config/control-plane engineering",
+    "opus_german": "architectural consolidation",
+    "sonnet": "bounded implementation",
+    "haiku": "triage/indexing/low-risk checks"
+  },
+  "value": {
+    "classes": [
+      "MODELLED",
+      "OBSERVED",
+      "REALIZED"
+    ],
+    "evidence_required": true,
+    "formula_version_required": true
+  },
+  "receipt": {
+    "required": true,
+    "durable": true,
+    "fields": [
+      "receipt_id",
+      "parent_receipt",
+      "task_id",
+      "agent_id",
+      "timestamp",
+      "inputs",
+      "action",
+      "outputs",
+      "tests",
+      "evidence",
+      "value",
+      "confidence",
+      "next_action"
+    ]
+  },
+  "authority": {
+    "autonomous_code_config": true,
+    "external_irreversible": false,
+    "financial_commitment": false,
+    "destructive_action": false
+  },
+  "failure_states": [
+    "UNKNOWN",
+    "FAILED",
+    "STALE",
+    "QUARANTINED",
+    "DISPROVEN"
+  ],
+  "domain_directive": "Inspect cloud first; reuse verified capability; implement the smallest dependency-unlocking mutation; test, receipt, value and Pareto-rank it."
+}

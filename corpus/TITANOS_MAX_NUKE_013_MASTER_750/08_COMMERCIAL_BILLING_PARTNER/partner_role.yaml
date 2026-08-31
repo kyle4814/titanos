@@ -1,0 +1,16 @@
+schema: titanos_partner_role
+version: "1.0"
+domain: "08_COMMERCIAL_BILLING_PARTNER"
+status: draft
+contract:
+  scope: bounded
+  inputs: explicit
+  outputs: explicit
+  dependencies: versioned
+  evidence: required
+  receipt: required
+guards:
+  - authority
+  - provenance
+  - validation
+  - acceptance

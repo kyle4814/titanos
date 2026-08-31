@@ -1,0 +1,20 @@
+artifact:
+  id: EMERALD-YAML-422
+  domain: opus
+  kind: machine_contract
+  status: DECLARED
+contract:
+  search_before_build: true
+  provenance_required: true
+  receipt_required: true
+  verification_required: true
+  kernel_authority: true
+execution:
+  offline_core: true
+  stateless_worker: true
+  durable_state_external: true
+  checkpoint_risky_mutation: true
+promotion:
+  implemented: executable_artifact_required
+  verified: passing_test_required
+  realized: external_outcome_evidence_required

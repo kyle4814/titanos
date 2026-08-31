@@ -1,0 +1,14 @@
+component: 89_rollback
+capability: go
+version: "1.0"
+enabled: false
+authorised: false
+health: UNKNOWN
+provenance_required: true
+receipt_required: true
+human_gate_required: false
+value_class: MODELLED
+budget:
+  cost: null
+  compute: null
+  requests: null

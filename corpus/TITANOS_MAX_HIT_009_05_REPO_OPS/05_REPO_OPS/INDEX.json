@@ -1,0 +1,28 @@
+{
+  "package_id": "TITANOS-009-05_REPO_OPS",
+  "title": "REPO + OPERATIONS",
+  "artifact_count": 101,
+  "topics": [
+    "repo_structure",
+    "git",
+    "branching",
+    "commit",
+    "ci",
+    "tests",
+    "fixtures",
+    "schemas",
+    "yaml",
+    "documentation",
+    "release",
+    "versioning",
+    "migration",
+    "backup",
+    "restore",
+    "monitoring",
+    "observability",
+    "incident",
+    "runbook",
+    "checklist"
+  ],
+  "status": "draft feedstock"
+}

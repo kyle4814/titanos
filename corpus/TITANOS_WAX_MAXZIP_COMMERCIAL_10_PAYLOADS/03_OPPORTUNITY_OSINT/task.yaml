@@ -1,0 +1,8 @@
+task_id: TITANOS-WAX-03
+name: 03_OPPORTUNITY_OSINT
+mission: "Detect public signals that precede or indicate legitimate buying demand."
+command: "WAX ON WAX OFF RINSE REPEAT — MAX ZIP — PARETO MUTATE"
+search_before_build: true
+provenance_required: true
+receipt_required: true
+gold_brick_requires_verification: true

@@ -128,11 +128,13 @@ __all__ = [
 REPO_ROOT = Path(__file__).resolve().parent.parent
 MANIFEST_PATH = REPO_ROOT / "CAPABILITY_MANIFEST.json"
 
-_EXCLUDED_TOP_DIRS = {".git", "__pycache__", "node_modules", "foundation"}
+_EXCLUDED_TOP_DIRS = {".git", "__pycache__", "node_modules", "foundation",
+                      "corpus", "build", "dist"}
 # `foundation` is excluded from the *generic* top-level scan only because
 # it is handled explicitly (as both a SUBSYSTEM and the parent of the
 # MODULE entries) -- it is not skipped, it is special-cased below.
-_EXCLUDED_DIR_PARTS = {".git", "__pycache__", "node_modules"}
+_EXCLUDED_DIR_PARTS = {".git", "__pycache__", "node_modules", "corpus",
+                       "build", "dist"}
 
 STATE_VERIFIED = "VERIFIED"
 STATE_IMPLEMENTED_UNWIRED = "IMPLEMENTED_UNWIRED"

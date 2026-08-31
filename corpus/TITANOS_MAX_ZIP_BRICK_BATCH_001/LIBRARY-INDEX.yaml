@@ -1,0 +1,5 @@
+schema: titan_os_gold_brick_library
+version: MAGL-V12
+batch: MAX-ZIP-001
+brick_count: 16
+production_command: "WAX ON WAX OFF RINSE REPEAT — MAX ZIP — PARETO MUTATE"

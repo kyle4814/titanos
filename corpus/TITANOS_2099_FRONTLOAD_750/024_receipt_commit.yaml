@@ -1,0 +1,6 @@
+workflow:
+  steps:
+  - validate
+  - hash
+  - append
+  - checkpoint

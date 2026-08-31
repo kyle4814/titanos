@@ -1,0 +1,15 @@
+visibility:
+  default: public_safe
+public_surface:
+  - architecture
+  - capability_index
+  - methodology
+  - evidence
+  - aggregate_outcomes
+  - limitations
+private_surface:
+  - secrets
+  - personal_data
+  - confidential_customer_data
+  - security_sensitive_material
+  - protected_legal_material

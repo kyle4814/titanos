@@ -1,0 +1,17 @@
+agents:
+  opus:
+    can: [architect, arbitrate, audit, decompose]
+    cannot: [self_grant_authority, bypass_kernel]
+  sonnet:
+    can: [implement, refactor, test, integrate]
+    cannot: [self_grant_authority, bypass_kernel]
+  haiku:
+    can: [extract, normalize, classify, index]
+    cannot: [mutate_governance, self_grant_authority]
+  blue_team:
+    can: [attack_assumptions, test_boundaries, verify]
+    cannot: [silently_modify_production]
+orchestration:
+  bounded_parallelism: true
+  collision_free_scopes: required
+  deterministic_merge: required
