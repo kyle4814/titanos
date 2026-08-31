@@ -261,3 +261,40 @@ class TestTheInstrumentsOwnFalsePositive(unittest.TestCase):
         self.assertEqual(r.verdict, "SCAFFOLD_ONLY")
         self.assertEqual(r.py_real_implementations, 0)
         self.assertIn("titanos_stub", r.unresolved_imports)
+
+
+class TestConstantContainersAreStillConstant(unittest.TestCase):
+    """Second false positive of the same family, found the same way: by
+    running the instrument on a new corpus. 80 files returned a dict of
+    literals and were classified as real implementations."""
+
+    def test_M_a_dict_of_literals_is_a_scaffold_not_an_implementation(self):
+        r = triage(_tree({"v.py":
+            'def validate_x(payload):\n'
+            '    if not isinstance(payload, dict):\n'
+            '        raise TypeError("payload must be a mapping")\n'
+            '    return {"status": "PROPOSED", "topic": "x"}\n'}))
+        self.assertEqual(r.py_constant_return_scaffolds, 1)
+        self.assertEqual(r.py_real_implementations, 0)
+        self.assertEqual(r.verdict, "SCAFFOLD_ONLY")
+
+    def test_M_validation_that_raises_is_not_by_itself_implementation(self):
+        """Checking an argument and then returning the same constant
+        regardless still computes nothing from the input."""
+        r = triage(_tree({"v.py":
+            'def f(x):\n'
+            '    if not x:\n        raise ValueError("no")\n'
+            '    return "PROPOSED"\n'}))
+        self.assertEqual(r.py_real_implementations, 0)
+
+    def test_nested_literal_containers_are_constant(self):
+        r = triage(_tree({"v.py":
+            'def f(x):\n    return {"a": [1, 2], "b": ("c", {"d": 3})}\n'}))
+        self.assertEqual(r.py_constant_return_scaffolds, 1)
+
+    def test_M_a_dict_built_from_the_input_is_real(self):
+        """Positive control: the fix must not swallow real behaviour."""
+        r = triage(_tree({"v.py":
+            'def f(payload):\n    return {"n": len(payload), "k": sorted(payload)}\n'}))
+        self.assertEqual(r.py_real_implementations, 1)
+        self.assertEqual(r.py_constant_return_scaffolds, 0)

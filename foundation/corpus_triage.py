@@ -160,21 +160,43 @@ def _classify_function(fn: ast.FunctionDef) -> str:
     return "SCAFFOLD" if _returns_only_constant(returns) else "REAL"
 
 
+def _is_literal(node: ast.AST) -> bool:
+    """A value built entirely from literals, however deeply nested.
+
+    Container literals count. A second corpus shipped 80 functions
+    returning `{"status": "PROPOSED", "topic": "..."}` -- a dict of
+    constants -- and an earlier version of this check classified all 80 as
+    real implementations because it handled Constant/Call/Tuple/List but
+    not Dict. Same defect family as the bare-assert false positive, found
+    the same way: by running the instrument on new data.
+    """
+    if isinstance(node, ast.Constant):
+        return True
+    if isinstance(node, (ast.Tuple, ast.List, ast.Set)):
+        return all(_is_literal(e) for e in node.elts)
+    if isinstance(node, ast.Dict):
+        return all(k is not None and _is_literal(k) for k in node.keys) and \
+               all(_is_literal(v) for v in node.values)
+    return False
+
+
 def _returns_only_constant(returns: list) -> bool:
-    """True when every return hands back a literal or a constructor call
-    whose arguments are all literals -- a scaffold that computes nothing.
+    """True when every return hands back a literal, a literal container, or
+    a constructor call whose arguments are all literals -- a scaffold that
+    computes nothing from its input.
 
     Deliberately narrow: a return derived from the inputs is real
-    behaviour however small.
+    behaviour however small. Input VALIDATION that raises is not enough on
+    its own -- a function that checks its argument and then returns the
+    same constant regardless still computes nothing.
     """
     for r in returns:
         v = r.value
-        if isinstance(v, ast.Constant):
+        if _is_literal(v):
             continue
         if isinstance(v, ast.Call):
             args = list(v.args) + [k.value for k in v.keywords]
-            if all(isinstance(a, (ast.Constant, ast.Tuple, ast.List))
-                   for a in args):
+            if all(_is_literal(a) for a in args):
                 continue
         return False
     return True
