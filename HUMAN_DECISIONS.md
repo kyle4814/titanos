@@ -243,6 +243,59 @@ Last compiled 2026-08-25. Each item cites its source report.
     currently be strictly quieter, which no threshold choice should
     permit whichever way the tolerance is set.
 
+
+### Should `autonomy_loop.py` be scheduled? (raised 2026-09-01)
+
+**The gap, measured.** `crontab -l` schedules
+`foundation/cron_pulse.py` hourly — the *sensor*. Nothing schedules
+`foundation/autonomy_loop.py` — the *actor*. The loop works: its log
+records four successful `FIXED_README_DRIFT` cycles on 2026-08-29, and
+a fifth run on 2026-09-01 that detected drift, fixed it, verified the
+finding cleared, committed, and receipted itself with no human step.
+
+**Why it matters beyond a number in a README.** Because the actor is
+never invoked, the same drift finding surfaced three times in two work
+cells and was each time repaired by hand. On the third occasion it was
+misdiagnosed as a missing capability and a duplicate fixer
+(`readme_sync.py`) was written and committed before the existing one was
+found. The cost of an unscheduled actor is not the unfixed finding — it
+is that the absence reads as absence of capability.
+
+**Why this is not being done autonomously.** Installing a cron entry is
+a persistent change outside the repository that would let a loop commit
+to git unattended on this machine. That is squarely inside the GO Cycle
+doctrine's §XIII human-authority list ("actions outside the repository
+or explicitly authorized environment"), regardless of how well-bounded
+the loop is.
+
+**What the loop already bounds itself with**, for weighing the risk:
+a kill switch (`AUTONOMY_STOP_FILENAME` in the repo root, honoured at
+cycle boundaries *and* mid-sleep), a refusal to act on a dirty tree, a
+refusal to act on any finding other than the single README-drift one, a
+verification re-run after each fix, a rollback if verification fails,
+`--` pathspec commits scoped to `README.md` alone, and an explicit
+"local commit only, never pushed by this loop" guarantee.
+
+**The exact command, if wanted:**
+
+```
+17 * * * * /usr/bin/python3 -c \
+  "import sys; sys.path.insert(0,'.'); from pathlib import Path; \
+   from foundation.autonomy_loop import run_one_cycle; \
+   print(run_one_cycle(Path('.')))" \
+  >> /home/tech2/cosmic-library/foundation/autonomy_loop.err.log 2>&1
+```
+
+Offset to :17 so it lands after the :07 pulse rather than racing it.
+One cycle per invocation, not `run_loop()`, so cron controls the cadence
+and no long-lived process is created.
+
+**Options:** (a) install it, (b) leave it manual and accept that a human
+runs `run_one_cycle` when the pulse reports drift, (c) leave it manual
+and delete the loop as unused. Recommendation: (b) until the loop has
+handled a finding class other than README drift — a scheduled actor that
+can only fix one cosmetic thing is not yet worth the standing authority.
+
 ## Recurring theme worth naming once, not per-session
 
 Three consecutive build sessions (MAGL → RPA → TAAL) each independently
