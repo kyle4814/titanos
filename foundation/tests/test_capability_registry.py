@@ -36,16 +36,71 @@ class TestDiscoveryWritesNothing(unittest.TestCase):
 
 class TestStateVocabulary(unittest.TestCase):
 
-    def test_every_state_is_one_of_the_four_declared(self):
+    def test_every_state_is_one_of_the_declared_values(self):
         caps = discover_capabilities(REPO_ROOT)
         self.assertTrue(caps, "expected at least one discovered capability")
         for cap in caps:
             self.assertIn(cap.state, ALL_STATES,
                           f"{cap.capability_id} has undeclared state {cap.state!r}")
 
-    def test_all_states_enumerates_exactly_four_values(self):
-        self.assertEqual(len(ALL_STATES), 4)
-        self.assertEqual(len(set(ALL_STATES)), 4)
+    def test_all_states_enumerates_exactly_five_values(self):
+        """Pinned so a state cannot be added casually.
+
+        Went 4 -> 5 on 2026-09-01 when ENTRYPOINT was split out of
+        IMPLEMENTED_UNWIRED. This assertion is the reason that split was
+        a deliberate act with a written justification rather than a
+        quiet widening of the vocabulary, which is exactly its job.
+        """
+        self.assertEqual(len(ALL_STATES), 5)
+        self.assertEqual(len(set(ALL_STATES)), 5)
+
+
+class TestEntrypointIsNotUnwired(unittest.TestCase):
+    """ENTRYPOINT exists because the registry was wrong about the single
+    most-executed module in this repository.
+
+    `foundation/cron_pulse.py` runs hourly under cron and demonstrably
+    executes. The original rule classified it IMPLEMENTED_UNWIRED --
+    identical to `hells_gate.py`, which has 36 tests and nothing that can
+    reach it. Those are different facts and the published number said
+    they were the same one."""
+
+    def test_cron_pulse_is_not_reported_as_unwired(self):
+        caps = {c.capability_id: c for c in discover_capabilities(REPO_ROOT)}
+        cron = caps.get("foundation/cron_pulse.py")
+        self.assertIsNotNone(cron, "foundation/cron_pulse.py not discovered")
+        self.assertTrue(cron.entrypoint, "cron_pulse.py must have a __main__")
+        self.assertNotEqual(
+            cron.state, "IMPLEMENTED_UNWIRED",
+            "the repository's most-executed module reported as unwired")
+
+    def test_hells_gate_is_still_unwired(self):
+        """The distinction must not become a blanket excuse. A tested
+        module with no importer AND no __main__ is genuinely unreachable
+        and must keep saying so."""
+        caps = {c.capability_id: c for c in discover_capabilities(REPO_ROOT)}
+        gate = caps.get("foundation/hells_gate.py")
+        self.assertIsNotNone(gate)
+        self.assertFalse(gate.entrypoint)
+        self.assertEqual(gate.state, "IMPLEMENTED_UNWIRED")
+
+    def test_entrypoint_state_requires_tests(self):
+        """A `__main__` must not launder an untested module into a
+        healthier-sounding state."""
+        from foundation.capability_registry import _derive_state
+        self.assertEqual(
+            _derive_state(has_tests=False, production_importers=0,
+                          is_scaffold=False, is_entrypoint=True),
+            "UNTESTED")
+
+    def test_importer_still_beats_entrypoint(self):
+        """A module that is both imported and runnable is VERIFIED --
+        having a __main__ must not downgrade it."""
+        from foundation.capability_registry import _derive_state
+        self.assertEqual(
+            _derive_state(has_tests=True, production_importers=2,
+                          is_scaffold=False, is_entrypoint=True),
+            "VERIFIED")
 
 
 class TestImplementedUnwiredIsNotVerified(unittest.TestCase):

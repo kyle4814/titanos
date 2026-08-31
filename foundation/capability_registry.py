@@ -24,7 +24,10 @@ human and never inferred from a name or a docstring:
 - `VERIFIED`        -- has tests AND at least one production importer.
   Both a correctness check exists and something outside the tests
   actually depends on the code running correctly.
-- `IMPLEMENTED_UNWIRED` -- has tests AND zero production importers.
+- `IMPLEMENTED_UNWIRED` -- has tests, zero production importers, and no
+  `__main__`: nothing can reach it at all.
+- `ENTRYPOINT` -- has tests and a `__main__` but no importer. Reachable
+  by cron, a shell script or an operator; not unwired.
   THE SINGLE MOST IMPORTANT DISTINCTION THIS FILE MAKES. "The code
   exists and is tested" and "anything in this repository calls it" are
   different facts, and this repository has confused them before --
@@ -116,6 +119,7 @@ __all__ = [
     "write_manifest",
     "STATE_VERIFIED",
     "STATE_IMPLEMENTED_UNWIRED",
+    "STATE_ENTRYPOINT",
     "STATE_UNTESTED",
     "STATE_SCAFFOLD_ONLY",
     "ALL_STATES",
@@ -132,9 +136,14 @@ _EXCLUDED_DIR_PARTS = {".git", "__pycache__", "node_modules"}
 
 STATE_VERIFIED = "VERIFIED"
 STATE_IMPLEMENTED_UNWIRED = "IMPLEMENTED_UNWIRED"
+# Tested, no importer, but has a `__main__` -- reachable by cron, a shell
+# script or an operator. Distinct from IMPLEMENTED_UNWIRED, which means
+# nothing can reach it at all. See _derive_state() for why this exists.
+STATE_ENTRYPOINT = "ENTRYPOINT"
 STATE_UNTESTED = "UNTESTED"
 STATE_SCAFFOLD_ONLY = "SCAFFOLD_ONLY"
-ALL_STATES = (STATE_VERIFIED, STATE_IMPLEMENTED_UNWIRED, STATE_UNTESTED,
+ALL_STATES = (STATE_VERIFIED, STATE_ENTRYPOINT,
+              STATE_IMPLEMENTED_UNWIRED, STATE_UNTESTED,
               STATE_SCAFFOLD_ONLY)
 
 _PROSE_FIELDS = ("problem_class", "limitations", "authority_required")
@@ -431,13 +440,38 @@ def _test_evidence(own_files: set, import_index: dict,
 
 
 def _derive_state(has_tests: bool, production_importers: int,
-                   is_scaffold: Optional[bool]) -> str:
+                   is_scaffold: Optional[bool],
+                   is_entrypoint: bool = False) -> str:
+    """Evidence in, state out. Never asserted.
+
+    ENTRYPOINT EXISTS BECAUSE THE FIRST VERSION WAS WRONG ABOUT
+    cron_pulse.py
+
+    The original rule classified anything with zero production importers
+    as IMPLEMENTED_UNWIRED. That put `foundation/cron_pulse.py` -- the
+    single most-executed module in this repository, scheduled hourly and
+    demonstrably running -- in the same bucket as `hells_gate.py`, which
+    has 36 tests and genuinely nothing that can reach it.
+
+    Those are not the same fact. A module with a `__main__` has a real
+    consumer: cron, a shell script, an operator. Nothing IMPORTS it and
+    nothing ever will, because that is not how an entrypoint is used.
+    Calling it unwired conflated "no importer" with "no consumer" and
+    made a published number wrong.
+
+    So IMPLEMENTED_UNWIRED now means what it says: nothing can reach
+    this at all. Whether a given entrypoint is actually SCHEDULED is a
+    different question, and `foundation/autonomy_metric.py` already
+    owns it -- this module does not answer it twice.
+    """
     if not has_tests and is_scaffold:
         return STATE_SCAFFOLD_ONLY
     if not has_tests:
         return STATE_UNTESTED
     if production_importers > 0:
         return STATE_VERIFIED
+    if is_entrypoint:
+        return STATE_ENTRYPOINT
     return STATE_IMPLEMENTED_UNWIRED
 
 
@@ -467,7 +501,7 @@ def discover_capabilities(repo_root: Path = REPO_ROOT) -> tuple:
         is_scaffold = _function_bodies_are_all_stubs(trees)
         entrypoint = any(_has_main_block(t) for t in trees)
         has_br = has_substantive_build_report(d)
-        state = _derive_state(has_tests, n_importers, is_scaffold)
+        state = _derive_state(has_tests, n_importers, is_scaffold, entrypoint)
         evidence = (
             f"{len(own_files)} non-test .py file(s) under {rel}/",
             f"BUILD_REPORT.md: {'present and substantive' if has_br else 'absent or stub'}",
@@ -501,7 +535,7 @@ def discover_capabilities(repo_root: Path = REPO_ROOT) -> tuple:
             trees = [tree] if tree is not None else []
             is_scaffold = _function_bodies_are_all_stubs(trees)
             entrypoint = any(_has_main_block(t) for t in trees)
-            state = _derive_state(has_tests, n_importers, is_scaffold)
+            state = _derive_state(has_tests, n_importers, is_scaffold, entrypoint)
             evidence = (
                 f"single module {rel}",
                 f"{len(test_rels)} test file(s), {test_count} test function(s): "

@@ -11,6 +11,7 @@ from unittest import mock
 from foundation import sentinel
 from foundation.sentinel import (
     check_ci_matrix_coverage,
+    check_local_runner_matches_ci,
     check_subsystem_build_reports, has_substantive_build_report,
     SUBSYSTEMS_REQUIRING_BUILD_REPORT,
     check_protocol_document_targets,
@@ -2729,3 +2730,72 @@ class TestOneProducerRenameCannotBlindBothObservers(unittest.TestCase):
 
     def test_the_real_repository_is_unaffected(self):
         self.assertEqual(sentinel.check_mouth_health(REPO_ROOT), [])
+
+
+class TestLocalRunnerMatchesCi(unittest.TestCase):
+    """`run_all_tests.sh` and the CI matrix are two hand-kept lists of one
+    fact. Both drift directions are real and they fail differently."""
+
+    def _repo(self):
+        """A copy of the real repository, so these tests mutate a throwaway
+        tree and never the working one."""
+        import shutil, tempfile
+        src = Path(__file__).resolve().parent.parent.parent
+        td = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, td, ignore_errors=True)
+        dst = Path(td) / "repo"
+        shutil.copytree(src, dst, symlinks=True,
+                        ignore=shutil.ignore_patterns(
+                            ".git", "__pycache__", "*.pyc"))
+        return dst
+
+    def test_real_repository_is_currently_clean(self):
+        self.assertEqual(
+            check_local_runner_matches_ci(
+                Path(__file__).resolve().parent.parent.parent), [])
+
+    def test_suite_in_ci_but_not_runner_is_caught(self):
+        """The direction that can actually ship a break: release.sh gates
+        on run_all_tests.sh, so a suite it never runs is an unguarded
+        path to a green release."""
+        repo = self._repo()
+        runner = repo / "run_all_tests.sh"
+        runner.write_text(runner.read_text().replace(" provenance)", ")"))
+        found = check_local_runner_matches_ci(repo)
+        self.assertEqual(len(found), 1)
+        self.assertIn("provenance", found[0].observation)
+        self.assertIn("run_all_tests.sh", found[0].observation)
+
+    def test_suite_in_runner_but_not_ci_is_caught(self):
+        repo = self._repo()
+        wf = repo / ".github" / "workflows" / "tests.yml"
+        wf.write_text(wf.read_text().replace("          - provenance\n", ""))
+        found = check_local_runner_matches_ci(repo)
+        self.assertEqual(len(found), 1)
+        self.assertIn("tests.yml", found[0].observation)
+
+    def test_comments_inside_the_suites_array_are_not_read_as_suites(self):
+        """The array carries an explanatory comment. Treating its words as
+        suite names would make this check fire forever on a clean repo --
+        the exact self-referential failure this repository has hit before."""
+        repo = self._repo()
+        runner = repo / "run_all_tests.sh"
+        runner.write_text(runner.read_text().replace(
+            "SUITES=(", "SUITES=( # schema firewall not_a_suite\n        "))
+        self.assertEqual(check_local_runner_matches_ci(repo), [])
+
+    def test_missing_files_are_left_to_their_owning_check(self):
+        """One failure mode, one owner. A missing workflow is
+        check_ci_matrix_coverage's finding, not this one's -- two checks
+        reporting the same fact is how a pulse count inflates."""
+        repo = self._repo()
+        (repo / ".github" / "workflows" / "tests.yml").unlink()
+        self.assertEqual(check_local_runner_matches_ci(repo), [])
+
+    def test_unreadable_suites_array_is_reported_not_silently_passed(self):
+        repo = self._repo()
+        runner = repo / "run_all_tests.sh"
+        runner.write_text(runner.read_text().replace("SUITES=(", "SUITE_LIST=("))
+        found = check_local_runner_matches_ci(repo)
+        self.assertEqual(len(found), 1)
+        self.assertIn("no SUITES", found[0].observation)

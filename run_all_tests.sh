@@ -13,7 +13,11 @@
 # doing real work, not hanging.
 set -uo pipefail
 cd "$(dirname "$0")"
-SUITES=(schema firewall kpm magl rpa taal foundation narrative compiler legacy)
+# Must match .github/workflows' matrix exactly. They diverged once:
+# CI ran gems/claim_ledger and this file did not, so a local 'all
+# green' could differ from CI's. Add a suite to BOTH or neither.
+SUITES=(schema firewall kpm magl rpa taal foundation narrative compiler
+        legacy gems/claim_ledger provenance)
 total=0; failed=""
 printf "%-12s %8s %10s\n" SUITE TESTS RESULT
 printf -- "----------------------------------\n"

@@ -91,6 +91,7 @@ __all__ = [
     "evaluate_continuation", "select_one_admitted", "UnaccountedCandidates",
     "DEFERRED_LOG_SIZE_THRESHOLD_BYTES", "check_deferred_log_size_wake_condition",
     "check_ci_matrix_coverage",
+    "check_local_runner_matches_ci",
 ]
 
 CONFIDENCE_VALUES = frozenset({"HIGH", "MEDIUM", "LOW"})
@@ -335,6 +336,88 @@ def check_ci_matrix_coverage(repo_root: Path) -> list[Finding]:
                     "add the containing directory as a matrix entry, or "
                     "record an explicit, mechanically-visible exclusion"
                 ),
+            ))
+    return findings
+
+
+def check_local_runner_matches_ci(repo_root: Path) -> list[Finding]:
+    """`run_all_tests.sh`'s SUITES must equal the CI matrix's subsystems.
+
+    THE DEFECT THIS CLOSES (found 2026-09-01). These are two hand-kept
+    lists of the same fact and they had already drifted twice in one
+    direction each:
+
+      - `gems/claim_ledger` was in CI and NOT in `run_all_tests.sh`, so
+        the local runner reported "all green" without ever running 14
+        real tests that CI did run.
+      - `provenance` was in NEITHER until the same day, which
+        `check_ci_matrix_coverage` caught for CI -- but nothing was
+        watching the local runner, so that half would have stayed
+        silent.
+
+    Those two directions fail differently and both matter. A suite in CI
+    but not locally means a green local run is not evidence CI will
+    pass. A suite locally but not in CI means the reverse. This repo's
+    own release script gates on `./run_all_tests.sh`, so the first
+    direction is the one that can actually ship a break.
+
+    The honest fix is one list, not two, but the two consumers are a
+    bash array and a YAML matrix with no shared runtime -- so the next
+    best thing is a check that fails loudly the moment they disagree.
+    This does not decide what a subsystem IS; it only compares two
+    declared lists, the same restraint `check_ci_matrix_coverage` keeps.
+    """
+    workflow = repo_root / ".github" / "workflows" / "tests.yml"
+    runner = repo_root / "run_all_tests.sh"
+    if not workflow.exists() or not runner.exists():
+        return []          # check_ci_matrix_coverage owns the missing-file case
+    try:
+        doc = yaml.safe_load(workflow.read_text(encoding="utf-8")) or {}
+    except yaml.YAMLError:
+        return []          # likewise -- one owner per failure mode
+    ci = {str(x) for x in (
+        doc.get("jobs", {}).get("test", {}).get("strategy", {})
+        .get("matrix", {}).get("subsystem", [])) if isinstance(x, str)}
+
+    text = runner.read_text(encoding="utf-8")
+    match = re.search(r"SUITES=\(([^)]*)\)", text, re.DOTALL)
+    if match is None:
+        return [Finding(
+            observation="run_all_tests.sh has no SUITES=( ... ) array",
+            evidence_location=str(runner),
+            confidence="HIGH",
+            interpretation=(
+                "the local runner's suite list cannot be read, so it "
+                "cannot be compared against the CI matrix"
+            ),
+            reversibility="fully reversible — observation only",
+            recommended_next_action=(
+                "restore the SUITES array, or update this check if the "
+                "runner deliberately changed shape"
+            ),
+        )]
+    # Strip comments -- the array spans lines and carries a warning note.
+    body = "\n".join(ln.split("#", 1)[0] for ln in match.group(1).splitlines())
+    local = {tok for tok in body.split() if tok}
+
+    findings: list[Finding] = []
+    for missing, where, why in (
+        (sorted(ci - local), "run_all_tests.sh",
+         "CI runs this suite and the local runner does not, so a local "
+         "'all green' is not evidence that CI will pass"),
+        (sorted(local - ci), ".github/workflows/tests.yml",
+         "the local runner runs this suite and CI does not, so a "
+         "merged break would not be caught by CI"),
+    ):
+        for suite in missing:
+            findings.append(Finding(
+                observation=f"suite '{suite}' is missing from {where}",
+                evidence_location=str(runner if where.endswith(".sh") else workflow),
+                confidence="HIGH",
+                interpretation=why,
+                reversibility="fully reversible — observation only",
+                recommended_next_action=f"add '{suite}' to {where}, or "
+                                        f"remove it from the other list",
             ))
     return findings
 
@@ -1793,6 +1876,7 @@ _LEVEL1_CHECKS: tuple = (
     check_readme_test_count, check_sigil_snapshot_agreement,
     check_frontier_hash_placeholders, check_protocol_document_targets,
     check_ci_matrix_coverage,
+    check_local_runner_matches_ci,
 )
 
 

@@ -33,6 +33,7 @@ jobs:
           - legacy
           - compiler
           - gems/claim_ledger
+          - provenance
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
