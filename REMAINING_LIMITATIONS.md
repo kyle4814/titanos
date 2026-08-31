@@ -1,12 +1,8 @@
 # Remaining Limitations
 
-Generated `2026-08-31T20:40:20.509500+00:00` at revision `b68d80b`.
+Generated `2026-08-31T20:40:47.174220+00:00` at revision `58770b0`.
 
 **Generated file — do not hand-edit.** Every entry below is an unmet criterion measured at generation time, not an opinion.
-
-## WORKTREE_CLEAN — UNMET
-
-1 file(s) modified: foundation/launch_report.py
 
 ## AUTONOMY_ACHIEVED — UNMET
 

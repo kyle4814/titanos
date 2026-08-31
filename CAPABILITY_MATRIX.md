@@ -1,13 +1,13 @@
 # Capability Matrix
 
-Generated `2026-08-31T20:40:20.509500+00:00` at revision `b68d80b` (state digest `3e6ce7ff44d03a00`).
+Generated `2026-08-31T20:40:47.174220+00:00` at revision `58770b0` (state digest `68b64a3fb54923e5`).
 
 **Generated file — do not hand-edit.** Regenerate with `python3 -m foundation.launch_report`.
 
 | Criterion | State | Evidence |
 |---|---|---|
 | TESTS_GREEN | **MET** | 2690 run, 0 failed |
-| WORKTREE_CLEAN | **UNMET** | 1 file(s) modified: foundation/launch_report.py |
+| WORKTREE_CLEAN | **MET** | clean apart from this generator's own output, which is excluded by construction |
 | PULSE_CLEAN | **MET** | sentinel.pulse_sweep() -> 0 finding(s) |
 | NETWORK_GATED | **MET** | fetch_feed() calls authorize_discovery() before urlopen |
 | RECEIPT_CHAIN | **MET** | outcome ledger present; head OC-eecf6388ada2d538 |
@@ -18,4 +18,4 @@ Generated `2026-08-31T20:40:20.509500+00:00` at revision `b68d80b` (state digest
 | AUTONOMY_ACHIEVED | **UNMET** | autonomy_ratio=0.0000; no scheduled mutating entrypoint |
 | COMMERCIAL_OUTCOME | **UNMET** | pipeline 0, contracts 0, cash 0 -- no external outcome has ever been observed |
 
-**3 of 11 criteria unmet.** Status: `READY_WITH_LIMITATIONS`.
+**2 of 11 criteria unmet.** Status: `READY_WITH_LIMITATIONS`.
