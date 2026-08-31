@@ -743,3 +743,67 @@ class TestConvergenceIsNotQuadraticInSignalCount(unittest.TestCase):
         three = fuse([self._d(1), self._a(), self._p()])
         self.assertEqual(two.convergences, 1)
         self.assertEqual(three.convergences, 3)
+
+
+class TestAClaimedAskIsNotOpenDemand(unittest.TestCase):
+    """Found by the first killing experiment the radar ever ran: all five
+    "help wanted" issues on a LOCKED target were already assigned, and the
+    demand instrument had counted every one as an open request."""
+
+    def _item(self, assignees=(), **kw):
+        base = dict(repo="acme/widget", number=42, title="help please",
+                    labels=["help wanted"], comments=6,
+                    created_at="2026-08-01T00:00:00Z",
+                    updated_at="2026-09-01T00:00:00Z", state="open",
+                    assignees=list(assignees),
+                    html_url="https://github.invalid/acme/widget/issues/42")
+        base.update(kw)
+        return base
+
+    def test_M_an_assigned_ask_carries_no_demand_pressure(self):
+        from foundation.tentacles import github_issue_demand_signal
+        try:
+            s = github_issue_demand_signal(self._item(assignees=["someone"]))
+        except Exception as exc:                 # noqa: BLE001 -- the point
+            self.fail(f"a claimed ask must build a signal carrying NO demand "
+                      f"pressure, not fail construction. Raised: {exc!r}")
+        self.assertEqual(
+            s.pressure_class, "NONE",
+            "an ask somebody has already taken is not open demand")
+        self.assertEqual(s.pressure_evidence, "")
+
+    def test_M_an_unassigned_ask_still_carries_demand(self):
+        """Positive control: the fix must not silence real demand."""
+        from foundation.tentacles import github_issue_demand_signal
+        s = github_issue_demand_signal(self._item())
+        self.assertEqual(s.pressure_class, "EXPLICIT_DEMAND")
+        self.assertIn("unassigned", s.pressure_evidence)
+
+    def test_M_a_claimed_ask_says_so_in_its_unknowns(self):
+        from foundation.tentacles import github_issue_demand_signal
+        s = github_issue_demand_signal(self._item(assignees=["someone"]))
+        self.assertTrue(any("already claimed" in u for u in s.unknowns))
+        self.assertTrue(s.evidence["claimed"])
+
+    def test_M_claimed_asks_create_no_pressure_mass(self):
+        """The whole point: five claimed asks must not build gravity."""
+        from foundation.tentacles import github_issue_demand_signal
+        from foundation.signal_spine import fuse, gravity
+        sigs = [github_issue_demand_signal(
+            self._item(number=n, assignees=["dev"],
+                       html_url=f"https://github.invalid/i/{n}"))
+            for n in range(1, 6)]
+        g = gravity(fuse(sigs))
+        self.assertNotIn("VALUE_PRESSURE_EXPLICIT_DEMAND",
+                         [k for k, _ in g.breakdown])
+        self.assertEqual(g.pressure_observed, ())
+
+    def test_the_mouth_preserves_assignment_from_the_payload(self):
+        from foundation.mouth_github_issues import parse_items
+        import json
+        raw = json.dumps({"items": [{
+            "html_url": "https://x.invalid/1", "repository_url": "/repos/a/b",
+            "number": 1, "title": "t", "labels": [],
+            "assignees": [{"login": "dev1"}, {"login": "dev2"}],
+            "comments": 0, "state": "open"}]}).encode()
+        self.assertEqual(parse_items(raw)[0]["assignees"], ["dev1", "dev2"])

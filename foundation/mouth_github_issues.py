@@ -80,6 +80,12 @@ def parse_items(raw: bytes) -> tuple[dict, ...]:
             "labels": [l.get("name", "") for l in it.get("labels", ())
                        if isinstance(l, dict)],
             "comments": it.get("comments", 0),
+            # Assignment was always in the response and was discarded. A
+            # "help wanted" issue with an assignee is not an open ask, and
+            # counting it as one overstates demand -- it cost a whole
+            # locked target before this was noticed.
+            "assignees": [a.get("login", "") for a in it.get("assignees", ())
+                          if isinstance(a, dict)],
             "created_at": it.get("created_at", ""),
             "updated_at": it.get("updated_at", ""),
             "state": it.get("state", ""),

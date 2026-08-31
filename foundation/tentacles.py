@@ -155,6 +155,11 @@ def github_issue_demand_signal(item: dict, now: Optional[datetime] = None
     labels = [str(l).lower() for l in item.get("labels", ())]
     asked = [l for l in labels if l in _HELP_WANTED]
     comments = int(item.get("comments") or 0)
+    # An ask somebody has already taken is not open demand. Found by the
+    # first killing experiment the radar ever ran: all five "help wanted"
+    # issues on a LOCKED target were assigned, and the demand instrument
+    # had counted every one of them as an open request.
+    assignees = [a for a in (item.get("assignees") or ()) if a]
 
     # Deliberately EMPTY. An issue number, its state and its creation date
     # are properties of one ask, not claims about the target that another
@@ -181,14 +186,18 @@ def github_issue_demand_signal(item: dict, now: Optional[datetime] = None
                   "first_expressed": item.get("created_at", ""),
                   "labels": tuple(item.get("labels", ())),
                   "comments": comments,
+                  "assignees": tuple(assignees),
+                  "claimed": bool(assignees),
                   "raw_created_at": item.get("created_at", ""),
                   "raw_updated_at": item.get("updated_at", "")},
-        pressure_class="EXPLICIT_DEMAND" if asked else "NONE",
+        pressure_class=("EXPLICIT_DEMAND" if asked and not assignees
+                        else "NONE"),
         pressure_evidence=(
-            f"labelled {', '.join(asked)}; {comments} comments"
-            if asked else ""),
+            f"labelled {', '.join(asked)}; {comments} comments; unassigned"
+            if asked and not assignees else ""),
         unknowns=(
-            "whether anyone is already working on it",
+            ("someone is assigned; this ask is already claimed"
+             if assignees else "whether anyone is already working on it"),
             "whether the project accepts outside contributions",
             "whether the underlying problem is reproducible"))
 
