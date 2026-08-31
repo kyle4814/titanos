@@ -1,0 +1,77 @@
+{
+  "autonomy_ratio": 0.0,
+  "criteria": [
+    {
+      "evidence": "2657 run, 0 failed",
+      "name": "TESTS_GREEN",
+      "state": "MET"
+    },
+    {
+      "evidence": "git status --porcelain empty",
+      "name": "WORKTREE_CLEAN",
+      "state": "MET"
+    },
+    {
+      "evidence": "sentinel.pulse_sweep() -> 0 finding(s)",
+      "name": "PULSE_CLEAN",
+      "state": "MET"
+    },
+    {
+      "evidence": "fetch_feed() calls authorize_discovery() before urlopen",
+      "name": "NETWORK_GATED",
+      "state": "MET"
+    },
+    {
+      "evidence": "outcome ledger present; head OC-eecf6388ada2d538",
+      "name": "RECEIPT_CHAIN",
+      "state": "MET"
+    },
+    {
+      "evidence": "foundation/checkpoint.py",
+      "name": "CHECKPOINT_ENGINE",
+      "state": "MET"
+    },
+    {
+      "evidence": "foundation/write_scope.py",
+      "name": "WRITE_SCOPE_ENFORCED",
+      "state": "MET"
+    },
+    {
+      "evidence": "foundation/radar_rail.py composes mouth->tentacle->report",
+      "name": "RADAR_RAIL_WIRED",
+      "state": "MET"
+    },
+    {
+      "evidence": "autonomy_ratio=0.0000 (measured, not claimed)",
+      "name": "AUTONOMY_MEASURED",
+      "state": "MET"
+    },
+    {
+      "evidence": "autonomy_ratio=0.0000; no scheduled mutating entrypoint",
+      "name": "AUTONOMY_ACHIEVED",
+      "state": "UNMET"
+    },
+    {
+      "evidence": "pipeline 0, contracts 0, cash 0 -- no external outcome has ever been observed",
+      "name": "COMMERCIAL_OUTCOME",
+      "state": "UNMET"
+    }
+  ],
+  "generated_at": "2026-08-31T20:09:01.529040+00:00",
+  "human_gated_operations": 19,
+  "notes": [
+    "outcome ledger head predates hash chaining; it is CHAIN_UNVERIFIED_LEGACY, not verified",
+    "NEXT_MOVE.md cites commit(s) ['3dcb258', '3f2bb79', '49ef042', '55af138', '8e0e12d', 'a7dfe81', 'cd47ad2'] but HEAD is 48efa0be; its prose describes an earlier repository state"
+  ],
+  "pulse_findings": 0,
+  "receipt_head": "OC-eecf6388ada2d538",
+  "revision": "48efa0b",
+  "runnable_entrypoints": 10,
+  "scheduled_entrypoints": 1,
+  "state_digest": "bb82a64876de62f3",
+  "status": "READY_WITH_LIMITATIONS",
+  "tests_failed": 0,
+  "tests_run": 2657,
+  "unmet_count": 2,
+  "worktree_clean": true
+}
