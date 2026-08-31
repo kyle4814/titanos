@@ -345,6 +345,11 @@ class OutcomeLedger:
         self._ledger_path = Path(ledger_path) if ledger_path else None
         self._records: list[OutcomeRecord] = []
         self._contexts: dict[str, PreActionContext] = {}
+        # operation_id -> record, for replay safety. Rebuilt on replay so
+        # a retry AFTER a process restart is still recognised -- an
+        # in-memory-only index would make the guarantee evaporate at
+        # exactly the moment a retry is most likely.
+        self._by_operation: dict[str, OutcomeRecord] = {}
         # The hash chain's running state. "" means "nothing chained yet" --
         # true both at the very start of a file AND immediately after a
         # run of legacy (unhashed) lines, which is exactly the behaviour
@@ -408,6 +413,9 @@ class OutcomeLedger:
                 supersedes=obj.get("supersedes"))
             self._verify_chain_link(obj, record.outcome_id, line_no)
             self._records.append(record)
+            op = obj.get("operation_id")
+            if op:
+                self._by_operation[op] = record
 
     def _verify_chain_link(self, obj: dict, record_id: str,
                            line_no: int) -> None:
@@ -496,7 +504,36 @@ class OutcomeLedger:
 
     def record(self, brick_id: str, context: PreActionContext, state: str,
                witness: Optional[Witness] = None, note: str = "",
-               supersedes: Optional[str] = None) -> OutcomeRecord:
+               supersedes: Optional[str] = None,
+               operation_id: Optional[str] = None) -> OutcomeRecord:
+        """Append one outcome.
+
+        REPLAY SAFETY, AND WHY IT IS OPT-IN
+
+        Calling this twice with identical arguments previously produced
+        TWO records: `outcome_id` is minted from the wall clock and the
+        record count, so a retried write silently doubled a real-world
+        fact in the dataset the system calibrates against. Found by a
+        replay-safety audit, reproduced before this was changed.
+
+        The fix is deliberately NOT "reject any identical record".
+        Observing the same brick twice is genuinely two facts -- looking
+        on Monday and again on Friday and seeing nothing both times is
+        two observations, not one recorded twice, and collapsing them
+        would destroy exactly the silence-versus-absence distinction
+        `TERMINAL_UNOBSERVED` exists to preserve.
+
+        So the caller declares intent with `operation_id`, matching this
+        repository's own standing rule for the case: where an operation
+        cannot be inherently idempotent, require an explicit operation
+        id. Supply one for a write that might be retried, and a repeat
+        returns the ORIGINAL record instead of appending a second. Omit
+        it and every call is a new observation, as before.
+        """
+        if operation_id:
+            existing = self._by_operation.get(operation_id)
+            if existing is not None:
+                return existing
         self.seal(context)
         outcome_id = "OC-" + hashlib.sha256(
             f"{brick_id}|{context.context_id}|{state}|{_now()}|"
@@ -505,12 +542,18 @@ class OutcomeLedger:
             outcome_id=outcome_id, brick_id=brick_id,
             pre_action_id=context.context_id, state=state, witness=witness,
             note=note, supersedes=supersedes)
+        if operation_id:
+            self._by_operation[operation_id] = record
         self._records.append(record)
         self._append_chained({
             "kind": "OUTCOME", "outcome_id": record.outcome_id,
             "brick_id": record.brick_id, "pre_action_id": record.pre_action_id,
             "state": record.state, "note": record.note,
             "recorded_at": record.recorded_at, "supersedes": record.supersedes,
+            # Persisted so a retry AFTER a restart is still recognised. An
+            # index that lived only in memory would evaporate at exactly
+            # the moment a retry is most likely.
+            "operation_id": operation_id,
             "witness": ({"observed_by": record.witness.observed_by,
                          "mechanism": record.witness.mechanism,
                          "what_was_observed": record.witness.what_was_observed,

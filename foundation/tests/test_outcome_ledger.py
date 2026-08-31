@@ -587,3 +587,76 @@ class TestLegacyUnchainedLedgerStillLoads(unittest.TestCase):
             # chain to hashless history, so it honestly starts fresh.
             written = json.loads(_read_lines(path)[-1])
             self.assertEqual(written["previous_hash"], "")
+
+
+class TestReplaySafety(unittest.TestCase):
+    """A retry must not double a real-world fact.
+
+    Found by a replay-safety audit and reproduced before the fix:
+    `record()` minted `outcome_id` from the wall clock and the record
+    count, so calling it twice with identical arguments appended two
+    permanent, independently-chained records of one event -- silently
+    doubling a fact in the dataset the system calibrates against.
+
+    The fix is opt-in on purpose. Two observations of the same brick at
+    different times ARE two facts; only a caller knows whether it is
+    looking again or retrying.
+    """
+
+    def _ledger(self, d):
+        return OutcomeLedger(ledger_path=Path(d) / "l.jsonl")
+
+    def _ctx(self):
+        return freeze_pre_action(target="acme/w",
+                                 target_established_by="SOURCE_NATIVE",
+                                 facts={"k": "v"})
+
+    def test_a_declared_retry_returns_the_original_record(self):
+        with tempfile.TemporaryDirectory() as d:
+            L = self._ledger(d); ctx = self._ctx()
+            a = L.record("B", ctx, "NOT_OBSERVED", operation_id="OP-1")
+            b = L.record("B", ctx, "NOT_OBSERVED", operation_id="OP-1")
+            self.assertEqual(a.outcome_id, b.outcome_id)
+            self.assertEqual(len(L.all_records()), 1)
+
+    def test_a_second_genuine_observation_is_still_two_facts(self):
+        """The half that keeps the fix honest. Collapsing these would
+        destroy the silence-versus-absence distinction."""
+        with tempfile.TemporaryDirectory() as d:
+            L = self._ledger(d); ctx = self._ctx()
+            L.record("B", ctx, "NOT_OBSERVED")
+            L.record("B", ctx, "NOT_OBSERVED")
+            self.assertEqual(len(L.all_records()), 2)
+
+    def test_the_guarantee_survives_a_process_restart(self):
+        """An in-memory-only index would evaporate at exactly the moment
+        a retry is most likely -- after a crash."""
+        with tempfile.TemporaryDirectory() as d:
+            ctx = self._ctx()
+            first = self._ledger(d).record("B", ctx, "NOT_OBSERVED",
+                                           operation_id="OP-2")
+            reloaded = self._ledger(d)
+            again = reloaded.record("B", ctx, "NOT_OBSERVED",
+                                    operation_id="OP-2")
+            self.assertEqual(first.outcome_id, again.outcome_id)
+            self.assertEqual(len(reloaded.all_records()), 1)
+
+    def test_different_operation_ids_are_different_facts(self):
+        with tempfile.TemporaryDirectory() as d:
+            L = self._ledger(d); ctx = self._ctx()
+            L.record("B", ctx, "NOT_OBSERVED", operation_id="OP-A")
+            L.record("B", ctx, "NOT_OBSERVED", operation_id="OP-B")
+            self.assertEqual(len(L.all_records()), 2)
+
+    def test_a_witnessed_retry_does_not_double_a_human_attestation(self):
+        """The sharpest case: an externally-evidenced state retried with
+        the same witness must not become two independent 'a human said
+        so' facts."""
+        with tempfile.TemporaryDirectory() as d:
+            L = self._ledger(d); ctx = self._ctx()
+            w = Witness(observed_by="a.person", mechanism="email",
+                        what_was_observed="they replied and declined")
+            a = L.record("B", ctx, "DECLINED", witness=w, operation_id="OP-3")
+            b = L.record("B", ctx, "DECLINED", witness=w, operation_id="OP-3")
+            self.assertEqual(a.outcome_id, b.outcome_id)
+            self.assertEqual(len(L.all_records()), 1)

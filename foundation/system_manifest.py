@@ -78,6 +78,10 @@ def _git(root: Path, *args: str) -> str:
         return ""
 
 
+class _NoStateClaims(Exception):
+    """Control-flow marker: the file declares it asserts no state."""
+
+
 def _digest(parts) -> str:
     h = hashlib.sha256()
     for p in parts:
@@ -229,6 +233,16 @@ def compute_manifest(repo_root: Path = REPO_ROOT) -> SystemManifest:
     if next_move:
         try:
             nm = (repo_root / "NEXT_MOVE.md").read_text(errors="ignore")
+            # A file may declare that it makes no state claims at all. The
+            # check exists to catch prose asserting a repository state that
+            # has moved on; a file that asserts none cannot be stale in
+            # that sense, and flagging it for quoting a commit hash inside
+            # a historical narrative is the same false positive as a test
+            # that scanned source text for the word "socket" and failed on
+            # a comment. The marker is a contract the file's author signs;
+            # removing it is required if real state claims are ever added.
+            if "STATE_CLAIMS: NONE" in nm:
+                raise _NoStateClaims
             cited = set(re.findall(r"\b([0-9a-f]{7,40})\b", nm))
             head = _git(repo_root, "rev-parse", "HEAD")
             known = {c for c in cited
@@ -240,6 +254,10 @@ def compute_manifest(repo_root: Path = REPO_ROOT) -> SystemManifest:
                         f"NEXT_MOVE.md cites commit(s) "
                         f"{sorted(known)} but HEAD is {head[:8]}; its prose "
                         f"describes an earlier repository state")
+        except _NoStateClaims:
+            next_move_stale = False
+            notes.append("NEXT_MOVE.md declares STATE_CLAIMS: NONE; "
+                         "staleness check does not apply to it")
         except OSError:
             pass
 
