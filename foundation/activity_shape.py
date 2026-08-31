@@ -47,7 +47,19 @@ __all__ = ["ActivityShape", "shape_of", "UNKNOWN_SHAPE", "BOT_PATTERN"]
 
 # GitHub marks accounts as type "Bot"; many automation accounts do not set
 # it, so the name pattern is a second, independent check.
-BOT_PATTERN = re.compile(r"(\[bot\]$|^dependabot|^renovate|^github-actions)", re.I)
+# The three `^`-anchored stems must not match a longer, human-chosen
+# username that merely STARTS with them. GitHub permits `dependabot-clone`,
+# `github-actions-fan`, `renovate-lover`, and the original pattern
+# classified all three as bots -- silently dropping a real person's ask
+# with the reason "bot-authored". Found by an adversarial suite, not by
+# review. `(?![\w-])` ends the stem at a real boundary while still
+# matching the bare name and the `[bot]` suffix form.
+#
+# This is denial-of-signal rather than escalation: the failure direction
+# was to discard genuine demand, which is quieter and therefore worse.
+BOT_PATTERN = re.compile(
+    r"(\[bot\]$|^dependabot(?![\w-])|^renovate(?![\w-])|"
+    r"^github-actions(?![\w-]))", re.I)
 
 
 def _parse(stamp: str) -> Optional[datetime]:

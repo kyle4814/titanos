@@ -62,6 +62,13 @@ from foundation.opportunity import (
     opportunity_id_for,
 )
 
+def _neutralise(value) -> str:
+    """Render-time only. Imported lazily so signal_spine keeps no import
+    dependency on the defence module at construction time."""
+    from foundation.untrusted_text import neutralise
+    return neutralise(str(value))
+
+
 __all__ = [
     "SignalIntegrityError",
     "RELATIONS",
@@ -585,8 +592,22 @@ class RawValueMapEntry:
         rows += [f"  - {r}" for r in self.why_on_the_map]
         rows.append("WHO SAID WHAT, WHEN")
         for row in self.who_said_what_when():
-            rows.append(f"  [{row['source_type']}] {row['source']}: "
-                        f"{row['said']}")
+            # `said` is a signal's `claim`, which for a GitHub demand
+            # signal contains an ISSUE TITLE -- text an attacker controls
+            # completely by opening an issue on their own public repo.
+            # This line is the operator-facing surface, and until
+            # 2026-09-01 it interpolated that text raw: ANSI escapes
+            # reached a terminal and embedded newlines forged extra lines
+            # in the report. Found by an adversarial suite, which noted
+            # correctly that `untrusted_text.neutralise()` already existed
+            # and solved this -- nothing called it. Same unwired-defence
+            # shape as the network gate that had no consumer.
+            #
+            # Neutralisation is for DISPLAY only. The verbatim claim is
+            # untouched on the signal itself; evidence is never mutated.
+            rows.append(f"  [{_neutralise(row['source_type'])}] "
+                        f"{_neutralise(row['source'])}: "
+                        f"{_neutralise(row['said'])}")
             rows.append(f"      event {row['event_at']} / observed "
                         f"{row['observed_at']} / {row['ref']}")
         rows.append(f"MONEY OBSERVED   {self.money_observed()}")

@@ -63,6 +63,14 @@ def build_url(per_page: int = 5) -> str:
     return SEARCH_URL.format(per_page=per_page)
 
 
+def _as_list(value) -> list:
+    """Any non-list is an empty list. A hostile payload may put null, an
+    int, or a string where GitHub puts an array; iterating that raises
+    TypeError out of the whole rail. Found by adversarial fixtures, not
+    by review."""
+    return value if isinstance(value, list) else []
+
+
 def parse_items(raw: bytes) -> tuple[dict, ...]:
     """Keep only the fields a signal will actually stand on.
 
@@ -76,7 +84,13 @@ def parse_items(raw: bytes) -> tuple[dict, ...]:
     except (ValueError, UnicodeDecodeError):
         return ()
     items = []
-    for it in payload.get("items", ()):
+    raw_items = payload.get("items", ())
+    if not isinstance(raw_items, list):
+        # A payload whose "items" is not a list is hostile or corrupt, not
+        # empty. Returning () treats it as "nothing new", which is the
+        # honest reading for a caller that only knows how to act on items.
+        return ()
+    for it in raw_items:
         if not isinstance(it, dict) or "html_url" not in it:
             continue
         repo = str(it.get("repository_url", "")).split("/repos/")[-1]
@@ -85,21 +99,22 @@ def parse_items(raw: bytes) -> tuple[dict, ...]:
             "repo": repo,
             "number": it.get("number"),
             "title": it.get("title", ""),
-            "labels": [l.get("name", "") for l in it.get("labels", ())
+            "labels": [l.get("name", "") for l in _as_list(it.get("labels"))
                        if isinstance(l, dict)],
             "comments": it.get("comments", 0),
             # Assignment was always in the response and was discarded. A
             # "help wanted" issue with an assignee is not an open ask, and
             # counting it as one overstates demand -- it cost a whole
             # locked target before this was noticed.
-            "assignees": [a.get("login", "") for a in it.get("assignees", ())
+            "assignees": [a.get("login", "") for a in _as_list(it.get("assignees"))
                           if isinstance(a, dict)],
             # Who wrote the ask. Third field in this parser found to
             # matter after being discarded: one account authoring every
             # ask in a repository is a contributor programme, not a
             # community. Kept so `demand_direction` can corroborate a
             # lone teaching label without an extra API request.
-            "author_login": (it.get("user") or {}).get("login", ""),
+            "author_login": (it.get("user") if isinstance(it.get("user"), dict)
+                              else {}).get("login", ""),
             "created_at": it.get("created_at", ""),
             "updated_at": it.get("updated_at", ""),
             "state": it.get("state", ""),

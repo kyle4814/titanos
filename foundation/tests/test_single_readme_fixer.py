@@ -41,6 +41,29 @@ def _production_modules():
         yield rel, path
 
 
+
+def _enclosing_source(tree, node):
+    """Source of the function containing `node`, for local name resolution."""
+    import ast as _ast
+    best = None
+    for fn in _ast.walk(tree):
+        if isinstance(fn, (_ast.FunctionDef, _ast.AsyncFunctionDef)):
+            for inner in _ast.walk(fn):
+                if inner is node:
+                    best = fn
+    return _ast.unparse(best) if best is not None else ""
+
+
+def _readme_bound_names(source: str, target: str) -> str:
+    """Return the assignment lines binding `target`, so a write through a
+    local variable that was built from a README path still counts."""
+    if not source or not target:
+        return ""
+    hits = [ln for ln in source.splitlines()
+            if ln.strip().startswith(f"{target} =") or f"{target} =" in ln]
+    return "\n".join(hits)
+
+
 class TestOnlyOneReadmeFixer(unittest.TestCase):
 
     def test_only_one_module_writes_readme(self):
@@ -53,11 +76,28 @@ class TestOnlyOneReadmeFixer(unittest.TestCase):
             src = path.read_text(errors="ignore")
             if "README.md" not in src:
                 continue
+            # The write must actually TARGET README.md. An earlier version
+            # convicted any module that merely MENTIONED README.md in prose
+            # and called write_text for some other file -- it flagged
+            # launch_report.py, whose docstring cites README's historical
+            # staleness as the reason it generates rather than stores.
+            # Same defect as the network test that scanned source text for
+            # "socket" and failed on a comment: a guard a docstring can trip
+            # is measuring the wrong thing.
             for node in ast.walk(tree):
-                if isinstance(node, ast.Call):
-                    name = ast.unparse(node.func)
-                    if name.endswith("write_text") or name.endswith("write_bytes"):
-                        writers.add(rel)
+                if not isinstance(node, ast.Call):
+                    continue
+                name = ast.unparse(node.func)
+                if not (name.endswith("write_text") or name.endswith("write_bytes")):
+                    continue
+                target = ast.unparse(node.func).rsplit(".", 1)[0]
+                # Resolve the receiver back to a README-bearing expression:
+                # either it names README literally, or it is a variable the
+                # same function assigned from a README path.
+                window = ast.unparse(node)
+                enclosing = _enclosing_source(tree, node)
+                if "README" in window or "README" in _readme_bound_names(enclosing, target):
+                    writers.add(rel)
         self.assertEqual(
             writers, {AUTHORISED_FIXER},
             f"more than one module writes README.md: {sorted(writers)}. "
