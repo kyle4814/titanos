@@ -1,0 +1,1221 @@
+{
+  "ancestry_collapse": {
+    "apache": {
+      "documents": 2,
+      "independent_sources_after_collapse": 1
+    },
+    "facebook": {
+      "documents": 2,
+      "independent_sources_after_collapse": 1
+    },
+    "github/advisory-database": {
+      "documents": 10,
+      "independent_sources_after_collapse": 1
+    },
+    "microsoft": {
+      "documents": 2,
+      "independent_sources_after_collapse": 1
+    }
+  },
+  "documents": 28,
+  "finished_at": "2026-08-31T22:18:15.323534+00:00",
+  "results": [
+    {
+      "bytes": 5317,
+      "claims_extracted": 0,
+      "collection_method": "GET raw.githubusercontent.com",
+      "content_hash": "4d20edc8d043718c1459dd5d5e25777a282cc09092ecab0f9cc7559f0eac9842",
+      "doc_id": "README:facebook/react",
+      "doc_type": "README",
+      "exceptions": [],
+      "final_state": "REFUSED",
+      "firewall_decision": {
+        "artifact_id": "README:facebook/react",
+        "may_influence_runtime": false,
+        "reasons": [
+          "schema invalid \u2014 malformed input never executes."
+        ],
+        "risk_flags": [],
+        "verdict": "REFUSED"
+      },
+      "injection_markers": [],
+      "kpm": [],
+      "licence": "MIT",
+      "organisation": "facebook",
+      "retrieved_at": "2026-08-31T22:17:50.495243+00:00",
+      "source_url": "https://github.com/facebook/react/blob/main/README.md",
+      "validator_result": {
+        "artifact_id": null,
+        "issues": [
+          {
+            "rule": "R-1",
+            "what": "YAML could not be parsed or violated structural ceilings",
+            "where": "<document>"
+          }
+        ],
+        "status": "INVALID"
+      }
+    },
+    {
+      "bytes": 2487,
+      "claims_extracted": 0,
+      "collection_method": "GET raw.githubusercontent.com",
+      "content_hash": "1d5ea6d8b418d429c68d0f749ab07724c007a86beee996c401d2447d667f12c8",
+      "doc_id": "README:vuejs/core",
+      "doc_type": "README",
+      "exceptions": [],
+      "final_state": "REFUSED",
+      "firewall_decision": {
+        "artifact_id": "README:vuejs/core",
+        "may_influence_runtime": false,
+        "reasons": [
+          "schema invalid \u2014 malformed input never executes."
+        ],
+        "risk_flags": [],
+        "verdict": "REFUSED"
+      },
+      "injection_markers": [],
+      "kpm": [],
+      "licence": "MIT",
+      "organisation": "vuejs",
+      "retrieved_at": "2026-08-31T22:17:51.465630+00:00",
+      "source_url": "https://github.com/vuejs/core/blob/main/README.md",
+      "validator_result": {
+        "artifact_id": null,
+        "issues": [
+          {
+            "rule": "R-1",
+            "what": "YAML could not be parsed or violated structural ceilings",
+            "where": "<document>"
+          }
+        ],
+        "status": "INVALID"
+      }
+    },
+    {
+      "bytes": 107633,
+      "claims_extracted": 0,
+      "collection_method": "GET raw.githubusercontent.com",
+      "content_hash": "97a6e20150ce709291165af55c6fa4eba74f56c63dceb6aa69f1e9b495e52bcf",
+      "doc_id": "README:axios/axios",
+      "doc_type": "README",
+      "exceptions": [],
+      "final_state": "REFUSED",
+      "firewall_decision": {
+        "artifact_id": "README:axios/axios",
+        "may_influence_runtime": false,
+        "reasons": [
+          "schema invalid \u2014 malformed input never executes."
+        ],
+        "risk_flags": [],
+        "verdict": "REFUSED"
+      },
+      "injection_markers": [],
+      "kpm": [],
+      "licence": "MIT",
+      "organisation": "axios",
+      "retrieved_at": "2026-08-31T22:17:54.358017+00:00",
+      "source_url": "https://github.com/axios/axios/blob/v1.x/README.md",
+      "validator_result": {
+        "artifact_id": null,
+        "issues": [
+          {
+            "rule": "R-1",
+            "what": "YAML could not be parsed or violated structural ceilings",
+            "where": "<document>"
+          }
+        ],
+        "status": "INVALID"
+      }
+    },
+    {
+      "bytes": 4236,
+      "claims_extracted": 2,
+      "collection_method": "GET raw.githubusercontent.com",
+      "content_hash": "0c1159ea384aa0855eaad87f4595da8fd776553830297f3a7c43db81c7708fbd",
+      "doc_id": "README:kubernetes/kubernetes",
+      "doc_type": "README",
+      "exceptions": [],
+      "final_state": "REFUSED",
+      "firewall_decision": {
+        "artifact_id": "README:kubernetes/kubernetes",
+        "may_influence_runtime": false,
+        "reasons": [
+          "schema invalid \u2014 malformed input never executes."
+        ],
+        "risk_flags": [],
+        "verdict": "REFUSED"
+      },
+      "injection_markers": [],
+      "kpm": [
+        {
+          "claim": "Take a free course on [Scalable Microservices with Kubernetes].",
+          "classification": "UNVERIFIED_EXTERNAL_CLAIM",
+          "confidence": "LOW",
+          "evidence_refs": [],
+          "provenance": [
+            "UNVERIFIED_EXTERNAL_CLAIM"
+          ],
+          "unevidenced_upgrade": "REFUSED"
+        },
+        {
+          "claim": "[Scalable Microservices with Kubernetes]: https://www.udacity.com/course/scalable-microservices-with-kubernetes--ud615",
+          "classification": "UNVERIFIED_EXTERNAL_CLAIM",
+          "confidence": "LOW",
+          "evidence_refs": [],
+          "provenance": [
+            "UNVERIFIED_EXTERNAL_CLAIM"
+          ],
+          "unevidenced_upgrade": "REFUSED"
+        }
+      ],
+      "licence": "Apache-2.0",
+      "organisation": "kubernetes",
+      "retrieved_at": "2026-08-31T22:17:55.347356+00:00",
+      "source_url": "https://github.com/kubernetes/kubernetes/blob/master/README.md",
+      "validator_result": {
+        "artifact_id": null,
+        "issues": [
+          {
+            "rule": "R-1",
+            "what": "YAML could not be parsed or violated structural ceilings",
+            "where": "<document>"
+          }
+        ],
+        "status": "INVALID"
+      }
+    },
+    {
+      "bytes": 4621,
+      "claims_extracted": 0,
+      "collection_method": "GET raw.githubusercontent.com",
+      "content_hash": "15823e28dd6dcadfba187ac188bf22d79f26b783d1813eaca58588dbd2781d4f",
+      "doc_id": "README:grpc/grpc",
+      "doc_type": "README",
+      "exceptions": [],
+      "final_state": "REFUSED",
+      "firewall_decision": {
+        "artifact_id": "README:grpc/grpc",
+        "may_influence_runtime": false,
+        "reasons": [
+          "schema invalid \u2014 malformed input never executes."
+        ],
+        "risk_flags": [],
+        "verdict": "REFUSED"
+      },
+      "injection_markers": [],
+      "kpm": [],
+      "licence": "Apache-2.0",
+      "organisation": "grpc",
+      "retrieved_at": "2026-08-31T22:17:56.296674+00:00",
+      "source_url": "https://github.com/grpc/grpc/blob/master/README.md",
+      "validator_result": {
+        "artifact_id": null,
+        "issues": [
+          {
+            "rule": "R-1",
+            "what": "YAML could not be parsed or violated structural ceilings",
+            "where": "<document>"
+          }
+        ],
+        "status": "INVALID"
+      }
+    },
+    {
+      "bytes": 14713,
+      "claims_extracted": 3,
+      "collection_method": "GET raw.githubusercontent.com",
+      "content_hash": "5550c38ce0519656f04aab69250ae7cdff499040bcb67c95bfb34f1b0dfc7e9a",
+      "doc_id": "README:apache/kafka",
+      "doc_type": "README",
+      "exceptions": [],
+      "final_state": "REFUSED",
+      "firewall_decision": {
+        "artifact_id": "README:apache/kafka",
+        "may_influence_runtime": false,
+        "reasons": [
+          "schema invalid \u2014 malformed input never executes."
+        ],
+        "risk_flags": [],
+        "verdict": "REFUSED"
+      },
+      "injection_markers": [],
+      "kpm": [
+        {
+          "claim": "*Note: Please ensure that JDK 17 is used when developing Kafka.*",
+          "classification": "UNVERIFIED_EXTERNAL_CLAIM",
+          "confidence": "LOW",
+          "evidence_refs": [],
+          "provenance": [
+            "UNVERIFIED_EXTERNAL_CLAIM"
+          ],
+          "unevidenced_upgrade": "REFUSED"
+        },
+        {
+          "claim": "We use [JMH](https://openjdk.java.net/projects/code-tools/jmh/) to write microbenchmarks that produce reliable results in the JVM.",
+          "classification": "UNVERIFIED_EXTERNAL_CLAIM",
+          "confidence": "LOW",
+          "evidence_refs": [],
+          "provenance": [
+            "UNVERIFIED_EXTERNAL_CLAIM"
+          ],
+          "unevidenced_upgrade": "REFUSED"
+        },
+        {
+          "claim": "Since we cannot guarantee this for all cases (for example, users",
+          "classification": "UNVERIFIED_EXTERNAL_CLAIM",
+          "confidence": "LOW",
+          "evidence_refs": [],
+          "provenance": [
+            "UNVERIFIED_EXTERNAL_CLAIM"
+          ],
+          "unevidenced_upgrade": "REFUSED"
+        }
+      ],
+      "licence": "Apache-2.0",
+      "organisation": "apache",
+      "retrieved_at": "2026-08-31T22:17:57.148568+00:00",
+      "source_url": "https://github.com/apache/kafka/blob/trunk/README.md",
+      "validator_result": {
+        "artifact_id": null,
+        "issues": [
+          {
+            "rule": "R-1",
+            "what": "YAML could not be parsed or violated structural ceilings",
+            "where": "<document>"
+          }
+        ],
+        "status": "INVALID"
+      }
+    },
+    {
+      "bytes": 23367,
+      "claims_extracted": 0,
+      "collection_method": "GET raw.githubusercontent.com",
+      "content_hash": "29f014aae8b7a9f0f146188a73619d260a375fcfda1eb8e6b0fe28a74b357612",
+      "doc_id": "README:apache/spark",
+      "doc_type": "README",
+      "exceptions": [],
+      "final_state": "REFUSED",
+      "firewall_decision": {
+        "artifact_id": "README:apache/spark",
+        "may_influence_runtime": false,
+        "reasons": [
+          "schema invalid \u2014 malformed input never executes."
+        ],
+        "risk_flags": [],
+        "verdict": "REFUSED"
+      },
+      "injection_markers": [
+        "run the following command"
+      ],
+      "kpm": [],
+      "licence": "Apache-2.0",
+      "organisation": "apache",
+      "retrieved_at": "2026-08-31T22:17:58.054331+00:00",
+      "source_url": "https://github.com/apache/spark/blob/master/README.md",
+      "validator_result": {
+        "artifact_id": null,
+        "issues": [
+          {
+            "rule": "R-1",
+            "what": "YAML could not be parsed or violated structural ceilings",
+            "where": "<document>"
+          }
+        ],
+        "status": "INVALID"
+      }
+    },
+    {
+      "bytes": 6290,
+      "claims_extracted": 1,
+      "collection_method": "GET raw.githubusercontent.com",
+      "content_hash": "e4264d57cff1cb7ccaa16a1515fc35703416af8b198530fd25ae255b639ade17",
+      "doc_id": "README:google/guava",
+      "doc_type": "README",
+      "exceptions": [],
+      "final_state": "REFUSED",
+      "firewall_decision": {
+        "artifact_id": "README:google/guava",
+        "may_influence_runtime": false,
+        "reasons": [
+          "schema invalid \u2014 malformed input never executes."
+        ],
+        "risk_flags": [],
+        "verdict": "REFUSED"
+      },
+      "injection_markers": [],
+      "kpm": [
+        {
+          "claim": "the [Guava Beta Checker] to ensure that you do not use any `@Beta` APIs!**",
+          "classification": "UNVERIFIED_EXTERNAL_CLAIM",
+          "confidence": "LOW",
+          "evidence_refs": [],
+          "provenance": [
+            "UNVERIFIED_EXTERNAL_CLAIM"
+          ],
+          "unevidenced_upgrade": "REFUSED"
+        }
+      ],
+      "licence": "Apache-2.0",
+      "organisation": "google",
+      "retrieved_at": "2026-08-31T22:18:00.911873+00:00",
+      "source_url": "https://github.com/google/guava/blob/master/README.md",
+      "validator_result": {
+        "artifact_id": null,
+        "issues": [
+          {
+            "rule": "R-1",
+            "what": "YAML could not be parsed or violated structural ceilings",
+            "where": "<document>"
+          }
+        ],
+        "status": "INVALID"
+      }
+    },
+    {
+      "bytes": 9790,
+      "claims_extracted": 2,
+      "collection_method": "GET raw.githubusercontent.com",
+      "content_hash": "cd490686cd4ad6355aff49d75431f2cc00a101c61f60c3065b7c88cab7f557a4",
+      "doc_id": "README:tensorflow/tensorflow",
+      "doc_type": "README",
+      "exceptions": [],
+      "final_state": "REFUSED",
+      "firewall_decision": {
+        "artifact_id": "README:tensorflow/tensorflow",
+        "may_influence_runtime": false,
+        "reasons": [
+          "schema invalid \u2014 malformed input never executes."
+        ],
+        "risk_flags": [],
+        "verdict": "REFUSED"
+      },
+      "injection_markers": [],
+      "kpm": [
+        {
+          "claim": "non-guaranteed backward compatible API for",
+          "classification": "UNVERIFIED_EXTERNAL_CLAIM",
+          "confidence": "LOW",
+          "evidence_refs": [],
+          "provenance": [
+            "UNVERIFIED_EXTERNAL_CLAIM"
+          ],
+          "unevidenced_upgrade": "REFUSED"
+        },
+        {
+          "claim": "* Run TensorFlow tests and ensure they pass.",
+          "classification": "UNVERIFIED_EXTERNAL_CLAIM",
+          "confidence": "LOW",
+          "evidence_refs": [],
+          "provenance": [
+            "UNVERIFIED_EXTERNAL_CLAIM"
+          ],
+          "unevidenced_upgrade": "REFUSED"
+        }
+      ],
+      "licence": "Apache-2.0",
+      "organisation": "tensorflow",
+      "retrieved_at": "2026-08-31T22:18:02.382613+00:00",
+      "source_url": "https://github.com/tensorflow/tensorflow/blob/master/README.md",
+      "validator_result": {
+        "artifact_id": null,
+        "issues": [
+          {
+            "rule": "R-1",
+            "what": "YAML could not be parsed or violated structural ceilings",
+            "where": "<document>"
+          }
+        ],
+        "status": "INVALID"
+      }
+    },
+    {
+      "bytes": 3807,
+      "claims_extracted": 0,
+      "collection_method": "GET raw.githubusercontent.com",
+      "content_hash": "83a959d62dea940f94ce1b50024928e34afb447de35197b7ea1d944fd6dbbcf7",
+      "doc_id": "README:denoland/deno",
+      "doc_type": "README",
+      "exceptions": [],
+      "final_state": "REFUSED",
+      "firewall_decision": {
+        "artifact_id": "README:denoland/deno",
+        "may_influence_runtime": false,
+        "reasons": [
+          "schema invalid \u2014 malformed input never executes."
+        ],
+        "risk_flags": [],
+        "verdict": "REFUSED"
+      },
+      "injection_markers": [],
+      "kpm": [],
+      "licence": "MIT",
+      "organisation": "denoland",
+      "retrieved_at": "2026-08-31T22:18:03.672739+00:00",
+      "source_url": "https://github.com/denoland/deno/blob/main/README.md",
+      "validator_result": {
+        "artifact_id": null,
+        "issues": [
+          {
+            "rule": "R-1",
+            "what": "YAML could not be parsed or violated structural ceilings",
+            "where": "<document>"
+          }
+        ],
+        "status": "INVALID"
+      }
+    },
+    {
+      "bytes": 2741,
+      "claims_extracted": 0,
+      "collection_method": "GET raw.githubusercontent.com",
+      "content_hash": "b43867a1a978a0a3d881b91e50e9807f1f56e3f1dd54d65cad43f471c84e0036",
+      "doc_id": "README:microsoft/TypeScript",
+      "doc_type": "README",
+      "exceptions": [],
+      "final_state": "REFUSED",
+      "firewall_decision": {
+        "artifact_id": "README:microsoft/TypeScript",
+        "may_influence_runtime": false,
+        "reasons": [
+          "schema invalid \u2014 malformed input never executes."
+        ],
+        "risk_flags": [],
+        "verdict": "REFUSED"
+      },
+      "injection_markers": [],
+      "kpm": [],
+      "licence": "Apache-2.0",
+      "organisation": "microsoft",
+      "retrieved_at": "2026-08-31T22:18:05.222960+00:00",
+      "source_url": "https://github.com/microsoft/TypeScript/blob/main/README.md",
+      "validator_result": {
+        "artifact_id": null,
+        "issues": [
+          {
+            "rule": "R-1",
+            "what": "YAML could not be parsed or violated structural ceilings",
+            "where": "<document>"
+          }
+        ],
+        "status": "INVALID"
+      }
+    },
+    {
+      "bytes": 6728,
+      "claims_extracted": 0,
+      "collection_method": "GET raw.githubusercontent.com",
+      "content_hash": "45a411a3b8d49556fbaa73601befc458ab10ad873fca9088136888c89abb8935",
+      "doc_id": "README:microsoft/vscode",
+      "doc_type": "README",
+      "exceptions": [],
+      "final_state": "REFUSED",
+      "firewall_decision": {
+        "artifact_id": "README:microsoft/vscode",
+        "may_influence_runtime": false,
+        "reasons": [
+          "schema invalid \u2014 malformed input never executes."
+        ],
+        "risk_flags": [],
+        "verdict": "REFUSED"
+      },
+      "injection_markers": [],
+      "kpm": [],
+      "licence": "MIT",
+      "organisation": "microsoft",
+      "retrieved_at": "2026-08-31T22:18:06.143254+00:00",
+      "source_url": "https://github.com/microsoft/vscode/blob/main/README.md",
+      "validator_result": {
+        "artifact_id": null,
+        "issues": [
+          {
+            "rule": "R-1",
+            "what": "YAML could not be parsed or violated structural ceilings",
+            "where": "<document>"
+          }
+        ],
+        "status": "INVALID"
+      }
+    },
+    {
+      "bytes": 9690,
+      "claims_extracted": 0,
+      "collection_method": "GET raw.githubusercontent.com",
+      "content_hash": "9ef538829dfc934d7ef53c62bafb3a2ea78b0cab432b2bbf47e84192abf6fddb",
+      "doc_id": "README:prometheus/prometheus",
+      "doc_type": "README",
+      "exceptions": [],
+      "final_state": "REFUSED",
+      "firewall_decision": {
+        "artifact_id": "README:prometheus/prometheus",
+        "may_influence_runtime": false,
+        "reasons": [
+          "schema invalid \u2014 malformed input never executes."
+        ],
+        "risk_flags": [],
+        "verdict": "REFUSED"
+      },
+      "injection_markers": [],
+      "kpm": [],
+      "licence": "Apache-2.0",
+      "organisation": "prometheus",
+      "retrieved_at": "2026-08-31T22:18:07.656005+00:00",
+      "source_url": "https://github.com/prometheus/prometheus/blob/main/README.md",
+      "validator_result": {
+        "artifact_id": null,
+        "issues": [
+          {
+            "rule": "R-1",
+            "what": "YAML could not be parsed or violated structural ceilings",
+            "where": "<document>"
+          }
+        ],
+        "status": "INVALID"
+      }
+    },
+    {
+      "bytes": 8586,
+      "claims_extracted": 0,
+      "collection_method": "GET raw.githubusercontent.com",
+      "content_hash": "64464d90ab175816fb57d9241bd241d3c95f2f5229644854a3e98ae5dc888e9a",
+      "doc_id": "README:openssl/openssl",
+      "doc_type": "README",
+      "exceptions": [],
+      "final_state": "REFUSED",
+      "firewall_decision": {
+        "artifact_id": "README:openssl/openssl",
+        "may_influence_runtime": false,
+        "reasons": [
+          "schema invalid \u2014 malformed input never executes."
+        ],
+        "risk_flags": [],
+        "verdict": "REFUSED"
+      },
+      "injection_markers": [],
+      "kpm": [],
+      "licence": "Apache-2.0",
+      "organisation": "openssl",
+      "retrieved_at": "2026-08-31T22:18:09.737250+00:00",
+      "source_url": "https://github.com/openssl/openssl/blob/master/README.md",
+      "validator_result": {
+        "artifact_id": null,
+        "issues": [
+          {
+            "rule": "R-1",
+            "what": "YAML could not be parsed or violated structural ceilings",
+            "where": "<document>"
+          }
+        ],
+        "status": "INVALID"
+      }
+    },
+    {
+      "bytes": 1964,
+      "claims_extracted": 0,
+      "collection_method": "GET raw.githubusercontent.com",
+      "content_hash": "c9955c50630b0e2582cbc56b13f077e778a8c03c8002ce8966a38444a30c4d93",
+      "doc_id": "README:home-assistant/core",
+      "doc_type": "README",
+      "exceptions": [],
+      "final_state": "REFUSED",
+      "firewall_decision": {
+        "artifact_id": "README:home-assistant/core",
+        "may_influence_runtime": false,
+        "reasons": [
+          "schema invalid \u2014 malformed input never executes."
+        ],
+        "risk_flags": [],
+        "verdict": "REFUSED"
+      },
+      "injection_markers": [],
+      "kpm": [],
+      "licence": "Apache-2.0",
+      "organisation": "home-assistant",
+      "retrieved_at": "2026-08-31T22:18:12.780463+00:00",
+      "source_url": "https://github.com/home-assistant/core/blob/dev/README.md",
+      "validator_result": {
+        "artifact_id": null,
+        "issues": [
+          {
+            "rule": "R-1",
+            "what": "YAML could not be parsed or violated structural ceilings",
+            "where": "<document>"
+          }
+        ],
+        "status": "INVALID"
+      }
+    },
+    {
+      "bytes": 5487,
+      "claims_extracted": 3,
+      "collection_method": "GET raw.githubusercontent.com",
+      "content_hash": "97dff8df1c816b0c115f7fcd976bbaaf9106edc0f5d8c8559c74a6bcac285b04",
+      "doc_id": "README:moby/moby",
+      "doc_type": "README",
+      "exceptions": [],
+      "final_state": "REFUSED",
+      "firewall_decision": {
+        "artifact_id": "README:moby/moby",
+        "may_influence_runtime": false,
+        "reasons": [
+          "schema invalid \u2014 malformed input never executes."
+        ],
+        "risk_flags": [],
+        "verdict": "REFUSED"
+      },
+      "injection_markers": [],
+      "kpm": [
+        {
+          "claim": "- Batteries included but swappable: Moby includes enough components to build fully featured container systems, but its modular architecture ensures that most of the components can be swapped by different implementations.",
+          "classification": "UNVERIFIED_EXTERNAL_CLAIM",
+          "confidence": "LOW",
+          "evidence_refs": [],
+          "provenance": [
+            "UNVERIFIED_EXTERNAL_CLAIM"
+          ],
+          "unevidenced_upgrade": "REFUSED"
+        },
+        {
+          "claim": "It produces binaries only - it is **not intended to be imported as a Go library** and has no API stability guarantees.",
+          "classification": "UNVERIFIED_EXTERNAL_CLAIM",
+          "confidence": "LOW",
+          "evidence_refs": [],
+          "provenance": [
+            "UNVERIFIED_EXTERNAL_CLAIM"
+          ],
+          "unevidenced_upgrade": "REFUSED"
+        },
+        {
+          "claim": "It is your responsibility to ensure that your use and/or transfer does not",
+          "classification": "UNVERIFIED_EXTERNAL_CLAIM",
+          "confidence": "LOW",
+          "evidence_refs": [],
+          "provenance": [
+            "UNVERIFIED_EXTERNAL_CLAIM"
+          ],
+          "unevidenced_upgrade": "REFUSED"
+        }
+      ],
+      "licence": "Apache-2.0",
+      "organisation": "moby",
+      "retrieved_at": "2026-08-31T22:18:14.375893+00:00",
+      "source_url": "https://github.com/moby/moby/blob/master/README.md",
+      "validator_result": {
+        "artifact_id": null,
+        "issues": [
+          {
+            "rule": "R-1",
+            "what": "YAML could not be parsed or violated structural ceilings",
+            "where": "<document>"
+          }
+        ],
+        "status": "INVALID"
+      }
+    },
+    {
+      "bytes": 2770,
+      "claims_extracted": 0,
+      "collection_method": "GET api.github.com/advisories",
+      "content_hash": "400a61fe7041b5ddf02f6c7d0b482cb9419a7b979412ce5e3a5fbb7ece62d37c",
+      "doc_id": "ADVISORY:GHSA-67mx-6wf2-92xp",
+      "doc_type": "SECURITY_ADVISORY",
+      "exceptions": [],
+      "final_state": "REFUSED",
+      "firewall_decision": {
+        "artifact_id": "ADVISORY:GHSA-67mx-6wf2-92xp",
+        "may_influence_runtime": false,
+        "reasons": [
+          "schema invalid \u2014 malformed input never executes."
+        ],
+        "risk_flags": [],
+        "verdict": "REFUSED"
+      },
+      "injection_markers": [],
+      "kpm": [],
+      "licence": "CC-BY-4.0 (GitHub Advisory Database)",
+      "organisation": "github/advisory-database",
+      "retrieved_at": "2026-08-31T22:18:15.193084+00:00",
+      "source_url": "https://github.com/advisories/GHSA-67mx-6wf2-92xp",
+      "validator_result": {
+        "artifact_id": null,
+        "issues": [
+          {
+            "rule": "R-1",
+            "what": "YAML could not be parsed or violated structural ceilings",
+            "where": "<document>"
+          }
+        ],
+        "status": "INVALID"
+      }
+    },
+    {
+      "bytes": 3237,
+      "claims_extracted": 0,
+      "collection_method": "GET api.github.com/advisories",
+      "content_hash": "4e26db97d0d1aa48ebfaba7b022c52556ea7e4ecc7bca95bb9e5013c9a36f004",
+      "doc_id": "ADVISORY:GHSA-9vx2-j98c-p72w",
+      "doc_type": "SECURITY_ADVISORY",
+      "exceptions": [],
+      "final_state": "REFUSED",
+      "firewall_decision": {
+        "artifact_id": "ADVISORY:GHSA-9vx2-j98c-p72w",
+        "may_influence_runtime": false,
+        "reasons": [
+          "schema invalid \u2014 malformed input never executes."
+        ],
+        "risk_flags": [],
+        "verdict": "REFUSED"
+      },
+      "injection_markers": [],
+      "kpm": [],
+      "licence": "CC-BY-4.0 (GitHub Advisory Database)",
+      "organisation": "github/advisory-database",
+      "retrieved_at": "2026-08-31T22:18:15.193184+00:00",
+      "source_url": "https://github.com/advisories/GHSA-9vx2-j98c-p72w",
+      "validator_result": {
+        "artifact_id": null,
+        "issues": [
+          {
+            "rule": "R-1",
+            "what": "YAML could not be parsed or violated structural ceilings",
+            "where": "<document>"
+          }
+        ],
+        "status": "INVALID"
+      }
+    },
+    {
+      "bytes": 428,
+      "claims_extracted": 0,
+      "collection_method": "GET api.github.com/advisories",
+      "content_hash": "e04bb42f5143720df38788e609c69dde4107ec5fc642e9ecfc0b67aa1b2e0911",
+      "doc_id": "ADVISORY:GHSA-vcc3-ghjq-m6fr",
+      "doc_type": "SECURITY_ADVISORY",
+      "exceptions": [],
+      "final_state": "REFUSED",
+      "firewall_decision": {
+        "artifact_id": "ADVISORY:GHSA-vcc3-ghjq-m6fr",
+        "may_influence_runtime": false,
+        "reasons": [
+          "schema invalid \u2014 malformed input never executes."
+        ],
+        "risk_flags": [],
+        "verdict": "REFUSED"
+      },
+      "injection_markers": [],
+      "kpm": [],
+      "licence": "CC-BY-4.0 (GitHub Advisory Database)",
+      "organisation": "github/advisory-database",
+      "retrieved_at": "2026-08-31T22:18:15.193227+00:00",
+      "source_url": "https://github.com/advisories/GHSA-vcc3-ghjq-m6fr",
+      "validator_result": {
+        "artifact_id": null,
+        "issues": [
+          {
+            "rule": "R-1",
+            "what": "YAML could not be parsed or violated structural ceilings",
+            "where": "<document>"
+          }
+        ],
+        "status": "INVALID"
+      }
+    },
+    {
+      "bytes": 2500,
+      "claims_extracted": 1,
+      "collection_method": "GET api.github.com/advisories",
+      "content_hash": "29ef5b3d1447c90287c40f22dedbf0ea8596c333c86b885e4ff2ff822ab5596c",
+      "doc_id": "ADVISORY:GHSA-gr94-w7qr-f4j3",
+      "doc_type": "SECURITY_ADVISORY",
+      "exceptions": [],
+      "final_state": "REFUSED",
+      "firewall_decision": {
+        "artifact_id": "ADVISORY:GHSA-gr94-w7qr-f4j3",
+        "may_influence_runtime": false,
+        "reasons": [
+          "schema invalid \u2014 malformed input never executes."
+        ],
+        "risk_flags": [],
+        "verdict": "REFUSED"
+      },
+      "injection_markers": [],
+      "kpm": [
+        {
+          "claim": "WebTransport is opt-in, so servers should ensure that `webtransport` is not included in the enabled transports list.",
+          "classification": "UNVERIFIED_EXTERNAL_CLAIM",
+          "confidence": "LOW",
+          "evidence_refs": [],
+          "provenance": [
+            "UNVERIFIED_EXTERNAL_CLAIM"
+          ],
+          "unevidenced_upgrade": "REFUSED"
+        }
+      ],
+      "licence": "CC-BY-4.0 (GitHub Advisory Database)",
+      "organisation": "github/advisory-database",
+      "retrieved_at": "2026-08-31T22:18:15.193243+00:00",
+      "source_url": "https://github.com/advisories/GHSA-gr94-w7qr-f4j3",
+      "validator_result": {
+        "artifact_id": null,
+        "issues": [
+          {
+            "rule": "R-1",
+            "what": "YAML could not be parsed or violated structural ceilings",
+            "where": "<document>"
+          }
+        ],
+        "status": "INVALID"
+      }
+    },
+    {
+      "bytes": 1257,
+      "claims_extracted": 0,
+      "collection_method": "GET api.github.com/advisories",
+      "content_hash": "8d53b4c56fa7ecd69e53cfb7b7cf77573c9f219ea4f9c0869dc9ebfde9aaa38b",
+      "doc_id": "ADVISORY:GHSA-fm3f-ch8h-qw8q",
+      "doc_type": "SECURITY_ADVISORY",
+      "exceptions": [],
+      "final_state": "REFUSED",
+      "firewall_decision": {
+        "artifact_id": "ADVISORY:GHSA-fm3f-ch8h-qw8q",
+        "may_influence_runtime": false,
+        "reasons": [
+          "schema invalid \u2014 malformed input never executes."
+        ],
+        "risk_flags": [],
+        "verdict": "REFUSED"
+      },
+      "injection_markers": [],
+      "kpm": [],
+      "licence": "CC-BY-4.0 (GitHub Advisory Database)",
+      "organisation": "github/advisory-database",
+      "retrieved_at": "2026-08-31T22:18:15.193324+00:00",
+      "source_url": "https://github.com/advisories/GHSA-fm3f-ch8h-qw8q",
+      "validator_result": {
+        "artifact_id": null,
+        "issues": [
+          {
+            "rule": "R-1",
+            "what": "YAML could not be parsed or violated structural ceilings",
+            "where": "<document>"
+          }
+        ],
+        "status": "INVALID"
+      }
+    },
+    {
+      "bytes": 7311,
+      "claims_extracted": 0,
+      "collection_method": "GET api.github.com/advisories",
+      "content_hash": "6f657f18f87c71d6a11c9ebde7375c6aa34e14fed4cb5fbda3876109a0036dda",
+      "doc_id": "ADVISORY:GHSA-8x3q-jpjh-qh5c",
+      "doc_type": "SECURITY_ADVISORY",
+      "exceptions": [],
+      "final_state": "REFUSED",
+      "firewall_decision": {
+        "artifact_id": "ADVISORY:GHSA-8x3q-jpjh-qh5c",
+        "may_influence_runtime": false,
+        "reasons": [
+          "schema invalid \u2014 malformed input never executes."
+        ],
+        "risk_flags": [],
+        "verdict": "REFUSED"
+      },
+      "injection_markers": [],
+      "kpm": [],
+      "licence": "CC-BY-4.0 (GitHub Advisory Database)",
+      "organisation": "github/advisory-database",
+      "retrieved_at": "2026-08-31T22:18:15.193359+00:00",
+      "source_url": "https://github.com/advisories/GHSA-8x3q-jpjh-qh5c",
+      "validator_result": {
+        "artifact_id": null,
+        "issues": [
+          {
+            "rule": "R-1",
+            "what": "YAML could not be parsed or violated structural ceilings",
+            "where": "<document>"
+          }
+        ],
+        "status": "INVALID"
+      }
+    },
+    {
+      "bytes": 647,
+      "claims_extracted": 0,
+      "collection_method": "GET api.github.com/advisories",
+      "content_hash": "0dfe72f23c559c37daf9117175784899a00e67c50d21d4a35f8e28e54ee1d2e7",
+      "doc_id": "ADVISORY:GHSA-mfqj-cqv3-h7xw",
+      "doc_type": "SECURITY_ADVISORY",
+      "exceptions": [],
+      "final_state": "REFUSED",
+      "firewall_decision": {
+        "artifact_id": "ADVISORY:GHSA-mfqj-cqv3-h7xw",
+        "may_influence_runtime": false,
+        "reasons": [
+          "schema invalid \u2014 malformed input never executes."
+        ],
+        "risk_flags": [],
+        "verdict": "REFUSED"
+      },
+      "injection_markers": [],
+      "kpm": [],
+      "licence": "CC-BY-4.0 (GitHub Advisory Database)",
+      "organisation": "github/advisory-database",
+      "retrieved_at": "2026-08-31T22:18:15.193440+00:00",
+      "source_url": "https://github.com/advisories/GHSA-mfqj-cqv3-h7xw",
+      "validator_result": {
+        "artifact_id": null,
+        "issues": [
+          {
+            "rule": "R-1",
+            "what": "YAML could not be parsed or violated structural ceilings",
+            "where": "<document>"
+          }
+        ],
+        "status": "INVALID"
+      }
+    },
+    {
+      "bytes": 3015,
+      "claims_extracted": 0,
+      "collection_method": "GET api.github.com/advisories",
+      "content_hash": "b6f7c075931ea9aa587704a7c4bd56db5f75eb7fe5585fc52aa05f6c7615d849",
+      "doc_id": "ADVISORY:GHSA-g5xc-5w98-jfvm",
+      "doc_type": "SECURITY_ADVISORY",
+      "exceptions": [],
+      "final_state": "REFUSED",
+      "firewall_decision": {
+        "artifact_id": "ADVISORY:GHSA-g5xc-5w98-jfvm",
+        "may_influence_runtime": false,
+        "reasons": [
+          "schema invalid \u2014 malformed input never executes."
+        ],
+        "risk_flags": [],
+        "verdict": "REFUSED"
+      },
+      "injection_markers": [],
+      "kpm": [],
+      "licence": "CC-BY-4.0 (GitHub Advisory Database)",
+      "organisation": "github/advisory-database",
+      "retrieved_at": "2026-08-31T22:18:15.193465+00:00",
+      "source_url": "https://github.com/advisories/GHSA-g5xc-5w98-jfvm",
+      "validator_result": {
+        "artifact_id": null,
+        "issues": [
+          {
+            "rule": "R-1",
+            "what": "YAML could not be parsed or violated structural ceilings",
+            "where": "<document>"
+          }
+        ],
+        "status": "INVALID"
+      }
+    },
+    {
+      "bytes": 2513,
+      "claims_extracted": 0,
+      "collection_method": "GET api.github.com/advisories",
+      "content_hash": "7e8d6bf09fc8f340dfe567e0e306e2015bde1d2fc7ddc9bcff3ee93e4985986d",
+      "doc_id": "ADVISORY:GHSA-ffg3-p8fm-mjx2",
+      "doc_type": "SECURITY_ADVISORY",
+      "exceptions": [],
+      "final_state": "REFUSED",
+      "firewall_decision": {
+        "artifact_id": "ADVISORY:GHSA-ffg3-p8fm-mjx2",
+        "may_influence_runtime": false,
+        "reasons": [
+          "schema invalid \u2014 malformed input never executes."
+        ],
+        "risk_flags": [],
+        "verdict": "REFUSED"
+      },
+      "injection_markers": [],
+      "kpm": [],
+      "licence": "CC-BY-4.0 (GitHub Advisory Database)",
+      "organisation": "github/advisory-database",
+      "retrieved_at": "2026-08-31T22:18:15.193498+00:00",
+      "source_url": "https://github.com/advisories/GHSA-ffg3-p8fm-mjx2",
+      "validator_result": {
+        "artifact_id": null,
+        "issues": [
+          {
+            "rule": "R-1",
+            "what": "YAML could not be parsed or violated structural ceilings",
+            "where": "<document>"
+          }
+        ],
+        "status": "INVALID"
+      }
+    },
+    {
+      "bytes": 1874,
+      "claims_extracted": 0,
+      "collection_method": "GET api.github.com/advisories",
+      "content_hash": "df7e43d4abb3d88858d6ef5ea802e479e53a12c58f226dacc5bae6add0e4de75",
+      "doc_id": "ADVISORY:GHSA-c857-9x2m-cvh2",
+      "doc_type": "SECURITY_ADVISORY",
+      "exceptions": [],
+      "final_state": "REFUSED",
+      "firewall_decision": {
+        "artifact_id": "ADVISORY:GHSA-c857-9x2m-cvh2",
+        "may_influence_runtime": false,
+        "reasons": [
+          "schema invalid \u2014 malformed input never executes."
+        ],
+        "risk_flags": [],
+        "verdict": "REFUSED"
+      },
+      "injection_markers": [],
+      "kpm": [],
+      "licence": "CC-BY-4.0 (GitHub Advisory Database)",
+      "organisation": "github/advisory-database",
+      "retrieved_at": "2026-08-31T22:18:15.193529+00:00",
+      "source_url": "https://github.com/advisories/GHSA-c857-9x2m-cvh2",
+      "validator_result": {
+        "artifact_id": null,
+        "issues": [
+          {
+            "rule": "R-1",
+            "what": "YAML could not be parsed or violated structural ceilings",
+            "where": "<document>"
+          }
+        ],
+        "status": "INVALID"
+      }
+    },
+    {
+      "bytes": 180,
+      "claims_extracted": 0,
+      "collection_method": "DERIVED \u2014 truncated to 180 chars",
+      "content_hash": "85bcca8b94511a74ace75fac917826246d130dfd1e1665c5eaf5a610b19e446a",
+      "doc_id": "DERIVED:truncated",
+      "doc_type": "DERIVED_TRUNCATED",
+      "exceptions": [],
+      "final_state": "REFUSED",
+      "firewall_decision": {
+        "artifact_id": "DERIVED:truncated",
+        "may_influence_runtime": false,
+        "reasons": [
+          "schema invalid \u2014 malformed input never executes."
+        ],
+        "risk_flags": [],
+        "verdict": "REFUSED"
+      },
+      "injection_markers": [],
+      "kpm": [],
+      "licence": "MIT",
+      "organisation": "facebook",
+      "retrieved_at": "2026-08-31T22:18:15.193557+00:00",
+      "source_url": "https://github.com/facebook/react/blob/main/README.md",
+      "validator_result": {
+        "artifact_id": null,
+        "issues": [
+          {
+            "rule": "R-2",
+            "what": "required field 'artifact_id' is missing",
+            "where": "artifact_id"
+          },
+          {
+            "rule": "R-2",
+            "what": "required field 'artifact_type' is missing",
+            "where": "artifact_type"
+          },
+          {
+            "rule": "R-2",
+            "what": "required field 'classification' is missing",
+            "where": "classification"
+          },
+          {
+            "rule": "R-2",
+            "what": "required field 'contamination_state' is missing",
+            "where": "contamination_state"
+          },
+          {
+            "rule": "R-2",
+            "what": "required field 'content_hash' is missing",
+            "where": "content_hash"
+          },
+          {
+            "rule": "R-2",
+            "what": "required field 'created_at' is missing",
+            "where": "created_at"
+          },
+          {
+            "rule": "R-2",
+            "what": "required field 'schema_version' is missing",
+            "where": "schema_version"
+          }
+        ],
+        "status": "INVALID"
+      }
+    },
+    {
+      "bytes": 0,
+      "claims_extracted": 0,
+      "collection_method": "DERIVED \u2014 empty document",
+      "content_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "doc_id": "DERIVED:empty",
+      "doc_type": "DERIVED_EMPTY",
+      "exceptions": [],
+      "final_state": "REFUSED",
+      "firewall_decision": {
+        "artifact_id": "DERIVED:empty",
+        "may_influence_runtime": false,
+        "reasons": [
+          "schema invalid \u2014 malformed input never executes."
+        ],
+        "risk_flags": [],
+        "verdict": "REFUSED"
+      },
+      "injection_markers": [],
+      "kpm": [],
+      "licence": "n/a",
+      "organisation": "n/a",
+      "retrieved_at": "2026-08-31T22:18:15.193573+00:00",
+      "source_url": "n/a",
+      "validator_result": {
+        "artifact_id": null,
+        "issues": [
+          {
+            "rule": "R-2",
+            "what": "required field 'artifact_id' is missing",
+            "where": "artifact_id"
+          },
+          {
+            "rule": "R-2",
+            "what": "required field 'artifact_type' is missing",
+            "where": "artifact_type"
+          },
+          {
+            "rule": "R-2",
+            "what": "required field 'classification' is missing",
+            "where": "classification"
+          },
+          {
+            "rule": "R-2",
+            "what": "required field 'contamination_state' is missing",
+            "where": "contamination_state"
+          },
+          {
+            "rule": "R-2",
+            "what": "required field 'content_hash' is missing",
+            "where": "content_hash"
+          },
+          {
+            "rule": "R-2",
+            "what": "required field 'created_at' is missing",
+            "where": "created_at"
+          },
+          {
+            "rule": "R-2",
+            "what": "required field 'schema_version' is missing",
+            "where": "schema_version"
+          }
+        ],
+        "status": "INVALID"
+      }
+    }
+  ],
+  "started_at": "2026-08-31T22:17:49.156397+00:00"
+}

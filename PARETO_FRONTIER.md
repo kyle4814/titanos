@@ -811,3 +811,50 @@ from the active scan path per this addendum's compaction rule.
    and note the commit — don't leave stale full-prose entries active.
 4. Re-verify a long-untouched entry against real repository state
    before trusting it.
+
+---
+
+## Deferred from EXP-001 (2026-09-01) — logged, not built
+
+EXP-001's write scope forbade subsystem changes, so these are recorded
+rather than acted on. Each is a candidate, not a commitment.
+
+**FRONTIER-EXP001-A — require evidence for `Artifact.authorization_valid`.**
+CURRENT: a bare unverified boolean is sufficient for `AUTHORIZED` +
+`may_influence_runtime`, and disables the prompt-injection gate with it
+(`failures/FAILURE_ARCHIVE.md` EXP-001-F1). GAP: no re-derivation, unlike
+`publication_gate.authorize_publish()`. LEVER: the firewall is the module
+most likely to be wired to untrusted input next, and this must be fixed
+*before* that, not after. FIRST STEP: replace the boolean with an
+authorization reference the gate re-derives. PROOF: the F1 reproduction
+must return `REQUIRES_HUMAN_REVIEW` for both branches. REUSE:
+`publication_gate.py`'s two-point pattern. UNLOCK: the firewall becomes
+safe to wire.
+
+**FRONTIER-EXP001-B — close the `classify_claim` evidence asymmetry.**
+`_REQUIRES_EVIDENCE_TO_ENTER` is enforced on `reclassify` and not on
+`classify_claim` (EXP-001-F2). Latent; both current callers are
+well-behaved. FIRST STEP: apply the same check at creation. RISK: may
+break callers that legitimately create pre-evidenced claims — needs a
+survey first, which is why this is logged rather than done.
+
+**FRONTIER-EXP001-C — delete the duplicated block in
+`discovery_authorization.py`.** Lines 260–331 are dead code shadowed by
+358–429, including an unread `_BUDGET_LEDGER` (EXP-001-F3). Pure
+compaction; behaviour must not change. PROOF: budget enforcement test
+still passes and the AST duplicate count drops to zero.
+
+**FRONTIER-EXP001-D — measure `memetic_profile`, or delete it.**
+Eight rhetorical dimensions are consumed by `_memetic_flags()` and carried
+by the schema, and nothing in the repository produces one. On real input
+the flags cannot fire. Either build the sensor or remove the consumer;
+carrying an unfed capability is the "documented is not implemented" case
+this repository exists to catch. Deletion is the cheaper honest option and
+should be costed first.
+
+**FRONTIER-EXP001-E — an adversarial corpus.** EXP-001 used public
+READMEs, which are not trying to defeat anything, so it says nothing about
+hostile input (see `experiments/EXP-001/LIMITATIONS.md`). A corpus that
+actually attacks — provenance forgery, schema confusion, homoglyphs,
+authority spoofing — is the natural successor and is a much larger piece
+of work than one cycle.

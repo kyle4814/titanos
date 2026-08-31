@@ -1,0 +1,47 @@
+{
+  "action": "EXP-001 public claim corpus through the existing pipeline, two arms",
+  "actor": "claude-opus-5 (agent)",
+  "changed_files": [
+    "experiments/EXP-001/run_exp001.py",
+    "experiments/EXP-001/arm_b.py",
+    "experiments/EXP-001/METHOD.md",
+    "experiments/EXP-001/CORPUS.json",
+    "experiments/EXP-001/RESULTS.json",
+    "experiments/EXP-001/RESULTS_ARM_B.json",
+    "experiments/EXP-001/FINDINGS.md",
+    "experiments/EXP-001/LIMITATIONS.md",
+    "experiments/EXP-001/RECEIPT.json",
+    "failures/FAILURE_ARCHIVE.md",
+    "PARETO_FRONTIER.md"
+  ],
+  "findings_open": [
+    "EXP-001-F1",
+    "EXP-001-F2",
+    "EXP-001-F3"
+  ],
+  "finished_at": "2026-08-31T22:29:24.372703+00:00",
+  "hash": "23c732b9c3ae2adeb7980aa7ddc2bac0f9116e4085ab54df201334ca38a15a85",
+  "inputs": {
+    "candidate_repos": 25,
+    "corpus_manifest_hash": "d8b6a8bac8f2839c3fdc4e5e0cee25b8db74593a06dd54485e462bf6243d91e9",
+    "documents_collected": 28,
+    "exclusions": 9
+  },
+  "note": "A receipt records WHAT HAPPENED. It is not evidence that any claim in the corpus is true, nor that any finding is correctly diagnosed.",
+  "outputs": {
+    "CORPUS.json": "d8b6a8bac8f2839c3fdc4e5e0cee25b8db74593a06dd54485e462bf6243d91e9",
+    "FINDINGS.md": "4c107124863f516778601ec15555bf555ca551703605f9761e464f18f8fc1559",
+    "LIMITATIONS.md": "870e0fc754d2176fe08757dd23be9462f0e433feefc1ffbeb5b9eb09cabf3eb1",
+    "METHOD.md": "2b7ed919438fa4a8e15da5edcc732367b8d0bcc16da2e403af8dc34a4b071687",
+    "RESULTS.json": "b42c69a112e2c0cbe14f44db008b8da56bd1fb6b64c8bd2622c80bc1ad0a2752",
+    "RESULTS_ARM_B.json": "9ecc955c2a19c3a9da5b27f205acaea670732addd0869d34b16a02b58da77940"
+  },
+  "previous_hash": "3ac25410ea178fa00fdc699d5fb67d4c0733a06bf56627bc379fe4eeedcf2a78",
+  "receipt_id": "EXP-001-1788214695",
+  "run_id": "exp001-2026-08-31T22:17:49.156397+00:00",
+  "started_at": "2026-08-31T22:17:49.156397+00:00",
+  "status": "COMPLETED",
+  "subsystem_changes": "NONE \u2014 write scope forbade them; no bug was fixed this cycle",
+  "tests_result": "PASS 2770 tests, 12 suites, 0 failures",
+  "tests_run": "./run_all_tests.sh"
+}

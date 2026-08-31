@@ -439,3 +439,117 @@ are both independently recoverable from git history by anyone.
 ---
 
 *Entries are appended, never removed. A fixed failure keeps its entry.*
+
+---
+
+## EXP-001-F1 — `firewall.evaluate()` grants runtime authority on an unverified caller-declared boolean
+
+**Found** 2026-09-01, EXP-001 Arm B · **Status** OPEN, not fixed this cycle
+**Severity** HIGH as a design defect; NOT currently exploitable — `evaluate()` has no production caller.
+
+27 real public documents, identical in every respect except one field,
+split cleanly:
+
+| `authorization_valid` | verdict |
+|---|---|
+| `False` | `REQUIRES_HUMAN_REVIEW` 27/27 |
+| `True` | `AUTHORIZED`, `may_influence_runtime=True` 27/27 |
+
+`authorization_valid` is a bare `bool` on the `Artifact` dataclass. It
+carries no evidence reference, no authorizing identity, no timestamp, and
+nothing in the repository verifies it. Chained consequence: the
+prompt-injection gate is written
+`if artifact.contains_instructions and not artifact.authorization_valid`,
+so the same unverified boolean also switches off the instruction boundary
+— confirmed on `README:apache/spark`, which trips `looks_like_injection()`
+and still reaches `AUTHORIZED` with `may_influence_runtime=True`.
+
+Contrast `foundation/publication_gate.py::authorize_publish()`, which
+re-derives permission from recorded evidence rather than trusting a
+cached boolean. That is the two-point enforcement
+`TITANOS_CRITICAL_FUNCTION_SWITCH_GATE.md` §5 requires; `firewall/gate.py`
+re-derives nothing.
+
+**Reproduction** (offline, no network):
+
+```python
+import sys; sys.path.insert(0, ".")
+from firewall.gate import Artifact, evaluate
+base = dict(artifact_id="doc-1", classification="EVIDENCE",
+            contamination_state="UNVERIFIED", schema_valid=True,
+            provenance_valid=True, root_origin="example-org",
+            generated_by_agent=False, memetic_profile={},
+            contains_instructions=True)          # document contains imperatives
+print(evaluate(Artifact(**base, authorization_valid=False)).verdict)
+#   REQUIRES_HUMAN_REVIEW
+d = evaluate(Artifact(**base, authorization_valid=True))
+print(d.verdict, d.may_influence_runtime)
+#   AUTHORIZED True      <-- instruction boundary bypassed by the same flag
+```
+
+**Not fixed this cycle** — EXP-001's write scope forbids subsystem
+changes, and the fix is a design decision (require an evidence reference
+and re-derive, as `publication_gate` does), not a patch. **Must be
+resolved before `evaluate()` is ever wired to a real caller**; the defect
+is latent only because the module is unwired.
+
+---
+
+## EXP-001-F2 — `classify_claim` and `reclassify` enforce evidence asymmetrically
+
+**Found** 2026-09-01, EXP-001 pre-flight · **Status** OPEN, not fixed this cycle
+**Severity** MEDIUM. Latent — no current caller exercises it.
+
+`_REQUIRES_EVIDENCE_TO_ENTER` (`VERIFIED_FACT`, `EVIDENCE_SUPPORTED_MODEL`,
+`IMPLEMENTED_SYSTEM`) is enforced on the reclassify path and not on the
+create path. Two doors into the same state; one is guarded.
+
+```python
+import sys; sys.path.insert(0, ".")
+from kpm.schemas.epistemic_types import classify_claim, reclassify
+
+c = classify_claim("P1", "This library is provably secure.",
+                   "VERIFIED_FACT", classified_by="probe", confidence="HIGH")
+print(c.classification, c.confidence, c.evidence_refs)
+#   VERIFIED_FACT HIGH ()          <-- created, unevidenced, HIGH confidence
+
+u = classify_claim("P2", "This library is provably secure.",
+                   "UNKNOWN", classified_by="probe")
+reclassify(u, "VERIFIED_FACT", reason="the README says so", by="probe")
+#   MissingEvidence: reclassifying to VERIFIED_FACT requires non-empty
+#   evidence_refs.
+```
+
+Both production callers (`foundation/situation_analysis.py:547`, `:729`)
+pass `SPECULATIVE_HYPOTHESIS` with real `evidence_refs`, so nothing
+exercises the gap today. It is a trap for the next caller.
+
+---
+
+## EXP-001-F3 — 110 duplicated lines in the discovery budget enforcer
+
+**Found** 2026-09-01, EXP-001 pre-flight · **Status** OPEN, not fixed this cycle
+**Severity** MEDIUM. Behaviour currently correct; dead code that looks live.
+
+`foundation/discovery_authorization.py` defines five top-level symbols
+twice — `DiscoveryBudgetExhausted`, `_policy_key`, `spend_query`,
+`budget_spent`, `reset_budgets` — at lines 260–331 and again 358–429. Two
+72-line blocks differing only in docstring wording, plus two separate
+`_BUDGET_LEDGER` dicts (lines 283 and 382).
+
+```python
+import ast, collections
+tree = ast.parse(open("foundation/discovery_authorization.py").read())
+names = [n.name for n in tree.body
+         if isinstance(n, (ast.FunctionDef, ast.ClassDef))]
+print({k: v for k, v in collections.Counter(names).items() if v > 1})
+#   {'DiscoveryBudgetExhausted': 2, '_policy_key': 2, 'spend_query': 2,
+#    'budget_spent': 2, 'reset_budgets': 2}
+```
+
+The second copy shadows the first consistently and enforcement was
+verified working (2 spends, then `DiscoveryBudgetExhausted`, caught by the
+exported name). The risk is maintenance, not behaviour: lines 260–331 are
+unreachable, including a `_BUDGET_LEDGER` no live function reads, so a
+future fix applied to the first copy would silently do nothing. This is
+the budget half of the only network gate in the repository.

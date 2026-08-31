@@ -1,0 +1,390 @@
+{
+  "candidates": 25,
+  "collected": 28,
+  "documents": [
+    {
+      "bytes": 5317,
+      "collection_method": "GET raw.githubusercontent.com",
+      "content_hash": "4d20edc8d043718c1459dd5d5e25777a282cc09092ecab0f9cc7559f0eac9842",
+      "doc_id": "README:facebook/react",
+      "doc_type": "README",
+      "licence": "MIT",
+      "organisation": "facebook",
+      "retrieved_at": "2026-08-31T22:17:50.495243+00:00",
+      "source_url": "https://github.com/facebook/react/blob/main/README.md",
+      "why_included": "permissively-licensed project README making capability claims; selected before content was seen"
+    },
+    {
+      "bytes": 2487,
+      "collection_method": "GET raw.githubusercontent.com",
+      "content_hash": "1d5ea6d8b418d429c68d0f749ab07724c007a86beee996c401d2447d667f12c8",
+      "doc_id": "README:vuejs/core",
+      "doc_type": "README",
+      "licence": "MIT",
+      "organisation": "vuejs",
+      "retrieved_at": "2026-08-31T22:17:51.465630+00:00",
+      "source_url": "https://github.com/vuejs/core/blob/main/README.md",
+      "why_included": "permissively-licensed project README making capability claims; selected before content was seen"
+    },
+    {
+      "bytes": 107633,
+      "collection_method": "GET raw.githubusercontent.com",
+      "content_hash": "97a6e20150ce709291165af55c6fa4eba74f56c63dceb6aa69f1e9b495e52bcf",
+      "doc_id": "README:axios/axios",
+      "doc_type": "README",
+      "licence": "MIT",
+      "organisation": "axios",
+      "retrieved_at": "2026-08-31T22:17:54.358017+00:00",
+      "source_url": "https://github.com/axios/axios/blob/v1.x/README.md",
+      "why_included": "permissively-licensed project README making capability claims; selected before content was seen"
+    },
+    {
+      "bytes": 4236,
+      "collection_method": "GET raw.githubusercontent.com",
+      "content_hash": "0c1159ea384aa0855eaad87f4595da8fd776553830297f3a7c43db81c7708fbd",
+      "doc_id": "README:kubernetes/kubernetes",
+      "doc_type": "README",
+      "licence": "Apache-2.0",
+      "organisation": "kubernetes",
+      "retrieved_at": "2026-08-31T22:17:55.347356+00:00",
+      "source_url": "https://github.com/kubernetes/kubernetes/blob/master/README.md",
+      "why_included": "permissively-licensed project README making capability claims; selected before content was seen"
+    },
+    {
+      "bytes": 4621,
+      "collection_method": "GET raw.githubusercontent.com",
+      "content_hash": "15823e28dd6dcadfba187ac188bf22d79f26b783d1813eaca58588dbd2781d4f",
+      "doc_id": "README:grpc/grpc",
+      "doc_type": "README",
+      "licence": "Apache-2.0",
+      "organisation": "grpc",
+      "retrieved_at": "2026-08-31T22:17:56.296674+00:00",
+      "source_url": "https://github.com/grpc/grpc/blob/master/README.md",
+      "why_included": "permissively-licensed project README making capability claims; selected before content was seen"
+    },
+    {
+      "bytes": 14713,
+      "collection_method": "GET raw.githubusercontent.com",
+      "content_hash": "5550c38ce0519656f04aab69250ae7cdff499040bcb67c95bfb34f1b0dfc7e9a",
+      "doc_id": "README:apache/kafka",
+      "doc_type": "README",
+      "licence": "Apache-2.0",
+      "organisation": "apache",
+      "retrieved_at": "2026-08-31T22:17:57.148568+00:00",
+      "source_url": "https://github.com/apache/kafka/blob/trunk/README.md",
+      "why_included": "permissively-licensed project README making capability claims; selected before content was seen"
+    },
+    {
+      "bytes": 23367,
+      "collection_method": "GET raw.githubusercontent.com",
+      "content_hash": "29f014aae8b7a9f0f146188a73619d260a375fcfda1eb8e6b0fe28a74b357612",
+      "doc_id": "README:apache/spark",
+      "doc_type": "README",
+      "licence": "Apache-2.0",
+      "organisation": "apache",
+      "retrieved_at": "2026-08-31T22:17:58.054331+00:00",
+      "source_url": "https://github.com/apache/spark/blob/master/README.md",
+      "why_included": "permissively-licensed project README making capability claims; selected before content was seen"
+    },
+    {
+      "bytes": 6290,
+      "collection_method": "GET raw.githubusercontent.com",
+      "content_hash": "e4264d57cff1cb7ccaa16a1515fc35703416af8b198530fd25ae255b639ade17",
+      "doc_id": "README:google/guava",
+      "doc_type": "README",
+      "licence": "Apache-2.0",
+      "organisation": "google",
+      "retrieved_at": "2026-08-31T22:18:00.911873+00:00",
+      "source_url": "https://github.com/google/guava/blob/master/README.md",
+      "why_included": "permissively-licensed project README making capability claims; selected before content was seen"
+    },
+    {
+      "bytes": 9790,
+      "collection_method": "GET raw.githubusercontent.com",
+      "content_hash": "cd490686cd4ad6355aff49d75431f2cc00a101c61f60c3065b7c88cab7f557a4",
+      "doc_id": "README:tensorflow/tensorflow",
+      "doc_type": "README",
+      "licence": "Apache-2.0",
+      "organisation": "tensorflow",
+      "retrieved_at": "2026-08-31T22:18:02.382613+00:00",
+      "source_url": "https://github.com/tensorflow/tensorflow/blob/master/README.md",
+      "why_included": "permissively-licensed project README making capability claims; selected before content was seen"
+    },
+    {
+      "bytes": 3807,
+      "collection_method": "GET raw.githubusercontent.com",
+      "content_hash": "83a959d62dea940f94ce1b50024928e34afb447de35197b7ea1d944fd6dbbcf7",
+      "doc_id": "README:denoland/deno",
+      "doc_type": "README",
+      "licence": "MIT",
+      "organisation": "denoland",
+      "retrieved_at": "2026-08-31T22:18:03.672739+00:00",
+      "source_url": "https://github.com/denoland/deno/blob/main/README.md",
+      "why_included": "permissively-licensed project README making capability claims; selected before content was seen"
+    },
+    {
+      "bytes": 2741,
+      "collection_method": "GET raw.githubusercontent.com",
+      "content_hash": "b43867a1a978a0a3d881b91e50e9807f1f56e3f1dd54d65cad43f471c84e0036",
+      "doc_id": "README:microsoft/TypeScript",
+      "doc_type": "README",
+      "licence": "Apache-2.0",
+      "organisation": "microsoft",
+      "retrieved_at": "2026-08-31T22:18:05.222960+00:00",
+      "source_url": "https://github.com/microsoft/TypeScript/blob/main/README.md",
+      "why_included": "permissively-licensed project README making capability claims; selected before content was seen"
+    },
+    {
+      "bytes": 6728,
+      "collection_method": "GET raw.githubusercontent.com",
+      "content_hash": "45a411a3b8d49556fbaa73601befc458ab10ad873fca9088136888c89abb8935",
+      "doc_id": "README:microsoft/vscode",
+      "doc_type": "README",
+      "licence": "MIT",
+      "organisation": "microsoft",
+      "retrieved_at": "2026-08-31T22:18:06.143254+00:00",
+      "source_url": "https://github.com/microsoft/vscode/blob/main/README.md",
+      "why_included": "permissively-licensed project README making capability claims; selected before content was seen"
+    },
+    {
+      "bytes": 9690,
+      "collection_method": "GET raw.githubusercontent.com",
+      "content_hash": "9ef538829dfc934d7ef53c62bafb3a2ea78b0cab432b2bbf47e84192abf6fddb",
+      "doc_id": "README:prometheus/prometheus",
+      "doc_type": "README",
+      "licence": "Apache-2.0",
+      "organisation": "prometheus",
+      "retrieved_at": "2026-08-31T22:18:07.656005+00:00",
+      "source_url": "https://github.com/prometheus/prometheus/blob/main/README.md",
+      "why_included": "permissively-licensed project README making capability claims; selected before content was seen"
+    },
+    {
+      "bytes": 8586,
+      "collection_method": "GET raw.githubusercontent.com",
+      "content_hash": "64464d90ab175816fb57d9241bd241d3c95f2f5229644854a3e98ae5dc888e9a",
+      "doc_id": "README:openssl/openssl",
+      "doc_type": "README",
+      "licence": "Apache-2.0",
+      "organisation": "openssl",
+      "retrieved_at": "2026-08-31T22:18:09.737250+00:00",
+      "source_url": "https://github.com/openssl/openssl/blob/master/README.md",
+      "why_included": "permissively-licensed project README making capability claims; selected before content was seen"
+    },
+    {
+      "bytes": 1964,
+      "collection_method": "GET raw.githubusercontent.com",
+      "content_hash": "c9955c50630b0e2582cbc56b13f077e778a8c03c8002ce8966a38444a30c4d93",
+      "doc_id": "README:home-assistant/core",
+      "doc_type": "README",
+      "licence": "Apache-2.0",
+      "organisation": "home-assistant",
+      "retrieved_at": "2026-08-31T22:18:12.780463+00:00",
+      "source_url": "https://github.com/home-assistant/core/blob/dev/README.md",
+      "why_included": "permissively-licensed project README making capability claims; selected before content was seen"
+    },
+    {
+      "bytes": 5487,
+      "collection_method": "GET raw.githubusercontent.com",
+      "content_hash": "97dff8df1c816b0c115f7fcd976bbaaf9106edc0f5d8c8559c74a6bcac285b04",
+      "doc_id": "README:moby/moby",
+      "doc_type": "README",
+      "licence": "Apache-2.0",
+      "organisation": "moby",
+      "retrieved_at": "2026-08-31T22:18:14.375893+00:00",
+      "source_url": "https://github.com/moby/moby/blob/master/README.md",
+      "why_included": "permissively-licensed project README making capability claims; selected before content was seen"
+    },
+    {
+      "bytes": 2770,
+      "collection_method": "GET api.github.com/advisories",
+      "content_hash": "400a61fe7041b5ddf02f6c7d0b482cb9419a7b979412ce5e3a5fbb7ece62d37c",
+      "doc_id": "ADVISORY:GHSA-67mx-6wf2-92xp",
+      "doc_type": "SECURITY_ADVISORY",
+      "licence": "CC-BY-4.0 (GitHub Advisory Database)",
+      "organisation": "github/advisory-database",
+      "retrieved_at": "2026-08-31T22:18:15.193084+00:00",
+      "source_url": "https://github.com/advisories/GHSA-67mx-6wf2-92xp",
+      "why_included": "public security advisory asserting impact and remediation; contains imperatives aimed at a reader"
+    },
+    {
+      "bytes": 3237,
+      "collection_method": "GET api.github.com/advisories",
+      "content_hash": "4e26db97d0d1aa48ebfaba7b022c52556ea7e4ecc7bca95bb9e5013c9a36f004",
+      "doc_id": "ADVISORY:GHSA-9vx2-j98c-p72w",
+      "doc_type": "SECURITY_ADVISORY",
+      "licence": "CC-BY-4.0 (GitHub Advisory Database)",
+      "organisation": "github/advisory-database",
+      "retrieved_at": "2026-08-31T22:18:15.193184+00:00",
+      "source_url": "https://github.com/advisories/GHSA-9vx2-j98c-p72w",
+      "why_included": "public security advisory asserting impact and remediation; contains imperatives aimed at a reader"
+    },
+    {
+      "bytes": 428,
+      "collection_method": "GET api.github.com/advisories",
+      "content_hash": "e04bb42f5143720df38788e609c69dde4107ec5fc642e9ecfc0b67aa1b2e0911",
+      "doc_id": "ADVISORY:GHSA-vcc3-ghjq-m6fr",
+      "doc_type": "SECURITY_ADVISORY",
+      "licence": "CC-BY-4.0 (GitHub Advisory Database)",
+      "organisation": "github/advisory-database",
+      "retrieved_at": "2026-08-31T22:18:15.193227+00:00",
+      "source_url": "https://github.com/advisories/GHSA-vcc3-ghjq-m6fr",
+      "why_included": "public security advisory asserting impact and remediation; contains imperatives aimed at a reader"
+    },
+    {
+      "bytes": 2500,
+      "collection_method": "GET api.github.com/advisories",
+      "content_hash": "29ef5b3d1447c90287c40f22dedbf0ea8596c333c86b885e4ff2ff822ab5596c",
+      "doc_id": "ADVISORY:GHSA-gr94-w7qr-f4j3",
+      "doc_type": "SECURITY_ADVISORY",
+      "licence": "CC-BY-4.0 (GitHub Advisory Database)",
+      "organisation": "github/advisory-database",
+      "retrieved_at": "2026-08-31T22:18:15.193243+00:00",
+      "source_url": "https://github.com/advisories/GHSA-gr94-w7qr-f4j3",
+      "why_included": "public security advisory asserting impact and remediation; contains imperatives aimed at a reader"
+    },
+    {
+      "bytes": 1257,
+      "collection_method": "GET api.github.com/advisories",
+      "content_hash": "8d53b4c56fa7ecd69e53cfb7b7cf77573c9f219ea4f9c0869dc9ebfde9aaa38b",
+      "doc_id": "ADVISORY:GHSA-fm3f-ch8h-qw8q",
+      "doc_type": "SECURITY_ADVISORY",
+      "licence": "CC-BY-4.0 (GitHub Advisory Database)",
+      "organisation": "github/advisory-database",
+      "retrieved_at": "2026-08-31T22:18:15.193324+00:00",
+      "source_url": "https://github.com/advisories/GHSA-fm3f-ch8h-qw8q",
+      "why_included": "public security advisory asserting impact and remediation; contains imperatives aimed at a reader"
+    },
+    {
+      "bytes": 7311,
+      "collection_method": "GET api.github.com/advisories",
+      "content_hash": "6f657f18f87c71d6a11c9ebde7375c6aa34e14fed4cb5fbda3876109a0036dda",
+      "doc_id": "ADVISORY:GHSA-8x3q-jpjh-qh5c",
+      "doc_type": "SECURITY_ADVISORY",
+      "licence": "CC-BY-4.0 (GitHub Advisory Database)",
+      "organisation": "github/advisory-database",
+      "retrieved_at": "2026-08-31T22:18:15.193359+00:00",
+      "source_url": "https://github.com/advisories/GHSA-8x3q-jpjh-qh5c",
+      "why_included": "public security advisory asserting impact and remediation; contains imperatives aimed at a reader"
+    },
+    {
+      "bytes": 647,
+      "collection_method": "GET api.github.com/advisories",
+      "content_hash": "0dfe72f23c559c37daf9117175784899a00e67c50d21d4a35f8e28e54ee1d2e7",
+      "doc_id": "ADVISORY:GHSA-mfqj-cqv3-h7xw",
+      "doc_type": "SECURITY_ADVISORY",
+      "licence": "CC-BY-4.0 (GitHub Advisory Database)",
+      "organisation": "github/advisory-database",
+      "retrieved_at": "2026-08-31T22:18:15.193440+00:00",
+      "source_url": "https://github.com/advisories/GHSA-mfqj-cqv3-h7xw",
+      "why_included": "public security advisory asserting impact and remediation; contains imperatives aimed at a reader"
+    },
+    {
+      "bytes": 3015,
+      "collection_method": "GET api.github.com/advisories",
+      "content_hash": "b6f7c075931ea9aa587704a7c4bd56db5f75eb7fe5585fc52aa05f6c7615d849",
+      "doc_id": "ADVISORY:GHSA-g5xc-5w98-jfvm",
+      "doc_type": "SECURITY_ADVISORY",
+      "licence": "CC-BY-4.0 (GitHub Advisory Database)",
+      "organisation": "github/advisory-database",
+      "retrieved_at": "2026-08-31T22:18:15.193465+00:00",
+      "source_url": "https://github.com/advisories/GHSA-g5xc-5w98-jfvm",
+      "why_included": "public security advisory asserting impact and remediation; contains imperatives aimed at a reader"
+    },
+    {
+      "bytes": 2513,
+      "collection_method": "GET api.github.com/advisories",
+      "content_hash": "7e8d6bf09fc8f340dfe567e0e306e2015bde1d2fc7ddc9bcff3ee93e4985986d",
+      "doc_id": "ADVISORY:GHSA-ffg3-p8fm-mjx2",
+      "doc_type": "SECURITY_ADVISORY",
+      "licence": "CC-BY-4.0 (GitHub Advisory Database)",
+      "organisation": "github/advisory-database",
+      "retrieved_at": "2026-08-31T22:18:15.193498+00:00",
+      "source_url": "https://github.com/advisories/GHSA-ffg3-p8fm-mjx2",
+      "why_included": "public security advisory asserting impact and remediation; contains imperatives aimed at a reader"
+    },
+    {
+      "bytes": 1874,
+      "collection_method": "GET api.github.com/advisories",
+      "content_hash": "df7e43d4abb3d88858d6ef5ea802e479e53a12c58f226dacc5bae6add0e4de75",
+      "doc_id": "ADVISORY:GHSA-c857-9x2m-cvh2",
+      "doc_type": "SECURITY_ADVISORY",
+      "licence": "CC-BY-4.0 (GitHub Advisory Database)",
+      "organisation": "github/advisory-database",
+      "retrieved_at": "2026-08-31T22:18:15.193529+00:00",
+      "source_url": "https://github.com/advisories/GHSA-c857-9x2m-cvh2",
+      "why_included": "public security advisory asserting impact and remediation; contains imperatives aimed at a reader"
+    },
+    {
+      "bytes": 180,
+      "collection_method": "DERIVED \u2014 truncated to 180 chars",
+      "content_hash": "85bcca8b94511a74ace75fac917826246d130dfd1e1665c5eaf5a610b19e446a",
+      "doc_id": "DERIVED:truncated",
+      "doc_type": "DERIVED_TRUNCATED",
+      "licence": "MIT",
+      "organisation": "facebook",
+      "retrieved_at": "2026-08-31T22:18:15.193557+00:00",
+      "source_url": "https://github.com/facebook/react/blob/main/README.md",
+      "why_included": "the payload requires a malformed/truncated document. This is a DERIVED mutation of a real document, not a real-world artifact, and is labelled so nobody reads it as evidence about real inputs."
+    },
+    {
+      "bytes": 0,
+      "collection_method": "DERIVED \u2014 empty document",
+      "content_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "doc_id": "DERIVED:empty",
+      "doc_type": "DERIVED_EMPTY",
+      "licence": "n/a",
+      "organisation": "n/a",
+      "retrieved_at": "2026-08-31T22:18:15.193573+00:00",
+      "source_url": "n/a",
+      "why_included": "degenerate input: does the pipeline crash or refuse cleanly?"
+    }
+  ],
+  "excluded": [
+    {
+      "detail": "no README.md/.rst/plain on master",
+      "reason": "NO_README_FOUND",
+      "repo": "expressjs/express"
+    },
+    {
+      "detail": "licence is BSD-3-Clause; rule admits ['Apache-2.0', 'MIT']",
+      "reason": "LICENCE_NOT_PERMITTED",
+      "repo": "google/leveldb"
+    },
+    {
+      "detail": "licence is NOASSERTION; rule admits ['Apache-2.0', 'MIT']",
+      "reason": "LICENCE_NOT_PERMITTED",
+      "repo": "pytorch/pytorch"
+    },
+    {
+      "detail": "licence is NOASSERTION; rule admits ['Apache-2.0', 'MIT']",
+      "reason": "LICENCE_NOT_PERMITTED",
+      "repo": "nodejs/node"
+    },
+    {
+      "detail": "licence is NOASSERTION; rule admits ['Apache-2.0', 'MIT']",
+      "reason": "LICENCE_NOT_PERMITTED",
+      "repo": "elastic/elasticsearch"
+    },
+    {
+      "detail": "licence is AGPL-3.0; rule admits ['Apache-2.0', 'MIT']",
+      "reason": "LICENCE_NOT_PERMITTED",
+      "repo": "grafana/grafana"
+    },
+    {
+      "detail": "licence is NOASSERTION; rule admits ['Apache-2.0', 'MIT']",
+      "reason": "LICENCE_NOT_PERMITTED",
+      "repo": "hashicorp/terraform"
+    },
+    {
+      "detail": "no README.md/.rst/plain on master",
+      "reason": "NO_README_FOUND",
+      "repo": "jekyll/jekyll"
+    },
+    {
+      "detail": "licence is GPL-3.0; rule admits ['Apache-2.0', 'MIT']",
+      "reason": "LICENCE_NOT_PERMITTED",
+      "repo": "ansible/ansible"
+    }
+  ],
+  "selection_rule": "see METHOD.md; fixed before any fetch"
+}

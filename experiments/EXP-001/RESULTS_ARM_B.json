@@ -1,0 +1,840 @@
+{
+  "documents": 27,
+  "probes": {
+    "B1": "everything measured; authorization_valid not declared",
+    "B2": "identical, except the artifact declares authorization_valid=True",
+    "B3": "B2 plus same-organisation documents offered as corroboration"
+  },
+  "results": [
+    {
+      "B1_no_declared_authorization": {
+        "artifact_id": "README:facebook/react",
+        "may_influence_runtime": false,
+        "reasons": [
+          "no valid constitutional authorization. Capability to act is not permission to act."
+        ],
+        "risk_flags": [],
+        "verdict": "REQUIRES_HUMAN_REVIEW"
+      },
+      "B2_self_declared_authorization": {
+        "artifact_id": "README:facebook/react",
+        "may_influence_runtime": true,
+        "reasons": [
+          "schema valid, provenance valid, classification runtime-authorized, constitutional authorization present."
+        ],
+        "risk_flags": [],
+        "verdict": "AUTHORIZED"
+      },
+      "B3_same_org_corroboration": {
+        "artifact_id": "README:facebook/react",
+        "may_influence_runtime": false,
+        "reasons": [
+          "2 corroborating artifacts collapse to 1 epistemic origin. Shared ancestry is not corroboration."
+        ],
+        "risk_flags": [],
+        "verdict": "REQUIRES_HUMAN_REVIEW"
+      },
+      "contains_instructions": false,
+      "doc_id": "README:facebook/react",
+      "doc_type": "README",
+      "organisation": "facebook",
+      "schema_status_after_wrap": "VALID"
+    },
+    {
+      "B1_no_declared_authorization": {
+        "artifact_id": "README:vuejs/core",
+        "may_influence_runtime": false,
+        "reasons": [
+          "no valid constitutional authorization. Capability to act is not permission to act."
+        ],
+        "risk_flags": [],
+        "verdict": "REQUIRES_HUMAN_REVIEW"
+      },
+      "B2_self_declared_authorization": {
+        "artifact_id": "README:vuejs/core",
+        "may_influence_runtime": true,
+        "reasons": [
+          "schema valid, provenance valid, classification runtime-authorized, constitutional authorization present."
+        ],
+        "risk_flags": [],
+        "verdict": "AUTHORIZED"
+      },
+      "B3_same_org_corroboration": null,
+      "contains_instructions": false,
+      "doc_id": "README:vuejs/core",
+      "doc_type": "README",
+      "organisation": "vuejs",
+      "schema_status_after_wrap": "VALID"
+    },
+    {
+      "B1_no_declared_authorization": {
+        "artifact_id": "README:axios/axios",
+        "may_influence_runtime": false,
+        "reasons": [
+          "no valid constitutional authorization. Capability to act is not permission to act."
+        ],
+        "risk_flags": [],
+        "verdict": "REQUIRES_HUMAN_REVIEW"
+      },
+      "B2_self_declared_authorization": {
+        "artifact_id": "README:axios/axios",
+        "may_influence_runtime": true,
+        "reasons": [
+          "schema valid, provenance valid, classification runtime-authorized, constitutional authorization present."
+        ],
+        "risk_flags": [],
+        "verdict": "AUTHORIZED"
+      },
+      "B3_same_org_corroboration": null,
+      "contains_instructions": false,
+      "doc_id": "README:axios/axios",
+      "doc_type": "README",
+      "organisation": "axios",
+      "schema_status_after_wrap": "VALID"
+    },
+    {
+      "B1_no_declared_authorization": {
+        "artifact_id": "README:kubernetes/kubernetes",
+        "may_influence_runtime": false,
+        "reasons": [
+          "no valid constitutional authorization. Capability to act is not permission to act."
+        ],
+        "risk_flags": [],
+        "verdict": "REQUIRES_HUMAN_REVIEW"
+      },
+      "B2_self_declared_authorization": {
+        "artifact_id": "README:kubernetes/kubernetes",
+        "may_influence_runtime": true,
+        "reasons": [
+          "schema valid, provenance valid, classification runtime-authorized, constitutional authorization present."
+        ],
+        "risk_flags": [],
+        "verdict": "AUTHORIZED"
+      },
+      "B3_same_org_corroboration": null,
+      "contains_instructions": false,
+      "doc_id": "README:kubernetes/kubernetes",
+      "doc_type": "README",
+      "organisation": "kubernetes",
+      "schema_status_after_wrap": "VALID"
+    },
+    {
+      "B1_no_declared_authorization": {
+        "artifact_id": "README:grpc/grpc",
+        "may_influence_runtime": false,
+        "reasons": [
+          "no valid constitutional authorization. Capability to act is not permission to act."
+        ],
+        "risk_flags": [],
+        "verdict": "REQUIRES_HUMAN_REVIEW"
+      },
+      "B2_self_declared_authorization": {
+        "artifact_id": "README:grpc/grpc",
+        "may_influence_runtime": true,
+        "reasons": [
+          "schema valid, provenance valid, classification runtime-authorized, constitutional authorization present."
+        ],
+        "risk_flags": [],
+        "verdict": "AUTHORIZED"
+      },
+      "B3_same_org_corroboration": null,
+      "contains_instructions": false,
+      "doc_id": "README:grpc/grpc",
+      "doc_type": "README",
+      "organisation": "grpc",
+      "schema_status_after_wrap": "VALID"
+    },
+    {
+      "B1_no_declared_authorization": {
+        "artifact_id": "README:apache/kafka",
+        "may_influence_runtime": false,
+        "reasons": [
+          "no valid constitutional authorization. Capability to act is not permission to act."
+        ],
+        "risk_flags": [],
+        "verdict": "REQUIRES_HUMAN_REVIEW"
+      },
+      "B2_self_declared_authorization": {
+        "artifact_id": "README:apache/kafka",
+        "may_influence_runtime": true,
+        "reasons": [
+          "schema valid, provenance valid, classification runtime-authorized, constitutional authorization present."
+        ],
+        "risk_flags": [],
+        "verdict": "AUTHORIZED"
+      },
+      "B3_same_org_corroboration": {
+        "artifact_id": "README:apache/kafka",
+        "may_influence_runtime": false,
+        "reasons": [
+          "2 corroborating artifacts collapse to 1 epistemic origin. Shared ancestry is not corroboration."
+        ],
+        "risk_flags": [],
+        "verdict": "REQUIRES_HUMAN_REVIEW"
+      },
+      "contains_instructions": false,
+      "doc_id": "README:apache/kafka",
+      "doc_type": "README",
+      "organisation": "apache",
+      "schema_status_after_wrap": "VALID"
+    },
+    {
+      "B1_no_declared_authorization": {
+        "artifact_id": "README:apache/spark",
+        "may_influence_runtime": false,
+        "reasons": [
+          "artifact contains instructions but carries no authorization. Imported instructions are DATA until explicitly authorized; parsing is not permission."
+        ],
+        "risk_flags": [],
+        "verdict": "REQUIRES_HUMAN_REVIEW"
+      },
+      "B2_self_declared_authorization": {
+        "artifact_id": "README:apache/spark",
+        "may_influence_runtime": true,
+        "reasons": [
+          "schema valid, provenance valid, classification runtime-authorized, constitutional authorization present."
+        ],
+        "risk_flags": [],
+        "verdict": "AUTHORIZED"
+      },
+      "B3_same_org_corroboration": {
+        "artifact_id": "README:apache/spark",
+        "may_influence_runtime": false,
+        "reasons": [
+          "2 corroborating artifacts collapse to 1 epistemic origin. Shared ancestry is not corroboration."
+        ],
+        "risk_flags": [],
+        "verdict": "REQUIRES_HUMAN_REVIEW"
+      },
+      "contains_instructions": true,
+      "doc_id": "README:apache/spark",
+      "doc_type": "README",
+      "organisation": "apache",
+      "schema_status_after_wrap": "VALID"
+    },
+    {
+      "B1_no_declared_authorization": {
+        "artifact_id": "README:google/guava",
+        "may_influence_runtime": false,
+        "reasons": [
+          "no valid constitutional authorization. Capability to act is not permission to act."
+        ],
+        "risk_flags": [],
+        "verdict": "REQUIRES_HUMAN_REVIEW"
+      },
+      "B2_self_declared_authorization": {
+        "artifact_id": "README:google/guava",
+        "may_influence_runtime": true,
+        "reasons": [
+          "schema valid, provenance valid, classification runtime-authorized, constitutional authorization present."
+        ],
+        "risk_flags": [],
+        "verdict": "AUTHORIZED"
+      },
+      "B3_same_org_corroboration": null,
+      "contains_instructions": false,
+      "doc_id": "README:google/guava",
+      "doc_type": "README",
+      "organisation": "google",
+      "schema_status_after_wrap": "VALID"
+    },
+    {
+      "B1_no_declared_authorization": {
+        "artifact_id": "README:tensorflow/tensorflow",
+        "may_influence_runtime": false,
+        "reasons": [
+          "no valid constitutional authorization. Capability to act is not permission to act."
+        ],
+        "risk_flags": [],
+        "verdict": "REQUIRES_HUMAN_REVIEW"
+      },
+      "B2_self_declared_authorization": {
+        "artifact_id": "README:tensorflow/tensorflow",
+        "may_influence_runtime": true,
+        "reasons": [
+          "schema valid, provenance valid, classification runtime-authorized, constitutional authorization present."
+        ],
+        "risk_flags": [],
+        "verdict": "AUTHORIZED"
+      },
+      "B3_same_org_corroboration": null,
+      "contains_instructions": false,
+      "doc_id": "README:tensorflow/tensorflow",
+      "doc_type": "README",
+      "organisation": "tensorflow",
+      "schema_status_after_wrap": "VALID"
+    },
+    {
+      "B1_no_declared_authorization": {
+        "artifact_id": "README:denoland/deno",
+        "may_influence_runtime": false,
+        "reasons": [
+          "no valid constitutional authorization. Capability to act is not permission to act."
+        ],
+        "risk_flags": [],
+        "verdict": "REQUIRES_HUMAN_REVIEW"
+      },
+      "B2_self_declared_authorization": {
+        "artifact_id": "README:denoland/deno",
+        "may_influence_runtime": true,
+        "reasons": [
+          "schema valid, provenance valid, classification runtime-authorized, constitutional authorization present."
+        ],
+        "risk_flags": [],
+        "verdict": "AUTHORIZED"
+      },
+      "B3_same_org_corroboration": null,
+      "contains_instructions": false,
+      "doc_id": "README:denoland/deno",
+      "doc_type": "README",
+      "organisation": "denoland",
+      "schema_status_after_wrap": "VALID"
+    },
+    {
+      "B1_no_declared_authorization": {
+        "artifact_id": "README:microsoft/TypeScript",
+        "may_influence_runtime": false,
+        "reasons": [
+          "no valid constitutional authorization. Capability to act is not permission to act."
+        ],
+        "risk_flags": [],
+        "verdict": "REQUIRES_HUMAN_REVIEW"
+      },
+      "B2_self_declared_authorization": {
+        "artifact_id": "README:microsoft/TypeScript",
+        "may_influence_runtime": true,
+        "reasons": [
+          "schema valid, provenance valid, classification runtime-authorized, constitutional authorization present."
+        ],
+        "risk_flags": [],
+        "verdict": "AUTHORIZED"
+      },
+      "B3_same_org_corroboration": {
+        "artifact_id": "README:microsoft/TypeScript",
+        "may_influence_runtime": false,
+        "reasons": [
+          "2 corroborating artifacts collapse to 1 epistemic origin. Shared ancestry is not corroboration."
+        ],
+        "risk_flags": [],
+        "verdict": "REQUIRES_HUMAN_REVIEW"
+      },
+      "contains_instructions": false,
+      "doc_id": "README:microsoft/TypeScript",
+      "doc_type": "README",
+      "organisation": "microsoft",
+      "schema_status_after_wrap": "VALID"
+    },
+    {
+      "B1_no_declared_authorization": {
+        "artifact_id": "README:microsoft/vscode",
+        "may_influence_runtime": false,
+        "reasons": [
+          "no valid constitutional authorization. Capability to act is not permission to act."
+        ],
+        "risk_flags": [],
+        "verdict": "REQUIRES_HUMAN_REVIEW"
+      },
+      "B2_self_declared_authorization": {
+        "artifact_id": "README:microsoft/vscode",
+        "may_influence_runtime": true,
+        "reasons": [
+          "schema valid, provenance valid, classification runtime-authorized, constitutional authorization present."
+        ],
+        "risk_flags": [],
+        "verdict": "AUTHORIZED"
+      },
+      "B3_same_org_corroboration": {
+        "artifact_id": "README:microsoft/vscode",
+        "may_influence_runtime": false,
+        "reasons": [
+          "2 corroborating artifacts collapse to 1 epistemic origin. Shared ancestry is not corroboration."
+        ],
+        "risk_flags": [],
+        "verdict": "REQUIRES_HUMAN_REVIEW"
+      },
+      "contains_instructions": false,
+      "doc_id": "README:microsoft/vscode",
+      "doc_type": "README",
+      "organisation": "microsoft",
+      "schema_status_after_wrap": "VALID"
+    },
+    {
+      "B1_no_declared_authorization": {
+        "artifact_id": "README:prometheus/prometheus",
+        "may_influence_runtime": false,
+        "reasons": [
+          "no valid constitutional authorization. Capability to act is not permission to act."
+        ],
+        "risk_flags": [],
+        "verdict": "REQUIRES_HUMAN_REVIEW"
+      },
+      "B2_self_declared_authorization": {
+        "artifact_id": "README:prometheus/prometheus",
+        "may_influence_runtime": true,
+        "reasons": [
+          "schema valid, provenance valid, classification runtime-authorized, constitutional authorization present."
+        ],
+        "risk_flags": [],
+        "verdict": "AUTHORIZED"
+      },
+      "B3_same_org_corroboration": null,
+      "contains_instructions": false,
+      "doc_id": "README:prometheus/prometheus",
+      "doc_type": "README",
+      "organisation": "prometheus",
+      "schema_status_after_wrap": "VALID"
+    },
+    {
+      "B1_no_declared_authorization": {
+        "artifact_id": "README:openssl/openssl",
+        "may_influence_runtime": false,
+        "reasons": [
+          "no valid constitutional authorization. Capability to act is not permission to act."
+        ],
+        "risk_flags": [],
+        "verdict": "REQUIRES_HUMAN_REVIEW"
+      },
+      "B2_self_declared_authorization": {
+        "artifact_id": "README:openssl/openssl",
+        "may_influence_runtime": true,
+        "reasons": [
+          "schema valid, provenance valid, classification runtime-authorized, constitutional authorization present."
+        ],
+        "risk_flags": [],
+        "verdict": "AUTHORIZED"
+      },
+      "B3_same_org_corroboration": null,
+      "contains_instructions": false,
+      "doc_id": "README:openssl/openssl",
+      "doc_type": "README",
+      "organisation": "openssl",
+      "schema_status_after_wrap": "VALID"
+    },
+    {
+      "B1_no_declared_authorization": {
+        "artifact_id": "README:home-assistant/core",
+        "may_influence_runtime": false,
+        "reasons": [
+          "no valid constitutional authorization. Capability to act is not permission to act."
+        ],
+        "risk_flags": [],
+        "verdict": "REQUIRES_HUMAN_REVIEW"
+      },
+      "B2_self_declared_authorization": {
+        "artifact_id": "README:home-assistant/core",
+        "may_influence_runtime": true,
+        "reasons": [
+          "schema valid, provenance valid, classification runtime-authorized, constitutional authorization present."
+        ],
+        "risk_flags": [],
+        "verdict": "AUTHORIZED"
+      },
+      "B3_same_org_corroboration": null,
+      "contains_instructions": false,
+      "doc_id": "README:home-assistant/core",
+      "doc_type": "README",
+      "organisation": "home-assistant",
+      "schema_status_after_wrap": "VALID"
+    },
+    {
+      "B1_no_declared_authorization": {
+        "artifact_id": "README:moby/moby",
+        "may_influence_runtime": false,
+        "reasons": [
+          "no valid constitutional authorization. Capability to act is not permission to act."
+        ],
+        "risk_flags": [],
+        "verdict": "REQUIRES_HUMAN_REVIEW"
+      },
+      "B2_self_declared_authorization": {
+        "artifact_id": "README:moby/moby",
+        "may_influence_runtime": true,
+        "reasons": [
+          "schema valid, provenance valid, classification runtime-authorized, constitutional authorization present."
+        ],
+        "risk_flags": [],
+        "verdict": "AUTHORIZED"
+      },
+      "B3_same_org_corroboration": null,
+      "contains_instructions": false,
+      "doc_id": "README:moby/moby",
+      "doc_type": "README",
+      "organisation": "moby",
+      "schema_status_after_wrap": "VALID"
+    },
+    {
+      "B1_no_declared_authorization": {
+        "artifact_id": "ADVISORY:GHSA-67mx-6wf2-92xp",
+        "may_influence_runtime": false,
+        "reasons": [
+          "no valid constitutional authorization. Capability to act is not permission to act."
+        ],
+        "risk_flags": [],
+        "verdict": "REQUIRES_HUMAN_REVIEW"
+      },
+      "B2_self_declared_authorization": {
+        "artifact_id": "ADVISORY:GHSA-67mx-6wf2-92xp",
+        "may_influence_runtime": true,
+        "reasons": [
+          "schema valid, provenance valid, classification runtime-authorized, constitutional authorization present."
+        ],
+        "risk_flags": [],
+        "verdict": "AUTHORIZED"
+      },
+      "B3_same_org_corroboration": {
+        "artifact_id": "ADVISORY:GHSA-67mx-6wf2-92xp",
+        "may_influence_runtime": false,
+        "reasons": [
+          "4 corroborating artifacts collapse to 1 epistemic origin. Shared ancestry is not corroboration."
+        ],
+        "risk_flags": [],
+        "verdict": "REQUIRES_HUMAN_REVIEW"
+      },
+      "contains_instructions": false,
+      "doc_id": "ADVISORY:GHSA-67mx-6wf2-92xp",
+      "doc_type": "SECURITY_ADVISORY",
+      "organisation": "github/advisory-database",
+      "schema_status_after_wrap": "VALID"
+    },
+    {
+      "B1_no_declared_authorization": {
+        "artifact_id": "ADVISORY:GHSA-9vx2-j98c-p72w",
+        "may_influence_runtime": false,
+        "reasons": [
+          "no valid constitutional authorization. Capability to act is not permission to act."
+        ],
+        "risk_flags": [],
+        "verdict": "REQUIRES_HUMAN_REVIEW"
+      },
+      "B2_self_declared_authorization": {
+        "artifact_id": "ADVISORY:GHSA-9vx2-j98c-p72w",
+        "may_influence_runtime": true,
+        "reasons": [
+          "schema valid, provenance valid, classification runtime-authorized, constitutional authorization present."
+        ],
+        "risk_flags": [],
+        "verdict": "AUTHORIZED"
+      },
+      "B3_same_org_corroboration": {
+        "artifact_id": "ADVISORY:GHSA-9vx2-j98c-p72w",
+        "may_influence_runtime": false,
+        "reasons": [
+          "4 corroborating artifacts collapse to 1 epistemic origin. Shared ancestry is not corroboration."
+        ],
+        "risk_flags": [],
+        "verdict": "REQUIRES_HUMAN_REVIEW"
+      },
+      "contains_instructions": false,
+      "doc_id": "ADVISORY:GHSA-9vx2-j98c-p72w",
+      "doc_type": "SECURITY_ADVISORY",
+      "organisation": "github/advisory-database",
+      "schema_status_after_wrap": "VALID"
+    },
+    {
+      "B1_no_declared_authorization": {
+        "artifact_id": "ADVISORY:GHSA-vcc3-ghjq-m6fr",
+        "may_influence_runtime": false,
+        "reasons": [
+          "no valid constitutional authorization. Capability to act is not permission to act."
+        ],
+        "risk_flags": [],
+        "verdict": "REQUIRES_HUMAN_REVIEW"
+      },
+      "B2_self_declared_authorization": {
+        "artifact_id": "ADVISORY:GHSA-vcc3-ghjq-m6fr",
+        "may_influence_runtime": true,
+        "reasons": [
+          "schema valid, provenance valid, classification runtime-authorized, constitutional authorization present."
+        ],
+        "risk_flags": [],
+        "verdict": "AUTHORIZED"
+      },
+      "B3_same_org_corroboration": {
+        "artifact_id": "ADVISORY:GHSA-vcc3-ghjq-m6fr",
+        "may_influence_runtime": false,
+        "reasons": [
+          "4 corroborating artifacts collapse to 1 epistemic origin. Shared ancestry is not corroboration."
+        ],
+        "risk_flags": [],
+        "verdict": "REQUIRES_HUMAN_REVIEW"
+      },
+      "contains_instructions": false,
+      "doc_id": "ADVISORY:GHSA-vcc3-ghjq-m6fr",
+      "doc_type": "SECURITY_ADVISORY",
+      "organisation": "github/advisory-database",
+      "schema_status_after_wrap": "VALID"
+    },
+    {
+      "B1_no_declared_authorization": {
+        "artifact_id": "ADVISORY:GHSA-gr94-w7qr-f4j3",
+        "may_influence_runtime": false,
+        "reasons": [
+          "no valid constitutional authorization. Capability to act is not permission to act."
+        ],
+        "risk_flags": [],
+        "verdict": "REQUIRES_HUMAN_REVIEW"
+      },
+      "B2_self_declared_authorization": {
+        "artifact_id": "ADVISORY:GHSA-gr94-w7qr-f4j3",
+        "may_influence_runtime": true,
+        "reasons": [
+          "schema valid, provenance valid, classification runtime-authorized, constitutional authorization present."
+        ],
+        "risk_flags": [],
+        "verdict": "AUTHORIZED"
+      },
+      "B3_same_org_corroboration": {
+        "artifact_id": "ADVISORY:GHSA-gr94-w7qr-f4j3",
+        "may_influence_runtime": false,
+        "reasons": [
+          "4 corroborating artifacts collapse to 1 epistemic origin. Shared ancestry is not corroboration."
+        ],
+        "risk_flags": [],
+        "verdict": "REQUIRES_HUMAN_REVIEW"
+      },
+      "contains_instructions": false,
+      "doc_id": "ADVISORY:GHSA-gr94-w7qr-f4j3",
+      "doc_type": "SECURITY_ADVISORY",
+      "organisation": "github/advisory-database",
+      "schema_status_after_wrap": "VALID"
+    },
+    {
+      "B1_no_declared_authorization": {
+        "artifact_id": "ADVISORY:GHSA-fm3f-ch8h-qw8q",
+        "may_influence_runtime": false,
+        "reasons": [
+          "no valid constitutional authorization. Capability to act is not permission to act."
+        ],
+        "risk_flags": [],
+        "verdict": "REQUIRES_HUMAN_REVIEW"
+      },
+      "B2_self_declared_authorization": {
+        "artifact_id": "ADVISORY:GHSA-fm3f-ch8h-qw8q",
+        "may_influence_runtime": true,
+        "reasons": [
+          "schema valid, provenance valid, classification runtime-authorized, constitutional authorization present."
+        ],
+        "risk_flags": [],
+        "verdict": "AUTHORIZED"
+      },
+      "B3_same_org_corroboration": {
+        "artifact_id": "ADVISORY:GHSA-fm3f-ch8h-qw8q",
+        "may_influence_runtime": false,
+        "reasons": [
+          "4 corroborating artifacts collapse to 1 epistemic origin. Shared ancestry is not corroboration."
+        ],
+        "risk_flags": [],
+        "verdict": "REQUIRES_HUMAN_REVIEW"
+      },
+      "contains_instructions": false,
+      "doc_id": "ADVISORY:GHSA-fm3f-ch8h-qw8q",
+      "doc_type": "SECURITY_ADVISORY",
+      "organisation": "github/advisory-database",
+      "schema_status_after_wrap": "VALID"
+    },
+    {
+      "B1_no_declared_authorization": {
+        "artifact_id": "ADVISORY:GHSA-8x3q-jpjh-qh5c",
+        "may_influence_runtime": false,
+        "reasons": [
+          "no valid constitutional authorization. Capability to act is not permission to act."
+        ],
+        "risk_flags": [],
+        "verdict": "REQUIRES_HUMAN_REVIEW"
+      },
+      "B2_self_declared_authorization": {
+        "artifact_id": "ADVISORY:GHSA-8x3q-jpjh-qh5c",
+        "may_influence_runtime": true,
+        "reasons": [
+          "schema valid, provenance valid, classification runtime-authorized, constitutional authorization present."
+        ],
+        "risk_flags": [],
+        "verdict": "AUTHORIZED"
+      },
+      "B3_same_org_corroboration": {
+        "artifact_id": "ADVISORY:GHSA-8x3q-jpjh-qh5c",
+        "may_influence_runtime": false,
+        "reasons": [
+          "4 corroborating artifacts collapse to 1 epistemic origin. Shared ancestry is not corroboration."
+        ],
+        "risk_flags": [],
+        "verdict": "REQUIRES_HUMAN_REVIEW"
+      },
+      "contains_instructions": false,
+      "doc_id": "ADVISORY:GHSA-8x3q-jpjh-qh5c",
+      "doc_type": "SECURITY_ADVISORY",
+      "organisation": "github/advisory-database",
+      "schema_status_after_wrap": "VALID"
+    },
+    {
+      "B1_no_declared_authorization": {
+        "artifact_id": "ADVISORY:GHSA-mfqj-cqv3-h7xw",
+        "may_influence_runtime": false,
+        "reasons": [
+          "no valid constitutional authorization. Capability to act is not permission to act."
+        ],
+        "risk_flags": [],
+        "verdict": "REQUIRES_HUMAN_REVIEW"
+      },
+      "B2_self_declared_authorization": {
+        "artifact_id": "ADVISORY:GHSA-mfqj-cqv3-h7xw",
+        "may_influence_runtime": true,
+        "reasons": [
+          "schema valid, provenance valid, classification runtime-authorized, constitutional authorization present."
+        ],
+        "risk_flags": [],
+        "verdict": "AUTHORIZED"
+      },
+      "B3_same_org_corroboration": {
+        "artifact_id": "ADVISORY:GHSA-mfqj-cqv3-h7xw",
+        "may_influence_runtime": false,
+        "reasons": [
+          "4 corroborating artifacts collapse to 1 epistemic origin. Shared ancestry is not corroboration."
+        ],
+        "risk_flags": [],
+        "verdict": "REQUIRES_HUMAN_REVIEW"
+      },
+      "contains_instructions": false,
+      "doc_id": "ADVISORY:GHSA-mfqj-cqv3-h7xw",
+      "doc_type": "SECURITY_ADVISORY",
+      "organisation": "github/advisory-database",
+      "schema_status_after_wrap": "VALID"
+    },
+    {
+      "B1_no_declared_authorization": {
+        "artifact_id": "ADVISORY:GHSA-g5xc-5w98-jfvm",
+        "may_influence_runtime": false,
+        "reasons": [
+          "no valid constitutional authorization. Capability to act is not permission to act."
+        ],
+        "risk_flags": [],
+        "verdict": "REQUIRES_HUMAN_REVIEW"
+      },
+      "B2_self_declared_authorization": {
+        "artifact_id": "ADVISORY:GHSA-g5xc-5w98-jfvm",
+        "may_influence_runtime": true,
+        "reasons": [
+          "schema valid, provenance valid, classification runtime-authorized, constitutional authorization present."
+        ],
+        "risk_flags": [],
+        "verdict": "AUTHORIZED"
+      },
+      "B3_same_org_corroboration": {
+        "artifact_id": "ADVISORY:GHSA-g5xc-5w98-jfvm",
+        "may_influence_runtime": false,
+        "reasons": [
+          "4 corroborating artifacts collapse to 1 epistemic origin. Shared ancestry is not corroboration."
+        ],
+        "risk_flags": [],
+        "verdict": "REQUIRES_HUMAN_REVIEW"
+      },
+      "contains_instructions": false,
+      "doc_id": "ADVISORY:GHSA-g5xc-5w98-jfvm",
+      "doc_type": "SECURITY_ADVISORY",
+      "organisation": "github/advisory-database",
+      "schema_status_after_wrap": "VALID"
+    },
+    {
+      "B1_no_declared_authorization": {
+        "artifact_id": "ADVISORY:GHSA-ffg3-p8fm-mjx2",
+        "may_influence_runtime": false,
+        "reasons": [
+          "no valid constitutional authorization. Capability to act is not permission to act."
+        ],
+        "risk_flags": [],
+        "verdict": "REQUIRES_HUMAN_REVIEW"
+      },
+      "B2_self_declared_authorization": {
+        "artifact_id": "ADVISORY:GHSA-ffg3-p8fm-mjx2",
+        "may_influence_runtime": true,
+        "reasons": [
+          "schema valid, provenance valid, classification runtime-authorized, constitutional authorization present."
+        ],
+        "risk_flags": [],
+        "verdict": "AUTHORIZED"
+      },
+      "B3_same_org_corroboration": {
+        "artifact_id": "ADVISORY:GHSA-ffg3-p8fm-mjx2",
+        "may_influence_runtime": false,
+        "reasons": [
+          "4 corroborating artifacts collapse to 1 epistemic origin. Shared ancestry is not corroboration."
+        ],
+        "risk_flags": [],
+        "verdict": "REQUIRES_HUMAN_REVIEW"
+      },
+      "contains_instructions": false,
+      "doc_id": "ADVISORY:GHSA-ffg3-p8fm-mjx2",
+      "doc_type": "SECURITY_ADVISORY",
+      "organisation": "github/advisory-database",
+      "schema_status_after_wrap": "VALID"
+    },
+    {
+      "B1_no_declared_authorization": {
+        "artifact_id": "ADVISORY:GHSA-c857-9x2m-cvh2",
+        "may_influence_runtime": false,
+        "reasons": [
+          "no valid constitutional authorization. Capability to act is not permission to act."
+        ],
+        "risk_flags": [],
+        "verdict": "REQUIRES_HUMAN_REVIEW"
+      },
+      "B2_self_declared_authorization": {
+        "artifact_id": "ADVISORY:GHSA-c857-9x2m-cvh2",
+        "may_influence_runtime": true,
+        "reasons": [
+          "schema valid, provenance valid, classification runtime-authorized, constitutional authorization present."
+        ],
+        "risk_flags": [],
+        "verdict": "AUTHORIZED"
+      },
+      "B3_same_org_corroboration": {
+        "artifact_id": "ADVISORY:GHSA-c857-9x2m-cvh2",
+        "may_influence_runtime": false,
+        "reasons": [
+          "4 corroborating artifacts collapse to 1 epistemic origin. Shared ancestry is not corroboration."
+        ],
+        "risk_flags": [],
+        "verdict": "REQUIRES_HUMAN_REVIEW"
+      },
+      "contains_instructions": false,
+      "doc_id": "ADVISORY:GHSA-c857-9x2m-cvh2",
+      "doc_type": "SECURITY_ADVISORY",
+      "organisation": "github/advisory-database",
+      "schema_status_after_wrap": "VALID"
+    },
+    {
+      "B1_no_declared_authorization": {
+        "artifact_id": "DERIVED:truncated",
+        "may_influence_runtime": false,
+        "reasons": [
+          "no valid constitutional authorization. Capability to act is not permission to act."
+        ],
+        "risk_flags": [],
+        "verdict": "REQUIRES_HUMAN_REVIEW"
+      },
+      "B2_self_declared_authorization": {
+        "artifact_id": "DERIVED:truncated",
+        "may_influence_runtime": true,
+        "reasons": [
+          "schema valid, provenance valid, classification runtime-authorized, constitutional authorization present."
+        ],
+        "risk_flags": [],
+        "verdict": "AUTHORIZED"
+      },
+      "B3_same_org_corroboration": {
+        "artifact_id": "DERIVED:truncated",
+        "may_influence_runtime": false,
+        "reasons": [
+          "2 corroborating artifacts collapse to 1 epistemic origin. Shared ancestry is not corroboration."
+        ],
+        "risk_flags": [],
+        "verdict": "REQUIRES_HUMAN_REVIEW"
+      },
+      "contains_instructions": false,
+      "doc_id": "DERIVED:truncated",
+      "doc_type": "DERIVED_TRUNCATED",
+      "organisation": "facebook",
+      "schema_status_after_wrap": "VALID"
+    }
+  ]
+}
