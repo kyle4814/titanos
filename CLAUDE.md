@@ -363,9 +363,24 @@ Every subsystem (`schema/`, `firewall/`, `kpm/`, `magl/`, `rpa/`,
 `taal/`, `foundation/`, `narrative/`) has its own `BUILD_REPORT.md` with
 an honest limitations/human-decisions/next-work-cell section — read
 those before assuming a capability is missing. As of the last full-repo
-regression run (2026-09-01) all ten suites pass — `schema`, `firewall`,
-`kpm`, `magl`, `rpa`, `taal`, `foundation`, `narrative`, `compiler`,
-`legacy`. The count in `README.md` is the one kept current (by
+regression run (2026-09-01) all twelve suites pass — `schema`,
+`firewall`, `kpm`, `magl`, `rpa`, `taal`, `foundation`, `narrative`,
+`compiler`, `legacy`, `gems/claim_ledger`, `provenance`.
+
+**Local green is not evidence. Check CI.** On 2026-09-01 GitHub Actions
+was found to have been failing for at least eight consecutive commits
+while every local run reported PASS. Nothing was flaky. Several tests
+asserted on state that exists only on the machine this repository was
+built on — gitignored runtime ledgers, and sibling repositories that
+`doctrine/*.yaml` point at via `workspace_root: "../.."` — so "green"
+meant "ran where the state happens to be". `run_all_tests.sh` was also
+parsing the tail of merged stdout+stderr, so a compiler test's own JSON
+output displaced the summary and 41 passing tests were reported as
+`0 FAIL`. All three are fixed, and the suite is now verified in a fresh
+clone with no siblings and no ledgers before being believed. Two lists
+of suites (this runner and the CI matrix) had drifted in both
+directions; `sentinel.check_local_runner_matches_ci` now fails when they
+disagree. The count in `README.md` is the one kept current (by
 `autonomy_loop.py`, the only thing authorised to write it); this file
 deliberately no longer carries a second copy, because the previous one
 sat at 915 for weeks while reality passed 2,400 — a hand-maintained
