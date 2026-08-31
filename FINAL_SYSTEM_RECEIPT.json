@@ -2,14 +2,14 @@
   "autonomy_ratio": 0.0,
   "criteria": [
     {
-      "evidence": "2657 run, 0 failed",
+      "evidence": "2690 run, 0 failed",
       "name": "TESTS_GREEN",
       "state": "MET"
     },
     {
-      "evidence": "git status --porcelain empty",
+      "evidence": "git status --porcelain non-empty",
       "name": "WORKTREE_CLEAN",
-      "state": "MET"
+      "state": "UNMET"
     },
     {
       "evidence": "sentinel.pulse_sweep() -> 0 finding(s)",
@@ -57,21 +57,21 @@
       "state": "UNMET"
     }
   ],
-  "generated_at": "2026-08-31T20:09:01.529040+00:00",
+  "generated_at": "2026-08-31T20:39:45.496174+00:00",
   "human_gated_operations": 19,
   "notes": [
     "outcome ledger head predates hash chaining; it is CHAIN_UNVERIFIED_LEGACY, not verified",
-    "NEXT_MOVE.md cites commit(s) ['3dcb258', '3f2bb79', '49ef042', '55af138', '8e0e12d', 'a7dfe81', 'cd47ad2'] but HEAD is 48efa0be; its prose describes an earlier repository state"
+    "NEXT_MOVE.md declares STATE_CLAIMS: NONE; staleness check does not apply to it"
   ],
   "pulse_findings": 0,
   "receipt_head": "OC-eecf6388ada2d538",
-  "revision": "48efa0b",
-  "runnable_entrypoints": 10,
+  "revision": "083a71d",
+  "runnable_entrypoints": 11,
   "scheduled_entrypoints": 1,
-  "state_digest": "bb82a64876de62f3",
+  "state_digest": "4a12489fae042d5d",
   "status": "READY_WITH_LIMITATIONS",
   "tests_failed": 0,
-  "tests_run": 2657,
-  "unmet_count": 2,
-  "worktree_clean": true
+  "tests_run": 2690,
+  "unmet_count": 3,
+  "worktree_clean": false
 }

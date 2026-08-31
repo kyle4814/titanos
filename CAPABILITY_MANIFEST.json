@@ -1,8 +1,8 @@
 {
   "manifest_version": "2",
   "generated_by": "foundation.capability_registry.write_manifest",
-  "generated_at": "2026-08-31T20:33:54.738666+00:00",
-  "repo_revision": "ce9f0ac",
+  "generated_at": "2026-08-31T20:38:42.993160+00:00",
+  "repo_revision": "083a71d",
   "note": "Computed from repository evidence every run -- see foundation/capability_registry.py for how each field is derived. Re-run rather than hand-edit; a hand-edit here is exactly the drift this file replaced.",
   "capabilities": [
     {
