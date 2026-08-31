@@ -212,6 +212,16 @@ class TestWriteManifest(unittest.TestCase):
         from foundation.capability_registry import MANIFEST_PATH
         before_text = MANIFEST_PATH.read_text(encoding="utf-8") if \
             MANIFEST_PATH.is_file() else None
+        # RESTORE IT AFTERWARDS. Without this the test rewrote the real
+        # CAPABILITY_MANIFEST.json on every run -- a fresh timestamp and
+        # revision each time -- leaving the working tree permanently
+        # dirty and making WORKTREE_CLEAN unsatisfiable for anyone who
+        # ran the suite before checking. A test that mutates the
+        # repository it is testing is the same pollution class that once
+        # wrote 9,828 bytes into foundation/outcome_ledger.jsonl.
+        if before_text is not None:
+            self.addCleanup(MANIFEST_PATH.write_text, before_text,
+                            encoding="utf-8")
         m = write_manifest(REPO_ROOT)
         self.assertTrue(MANIFEST_PATH.is_file())
         self.assertGreater(len(m["capabilities"]), 10)
