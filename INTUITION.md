@@ -196,3 +196,58 @@ however promising it looks.
   only callers are its own tests. Confirmed unused convenience method,
   not a hidden dependency — do not add surface area to `crystal.py`'s
   query API without a real caller motivating it first.
+
+## The sigil measures the sentinel that would audit it (2026-09-01)
+
+**Status:** built, measured, reverted. Not a proposal — a recorded
+negative result, so the same build is not attempted a third time.
+
+`check_sigil_snapshot_agreement()` compares SIGIL.md and CLAUDE.md to
+each other and states plainly that "neither document is ground truth."
+That leaves a blind spot it cannot close by construction: when every
+cached snapshot is equally stale they agree, and the sweep is silent.
+This was not hypothetical — both files carried `LATTICE:6` against a
+real `compute_sigil()` value of `LATTICE:7` for several cycles.
+
+The obvious fix is a freshness check plus an auto-recompute in
+`autonomy_loop.py`. It was built. Running it once found three defects,
+two mine and one structural:
+
+1. **Date granularity made the check unsatisfiable.** SIGIL.md records
+   `**Computed:** <date>`, and the check compared file mtimes against
+   midnight of that date, so any file touched the same day looked newer
+   than a same-day recompute. The condition could never clear.
+2. **The fix wrote one snapshot, not both.** CLAUDE.md's sigil line is
+   wrapped across lines inside prose; SIGIL.md's sits in a fenced block.
+   One regex matched one of them, so the "fix" created the disagreement
+   the other check then reported. The manual correction had to handle
+   both formats too — that is a property of the files, not a bug in the
+   attempt.
+3. **The sigil and the sentinel are circularly dependent.** This is the
+   one that kills the approach. `_dimension_sight()` scores partly on
+   `clean=yes/no` — whether the pulse currently reports findings. So ANY
+   new sentinel check that fires lowers SIGHT, which changes the sigil,
+   which makes every snapshot stale, which fires the check again. An
+   auto-fixer in that loop oscillates: the value it writes depends on
+   whether it currently has anything to say.
+
+Observed directly: adding the freshness check dropped SIGHT 10 -> 7 and
+the tier T3 -> T2, and failed two `test_sigil` assertions that pin SIGHT
+at 10 — before the fixer had written anything.
+
+**What this means for the standing question of scheduling
+`autonomy_loop.py`** (see `HUMAN_DECISIONS.md`): the recommendation to
+leave it manual now rests on measurement rather than caution. The loop's
+second finding class was attempted and is not safely automatable. Of the
+sentinel's twelve checks, README test-count drift remains the only one
+with a mechanically determinable, non-fabricating fix — the others
+require judgement (a missing BUILD_REPORT.md cannot be auto-written
+without inventing its contents; a broken `@`-import cannot be repaired
+without knowing what the file should have said).
+
+**What would change this.** A sigil whose dimensions do not include the
+sentinel's own output would break the cycle and make the freshness fix
+viable. That is a real change to `sigil.py`'s definition of SIGHT, not a
+patch to the check, and it should not be made merely to enable an
+auto-fixer — SIGHT scoring on pulse cleanliness is defensible on its own
+terms.

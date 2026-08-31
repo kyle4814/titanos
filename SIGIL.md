@@ -9,10 +9,19 @@ function's output, not an independent source of truth. Re-run it rather
 than trusting this file if it looks stale.
 
 ```
-TIER:T3 | IRON:10 | LATTICE:6 | PROOF:10 | SIGHT:10 | FRONTIER:10 | ORCH:10 | MEMORY:10 | REALITY:6
+TIER:T3 | IRON:10 | LATTICE:7 | PROOF:10 | SIGHT:10 | FRONTIER:10 | ORCH:10 | MEMORY:10 | REALITY:6
 ```
 
-**Computed:** 2026-08-27, after `foundation/mouth_pypi.py` was added.
+**Computed:** 2026-09-01, on a clean tree with all suites green.
+Previously 2026-08-27 (after `foundation/mouth_pypi.py` was added), at
+which point LATTICE read 6. It is now 7: a seventh module with an
+explicit transition table exists. Both this file and `CLAUDE.md` carried
+the stale 6 and AGREED with each other, so
+`sentinel.check_sigil_snapshot_agreement()` -- which compares snapshots
+to each other and says outright that neither is ground truth -- stayed
+silent. Two equally stale caches agree. See `INTUITION.md` for why the
+obvious fix (a freshness check plus an auto-recompute) was built,
+measured, and reverted.
 
 ## Tier justification
 
@@ -36,7 +45,7 @@ changed by hand.
 | Dimension | Score | Evidence |
 |---|---|---|
 | IRON | 10 | 8/8 subsystems have `BUILD_REPORT.md` |
-| LATTICE | 6 | 6 modules with an explicit transition table (`kpm/promotion/state_machine.py`, `kpm/schemas/epistemic_types.py`, `foundation/task_queue.py`, `foundation/flow_switch.py`, `narrative/schema/narrative_atom.py`, `firewall/quarantine.py`) |
+| LATTICE | 7 | 7 modules with an explicit transition table (`kpm/promotion/state_machine.py`, `kpm/schemas/epistemic_types.py`, `foundation/task_queue.py`, `foundation/flow_switch.py`, `narrative/schema/narrative_atom.py`, `firewall/quarantine.py`, `foundation/admission.py`) |
 | PROOF | 10 | 1212 tests, all green (real subprocess run, not a file count) — crossed the 1200-test threshold in `min(10, 2 + total // 150)` |
 | SIGHT | 10 | Sentinel present and clean, secret scanner present and wired to `publication_gate.py` |
 | FRONTIER | 10 | `PARETO_FRONTIER.md` has the Frontier Gate schema and Archive table; `NEXT_MOVE.md` and `INTUITION.md` both present |

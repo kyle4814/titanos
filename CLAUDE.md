@@ -210,8 +210,11 @@ already documented the real, evidenced drop to `TIER:T3 | REALITY:6`
 following `mouth_pypi.py`'s network dependency two cycles earlier -- see
 `SIGIL.md`'s own "CORRECTION" note). As of 2026-08-28, directly
 recomputed rather than copied from either file: `TIER:T3 | IRON:10 |
-LATTICE:6 | PROOF:10 | SIGHT:10 | FRONTIER:10 | ORCH:10 | MEMORY:10 |
-REALITY:6`. **Caution if extending `foundation/sigil.py`:**
+LATTICE:7 | PROOF:10 | SIGHT:10 | FRONTIER:10 | ORCH:10 | MEMORY:10 |
+REALITY:6`. (LATTICE corrected 6 -> 7 on 2026-09-01: `foundation/
+admission.py` added a seventh explicit transition table. This file and
+`SIGIL.md` both carried the stale 6 and AGREED, so the agreement check
+stayed silent -- see `SIGIL.md`'s computation note.) **Caution if extending `foundation/sigil.py`:**
 its PROOF dimension shells out to run every subsystem's test suite,
 including `foundation`'s own — which contains this module's real-repo
 tests. `foundation/recursion_guard.py::check()`/`child_env()` prevents
