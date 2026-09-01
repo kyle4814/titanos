@@ -130,21 +130,90 @@ VERIFIED (nobody here confirmed the notice is still open, unwithdrawn,
 or genuine beyond what TED's own API states) and never REALIZED (no bid
 was submitted here). `money_state="ADVERTISED"` means a figure was
 published in TED's own value field -- never that it was paid or ever
-will be. TED does not surface an amount field through the query shape
-this module uses (see CANNOT below); every signal this module has
-actually emitted carries `money_state="NOT_OBSERVED"` as a result, and
-that is reported honestly rather than papered over with a fabricated
-figure.
+will be.
+
+CORRECTED 2026-09-01: this section previously said TED does not surface
+an amount field through this module's query shape and that `amount`/
+`currency` were always empty. That was a guessing-field-names failure,
+not a fact about TED -- `total-value`, `estimated-value-proc`,
+`estimated-value-lot` and their `-cur` companions were tried and were
+genuinely absent from the response at the time; the correct fix (proven
+this cycle, see `_extract_value()`) was reading TED's own error message
+for an unrecognised field name, which lists every field name the API
+actually accepts, rather than guessing again. `REQUEST_FIELDS` now
+includes six real, live-verified value fields and `parse_items()`
+carries a real amount/currency/`value_detail` onto every item that has
+one.
+
+VALUE FIELD SHAPES -- VERIFIED LIVE 2026-09-01, NOT ASSUMED
+
+Fetching `publication-number 533561-2026` with `total-value`,
+`total-value-cur`, `estimated-value-proc`, `estimated-value-cur-proc`,
+`estimated-value-lot`, `estimated-value-cur-lot` in the request
+returned all six populated: `total-value=450000` (bare int),
+`total-value-cur=["EUR"]` (single-element list), `estimated-value-proc
+="450000"` (string), `estimated-value-cur-proc="EUR"` (bare string),
+`estimated-value-lot=["450000"]`, `estimated-value-cur-lot=["EUR"]` --
+five different JSON types across six fields describing the same one
+number, none of them assumed, all read from the real response.
+
+A live 1,250-notice sweep (5 pages, 2026-09-01, this module's own
+EXPERT_QUERY) found:
+
+  - 789/1250 (63%) carried a genuine value figure of some kind;
+    461/1250 carried none -- `money_state="NOT_OBSERVED"` for those,
+    never a fabricated zero.
+  - 748 of the 789 resolved to one unambiguous number (`total-value` or
+    `estimated-value-proc` present); 41 did not -- see MULTI-LOT below.
+  - `estimated-value-lot` is a per-lot list that does NOT reliably carry
+    a matching-length `estimated-value-cur-lot` -- e.g. publication-number
+    386449-2026 returned `estimated-value-lot=["5000000","1000000",
+    "5000000","5000000","500000","500000"]` (six lots) against
+    `estimated-value-cur-lot=["EUR"]` (one currency, list length 1, not
+    6) -- confirmed live, not assumed to be a 1:1 index pairing. Treated
+    here as "one currency shared across all lots" only when the
+    currency list itself has exactly one distinct entry; never assumed
+    otherwise.
+  - Real TED buyers publish a literal `0`/`0.00` as `total-value` for
+    some notices -- 26 of the 1,250, all EUR, all with matching `0.00`
+    at both proc and lot level. This is TED's own placeholder pattern
+    (a buyer declining to disclose a value, not a genuine free
+    contract), confirmed by checking that every zero-total-value notice
+    also had `estimated-value-proc`/`estimated-value-lot` reading the
+    identical `0.00` -- not one field zero and another populated, which
+    would have suggested a real figure sitting elsewhere. `_extract_value()`
+    treats an exact-zero amount the same as "no real value observed" and
+    reports `NOT_OBSERVED` -- reproducing TED's own placeholder as an
+    "ADVERTISED: 0 EUR" signal would be the exact fabricated-zero failure
+    this module's own task brief named as unacceptable, just relocated
+    one hop downstream (TED's placeholder instead of this module's own
+    default).
+  - Real distribution across the 748 unambiguous-amount notices (any
+    currency, unconverted -- TED does not publish FX rates and this
+    module does not invent one): min EUR 0.01 (a genuine sub-cent
+    notice, kept honestly rather than treated as suspicious), median
+    ~2,143,945 (mixed currencies), max DKK 89,307,000,000 (Denmark's
+    national central-purchasing body SKI's multi-year, multi-authority
+    framework catalogue -- an aggregate ceiling across many buyers and
+    categories, not one buyer's spend; reported as TED itself stated it,
+    not converted or second-guessed).
+
+`money_observed` carries the literal string TED (or this module's honest
+lot-breakdown description) produced -- per `signal_spine.py`'s own
+contract, "verbatim, never parsed into a number." A genuine multi-lot
+notice with no single stated total (e.g. 386449-2026 above) gets a
+`money_observed` describing all six lot figures, not one arbitrarily
+chosen or silently summed number, and `amount` (the structured field)
+stays `None` for that case -- ambiguous is reported as ambiguous, never
+collapsed into a false precision.
 
 CANNOT
 
-- Cannot report a monetary amount from the fields this module reads.
-  TED's contract-value fields live under lot-level BT codes this
-  module's query does not request (adding them was not necessary to
-  prove the source works, and guessing a value field name and being
-  wrong would be worse than reporting NOT_OBSERVED honestly). `amount`
-  and `currency` are therefore always empty/None in every item this
-  parser produces -- not a bug, a documented scope boundary.
+- Cannot convert between currencies -- a DKK, SEK and EUR figure are
+  reported as DKK, SEK and EUR, never normalised to one unit. Comparing
+  "biggest contract" across currencies without an FX rate this module
+  has no live source for is a downstream ranking concern, not something
+  faked here.
 - Cannot tell a genuinely new notice from a republished one beyond what
   `publication-number` distinguishes -- trusted as the dedupe key
   because TED assigns it per publication, the same trust
@@ -197,7 +266,7 @@ __all__ = [
     "DISCOVERY_POLICY", "FetchError", "MouthObservation",
     "parse_items", "observe", "ted_signal", "TedRadarSweep", "sweep",
     "MAX_PAGES_HARD_CAP", "TedPaginatedObservation", "observe_paginated",
-    "sweep_paginated",
+    "sweep_paginated", "SECURITY_FULL_TEXT_TERMS",
 ]
 
 MOUTH_ID = "tender_radar_eu_ted"
@@ -215,6 +284,22 @@ FEED_URL = "https://api.ted.europa.eu/v3/notices/search"
 #   79000000 -- business services: law, marketing, consulting,
 #               recruitment, printing and security
 #   48000000 -- software package and information systems
+#
+# ADDED 2026-09-01: 72212730 (security software development services),
+# 48730000 (security software package), 72810000 (computer audit
+# services -- confirmed live to include real cybersecurity-audit notices,
+# e.g. a French "Audits techniques informatiques de cybersecurite" one,
+# mixed in with unrelated printing-services notices under the same code).
+# Live-verified counts against real open notices, 2026-09-01:
+# classification-cpv IN (72212730) -> 34; IN (48730000) -> 128;
+# IN (72810000) -> 14. Added for explicitness and to survive a future
+# change in TED's own family-matching behaviour -- verified live that
+# adding them does NOT currently change EXPERT_QUERY's own
+# totalNoticeCount (5,681 either way), because all three are already
+# structural children of the 72000000/48000000 families this query
+# already matches (see the family-matching proof above) -- this is a
+# negative finding recorded honestly, not silently dropped because it
+# didn't change a number.
 # `publication-date >= today(-90)` -- live-verified 2026-09-01, added
 # alongside the pagination/source_ref work below because it fixes the
 # same underlying problem the other two fixes do: the query previously
@@ -249,9 +334,129 @@ FEED_URL = "https://api.ted.europa.eu/v3/notices/search"
 # correctness one, and can change without re-verifying the syntax above.
 EXPERT_QUERY = (
     "deadline-receipt-request >= today() AND "
-    "classification-cpv IN (72000000, 79000000, 48000000) AND "
+    "classification-cpv IN (72000000, 79000000, 48000000, 72212730, "
+    "48730000, 72810000) AND "
     "publication-date >= today(-90)"
 )
+
+# ── OPTIONAL FULL-TEXT NARROWING ────────────────────────────────────
+#
+# THE GAP THIS CLOSES: `classification-cpv` narrows by category, not by
+# subject matter, and `notice-title`/`description-proc` are frequently
+# NOT in English (a Dutch, Swedish or Finnish buyer's own language) --
+# live-measured 2026-09-01: of 3,750 notices pulled by this module's own
+# EXPERT_QUERY, five matched an English security keyword against
+# title/description text client-side. A relevance profile looking for
+# "cybersecurity" cannot match "informatiebeveiliging" by string
+# comparison.
+#
+# TED's own search grammar supports server-side full-text matching:
+# `FT ~ ("term")`, confirmed live 2026-09-01 against real open notices
+# (counts below are exact live totalNoticeCount reads, not estimates):
+#
+#   informatiebeveiliging  247   IT-Sicherheit          42
+#   ISO 27001              125   information security   32
+#   cybersecurity           55   sécurité informatique   12
+#   cyber security          17   incident response       17
+#
+# TWO FAILURE MODES FOUND AND AVOIDED, both verified live:
+#
+#   - `FT ~ (...)` ALONE, with no CPV constraint, is far too loose:
+#     "ISO 27001" alone matched 465 notices including construction,
+#     cleaning and hosiery -- ISO 27001 appears in boilerplate
+#     terms-and-conditions text on contracts that have nothing to do
+#     with information security. `_build_expert_query()` below always
+#     ANDs the FT clause onto the existing CPV/deadline/date filter,
+#     never offers FT search unconstrained by CPV.
+#   - `SIEM` and `SOC` were tried and rejected as terms: `FT ~ ("SIEM")`
+#     matches "Siemens"; `FT ~ ("SOC")` returned 9,797 hits, matching
+#     "social"/"société" as substrings -- both are noise magnets, not
+#     signal, and are deliberately excluded from `SECURITY_FULL_TEXT_
+#     TERMS` below.
+#
+# Multiple FT terms combine with `OR` inside one parenthesised group --
+# confirmed live: `(FT ~ ("cybersecurity") OR FT ~ ("cyber security") OR
+# FT ~ ("ISO 27001")) AND classification-cpv IN (...)` returned 135, a
+# real number between the loosest single-term count and a plausible
+# union, not zero and not an unconstrained-FT-sized number -- evidence
+# the AND/OR nesting was actually applied by the API, not silently
+# flattened.
+def _build_expert_query(full_text_terms: Optional[tuple[str, ...]] = None) -> str:
+    """`EXPERT_QUERY` unmodified when `full_text_terms` is `None` or
+    empty -- every existing caller/test that does not pass this
+    parameter sees byte-identical behaviour to before this function
+    existed (see `foundation/tests/test_mouth_ted.py`'s
+    `test_fetch_feed_is_called_with_a_json_body_not_a_bare_get`, which
+    asserts the default body's `query` equals `EXPERT_QUERY` exactly).
+
+    When terms are given, ANDs one parenthesised `FT ~ (...) OR FT ~
+    (...) ...` clause onto `EXPERT_QUERY` -- never FT unconstrained by
+    the existing CPV/deadline/date filter (see the "too loose" finding
+    above). Each term is required to be a non-empty string containing no
+    `"` or `\\` -- TED's own `FT ~ ("...")` syntax was verified live only
+    with plain keyword phrases; a term containing a quote could break out
+    of the wrapping quotes into the query grammar, and how TED would
+    actually escape that was never tested, so it is refused outright
+    rather than guessed at.
+    """
+    if not full_text_terms:
+        return EXPERT_QUERY
+    for term in full_text_terms:
+        if not isinstance(term, str) or not term.strip():
+            raise ValueError(
+                f"full_text_terms entries must be non-empty strings, got {term!r}")
+        if '"' in term or "\\" in term:
+            raise ValueError(
+                f"full_text_terms entry {term!r} contains a quote or backslash "
+                "-- refused rather than guessed at how TED's FT ~ (\"...\") "
+                "syntax would escape it (never tested live)"
+            )
+    ft_clause = " OR ".join(f'FT ~ ("{t.strip()}")' for t in full_text_terms)
+    return f"{EXPERT_QUERY} AND ({ft_clause})"
+
+
+# A ready-made, caller-optional term set -- NOT the only legitimate one.
+# Any caller may pass its own `full_text_terms` tuple to `observe()` /
+# `sweep()` / `observe_paginated()` / `sweep_paginated()` instead. This
+# specific set is the multilingual, live-verified-precise vocabulary
+# found this cycle (see the block comment above for the exact counts and
+# the SIEM/SOC exclusions) -- English, Dutch, German and French, because
+# a keyword filter applied only to English text misses most non-English
+# TED notices.
+SECURITY_FULL_TEXT_TERMS: tuple[str, ...] = (
+    "cybersecurity",
+    "cyber security",
+    "information security",
+    "incident response",
+    "ISO 27001",
+    "informatiebeveiliging",  # Dutch
+    "IT-Sicherheit",  # German
+    "sécurité informatique",  # French
+)
+
+
+def _state_filename_suffix(full_text_terms: Optional[tuple[str, ...]]) -> str:
+    """A distinct state-file suffix per full-text term set, `""` when
+    none is given (preserving every existing state filename exactly).
+
+    THE GAP THIS CLOSES: `sweep()`/`sweep_paginated()` diff each run's
+    result set against the PRIOR run's saved state to decide
+    FIRST_SEEN/UNCHANGED/CHANGED. If a broad sweep (no full_text_terms)
+    and a narrowed sweep (e.g. `SECURITY_FULL_TEXT_TERMS`) shared one
+    state file, alternating between the two query shapes would look, to
+    the diff, like a spurious CHANGED or UNCHANGED every time the query
+    shape itself changed rather than the real notices -- the exact
+    cross-contamination `sweep_paginated()`'s own docstring already
+    names as the reason it uses a distinct filename from `sweep()`
+    rather than sharing one. Same fix, applied to this new axis: a
+    short, deterministic hash of the term tuple (sorted so term order
+    never matters) keeps each query shape's diff history separate.
+    """
+    if not full_text_terms:
+        return ""
+    key = ",".join(sorted(t.strip() for t in full_text_terms))
+    digest = hashlib.sha256(key.encode("utf-8")).hexdigest()[:8]
+    return f"_ft_{digest}"
 
 # Every field this module's parser actually reads. Confirmed live
 # (2026-09-01) to be accepted by the API and to return real values for
@@ -289,6 +494,23 @@ REQUEST_FIELDS = (
     # indistinguishable, on the data this module actually carried, from
     # one published last week.
     "publication-date",
+    # ── VALUE FIELDS -- verified live 2026-09-01, see module docstring's
+    # "VALUE FIELD SHAPES" section for the exact proof. `total-value` is
+    # TED's own procedure-level aggregate (preferred when present);
+    # `estimated-value-proc` is the eForms BT-27 equivalent at the same
+    # level, kept as a fallback since the two were observed to agree on
+    # every sampled notice but are not guaranteed to both be populated.
+    # `estimated-value-lot` / `framework-maximum-value-lot` are the
+    # per-lot fallbacks read only when no aggregate is present -- see
+    # `_extract_value()`.
+    "total-value",
+    "total-value-cur",
+    "estimated-value-proc",
+    "estimated-value-cur-proc",
+    "estimated-value-lot",
+    "estimated-value-cur-lot",
+    "framework-maximum-value-lot",
+    "framework-maximum-value-cur-lot",
 )
 
 # `limit=250` matches the live-verified page size (a real call with
@@ -449,13 +671,177 @@ def _notice_url(notice: dict) -> str:
     return ""
 
 
+def _coerce_amount(value: object) -> Optional[float]:
+    """A TED value field arrives as `int`, `float`, or `str` depending on
+    which field and which notice (see module docstring's "VALUE FIELD
+    SHAPES" section -- five different JSON types observed across six
+    fields describing one number on a single real notice). `bool` is
+    rejected explicitly -- `isinstance(True, int)` is `True` in Python,
+    and a stray boolean must never silently become `1.0`/`0.0`. Any
+    other type, or a string that doesn't parse as a number, returns
+    `None` -- never a guessed value."""
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        s = value.strip()
+        if not s:
+            return None
+        try:
+            return float(s)
+        except ValueError:
+            return None
+    return None
+
+
+def _first_currency(value: object) -> str:
+    """A `-cur` field arrives as a bare string (e.g.
+    `estimated-value-cur-proc`) or a single-element list (e.g.
+    `total-value-cur`) on every real notice sampled -- both shapes
+    handled, never assumed to be one or the other."""
+    if isinstance(value, str):
+        c = value.strip()
+        return c if c else ""
+    if isinstance(value, list):
+        for v in value:
+            if isinstance(v, str) and v.strip():
+                return v.strip()
+    return ""
+
+
+def _distinct_currencies(value: object) -> tuple[str, ...]:
+    """Every distinct currency string named by a `-cur-lot` field,
+    order preserved, duplicates collapsed. Used to detect the case where
+    a lot-level currency list genuinely names more than one currency --
+    which `_extract_value()` must report honestly rather than picking
+    the first one silently."""
+    out: list[str] = []
+    if isinstance(value, str) and value.strip():
+        out.append(value.strip())
+    elif isinstance(value, list):
+        for v in value:
+            if isinstance(v, str) and v.strip() and v.strip() not in out:
+                out.append(v.strip())
+    return tuple(out)
+
+
+def _raw_amount_strings(value: object) -> tuple[str, ...]:
+    """A lot-level value field's raw entries as display strings, for
+    `value_detail`'s honest text -- never the float-coerced form, so a
+    human reading `value_detail` sees exactly what TED sent (e.g.
+    `"0.00"`, not `"0.0"`). A malformed shape (dict, nested list, None)
+    yields an empty tuple rather than raising."""
+    if isinstance(value, list):
+        out = []
+        for v in value:
+            if isinstance(v, (str, int, float)) and not isinstance(v, bool):
+                out.append(str(v))
+        return tuple(out)
+    if isinstance(value, (str, int, float)) and not isinstance(value, bool):
+        return (str(value),)
+    return ()
+
+
+def _extract_value(notice: dict) -> tuple[Optional[float], str, str]:
+    """Read this notice's own real value field(s) and return
+    `(amount, currency, value_detail)` -- `amount`/`currency` are the
+    structured fields (`None`/`""` when no single unambiguous number
+    exists), `value_detail` is the verbatim honest text that becomes
+    `CanonicalSignal.money_observed` regardless of whether `amount`
+    could be resolved to one number. See module docstring's "VALUE
+    FIELD SHAPES" section for what was verified live before this
+    function was written.
+
+    Preference order, each tried only if the previous produced nothing:
+
+      1. `total-value` / `total-value-cur` -- TED's own procedure-level
+         aggregate. Preferred first because it is TED's own single
+         computed total, not this module's derivation.
+      2. `estimated-value-proc` / `estimated-value-cur-proc` -- the
+         eForms BT-27 procedure-level equivalent; a fallback for notices
+         where TED populated this but not `total-value` (observed to
+         happen; the two fields are not guaranteed to co-occur even
+         though every sampled notice that had both agreed).
+      3. `estimated-value-lot` / `estimated-value-cur-lot` -- per-lot
+         breakdown, tried only when no procedure-level aggregate exists.
+         Collapsed to one `amount` ONLY when there is exactly one lot
+         figure and exactly one currency; a real multi-lot notice (e.g.
+         six lot figures against one currency, confirmed live -- see
+         docstring) gets `amount=None` and a `value_detail` that lists
+         every lot figure honestly, never a silent sum/average/pick.
+      4. `framework-maximum-value-lot` / `framework-maximum-value-cur-lot`
+         -- a framework agreement's stated ceiling (eForms BT-271), read
+         only when neither an estimated value nor a total value exists.
+         This is a maximum, not a spend estimate, and `value_detail`
+         labels it as such rather than blending it into "estimated
+         value" text.
+
+    A literal `0`/`0.00` amount from `total-value` or
+    `estimated-value-proc` is treated as NO real value observed (falls
+    through to the next candidate, or to the final `(None, "", "")` if
+    nothing else is present) -- confirmed live this is TED's own
+    placeholder pattern for an undisclosed value (26/1250 notices in one
+    real sweep, all EUR, all with matching `0.00` at both procedure and
+    lot level), not a genuine free contract. Reproducing it as
+    `money_state="ADVERTISED"` with `money_observed="0 EUR"` would
+    fabricate a specific figure exactly as much as inventing one from
+    nothing -- the zero is TED's placeholder, not a real number, and
+    reporting it as real would defeat the whole point of NOT_OBSERVED.
+    A genuine sub-unit amount (e.g. `0.01`) is NOT treated this way --
+    only an exact `0` is a placeholder; a real but tiny value is kept.
+    """
+    for val_field, cur_field, label in (
+        ("total-value", "total-value-cur", "total value"),
+        ("estimated-value-proc", "estimated-value-cur-proc", "estimated value"),
+    ):
+        raw_val = notice.get(val_field)
+        first_raw = raw_val[0] if isinstance(raw_val, list) and raw_val else raw_val
+        amount = _coerce_amount(first_raw)
+        currency = _first_currency(notice.get(cur_field))
+        if amount is not None and amount != 0 and currency:
+            return amount, currency, f"{first_raw} {currency} ({label})"
+
+    for val_field, cur_field, label in (
+        ("estimated-value-lot", "estimated-value-cur-lot", "estimated value"),
+        ("framework-maximum-value-lot", "framework-maximum-value-cur-lot",
+         "framework maximum value"),
+    ):
+        raw_amounts = _raw_amount_strings(notice.get(val_field))
+        currencies = _distinct_currencies(notice.get(cur_field))
+        if not raw_amounts:
+            continue
+        if len(raw_amounts) == 1 and len(currencies) == 1:
+            amount = _coerce_amount(raw_amounts[0])
+            if amount is not None and amount != 0:
+                return amount, currencies[0], f"{raw_amounts[0]} {currencies[0]} ({label})"
+            if amount == 0:
+                continue
+        # Multiple lot figures, an ambiguous currency count, or a
+        # currency-less lot list -- report the real breakdown rather
+        # than silently picking, summing, or averaging one number.
+        currency_display = "/".join(currencies) if currencies else "currency not stated"
+        return None, (currencies[0] if len(currencies) == 1 else ""), (
+            f"{len(raw_amounts)} lot(s), {currency_display}: "
+            + ", ".join(raw_amounts)
+            + f" ({label}, per-lot -- TED gave no single total for this notice)"
+        )
+
+    return None, "", ""
+
+
 def parse_items(raw: bytes) -> tuple[dict, ...]:
     """Parse a TED `/v3/notices/search` JSON response into the same
     item-dict shape `tender_radar.parse_items()` produces: `key`,
     `buyer_name`, `title`, `description`, `tender_id`, `status`,
     `deadline`, plus `amount`/`currency`/`published` for field-shape
-    parity even though TED (via the fields this module requests) never
-    populates the first two -- see module docstring's CANNOT section.
+    parity. `amount`/`currency` are genuinely populated as of
+    2026-09-01 when the notice carries a real TED value field -- see
+    `_extract_value()` and the module docstring's "VALUE FIELD SHAPES"
+    section -- and stay `None`/`""` honestly when it does not. A third
+    field, `value_detail`, carries the verbatim text `ted_signal()` uses
+    as `money_observed` even for the ambiguous multi-lot case where
+    `amount` itself must stay `None`.
 
     Malformed JSON, a non-object root, or a missing/mistyped `notices`
     array all raise `FetchError` -- same UNAVAILABLE-not-crash contract
@@ -542,6 +928,8 @@ def parse_items(raw: bytes) -> tuple[dict, ...]:
         pub_date = notice.get("publication-date")
         publication_date = pub_date if isinstance(pub_date, str) else ""
 
+        amount, currency, value_detail = _extract_value(notice)
+
         items.append({
             "key": pub_number,
             "ocid": "",
@@ -555,8 +943,9 @@ def parse_items(raw: bytes) -> tuple[dict, ...]:
             # buyer-declared "status" string is not fabricated to fill
             # this field.
             "status": "",
-            "amount": None,
-            "currency": "",
+            "amount": amount,
+            "currency": currency,
+            "value_detail": value_detail,
             "deadline": deadline,
             "buyer_name": buyer_name,
             "cpv": cpv,
@@ -579,6 +968,7 @@ def observe(
     state_path: Path,
     fetch_fn: Optional[Callable[[], bytes]] = None,
     now: Optional[datetime] = None,
+    full_text_terms: Optional[tuple[str, ...]] = None,
 ) -> MouthObservation:
     """One observation cycle over the TED feed. `fetch_fn` is injected in
     every test in `foundation/tests/test_mouth_ted.py` -- no test in this
@@ -586,12 +976,21 @@ def observe(
     `fetch_fn` is None the default path goes through
     `mouth_common.fetch_feed()` with `json_body=` set, which refuses
     without `DISCOVERY_POLICY` -- there is no second, ungated path here.
+
+    `full_text_terms` is optional and defaults to `None` -- omitting it
+    reproduces the exact prior query/behaviour (see `_build_expert_query()`).
+    Passing a tuple of terms (e.g. `SECURITY_FULL_TEXT_TERMS`, or a
+    caller's own) narrows the default fetch to TED's server-side `FT ~`
+    match, always ANDed onto the existing CPV/deadline/date filter --
+    never used unconstrained. Ignored entirely when `fetch_fn` is
+    injected (the caller controls the query in that case, same as
+    every other parameter here already works).
     """
     fetch = fetch_fn or (lambda: fetch_feed(
         FEED_URL,
         policy=DISCOVERY_POLICY,
         json_body={
-            "query": EXPERT_QUERY,
+            "query": _build_expert_query(full_text_terms),
             "fields": list(REQUEST_FIELDS),
             "limit": _REQUEST_LIMIT,
         },
@@ -666,13 +1065,17 @@ def ted_signal(item: dict, now: Optional[datetime] = None) -> CanonicalSignal:
     if buyer.safe:
         claim += f" (buyer: {buyer.safe})"
 
-    amount = item.get("amount")
-    currency = item.get("currency", "")
-    money_state = "NOT_OBSERVED"
-    money_observed = ""
-    if amount is not None and currency:
-        money_state = "ADVERTISED"
-        money_observed = f"{amount} {currency}"
+    # money_state reflects whether TED published ANY real value
+    # information for this notice, structured or not. `value_detail`
+    # (from `_extract_value()`) is non-empty whenever a real figure was
+    # found -- a single unambiguous total, or an honest multi-lot
+    # breakdown with no fabricated single number. `item["amount"]` alone
+    # is NOT the gate here: a genuine multi-lot notice has `amount=None`
+    # (see `_extract_value()`'s docstring) but still has real value
+    # information worth reporting as ADVERTISED, via `value_detail`.
+    value_detail = describe(item.get("value_detail", "")).safe
+    money_state = "ADVERTISED" if value_detail else "NOT_OBSERVED"
+    money_observed = value_detail
 
     # blue-team pass 008, findings 3 and 4: `controlling_party()`
     # (opportunity.py) used to derive identity straight from the
@@ -838,14 +1241,23 @@ def sweep(
     state_dir: Path,
     fetch_fn: Optional[Callable[[], bytes]] = None,
     now: Optional[datetime] = None,
+    full_text_terms: Optional[tuple[str, ...]] = None,
 ) -> TedRadarSweep:
-    """Run one TED-radar cycle: observe -> signal -> report."""
+    """Run one TED-radar cycle: observe -> signal -> report.
+
+    `full_text_terms` -- see `observe()`'s own docstring. Omitting it
+    (the default) reproduces this function's exact prior behaviour,
+    including the state filename; passing it uses a distinct state file
+    (see `_state_filename_suffix()`) so a term-narrowed sweep's
+    FIRST_SEEN/CHANGED/UNCHANGED history never mixes with the broad
+    sweep's.
+    """
     state_dir = Path(state_dir)
     # Same cold-start fix tender_radar.sweep()'s own docstring documents
     # -- a first run has no state directory yet.
     state_dir.mkdir(parents=True, exist_ok=True)
-    state_path = state_dir / f"{MOUTH_ID}.json"
-    observation = observe(state_path, fetch_fn=fetch_fn, now=now)
+    state_path = state_dir / f"{MOUTH_ID}{_state_filename_suffix(full_text_terms)}.json"
+    observation = observe(state_path, fetch_fn=fetch_fn, now=now, full_text_terms=full_text_terms)
     signals = tuple(ted_signal(item, now=now) for item in observation.new_items)
     targets = tuple(sorted({s.target for s in signals}))
     return TedRadarSweep(
@@ -1082,6 +1494,7 @@ def observe_paginated(
     fetch_page_fn: Optional[Callable[[int], bytes]] = None,
     policy: Optional[DiscoveryPolicy] = None,
     now: Optional[datetime] = None,
+    full_text_terms: Optional[tuple[str, ...]] = None,
 ) -> TedPaginatedObservation:
     """Multi-page observation cycle. `max_pages=1` (the default)
     behaves like a single fetch -- more pages are an explicit caller
@@ -1122,6 +1535,10 @@ def observe_paginated(
     state baseline (see the write-guard below) -- a truncated pull
     must not be allowed to look, to the NEXT cycle's diff, like "the
     complete picture, unchanged".
+
+    `full_text_terms` -- see `observe()`'s own docstring. Ignored
+    entirely when `fetch_page_fn` is injected (same as every other
+    parameter here that only shapes the DEFAULT fetch path).
     """
     if max_pages < 1:
         raise ValueError(f"max_pages must be >= 1, got {max_pages}")
@@ -1147,7 +1564,7 @@ def observe_paginated(
         return fetch_feed(
             FEED_URL, policy=active_policy,
             json_body={
-                "query": EXPERT_QUERY,
+                "query": _build_expert_query(full_text_terms),
                 "fields": list(REQUEST_FIELDS),
                 "limit": _REQUEST_LIMIT,
                 "page": page,
@@ -1214,6 +1631,7 @@ def sweep_paginated(
     fetch_page_fn: Optional[Callable[[int], bytes]] = None,
     policy: Optional[DiscoveryPolicy] = None,
     now: Optional[datetime] = None,
+    full_text_terms: Optional[tuple[str, ...]] = None,
 ) -> TedRadarSweep:
     """Multi-page counterpart to sweep(): observe_paginated() -> signal
     -> report. Same TedRadarSweep report shape sweep() returns, with
@@ -1224,14 +1642,18 @@ def sweep_paginated(
     have different item sets by construction, and sharing one state
     file between them would make switching page counts look like a
     spurious CHANGED (or a false UNCHANGED) on the next run of whichever
-    path runs second.
+    path runs second. `full_text_terms` (see `observe()`) gets the same
+    treatment via `_state_filename_suffix()`, for the same reason.
     """
     state_dir = Path(state_dir)
     state_dir.mkdir(parents=True, exist_ok=True)
-    state_path = state_dir / f"{MOUTH_ID}_paginated.json"
+    state_path = (
+        state_dir
+        / f"{MOUTH_ID}_paginated{_state_filename_suffix(full_text_terms)}.json"
+    )
     observation = observe_paginated(
         state_path, max_pages=max_pages, fetch_page_fn=fetch_page_fn,
-        policy=policy, now=now,
+        policy=policy, now=now, full_text_terms=full_text_terms,
     )
     signals = tuple(ted_signal(item, now=now) for item in observation.new_items)
     targets = tuple(sorted({s.target for s in signals}))
