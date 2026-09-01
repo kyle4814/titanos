@@ -64,26 +64,76 @@ frozen at signal-construction time, never re-validated since) costs
 nothing and is the correct discipline for a module whose entire output
 is "text a human reads and then decides to act on."
 
-WHY `rank()`'S TIEBREAK IS NOT REPEATED HERE
+VALUE AND ACCESSIBILITY (CYCLE 014)
 
-`relevance.rank()` already documents its own tiebreak explicitly:
-`(band rank, coverage, distinct-match count, signal_id)`, all
-descending except `signal_id` ascending. This module inherits that
-tiebreak by construction (it never re-sorts `rank()`'s output) rather
-than re-implementing or restating the ordering logic a second time --
-one sort, one place it lives.
+An operator previously had to read three things to judge one entry: this
+shortlist (relevance), a separate value figure in a foreign currency
+(`foundation/currency.py`), and a separate accessibility judgement
+(`foundation/winnability.py`). `build_shortlist()` now folds all three
+onto one `ShortlistEntry`:
+
+- the value AS PUBLISHED (`value_observed`, `value_amount`,
+  `value_currency` -- verbatim/parsed from `signal.money_observed`,
+  never replaced) alongside the EUR-converted figure
+  (`value_eur`) WITH the exact rate and rate date used
+  (`value_rate_used`, `value_rate_date`, `value_rate_stale`), via
+  `foundation/currency.py::to_eur()`.
+- the accessibility band and its top reason (`accessibility_band`,
+  `accessibility_reason`), via `foundation/winnability.py::assess()`.
+
+`build_shortlist()` never fetches rates itself -- it takes an
+already-loaded `currency.RateTable` (or `None`) as a parameter, so a
+caller controls exactly when, and how often, the network is touched.
+Rates are loaded once per digest by the caller, not once per entry.
+
+WHY `rank()`'S TIEBREAK IS NOT FULLY REPEATED HERE ANY MORE
+
+`relevance.rank()` documents its own tiebreak: `(band rank, coverage,
+distinct-match count, signal_id)`. This module still inherits
+`rank()`'s BAND grouping unchanged -- an EXCLUDED or UNKNOWN entry can
+never land ahead of a STRONG_MATCH one, because the primary key below
+is still relevance band, in `relevance.BANDS` order. Within one band,
+though, `build_shortlist()` now applies its OWN second, explicit sort:
+converted EUR value, descending -- because "biggest deal in this band
+first" is a more useful reading order than `rank()`'s coverage-based
+tiebreak once a comparable EUR figure exists. An entry whose value
+could not be read or converted (`value_eur is None`) is never treated
+as a EUR 0 entry for this sort -- it is grouped ahead of every entry
+with a real converted figure in the same band, so a human sees exactly
+the notices that need a second look, rather than that group being
+silently buried at the bottom of the list next to genuinely tiny
+figures. `render_digest()`'s header states this ordering explicitly so
+nobody has to infer it from the code.
+
+Accessibility is DISPLAYED ONLY. It never enters this sort key and
+never filters an entry out -- `winnability.rank()`'s own module
+docstring already refuses to filter ("hiding the EUR 162m contract is
+not this module's decision to make"); this module extends the same
+refusal to itself. Hiding or reordering a STRONG_MATCH notice because
+it looks STRUCTURALLY_OUT_OF_REACH would be exactly the "large
+contract quietly disappears" failure this repository's other modules
+go out of their way to avoid.
 """
 
 from __future__ import annotations
 
+import re
 import textwrap
 from dataclasses import dataclass, field
+from datetime import datetime
 from typing import Mapping, Optional, Sequence, Tuple
 
 from foundation import relevance
 from foundation.relevance import BANDS, CapabilityProfile, RelevanceAssessment
 from foundation.signal_spine import CanonicalSignal
 from foundation.untrusted_text import neutralise
+from foundation.currency import Conversion, RateTable, STATUS_OK, to_eur
+from foundation.winnability import (
+    BANDS as ACCESSIBILITY_BANDS,
+    DeclaredOperatorCapacity,
+    WinnabilityAssessment,
+    assess as assess_winnability,
+)
 
 __all__ = [
     "UNKNOWN",
@@ -113,12 +163,66 @@ _DIGEST_HEADER = (
     "",
     "A field showing UNKNOWN means the underlying notice did not carry that",
     "fact -- it is not zero, and it is not a guess.",
+    "",
+    "SORT ORDER: relevance band first (STRONG_MATCH, POSSIBLE, WEAK,",
+    "EXCLUDED, UNKNOWN); within a band, converted EUR value, descending.",
+    "An entry whose value could not be read or converted to EUR sorts",
+    "after the priced entries in its band. It is never treated as a",
+    "zero value, and it is never dropped -- it follows them as its own",
+    "group so a missing figure stays visible without displacing the",
+    "ranking.",
+    "",
+    "Accessibility (ACCESSIBLE / STRETCH / STRUCTURALLY_OUT_OF_REACH /",
+    "UNKNOWN) is shown for context only. It never filters or reorders",
+    "any entry -- a large or complex notice is never hidden here.",
     "=" * 72,
 )
 
 _DISPLAY_MAX_LEN = 200
 _REFERENCE_MAX_LEN = 320
 _SHORT_MAX_LEN = 80
+
+# Mirrors mouth_ted._extract_value()'s own documented single-value text
+# shape for `CanonicalSignal.money_observed` -- "<amount> <CCY>
+# (<label>)", e.g. "162000000.0 EUR (estimated value)" -- the ONLY shape
+# this module ever extracts a number from. `money_observed` is
+# deliberately verbatim, never-parsed text per signal_spine.py's own
+# contract; this module reads it the same disciplined way
+# winnability.py does: only when it matches this exact shape, never a
+# guess, and never a sum/average/pick across a multi-lot breakdown
+# ("N lot(s), ..." text, which does not match this pattern and is
+# therefore correctly treated as MISSING here, same as it is treated as
+# unresolved size evidence in winnability.py).
+_SINGLE_VALUE_RE = re.compile(r"^(-?\d+(?:\.\d+)?)\s+([A-Za-z]{3})\s+\([^)]*\)\s*$")
+
+# The three -- and only three -- states a value can be in once this
+# module has looked at it. Never a fourth "just missing" state that
+# collapses UNCONVERTIBLE and MISSING into the same rendering, because
+# they are different facts: one is "a number was published, we cannot
+# turn it into EUR"; the other is "no single number was published at
+# all".
+VALUE_OK = "OK"
+VALUE_UNCONVERTIBLE = "UNCONVERTIBLE"
+VALUE_MISSING = "MISSING"
+_VALUE_STATUSES = (VALUE_OK, VALUE_UNCONVERTIBLE, VALUE_MISSING)
+
+
+def _parse_single_value(money_observed: str) -> Tuple[Optional[float], str]:
+    """Return `(amount, currency)` parsed from `money_observed` ONLY when
+    it matches the single-value shape above; `(None, "")` for anything
+    else (empty, multi-lot breakdown, unrecognised shape) -- see the
+    regex comment. Never sums, averages, or picks a figure."""
+    text = (money_observed or "").strip()
+    if not text:
+        return None, ""
+    match = _SINGLE_VALUE_RE.match(text)
+    if not match:
+        return None, ""
+    try:
+        amount = float(match.group(1))
+    except ValueError:
+        return None, ""
+    return amount, match.group(2).upper()
 
 # FINDING A (BLUE_TEAM_009, HIGH) -- line-wrap forged-entry defence.
 #
@@ -234,9 +338,58 @@ class ShortlistEntry:
         "revenue. Verify independently before acting."
     )
 
+    # -- CYCLE 014: value + accessibility, folded onto the same entry so
+    # an operator reads one line instead of three separate tools. See
+    # module docstring's "VALUE AND ACCESSIBILITY" section.
+
+    # Value as published -- NEVER replaced by the converted figure.
+    # `value_observed` is the display-safe verbatim text (UNKNOWN if the
+    # notice carried nothing); `value_amount`/`value_currency` are only
+    # populated when that text matched the single, unambiguous shape
+    # `_parse_single_value` looks for (never a guess across a multi-lot
+    # breakdown).
+    value_observed: str = UNKNOWN
+    value_amount: Optional[float] = None
+    value_currency: str = ""
+
+    # The EUR-converted figure, with everything needed to audit it --
+    # same discipline currency.Conversion already enforces. `value_eur`
+    # is `None` whenever `value_eur_status != VALUE_OK`; a caller must
+    # never treat that `None` as zero (see module docstring).
+    value_eur_status: str = VALUE_MISSING
+    value_eur: Optional[float] = None
+    value_rate_used: Optional[float] = None
+    value_rate_date: Optional[str] = None
+    value_rate_stale: bool = False
+    # Human-readable reason value_eur is None -- always non-empty when
+    # value_eur_status != VALUE_OK, always "" when it is OK.
+    value_eur_note: str = ""
+
+    # Accessibility -- DISPLAYED ONLY. Never used by build_shortlist()
+    # to filter or reorder across relevance bands; see module docstring.
+    accessibility_band: str = "UNKNOWN"
+    accessibility_reason: str = UNKNOWN
+
     def __post_init__(self) -> None:
         if self.band not in BANDS:
             raise ValueError(f"unknown band {self.band!r}")
+        if self.value_eur_status not in _VALUE_STATUSES:
+            raise ValueError(
+                f"unknown value_eur_status {self.value_eur_status!r}")
+        if self.value_eur_status == VALUE_OK and self.value_eur is None:
+            raise ValueError(
+                "value_eur_status is OK but value_eur is None -- a "
+                "successful conversion must carry its figure")
+        if self.value_eur_status != VALUE_OK and self.value_eur is not None:
+            raise ValueError(
+                f"value_eur_status is {self.value_eur_status!r} but "
+                f"value_eur is {self.value_eur!r} -- an unconverted "
+                f"entry must never carry a number a reader could "
+                f"mistake for a real converted figure"
+            )
+        if self.accessibility_band not in ACCESSIBILITY_BANDS:
+            raise ValueError(
+                f"unknown accessibility_band {self.accessibility_band!r}")
 
 
 def _notice_reference(evidence: Mapping[str, object]) -> str:
@@ -247,8 +400,82 @@ def _notice_reference(evidence: Mapping[str, object]) -> str:
     return ""
 
 
+def _value_fields(
+    signal: CanonicalSignal, rates: Optional[RateTable]
+) -> dict:
+    """Compute every value-related ShortlistEntry field for one signal.
+    Never fetches anything -- `rates` is either an already-loaded
+    `RateTable` or `None`; see module docstring."""
+    value_observed = _clean(signal.money_observed)
+    amount, currency_code = _parse_single_value(signal.money_observed)
+
+    if amount is None:
+        return dict(
+            value_observed=value_observed, value_amount=None,
+            value_currency="", value_eur_status=VALUE_MISSING,
+            value_eur=None, value_rate_used=None, value_rate_date=None,
+            value_rate_stale=False,
+            value_eur_note="no single unambiguous value was published "
+                            "on this notice",
+        )
+
+    if rates is None:
+        return dict(
+            value_observed=value_observed, value_amount=amount,
+            value_currency=currency_code, value_eur_status=VALUE_UNCONVERTIBLE,
+            value_eur=None, value_rate_used=None, value_rate_date=None,
+            value_rate_stale=False,
+            value_eur_note="no rate table was supplied to this digest",
+        )
+
+    conversion: Conversion = to_eur(amount, currency_code, rates)
+    if conversion.status == STATUS_OK:
+        return dict(
+            value_observed=value_observed, value_amount=amount,
+            value_currency=currency_code, value_eur_status=VALUE_OK,
+            value_eur=conversion.eur_amount,
+            value_rate_used=conversion.rate_used,
+            value_rate_date=conversion.rate_date,
+            value_rate_stale=conversion.stale, value_eur_note="",
+        )
+    return dict(
+        value_observed=value_observed, value_amount=amount,
+        value_currency=currency_code, value_eur_status=VALUE_UNCONVERTIBLE,
+        value_eur=None, value_rate_used=None, value_rate_date=None,
+        value_rate_stale=False,
+        value_eur_note=f"no rate available for {currency_code or '(no currency)'}",
+    )
+
+
+def _accessibility_fields(
+    signal: CanonicalSignal,
+    capacity: Optional[DeclaredOperatorCapacity],
+    now: Optional[datetime],
+) -> Tuple[str, str]:
+    """Return `(accessibility_band, accessibility_reason)` for one
+    signal via `winnability.assess()`. Display-only -- see module
+    docstring; the caller never feeds this into a sort key."""
+    assessment: WinnabilityAssessment = assess_winnability(signal, capacity, now)
+    if assessment.band == "UNKNOWN":
+        reason = assessment.unknown_reason
+    else:
+        barrier = next(
+            (f for f in assessment.factors if f.verdict == "BARRIER"), None)
+        if barrier is not None:
+            reason = barrier.evidence
+        else:
+            known = next(
+                (f for f in assessment.factors if f.status == "KNOWN"), None)
+            reason = known.evidence if known else assessment.factors[0].evidence
+    return assessment.band, _clean(reason)
+
+
 def _entry_from_assessment(
-    assessment: RelevanceAssessment, signal: CanonicalSignal
+    assessment: RelevanceAssessment,
+    signal: CanonicalSignal,
+    rates: Optional[RateTable] = None,
+    capacity: Optional[DeclaredOperatorCapacity] = None,
+    now: Optional[datetime] = None,
 ) -> ShortlistEntry:
     evidence = signal.evidence
     facts = signal.facts
@@ -260,6 +487,10 @@ def _entry_from_assessment(
     notice_id = _clean(_notice_reference(evidence), max_len=_SHORT_MAX_LEN)
     reference = _clean(signal.source_ref, max_len=_REFERENCE_MAX_LEN)
     source_id = _clean(signal.source_id, max_len=_SHORT_MAX_LEN)
+
+    value_fields = _value_fields(signal, rates)
+    accessibility_band, accessibility_reason = _accessibility_fields(
+        signal, capacity, now)
 
     return ShortlistEntry(
         signal_id=assessment.signal_id,
@@ -287,6 +518,37 @@ def _entry_from_assessment(
         injection_markers=tuple(
             neutralise(str(m), max_len=_SHORT_MAX_LEN)
             for m in evidence.get("injection_markers", ()) or ()),
+        accessibility_band=accessibility_band,
+        accessibility_reason=accessibility_reason,
+        **value_fields,
+    )
+
+
+def _within_band_sort_key(entry: ShortlistEntry) -> Tuple:
+    """Sort key applied WITHIN one relevance band -- see module
+    docstring's "VALUE AND ACCESSIBILITY" section. An entry with no
+    known EUR figure sorts AFTER the ones that have a figure, but is
+    never treated AS zero -- those are different things, and the
+    difference is the whole point.
+
+    THE FIRST VERSION OVER-CORRECTED, and a live measurement caught it.
+    Sorting unknown-value entries AHEAD of everything was meant to stop
+    them being buried next to genuinely tiny contracts. On a real sweep
+    it did the opposite at the other end: 22 of 50 STRONG_MATCH entries
+    carried no value, so a top-10 was composed ENTIRELY of valueless
+    entries and all 28 that did carry a value became invisible. A rule
+    written to stop one group being hidden hid the other group instead.
+
+    Ranked-by-value has to actually rank by value. Unknowns follow,
+    intact and counted -- `render_digest()` states how many there are,
+    so they are visible as a group rather than either buried or
+    crowding out the ranking. `signal_id` is the deterministic
+    tiebreak."""
+    has_value = entry.value_eur is not None
+    return (
+        0 if has_value else 1,
+        -entry.value_eur if has_value else 0.0,
+        entry.signal_id,
     )
 
 
@@ -294,17 +556,37 @@ def build_shortlist(
     signals: Sequence[CanonicalSignal],
     profile: CapabilityProfile,
     limit: Optional[int] = None,
+    rates: Optional[RateTable] = None,
+    capacity: Optional[DeclaredOperatorCapacity] = None,
+    now: Optional[datetime] = None,
 ) -> Tuple[ShortlistEntry, ...]:
-    """Score every signal against `profile` and return the ranked,
-    best-first shortlist, truncated to `limit` (no truncation if `None`).
+    """Score every signal against `profile`, fold in value (via `rates`)
+    and accessibility (via `capacity`), and return the ranked shortlist,
+    truncated to `limit` (no truncation if `None`).
 
-    Ordering is exactly `relevance.rank()`'s ordering -- this function
-    performs no second sort, so the guarantee `rank()` already proves
-    (an EXCLUDED or UNKNOWN assessment can never rank above a
-    STRONG_MATCH) carries over unchanged; see module docstring.
-    Deterministic: the same `signals`/`profile` produce the same output,
-    in the same order, on every call, because `rank()` itself is
-    deterministic and this function does not reorder its result.
+    Ordering: relevance band first (`relevance.BANDS` order -- an
+    EXCLUDED or UNKNOWN entry can never rank above a STRONG_MATCH one,
+    same guarantee as before), then converted EUR value descending
+    WITHIN that band -- see `_within_band_sort_key` and module
+    docstring. Deterministic: the same inputs produce the same output,
+    in the same order, on every call.
+
+    `rates`: an already-loaded `currency.RateTable`, or `None`. This
+    function NEVER fetches -- a caller loads the table once (e.g. via
+    `currency.load_rate_table()`) and passes it in, so the network is
+    touched at most once per digest, not once per entry. `None` is a
+    valid input; every entry's value then renders with
+    `value_eur_status == UNCONVERTIBLE` and an honest note, never a
+    guess.
+
+    `capacity`: an optional `winnability.DeclaredOperatorCapacity`,
+    passed straight through to `winnability.assess()` per signal.
+    `now`: passed straight through to `winnability.assess()`; `None`
+    uses real current time (see that module).
+
+    Accessibility is DISPLAYED ONLY -- it is computed for every entry
+    but never affects `limit`, filtering, or either sort key; see
+    module docstring.
 
     An empty `signals` sequence is a valid input and produces an empty
     shortlist, not an error -- an empty pipeline run is an honest
@@ -327,7 +609,18 @@ def build_shortlist(
             # signals list after ranking gets a skipped entry rather
             # than a crash on a stale lookup.
             continue
-        entries.append(_entry_from_assessment(assessment, signal))
+        entries.append(_entry_from_assessment(
+            assessment, signal, rates=rates, capacity=capacity, now=now))
+
+    # relevance.rank() already grouped `entries` into contiguous,
+    # band-ordered blocks (its own primary sort key). A second, STABLE
+    # sort keyed purely on relevance band index re-groups by the exact
+    # literal band string (rather than rank()'s shared 0-rank for
+    # EXCLUDED/UNKNOWN) and is what actually makes the within-band
+    # value ordering below correct and band-pure. Python's sort is
+    # guaranteed stable, so ties within the same (band, value) key
+    # never depend on iteration order.
+    entries.sort(key=lambda e: (BANDS.index(e.band),) + _within_band_sort_key(e))
 
     if limit is not None:
         entries = entries[:limit]
@@ -351,6 +644,21 @@ def _render_entry(position: int, entry: ShortlistEntry) -> Tuple[str, ...]:
             "phrasing (" + ", ".join(entry.injection_markers) + ") -- "
             "not a verdict, this is evidence for a human to weigh; "
             "text is otherwise rendered unmodified above")
+
+    if entry.value_eur_status == VALUE_OK:
+        stale_marker = " STALE" if entry.value_rate_stale else ""
+        lines.append(
+            f"   value: {entry.value_observed} -> EUR "
+            f"{entry.value_eur:,.2f} (rate {entry.value_rate_used:,.6g}, "
+            f"as of {entry.value_rate_date}{stale_marker})")
+    else:
+        lines.append(
+            f"   value: {entry.value_observed} -> EUR: {UNKNOWN} "
+            f"({entry.value_eur_note})")
+
+    lines.append(
+        f"   accessibility: [{entry.accessibility_band}] "
+        f"{entry.accessibility_reason}")
 
     lines.append(f"   deadline: {entry.deadline}    source: {entry.source_id}")
 

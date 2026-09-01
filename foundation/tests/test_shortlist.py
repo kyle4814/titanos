@@ -4,14 +4,17 @@ import unittest
 from datetime import datetime, timezone
 
 from foundation import shortlist
+from foundation.currency import RateTable
 from foundation.relevance import CapabilityProfile
 from foundation.signal_spine import CanonicalSignal
 from foundation.untrusted_text import looks_like_injection
+from foundation.winnability import DeclaredOperatorCapacity
 
 
 def _signal(signal_id, claim, buyer_safe="", title_safe="", deadline="",
             source_id="tender_radar_eu_ted", source_ref="https://example/query",
-            tender_id="", ocid="", extra_facts=None, extra_evidence=None):
+            tender_id="", ocid="", extra_facts=None, extra_evidence=None,
+            money_observed="", money_state=None):
     facts = {"deadline": deadline}
     if extra_facts:
         facts.update(extra_facts)
@@ -24,6 +27,10 @@ def _signal(signal_id, claim, buyer_safe="", title_safe="", deadline="",
     }
     if extra_evidence:
         evidence.update(extra_evidence)
+    kwargs = {}
+    if money_observed:
+        kwargs["money_observed"] = money_observed
+        kwargs["money_state"] = money_state or "ADVERTISED"
     return CanonicalSignal(
         signal_id=signal_id,
         source_id=source_id,
@@ -38,7 +45,14 @@ def _signal(signal_id, claim, buyer_safe="", title_safe="", deadline="",
         evidence=evidence,
         pressure_class="EXPLICIT_DEMAND",
         pressure_evidence="a public notice stating intent to purchase",
+        **kwargs,
     )
+
+
+RATES = RateTable(date_str="2026-09-01", rates={
+    "USD": 1.1, "GBP": 0.85, "SEK": 11.5,
+})
+NOW = datetime(2026, 9, 1, tzinfo=timezone.utc)
 
 
 PROFILE = CapabilityProfile(
@@ -314,6 +328,187 @@ class BuildShortlistTests(unittest.TestCase):
         self.assertTrue(flagged_entry.injection_markers)
         digest = shortlist.render_digest(entries)
         self.assertIn("FLAGGED", digest)
+
+
+class ValueAndAccessibilityTests(unittest.TestCase):
+    """CYCLE 014: value + accessibility folded onto the shortlist."""
+
+    def test_value_renders_original_and_converted_and_rate_date(self):
+        signals = [
+            _signal("s1", "open tender: cyber security penetration testing "
+                          "security audit", buyer_safe="Buyer A",
+                    title_safe="Security services", deadline="2026-10-01",
+                    money_observed="100 USD (estimated value)"),
+        ]
+        entries = shortlist.build_shortlist(signals, PROFILE, rates=RATES, now=NOW)
+        entry = entries[0]
+        self.assertEqual(entry.value_eur_status, shortlist.VALUE_OK)
+        self.assertAlmostEqual(entry.value_eur, 100 / 1.1)
+        self.assertEqual(entry.value_rate_date, "2026-09-01")
+        self.assertIsNotNone(entry.value_rate_used)
+        digest = shortlist.render_digest(entries)
+        self.assertIn("100 USD (estimated value)", digest)
+        self.assertIn("EUR", digest)
+        self.assertIn("2026-09-01", digest)
+
+    def test_unconvertible_currency_renders_distinctly_and_does_not_sort_as_zero(self):
+        signals = [
+            _signal("big", "open tender: cyber security penetration testing "
+                           "security audit", buyer_safe="Big Buyer",
+                    title_safe="Big security contract", deadline="2026-10-01",
+                    money_observed="9000000 XXX (estimated value)"),
+            _signal("small", "open tender: cyber security penetration "
+                             "testing security audit", buyer_safe="Small Buyer",
+                    title_safe="Small security contract", deadline="2026-10-01",
+                    money_observed="500 USD (estimated value)"),
+        ]
+        entries = shortlist.build_shortlist(signals, PROFILE, rates=RATES, now=NOW)
+        big = next(e for e in entries if e.signal_id == "big")
+        small = next(e for e in entries if e.signal_id == "small")
+        self.assertEqual(big.value_eur_status, shortlist.VALUE_UNCONVERTIBLE)
+        self.assertIsNone(big.value_eur)
+        # An unconvertible XXX 9,000,000 is NOT worth EUR 0, and is not
+        # interleaved among tiny known figures as though it were. It follows
+        # the priced entries as its own group, and the digest states how many
+        # such entries exist so they stay visible.
+        #
+        # The original assertion demanded it sort AHEAD of every priced
+        # entry. Measured live, that put 22 valueless entries above 28
+        # priced ones and emptied the top-10 of anything with a value --
+        # the opposite burial, and worse, because "ranked by value" then
+        # showed no values at all.
+        self.assertGreater(entries.index(big), entries.index(small))
+        self.assertNotEqual(big.value_eur, 0)
+        digest = shortlist.render_digest(entries)
+        self.assertIn(f"EUR: {shortlist.UNKNOWN}", digest)
+        self.assertNotIn("EUR 0", digest)
+
+    def test_missing_value_does_not_sort_as_zero(self):
+        signals = [
+            _signal("has_value", "open tender: cyber security penetration "
+                                 "testing security audit", buyer_safe="Buyer A",
+                    title_safe="Security services", deadline="2026-10-01",
+                    money_observed="10 USD (estimated value)"),
+            _signal("no_value", "open tender: cyber security penetration "
+                                "testing security audit", buyer_safe="Buyer B",
+                    title_safe="Security services two", deadline="2026-10-01"),
+        ]
+        entries = shortlist.build_shortlist(signals, PROFILE, rates=RATES, now=NOW)
+        no_value = next(e for e in entries if e.signal_id == "no_value")
+        has_value = next(e for e in entries if e.signal_id == "has_value")
+        self.assertEqual(no_value.value_eur_status, shortlist.VALUE_MISSING)
+        self.assertIsNone(no_value.value_eur)
+        # NOT SORTED AS ZERO, and not sorted ahead of everything either.
+        #
+        # The original assertion here demanded unknowns come FIRST. A live
+        # measurement showed what that costs: 22 of 50 STRONG_MATCH entries
+        # carried no value, so a top-10 was made entirely of valueless ones
+        # and all 28 priced entries became invisible. A rule written to stop
+        # one group being hidden hid the other instead.
+        #
+        # The real property is that an unknown is not silently treated as
+        # EUR 0 and interleaved among genuinely tiny contracts. It follows
+        # the priced entries as its own group, and the digest states how
+        # many there are.
+        self.assertGreater(entries.index(no_value), entries.index(has_value))
+        self.assertNotEqual(no_value.value_eur, 0)
+
+    def test_no_rate_table_renders_unconvertible_not_a_crash(self):
+        signals = [
+            _signal("s1", "open tender: cyber security penetration testing "
+                          "security audit", buyer_safe="Buyer A",
+                    title_safe="Security services", deadline="2026-10-01",
+                    money_observed="100 USD (estimated value)"),
+        ]
+        entries = shortlist.build_shortlist(signals, PROFILE, now=NOW)
+        self.assertEqual(entries[0].value_eur_status, shortlist.VALUE_UNCONVERTIBLE)
+        self.assertIsNone(entries[0].value_eur)
+        digest = shortlist.render_digest(entries)
+        self.assertIn(f"EUR: {shortlist.UNKNOWN}", digest)
+
+    def test_accessibility_is_shown_but_never_reorders_across_relevance_bands(self):
+        signals = [
+            # STRONG_MATCH but a huge value relative to a tiny declared
+            # capacity -- structurally out of reach on accessibility.
+            _signal("strong", "open tender: cyber security penetration "
+                              "testing security audit incident response "
+                              "soc services", buyer_safe="Strong Buyer",
+                    title_safe="Security services", deadline="2026-12-01",
+                    money_observed="50000000 EUR (estimated value)"),
+            # WEAK/POSSIBLE band, tiny value, easily accessible.
+            _signal("weak", "open tender: cyber security only",
+                    buyer_safe="Weak Buyer", title_safe="Some services",
+                    deadline="2026-12-01", money_observed="100 EUR "
+                    "(estimated value)"),
+        ]
+        capacity = DeclaredOperatorCapacity(
+            name="tiny-operator", declared_by="test",
+            ceiling_amount=100000.0, ceiling_currency="EUR")
+        without_capacity = shortlist.build_shortlist(
+            signals, PROFILE, rates=RATES, now=NOW)
+        with_capacity = shortlist.build_shortlist(
+            signals, PROFILE, rates=RATES, capacity=capacity, now=NOW)
+        # Accessibility band changes with capacity supplied...
+        strong_with = next(e for e in with_capacity if e.signal_id == "strong")
+        self.assertEqual(
+            strong_with.accessibility_band, "STRUCTURALLY_OUT_OF_REACH")
+        # ...but the relevance-band ordering (and hence position) of every
+        # entry is identical whether or not capacity/accessibility differs.
+        self.assertEqual(
+            [e.signal_id for e in without_capacity],
+            [e.signal_id for e in with_capacity])
+
+    def test_sort_order_is_deterministic(self):
+        signals = [
+            _signal(f"s{i}", "open tender: cyber security penetration "
+                              "testing security audit incident response",
+                    buyer_safe=f"Buyer {i}", title_safe="Security services",
+                    deadline="2026-10-01",
+                    money_observed=f"{(i + 1) * 1000} USD (estimated value)")
+            for i in range(5)
+        ]
+        first = shortlist.build_shortlist(signals, PROFILE, rates=RATES, now=NOW)
+        second = shortlist.build_shortlist(signals, PROFILE, rates=RATES, now=NOW)
+        self.assertEqual(first, second)
+        # Descending EUR value within the (single) relevance band.
+        eur_values = [e.value_eur for e in first]
+        self.assertEqual(eur_values, sorted(eur_values, reverse=True))
+
+    def test_digest_header_states_sort_order(self):
+        digest = shortlist.render_digest(())
+        self.assertIn("SORT ORDER", digest)
+
+    def test_missing_and_unknown_fields_still_render_unknown(self):
+        # Re-verifies the pre-existing UNKNOWN discipline still holds once
+        # value/accessibility fields are added to the same entry.
+        signals = [
+            _signal("s1", "open tender: cyber security penetration testing "
+                          "security audit", buyer_safe="Buyer A",
+                    title_safe="Security services", deadline=""),
+        ]
+        entries = shortlist.build_shortlist(signals, PROFILE, now=NOW)
+        self.assertEqual(entries[0].deadline, shortlist.UNKNOWN)
+        self.assertEqual(entries[0].value_observed, shortlist.UNKNOWN)
+        digest = shortlist.render_digest(entries)
+        self.assertIn(f"deadline: {shortlist.UNKNOWN}", digest)
+
+    def test_excluded_still_never_outranks_strong_match_with_value_sorting(self):
+        signals = [
+            _signal("s1", "open tender: construction of a building, "
+                          "catering services included",
+                    buyer_safe="Buyer EXCLUDED", title_safe="Construction",
+                    money_observed="900000000 EUR (estimated value)"),
+            _signal("s2", "open tender: cyber security penetration testing "
+                          "security audit incident response services",
+                    buyer_safe="Buyer STRONG", title_safe="Security services",
+                    money_observed="1 EUR (estimated value)"),
+        ]
+        entries = shortlist.build_shortlist(signals, PROFILE, rates=RATES, now=NOW)
+        bands = [e.band for e in entries]
+        self.assertIn("EXCLUDED", bands)
+        self.assertIn("STRONG_MATCH", bands)
+        # A tiny STRONG_MATCH must still outrank a massive EXCLUDED entry.
+        self.assertLess(bands.index("STRONG_MATCH"), bands.index("EXCLUDED"))
 
 
 if __name__ == "__main__":
