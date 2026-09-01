@@ -240,6 +240,31 @@ class RelevanceAssessment:
                 "that were found")
 
 
+def _cpv_field_text(signal: CanonicalSignal) -> str:
+    """The notice's OWN declared CPV classification, and nothing else.
+
+    Reads only the `cpv` fact a mouth explicitly populates from the
+    feed's classification field. Deliberately does not fall back to the
+    claim, the target or any other text: an absent classification must
+    read as "this notice declares no CPV", never as "search the prose for
+    something that looks like one".
+    """
+    if not signal.facts:
+        return ""
+    # Accepts the small set of names mouths in this repository actually
+    # use for the classification field. Deliberately a set rather than
+    # one canonical name: a mouth that spells it differently would
+    # otherwise score zero CPV matches forever and look merely
+    # unlucky, which is precisely the kind of silent failure this
+    # module keeps being bitten by. A mouth using a name NOT on this
+    # list fails visibly in review instead.
+    for key in ("cpv", "cpv_code", "classification_cpv"):
+        raw = signal.facts.get(key)
+        if raw:
+            return neutralise(str(raw), max_len=512)
+    return ""
+
+
 def _searchable_text(signal: CanonicalSignal) -> str:
     """Everything on the signal a caller might plausibly search, safely
     rendered. All of it is attacker-controlled (see
@@ -326,9 +351,27 @@ def score(signal: CanonicalSignal,
         for term in profile.keywords
     }
     matched_keywords = tuple(sorted(t for t, c in occurrences.items() if c))
+    # CPV IS MATCHED AGAINST THE NOTICE'S DECLARED CLASSIFICATION ONLY,
+    # never against free text.
+    #
+    # A CPV code is an eight-digit number, and eight-digit numbers appear
+    # in prose constantly -- reference numbers, contract values, phone
+    # numbers, dates. Blue-team pass 008 reproduced the obvious
+    # consequence: "Supply of catering. Contract value 72000000 EUR."
+    # scored STRONG_MATCH against a profile declaring CPV 72000000,
+    # because the matcher scanned the whole joined text.
+    #
+    # This is the same defect class as the source_ref leak fixed earlier
+    # in this file, one layer in: a code appearing ANYWHERE was treated
+    # as the notice's classification. The classification is a specific
+    # field the notice carries, and matching anything else is a guess
+    # wearing a fact's clothes. CPV is also exempt from the stuffing
+    # guard and can alone earn STRONG_MATCH, so it is exactly the wrong
+    # signal to source loosely.
+    declared_cpv = _cpv_field_text(signal)
     matched_cpv = tuple(sorted(
         code for code in profile.cpv_codes
-        if _keyword_pattern(code).search(text)
+        if _keyword_pattern(code).search(declared_cpv)
     ))
 
     stuffed = _looks_stuffed(tokens, occurrences)

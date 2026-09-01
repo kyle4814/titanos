@@ -384,6 +384,31 @@ def run_swarm_task(
         except UnboundedDiscoveryObjective as exc:
             return _refused(VALIDATION_REFUSED, "OBJECTIVE_UNBOUNDED", str(exc))
 
+        # A GATE REFUSAL IS STILL A GATE REFUSAL WHEN ONE SOURCE ABSORBS IT.
+        #
+        # `run_cycle` used to let a budget/authorization refusal propagate,
+        # and the three `except` clauses above turned it into a structured
+        # BUDGET_EXHAUSTED / AUTHORITY_HOLD. Cycle 008 stopped it
+        # propagating, because doing so discarded every OTHER source's
+        # already-fetched signals — the ledger ended with zero records.
+        #
+        # That fix would have silently removed this escalation: the cycle
+        # would return LIVE_OK with a quietly smaller signal count, and an
+        # agent would read a budget wall as an ordinary quiet day. So the
+        # refusal is read back off the per-source results instead of off an
+        # exception. The authority fact survives the isolation fix.
+        refused = [r for r in getattr(report, "source_results", ())
+                   if r.status == "REFUSED_BY_GATE"]
+        if refused:
+            detail = "; ".join(f"{r.source_id}: {r.error}" for r in refused)
+            budget = [r for r in refused if "Budget" in (r.error or "")]
+            if budget:
+                return _refused(BUDGET_EXHAUSTED, "DISCOVERY_BUDGET_EXHAUSTED",
+                                detail)
+            return _refused(
+                AUTHORITY_HOLD, "DISCOVERY_SCOPE_DENIED", detail,
+                requires_human=("DISCOVERY_AUTHORIZATION_GATE",))
+
         return SwarmTaskResult(
             status=LIVE_OK,
             sweep_status=report.sweep_status,

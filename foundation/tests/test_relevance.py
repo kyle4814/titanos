@@ -66,6 +66,8 @@ class TestClearMatch(unittest.TestCase):
             "sig-cpv",
             claim="Provision of general professional services for the "
                   "authority's ongoing operational needs across the year.",
+            # CPV must be the notice's DECLARED classification field,
+            # not a number found in prose (blue-team 008, item 2a).
             facts={"cpv_code": "72500000"},
         )
         a = score(sig, PROFILE)

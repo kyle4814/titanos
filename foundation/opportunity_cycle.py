@@ -173,13 +173,19 @@ _SOURCE_SWEEPERS: "dict[str, Callable]" = {
 # produces a `SourceCycleResult` so a caller inspecting per-source status
 # sees the gap rather than a source that quietly vanished.
 _UNSUPPORTED_SOURCE_STATUS = "UNSUPPORTED_SOURCE"
+# A gate-level refusal for ONE source: budget exhausted, scope refused,
+# objective rejected. Distinct from UNAVAILABLE because it is an authority
+# fact, not a bad day at the remote end, and the caller must be able to
+# tell them apart.
+_GATE_REFUSED_STATUS = "REFUSED_BY_GATE"
 
 # A sweep status meaning the fetch itself failed for that source
 # (mirrors `mouth_common.py`'s own `UNAVAILABLE`) -- both this and
 # `_UNSUPPORTED_SOURCE_STATUS` count as "this source contributed zero
 # signals and that is visible in the report", the property this whole
 # module exists to guarantee.
-_FAILURE_STATUSES = ("UNAVAILABLE", _UNSUPPORTED_SOURCE_STATUS)
+_FAILURE_STATUSES = ("UNAVAILABLE", _UNSUPPORTED_SOURCE_STATUS,
+                     _GATE_REFUSED_STATUS)
 
 
 @dataclass(frozen=True)
@@ -283,12 +289,39 @@ def _sweep_one_source(
 
     try:
         source_sweep = sweeper(state_dir, fetch_fn=fetch_fn, now=now)
-    except _GATE_REFUSAL_EXCEPTIONS:
-        # A communication/discovery-authorization refusal, not a
-        # per-source fetch failure -- let it propagate. See
-        # `_GATE_REFUSAL_EXCEPTIONS`'s own comment above for why this is
-        # not swallowed here.
-        raise
+    except _GATE_REFUSAL_EXCEPTIONS as exc:
+        # A GATE REFUSAL FOR ONE SOURCE MUST NOT DISCARD THE OTHERS.
+        #
+        # This used to `raise`, on the reasoning that a budget or
+        # authorization refusal is an authority fact and must not be
+        # downgraded into an ordinary bad day. That reasoning was right
+        # and the consequence was not: signals are merged and written to
+        # the ledger ONCE, after the whole source loop, so propagating
+        # from inside the loop threw away every other source's
+        # already-fetched, genuine notices.
+        #
+        # Blue-team pass 008 reproduced it: with one source's budget
+        # pre-exhausted and another holding a real notice, run_cycle()
+        # raised and the ledger ended with ZERO records. Work that had
+        # already been lawfully fetched was destroyed by an unrelated
+        # source's accounting.
+        #
+        # Both properties are now kept: the refusal is recorded against
+        # the source that suffered it, under its own status so it can
+        # never be mistaken for a fetch failure, and the sources that DID
+        # succeed still reach the pipeline. The roll-up reports it, so a
+        # caller like `swarm_contract` can still escalate on authority
+        # rather than inferring from a count.
+        return (
+            SourceCycleResult(
+                source_id=source_id,
+                status=_GATE_REFUSED_STATUS,
+                error=f"{type(exc).__name__}: {exc}",
+                fetched_count=0,
+                signal_count=0,
+            ),
+            (),
+        )
     except Exception as exc:  # noqa: BLE001 -- per-source isolation is the point
         # A source's own `sweep()` is documented never to raise for an
         # ordinary fetch/parse failure (it converts that into a

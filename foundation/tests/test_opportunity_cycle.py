@@ -247,3 +247,57 @@ class RunCycleTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestGateRefusalDoesNotDiscardOtherSources(unittest.TestCase):
+    """Blue-team pass 008, CRITICAL, reproduced live.
+
+    Signals are merged and written to the ledger ONCE, after the whole
+    source loop. `run_cycle` used to re-raise a gate refusal from inside
+    that loop — deliberately, so a budget or authorization refusal could
+    not be downgraded into an ordinary bad day. The reasoning was right;
+    the consequence was that one source's accounting destroyed every other
+    source's already-fetched, lawfully-obtained notices.
+
+    Reproduced: one source's budget pre-exhausted, another holding a real
+    notice → run_cycle() raised, ledger ended with ZERO records.
+    """
+
+    def test_one_sources_refusal_leaves_the_others_signals_intact(self):
+        from unittest import mock
+        from foundation.discovery_authorization import DiscoveryBudgetExhausted
+
+        payload = json.dumps({"notices": [{
+            "publication-number": "1-2026", "buyer-name": {"eng": "A Buyer"},
+            "notice-title": {"eng": "IT services"},
+            "deadline-receipt-request": ["2030-01-01T00:00:00+01:00"]}]}).encode()
+
+        def refuse(*a, **k):
+            raise DiscoveryBudgetExhausted("discovery budget exhausted")
+
+        # Inject the refusal at the UK sweeper. A live budget cannot be
+        # exhausted here: passing `fetch_fn` bypasses `fetch_feed`, so
+        # nothing is ever charged offline.
+        with mock.patch.object(opportunity_cycle, "_SOURCE_SWEEPERS",
+                               {**opportunity_cycle._SOURCE_SWEEPERS,
+                                UK_MOUTH_ID: refuse}):
+            with tempfile.TemporaryDirectory() as d:
+                ledger = OutcomeLedger(ledger_path=Path(d) / "l.jsonl")
+                report = opportunity_cycle.run_cycle(
+                    Path(d) / "state", ledger, fetch_fn=lambda: payload)
+                records = len(ledger.all_records())
+
+        refused = [r for r in report.source_results
+                   if r.status == opportunity_cycle._GATE_REFUSED_STATUS]
+        self.assertTrue(refused, "the refusal must be recorded, not swallowed")
+        self.assertNotEqual(
+            report.signal_count, 0,
+            "the other source's signals were discarded by an unrelated "
+            "source's budget refusal")
+        self.assertNotEqual(records, 0, "ledger write was lost")
+
+    def test_a_gate_refusal_is_not_reported_as_an_ordinary_failure(self):
+        """REFUSED_BY_GATE must stay distinct from UNAVAILABLE. One is an
+        authority fact, the other is a bad day at the remote end, and a
+        caller escalates on only one of them."""
+        self.assertNotEqual(opportunity_cycle._GATE_REFUSED_STATUS, "UNAVAILABLE")
