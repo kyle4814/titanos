@@ -442,6 +442,126 @@ class TestTargetIsBounded(unittest.TestCase):
         self.assertLess(len(signal.target), len(huge))
 
 
+class TestSignalIdIsBounded(unittest.TestCase):
+    """Blue-team pass 008, finding 8: `item['key']` (TED's own
+    publication-number) was never length-capped, unlike `target`
+    (fixed above for the identical reason). It flowed raw into
+    `signal_id` and `evidence['publication_number']`, and from there
+    into `opportunity_pipeline`'s `facts['signal_ids']`, which
+    `OutcomeLedger.record()` persists to the durable jsonl ledger with
+    no length cap. A 2,000,000-char key reproduced a >2MB single-record
+    ledger write. This test FAILS against the pre-fix code (which used
+    the raw `item['key']` directly in `signal_id=`/`evidence=`) because
+    `len(signal.signal_id)` would be north of 2,000,000; it passes now
+    because `ted_signal()` runs `item['key']` through `describe()` --
+    the same bounding mechanism already used for `target` -- before
+    either field is built."""
+
+    def test_huge_publication_number_does_not_reach_signal_id_unbounded(self):
+        huge_key = "X" * 2_000_000
+        item = mouth_ted.parse_items(_feed(_notice(pub=huge_key)))[0]
+        signal = mouth_ted.ted_signal(item)
+        self.assertLess(len(signal.signal_id), 1000)
+        self.assertLess(len(signal.evidence["publication_number"]), 1000)
+
+
+class TestControllingPartyIdentity(unittest.TestCase):
+    """Blue-team pass 008, findings 3 and 4 -- the producer half of the
+    fix. `controlling_party()` (opportunity.py) now prefers
+    `evidence['identity_hash']` over the truncated `target` string when
+    present; this class proves `ted_signal()` actually populates that
+    field correctly from the FULL, untruncated, NFKC-normalised buyer
+    name, and that it is itself bounded (a fixed-length digest, not the
+    raw name)."""
+
+    def test_identity_hash_present_and_bounded(self):
+        item = mouth_ted.parse_items(_feed(_notice(buyer_name="Acme GmbH")))[0]
+        signal = mouth_ted.ted_signal(item)
+        h = signal.evidence["identity_hash"]
+        self.assertEqual(len(h), 64)  # sha256 hex digest
+        self.assertTrue(all(c in "0123456789abcdef" for c in h))
+
+    def test_two_different_buyers_sharing_a_truncation_prefix_get_different_hashes(self):
+        """This test FAILS against the pre-fix code, where
+        `controlling_party()` derived identity solely from the
+        truncated `target`/`.safe` display string: two different
+        290+-char buyer names of equal total length truncate to the
+        byte-identical `.safe` string, so their controlling parties
+        collapsed into one. With `identity_hash` computed from the FULL
+        name before truncation, the two buyers' hashes -- and therefore
+        their controlling parties -- are distinct."""
+        name_a = "A" * 290 + "REAL-ORG-ALPHA-SUFFIX"
+        name_b = "A" * 290 + "REAL-ORG-BETA-SUFFIX!"
+        self.assertEqual(len(name_a), len(name_b))
+        item_a = mouth_ted.parse_items(
+            _feed(_notice(pub="PUB-A-1", buyer_name=name_a)))[0]
+        item_b = mouth_ted.parse_items(
+            _feed(_notice(pub="PUB-B-1", buyer_name=name_b)))[0]
+        sig_a = mouth_ted.ted_signal(item_a)
+        sig_b = mouth_ted.ted_signal(item_b)
+        # The pre-existing collision this fix must survive: the display
+        # targets still collide (truncation is still in force, by
+        # design -- see TestTargetIsBounded).
+        self.assertEqual(sig_a.target, sig_b.target)
+        # But identity must not.
+        self.assertNotEqual(
+            sig_a.evidence["identity_hash"], sig_b.evidence["identity_hash"])
+        from foundation.opportunity import controlling_party
+        self.assertNotEqual(
+            controlling_party(sig_a.target, sig_a),
+            controlling_party(sig_b.target, sig_b))
+
+    def test_nfc_and_nfd_of_the_same_buyer_name_hash_identically(self):
+        """Complements the NFKC-normalisation fix in
+        `controlling_party()` itself: proves the producer side also
+        normalises before hashing, so NFC and NFD encodings of one real
+        buyer name (a real EU-CMS encoding inconsistency, per blue-team
+        pass 008 finding 4) produce the SAME identity_hash, not two."""
+        import unicodedata
+        name = "Ministère de la Santé"  # NFC
+        name_nfd = unicodedata.normalize("NFD", name)
+        self.assertNotEqual(name.encode(), name_nfd.encode())
+        item_nfc = mouth_ted.parse_items(
+            _feed(_notice(pub="PUB-NFC", buyer_name=name)))[0]
+        item_nfd = mouth_ted.parse_items(
+            _feed(_notice(pub="PUB-NFD", buyer_name=name_nfd)))[0]
+        sig_nfc = mouth_ted.ted_signal(item_nfc)
+        sig_nfd = mouth_ted.ted_signal(item_nfd)
+        self.assertEqual(
+            sig_nfc.evidence["identity_hash"], sig_nfd.evidence["identity_hash"])
+
+
+class TestPressureEvidenceIsAboutTheNotice(unittest.TestCase):
+    """Blue-team pass 008, finding 1 -- the same defect class that
+    caused cycle 007's 96.4% false-positive incident, found again:
+    `pressure_evidence` used to hardcode EXPERT_QUERY's own CPV filter
+    ("72000000/79000000/48000000") into every signal verbatim,
+    regardless of the notice's real classification-cpv. Currently
+    inert (`relevance._searchable_text()` doesn't read
+    `pressure_evidence`) but nothing stopped a future maintainer from
+    changing that. This test FAILS against the pre-fix code because
+    the fixed query-family string would appear in every signal's
+    `pressure_evidence` even when the notice's own real cpv is a
+    completely different code."""
+
+    def test_pressure_evidence_names_the_notices_own_cpv_not_the_query(self):
+        notice = _notice(pub="PUB-CPV-1")
+        notice["classification-cpv"] = "79111000"  # NOT in the query family
+        item = mouth_ted.parse_items(_feed(notice))[0]
+        signal = mouth_ted.ted_signal(item)
+        self.assertIn("79111000", signal.pressure_evidence)
+        self.assertNotIn("72000000/79000000/48000000",
+                          signal.pressure_evidence)
+
+    def test_pressure_evidence_honest_when_notice_cpv_absent(self):
+        item = mouth_ted.parse_items(_feed(_notice(pub="PUB-CPV-2")))[0]
+        signal = mouth_ted.ted_signal(item)
+        self.assertNotIn("72000000/79000000/48000000",
+                          signal.pressure_evidence)
+        self.assertIn("no classification-cpv populated",
+                       signal.pressure_evidence)
+
+
 def _page(*notices, total=None, token=None):
     body = {"notices": list(notices)}
     if total is not None:

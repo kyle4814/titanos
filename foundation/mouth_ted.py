@@ -175,7 +175,9 @@ CANNOT
 
 from __future__ import annotations
 
+import hashlib
 import json
+import unicodedata
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -623,7 +625,25 @@ def ted_signal(item: dict, now: Optional[datetime] = None) -> CanonicalSignal:
     target = (buyer.safe or describe(item.get("tender_id", "")).safe
               or describe(str(item.get("key", ""))).safe)
 
-    claim_subject = title.safe or item.get("tender_id") or item["key"]
+    # blue-team pass 008, finding 8: `item["key"]` (TED's own
+    # publication-number) is never length-capped or type-checked by
+    # `parse_items()`'s coercion -- unlike `target` above (already fixed
+    # for this same reason), the raw value used to flow straight into
+    # `signal_id`/`evidence` and from there into
+    # `opportunity_pipeline`'s `facts["signal_ids"]`, which
+    # `OutcomeLedger.record()` persists to the durable jsonl ledger with
+    # no length cap anywhere in that path. A 2,000,000-character key
+    # reproduced a >2MB single-record ledger write. `describe()` is the
+    # existing, already-used bounding mechanism for exactly this class
+    # of field (see `target` above); reusing it here rather than adding
+    # a second length-capping mechanism. A real TED publication-number
+    # is short (e.g. "533561-2026") -- anything this cap actually
+    # truncates is by definition hostile or broken, never a legitimate
+    # value lost.
+    safe_key = describe(str(item.get("key", ""))).safe
+    safe_tender_id = describe(str(item.get("tender_id", ""))).safe
+
+    claim_subject = title.safe or safe_tender_id or safe_key
     claim = f"open EU TED public-sector tender: {claim_subject}"
     if buyer.safe:
         claim += f" (buyer: {buyer.safe})"
@@ -636,10 +656,36 @@ def ted_signal(item: dict, now: Optional[datetime] = None) -> CanonicalSignal:
         money_state = "ADVERTISED"
         money_observed = f"{amount} {currency}"
 
+    # blue-team pass 008, findings 3 and 4: `controlling_party()`
+    # (opportunity.py) used to derive identity straight from the
+    # truncated `target`/buyer display string -- two different buyer
+    # names sharing a ~290-char prefix and equal total length truncate
+    # to the byte-identical `.safe` string and collapse into one
+    # controlling party; separately, NFC vs. NFD encodings of the
+    # identical name produced two different parties. Both are fixed at
+    # `controlling_party()` itself, but that function needs a FULL-
+    # length-derived, FIXED-SIZE input to do it -- `identity_hash` is
+    # that input: a normalised sha256 digest (64 hex chars, bounded
+    # regardless of input length) of the buyer name computed BEFORE
+    # `describe()` truncates it, so a truncation collision downstream
+    # never happens, and NFKC-normalised before hashing so NFC/NFD
+    # variants of the same name hash identically. Never the raw name
+    # itself -- only its digest reaches this field, so this does not
+    # reopen finding 8's unbounded-write class.
+    buyer_raw = item.get("buyer_name", "")
+    identity_hash = (
+        hashlib.sha256(
+            unicodedata.normalize("NFKC", buyer_raw).strip().lower().encode("utf-8")
+        ).hexdigest()
+        if isinstance(buyer_raw, str) and buyer_raw.strip()
+        else ""
+    )
+
     evidence = {
-        "publication_number": item["key"],
-        "tender_id": item.get("tender_id", ""),
+        "publication_number": safe_key,
+        "tender_id": safe_tender_id,
         "buyer_name_safe": buyer.safe,
+        "identity_hash": identity_hash,
         "deadline": item.get("deadline", ""),
         "title_safe": title.safe,
         "description_safe": description.safe,
@@ -647,7 +693,7 @@ def ted_signal(item: dict, now: Optional[datetime] = None) -> CanonicalSignal:
     }
 
     return CanonicalSignal(
-        signal_id=f"tender:{MOUTH_ID}:{item['key']}",
+        signal_id=f"tender:{MOUTH_ID}:{safe_key}",
         source_id=MOUTH_ID,
         source_type="OFFICIAL",
         # THIS NOTICE's own public TED page -- not the search endpoint,
@@ -679,12 +725,33 @@ def ted_signal(item: dict, now: Optional[datetime] = None) -> CanonicalSignal:
         },
         evidence=evidence,
         pressure_class="EXPLICIT_DEMAND",
+        # blue-team pass 008, finding 1: this used to hardcode
+        # EXPERT_QUERY's own CPV filter ("72000000/79000000/48000000")
+        # verbatim into every signal's pressure_evidence, regardless of
+        # what that specific notice's real `classification-cpv` was --
+        # the exact defect class (fetch-query metadata read back as
+        # evidence about notice content) that caused cycle 007's 96.4%
+        # false-positive incident via `source_ref`. Currently inert
+        # (`relevance._searchable_text()` does not read
+        # `pressure_evidence`) but nothing stopped a future maintainer
+        # from adding it, which would reopen the same bug on this field.
+        # Fixed to name the NOTICE's own real CPV code(s) (`item["cpv"]`,
+        # the same field `facts["cpv"]` already uses, populated from
+        # `classification-cpv` in `parse_items()`) instead of the query
+        # that found it -- observation about this notice, not a
+        # restatement of the question that was asked.
         pressure_evidence=(
-            f"TED notice with publication-number {item['key']!r} and a "
+            f"TED notice with publication-number {safe_key!r} and a "
             f"deadline-receipt-request in the future at query time, "
-            f"matching CPV family 72000000/79000000/48000000 -- an EU "
-            f"contracting authority stating outright that it intends to "
-            f"purchase IT/software/business-consulting services"
+            + (
+                f"classified under CPV code(s) {item.get('cpv', '').strip()!r}"
+                if item.get("cpv", "").strip()
+                else "with no classification-cpv populated by TED for "
+                     "this notice"
+            )
+            + " -- an EU contracting authority stating outright that it "
+              "intends to purchase IT/software/business-consulting "
+              "services"
         ),
         money_state=money_state,
         money_observed=money_observed,

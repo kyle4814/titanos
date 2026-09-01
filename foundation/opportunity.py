@@ -34,6 +34,7 @@ enthusiasm.
 from __future__ import annotations
 
 import hashlib
+import unicodedata
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from types import MappingProxyType
@@ -464,9 +465,69 @@ def controlling_party(target: str, signal: SignalEvidence) -> str:
       assumption the attack exploits; refusing to make it here would
       silently reopen the hole for exactly the signal kinds that carry
       it, so it is made deliberately, not by oversight.
+
+    TWO DEFECTS CLOSED 2026-09-01 (blue-team pass 008, findings 3 and 4)
+
+    Both concern how the OWNER half of identity is derived, and both are
+    fixed together because they are the same underlying mistake:
+    treating a DISPLAY string as if it were an IDENTITY string.
+
+    Finding 3 -- truncation collision. `target` here is frequently
+    `describe(raw_name).safe`: a value already truncated (at
+    `untrusted_text.DEFAULT_MAX_LEN`, 300 chars) for safe display. Two
+    different organisations whose names share a ~290-character prefix
+    and have equal total length truncate to the SAME `.safe` string, so
+    deriving identity from `target` directly collapses two real buyers
+    into one controlling party -- confirmed live (two constructed
+    290+-char names, byte-identical `.safe` output). Truncating less is
+    not the fix: the display cap exists to bound what reaches the
+    durable ledger, and widening or removing it reintroduces the
+    unbounded-write defect an earlier cycle already closed (see
+    `mouth_ted.py`'s own `target`-bounding comment). The fix instead
+    gives identity a second, FULL-length-derived input that never
+    itself reaches the ledger unbounded: if the signal's `evidence`
+    carries `identity_hash` (a fixed-length, e.g. sha256 hex digest,
+    computed by the signal's producer from the FULL untruncated name
+    before any truncation happened -- see `mouth_ted.ted_signal()`),
+    that hash IS the owner identity, not the truncated `target` string.
+    A hash collision on two genuinely different full names is
+    astronomically unlikely; a truncation collision on two genuinely
+    different 300-char-bounded prefixes is not. Signals with no
+    `identity_hash` in evidence (e.g. GitHub `owner/repo` targets, which
+    have no truncation-collision exposure in the first place because
+    repo slugs are short) fall back to the previous `target`-derived
+    behaviour unchanged.
+
+    Finding 4 -- no Unicode normalisation. NFC and NFD encodings of the
+    identical name are visually and semantically identical but
+    byte-different, so the old `.strip().lower()` alone produced two
+    different controlling parties for one real buyer -- confirmed live
+    with "Ministère de la Santé" in both forms. Fixed by running
+    `unicodedata.normalize("NFKC", ...)` before lowering, on both the
+    owner and the author. NFKC (not NFC) is chosen deliberately: this is
+    EU procurement data (`mouth_ted.py`), where the same organisation
+    name can also arrive using compatibility-equivalent characters
+    (full-width forms, certain typographic ligatures) that NFC alone
+    does not fold together but NFKC does -- the identity question here
+    is "is this the same organisation", which tolerates the lossier
+    compatibility folding NFKC performs; a case using this function to
+    answer "is this byte-for-byte the same canonical string" would want
+    NFC instead, but no caller of `controlling_party()` currently needs
+    that distinction.
     """
-    owner = (target.split("/", 1)[0] if "/" in target else target).strip().lower()
-    author = str(signal.evidence.get("author_login", "")).strip().lower()
+    identity_hash = signal.evidence.get("identity_hash", "")
+    if isinstance(identity_hash, str) and identity_hash.strip():
+        # A fixed-length digest computed by the producer from the FULL,
+        # untruncated name -- see the docstring section above. Using it
+        # directly as the owner sidesteps the truncation-collision
+        # defect entirely, because it was never derived from the
+        # truncated display string in the first place.
+        owner = identity_hash.strip().lower()
+    else:
+        raw_owner = target.split("/", 1)[0] if "/" in target else target
+        owner = unicodedata.normalize("NFKC", raw_owner).strip().lower()
+    raw_author = str(signal.evidence.get("author_login", "")).strip()
+    author = unicodedata.normalize("NFKC", raw_author).lower() if raw_author else ""
     return author if author and author != owner else owner
 
 

@@ -508,6 +508,47 @@ class TestSourceMultiplicityIsNotIndependence(unittest.TestCase):
         self.assertEqual(controlling_party("acme/widget", sig),
                          "a-real-contributor")
 
+    def test_controlling_party_nfc_and_nfd_of_same_name_agree(self):
+        """Blue-team pass 008, finding 4. This FAILS against the
+        pre-fix code (`.strip().lower()` with no Unicode
+        normalisation): NFC and NFD encodings of the identical buyer
+        name are byte-different, so the old code returned two
+        different controlling parties for one real buyer."""
+        import unicodedata
+        from foundation.opportunity import controlling_party
+        name = "Ministère de la Santé"
+        nfc = unicodedata.normalize("NFC", name)
+        nfd = unicodedata.normalize("NFD", name)
+        self.assertNotEqual(nfc.encode(), nfd.encode())
+        sig = _sig(kind="ACTIVITY", detail="a real observation")
+        self.assertEqual(controlling_party(nfc, sig), controlling_party(nfd, sig))
+
+    def test_controlling_party_prefers_identity_hash_over_truncated_target(self):
+        """Blue-team pass 008, finding 3. This FAILS against the
+        pre-fix code, which derived identity solely from `target`: two
+        different 300+-char names that share a ~290-char prefix and
+        have equal total length truncate (via `describe()`) to the
+        byte-identical display string, so the old code collapsed them
+        into one controlling party regardless of `evidence`. With
+        `identity_hash` present and distinct, the fixed code must not
+        collapse them."""
+        from foundation.opportunity import controlling_party
+        truncated_target = "SAME-DISPLAY-STRING-BOTH-COLLIDE"
+        sig_a = SignalEvidence(kind="ACTIVITY", detail="obs", source_type="PLATFORM",
+                               evidence={"identity_hash": "a" * 64})
+        sig_b = SignalEvidence(kind="ACTIVITY", detail="obs", source_type="PLATFORM",
+                               evidence={"identity_hash": "b" * 64})
+        self.assertNotEqual(
+            controlling_party(truncated_target, sig_a),
+            controlling_party(truncated_target, sig_b))
+
+    def test_controlling_party_falls_back_to_target_when_no_identity_hash(self):
+        """GitHub-shaped signals (no `identity_hash` in evidence) keep
+        the pre-existing owner/repo-derived behaviour unchanged."""
+        from foundation.opportunity import controlling_party
+        sig = _sig(kind="ACTIVITY", detail="12 commits")
+        self.assertEqual(controlling_party("acme/widget", sig), "acme")
+
     def test_signal_evidence_mapping_is_frozen(self):
         sig = SignalEvidence(kind="DEMAND", detail="x", source_type="PLATFORM",
                              evidence={"author_login": "acme"})
