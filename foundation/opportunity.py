@@ -405,6 +405,24 @@ _BANDS = ((9000, "EXTREME"), (7000, "HOT"), (4000, "PROMISING"),
           (2000, "WATCH"), (0, "LOW"))
 
 
+
+# NFC, NOT NFKC -- identity normalisation, not search normalisation.
+#
+# This used NFKC, chosen to catch an organisation whose name arrives with
+# compatibility-equivalent characters. Blue-team pass 011 showed the price:
+# NFKC collapses characters that are genuinely DIFFERENT, and confirmed it
+# live for Roman-numeral-I vs Latin-I, superscript-2 vs 2, the ff ligature
+# vs ff, and fullwidth vs ASCII. Two unrelated buyers become one
+# controlling party, using ordinary printable characters anyone can type --
+# which defeats the exact self-dealing defence this function exists to
+# provide, since collapsing two parties into one is how a single actor
+# passes as corroborated.
+#
+# NFC applies canonical equivalence only. It still fixes the problem that
+# motivated normalising at all -- the same accented name composed and
+# decomposed, verified still collapsing correctly -- without merging
+# distinct characters. A search index wants NFKC. An identity does not.
+
 def controlling_party(target: str, signal: SignalEvidence) -> str:
     """Who actually stands behind one signal -- not which API served it.
 
@@ -503,7 +521,7 @@ def controlling_party(target: str, signal: SignalEvidence) -> str:
     byte-different, so the old `.strip().lower()` alone produced two
     different controlling parties for one real buyer -- confirmed live
     with "Ministère de la Santé" in both forms. Fixed by running
-    `unicodedata.normalize("NFKC", ...)` before lowering, on both the
+    `unicodedata.normalize("NFC", ...)` before lowering, on both the
     owner and the author. NFKC (not NFC) is chosen deliberately: this is
     EU procurement data (`mouth_ted.py`), where the same organisation
     name can also arrive using compatibility-equivalent characters
@@ -565,9 +583,9 @@ def controlling_party(target: str, signal: SignalEvidence) -> str:
         # fixed-size, truncation-proof identity the fix was for. A name
         # short enough never to have been truncated hashes identically
         # either way, which is exactly the common case.
-        owner = unicodedata.normalize("NFKC", raw_owner).strip().lower()
+        owner = unicodedata.normalize("NFC", raw_owner).strip().lower()
     raw_author = str(signal.evidence.get("author_login", "")).strip()
-    author = unicodedata.normalize("NFKC", raw_author).lower() if raw_author else ""
+    author = unicodedata.normalize("NFC", raw_author).lower() if raw_author else ""
     return author if author and author != owner else owner
 
 

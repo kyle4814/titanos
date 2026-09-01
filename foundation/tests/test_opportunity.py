@@ -561,3 +561,64 @@ class TestSourceMultiplicityIsNotIndependence(unittest.TestCase):
                              evidence={"author_login": "acme"})
         with self.assertRaises(TypeError):
             sig.evidence["author_login"] = "someone-else"
+
+
+class TestIdentityNormalisationDoesNotOverCollapse(unittest.TestCase):
+    """Blue-team pass 011, highest severity, confirmed live.
+
+    Identity normalisation used NFKC, which applies COMPATIBILITY
+    equivalence and deliberately collapses characters that are genuinely
+    different: Roman-numeral-I and Latin-I, superscript-2 and 2, the ff
+    ligature and ff, fullwidth and ASCII. Two unrelated buyers therefore
+    became one controlling party using ordinary printable characters
+    anyone can type.
+
+    That defeats the exact defence this function exists to provide.
+    Collapsing two parties into one is precisely how a single actor
+    passes as corroborated -- the self-dealing case named in
+    `controlling_party`'s own docstring.
+
+    NFC applies canonical equivalence only: it still merges the same name
+    composed and decomposed, which is what motivated normalising at all,
+    without merging distinct characters. A search index wants NFKC. An
+    identity does not.
+    """
+
+    @staticmethod
+    def _cp(target, sig):
+        from foundation.opportunity import controlling_party
+        return controlling_party(target, sig)
+
+    def _sig(self, name):
+        import hashlib, unicodedata
+        h = hashlib.sha256(
+            unicodedata.normalize("NFC", name).strip().lower().encode()).hexdigest()
+        return SignalEvidence(kind="ACTIVITY", detail="obs",
+                              source_type="PLATFORM",
+                              evidence={"identity_hash": h})
+
+    def test_compatibility_lookalikes_are_different_parties(self):
+        for a, b, why in (
+            ("Company Ⅰ Ltd", "Company I Ltd", "roman numeral vs Latin I"),
+            ("Company ² Ltd", "Company 2 Ltd", "superscript vs digit"),
+            ("Oﬀice Ltd", "Office Ltd", "ff ligature vs ff"),
+            ("Ａcme Ltd", "Acme Ltd", "fullwidth vs ASCII"),
+        ):
+            with self.subTest(why=why):
+                self.assertNotEqual(
+                    self._cp(a, self._sig(a)),
+                    self._cp(b, self._sig(b)),
+                    f"{why}: two distinct buyers collapsed into one party")
+
+    def test_the_same_name_composed_and_decomposed_still_merges(self):
+        """The fix must not throw away the property it was introduced for.
+        A name whose accent is composed in one feed and decomposed in
+        another is ONE organisation."""
+        import unicodedata
+        name = "Ministère de la Santé"
+        composed = unicodedata.normalize("NFC", name)
+        decomposed = unicodedata.normalize("NFD", name)
+        self.assertNotEqual(composed, decomposed, "fixture must differ in bytes")
+        self.assertEqual(
+            self._cp(composed, self._sig(composed)),
+            self._cp(decomposed, self._sig(decomposed)))

@@ -599,6 +599,24 @@ def observe(
     return _observe(MOUTH_ID, state_path, fetch, parse_items, now=now)
 
 
+
+# NFC, NOT NFKC -- identity normalisation, not search normalisation.
+#
+# This used NFKC, chosen to catch an organisation whose name arrives with
+# compatibility-equivalent characters. Blue-team pass 011 showed the price:
+# NFKC collapses characters that are genuinely DIFFERENT, and confirmed it
+# live for Roman-numeral-I vs Latin-I, superscript-2 vs 2, the ff ligature
+# vs ff, and fullwidth vs ASCII. Two unrelated buyers become one
+# controlling party, using ordinary printable characters anyone can type --
+# which defeats the exact self-dealing defence this function exists to
+# provide, since collapsing two parties into one is how a single actor
+# passes as corroborated.
+#
+# NFC applies canonical equivalence only. It still fixes the problem that
+# motivated normalising at all -- the same accented name composed and
+# decomposed, verified still collapsing correctly -- without merging
+# distinct characters. A search index wants NFKC. An identity does not.
+
 def ted_signal(item: dict, now: Optional[datetime] = None) -> CanonicalSignal:
     """One open-EU-tender item -> one `CanonicalSignal`.
 
@@ -675,7 +693,7 @@ def ted_signal(item: dict, now: Optional[datetime] = None) -> CanonicalSignal:
     buyer_raw = item.get("buyer_name", "")
     identity_hash = (
         hashlib.sha256(
-            unicodedata.normalize("NFKC", buyer_raw).strip().lower().encode("utf-8")
+            unicodedata.normalize("NFC", buyer_raw).strip().lower().encode("utf-8")
         ).hexdigest()
         if isinstance(buyer_raw, str) and buyer_raw.strip()
         else ""
