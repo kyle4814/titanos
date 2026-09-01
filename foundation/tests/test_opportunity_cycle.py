@@ -4,7 +4,9 @@ import unittest
 from pathlib import Path
 
 from foundation import opportunity_cycle
+from foundation.mouth_ted import MOUTH_ID as TED_MOUTH_ID
 from foundation.outcome_ledger import OutcomeLedger
+from foundation.tender_radar import MOUTH_ID as UK_MOUTH_ID
 
 
 def _release(ocid="ocds-test-0001", tag=("tender",), status="active",
@@ -31,6 +33,23 @@ def _feed(*releases):
     return json.dumps({"releases": list(releases)}).encode()
 
 
+def _ted_notice(pub_number="533561-2026", title="Server Maintenance",
+                 description="Ongoing server maintenance contract.",
+                 buyer_name="Example Council", deadline="2026-12-01T00:00:00Z"):
+    return {
+        "publication-number": pub_number,
+        "notice-title": {"eng": title},
+        "description-proc": {"eng": description},
+        "buyer-name": {"eng": buyer_name},
+        "deadline-receipt-request": [deadline],
+    }
+
+
+def _ted_feed(*notices):
+    return json.dumps(
+        {"notices": list(notices), "totalNoticeCount": len(notices)}).encode()
+
+
 def _make_ledger():
     return OutcomeLedger(ledger_path=Path(tempfile.mkdtemp()) / "ledger.jsonl")
 
@@ -43,75 +62,100 @@ class RunCycleTests(unittest.TestCase):
     def tearDown(self):
         self._tmp.cleanup()
 
-    def test_full_chain_runs_end_to_end_and_both_modules_are_invoked(self):
-        """A real tender notice must survive: fetch -> parse -> signal
-        (tender_radar) -> collapse-by-controlling-party -> ledger record
-        (opportunity_pipeline). Assert on evidence only the pipeline half
-        of the chain could have produced (a real ledger record keyed by
-        an opportunity_id derived from the tender's own buyer), proving
-        this is not a shim that just imports both modules."""
-        ledger = _make_ledger()
-        report = opportunity_cycle.run_cycle(
-            self.state_dir, ledger, fetch_fn=lambda: _feed(_release()))
+    def _run(self, ledger=None, **kwargs):
+        ledger = ledger or _make_ledger()
+        return ledger, opportunity_cycle.run_cycle(self.state_dir, ledger, **kwargs)
 
-        self.assertEqual(report.sweep_status, "FIRST_SEEN")
-        self.assertEqual(report.signal_count, 1)
-        self.assertEqual(report.controlling_party_count, 1)
-        self.assertEqual(report.controlling_parties, ("example council",))
-        self.assertEqual(report.ledger_records_written, 1)
+    # -- both sources contribute to one merged pipeline run -----------
+
+    def test_both_sources_contribute_to_one_merged_pipeline_run(self):
+        ledger, report = self._run(fetch_fns={
+            UK_MOUTH_ID: lambda: _feed(_release(buyer_name="UK Buyer Ltd")),
+            TED_MOUTH_ID: lambda: _ted_feed(_ted_notice(buyer_name="EU Buyer GmbH")),
+        })
+
+        self.assertEqual(report.sweep_status, "OK")
+        self.assertIsNone(report.sweep_error)
+        self.assertEqual(report.signal_count, 2)
+        self.assertEqual(report.controlling_party_count, 2)
+        self.assertEqual(
+            report.controlling_parties, ("eu buyer gmbh", "uk buyer ltd"))
+        self.assertEqual(report.ledger_records_written, 2)
         self.assertEqual(report.qualified, 0)
         self.assertEqual(report.contracts, 0)
         self.assertEqual(report.cash, 0)
 
-        # Proof the pipeline genuinely ran, not just the radar: a real
-        # record landed in the ledger the caller supplied, with a note
-        # naming the collapsed controlling party.
-        records = ledger.all_records()
-        self.assertEqual(len(records), 1)
-        self.assertIn("example council", records[0].note)
-        self.assertEqual(records[0].state, "PENDING")
+        self.assertEqual(len(report.source_results), 2)
+        by_id = {r.source_id: r for r in report.source_results}
+        self.assertEqual(by_id[UK_MOUTH_ID].signal_count, 1)
+        self.assertEqual(by_id[TED_MOUTH_ID].signal_count, 1)
+        self.assertIsNone(by_id[UK_MOUTH_ID].error)
+        self.assertIsNone(by_id[TED_MOUTH_ID].error)
 
-    def test_three_signals_one_controlling_party_collapse_to_one_opportunity(self):
-        ledger = _make_ledger()
-        releases = [
-            _release(ocid=f"ocds-{i}", buyer_name="Shared Buyer Ltd")
-            for i in range(3)
-        ]
-        report = opportunity_cycle.run_cycle(
-            self.state_dir, ledger, fetch_fn=lambda: _feed(*releases))
+        # Proof the pipeline genuinely ran on the merged set: two real
+        # ledger records, one per distinct controlling party.
+        self.assertEqual(len(ledger.all_records()), 2)
 
-        self.assertEqual(report.signal_count, 3)
+    # -- a buyer present in BOTH sources collapses to one opportunity --
+
+    def test_shared_buyer_across_both_sources_collapses_to_one_opportunity(self):
+        ledger, report = self._run(fetch_fns={
+            UK_MOUTH_ID: lambda: _feed(_release(buyer_name="Shared Buyer Ltd")),
+            TED_MOUTH_ID: lambda: _ted_feed(
+                _ted_notice(buyer_name="Shared Buyer Ltd")),
+        })
+
+        self.assertEqual(report.signal_count, 2)
         self.assertEqual(report.controlling_party_count, 1)
         self.assertEqual(report.controlling_parties, ("shared buyer ltd",))
         self.assertEqual(report.ledger_records_written, 1)
         self.assertEqual(len(ledger.all_records()), 1)
+        # The one record's note names both signals having been collapsed
+        # together, not just one of them.
+        self.assertIn("2 signal(s)", ledger.all_records()[0].note)
 
-    def test_rerunning_the_same_cycle_does_not_double_count_in_the_ledger(self):
-        ledger = _make_ledger()
-        fetch = lambda: _feed(_release())
+    # -- one source failing still returns the other's signals AND ------
+    # -- reports the failure explicitly ---------------------------------
 
-        first = opportunity_cycle.run_cycle(self.state_dir, ledger, fetch_fn=fetch)
-        self.assertEqual(first.ledger_records_written, 1)
+    def test_one_source_failing_still_returns_the_others_signals_and_reports_it(self):
+        ledger, report = self._run(fetch_fns={
+            UK_MOUTH_ID: lambda: _feed(_release(buyer_name="Survivor Ltd")),
+            TED_MOUTH_ID: lambda: b"not json at all {{{",
+        })
+
+        self.assertEqual(report.sweep_status, "PARTIAL")
+        self.assertIsNotNone(report.sweep_error)
+        self.assertIn(TED_MOUTH_ID, report.sweep_error)
+
+        # The surviving source's signal must not be silently lost.
+        self.assertEqual(report.signal_count, 1)
+        self.assertEqual(report.controlling_parties, ("survivor ltd",))
+        self.assertEqual(report.ledger_records_written, 1)
         self.assertEqual(len(ledger.all_records()), 1)
 
-        # Re-running against the same state directory: tender_radar's own
-        # dedupe means the second sweep sees no NEW items at all (status
-        # UNCHANGED), so the pipeline never even receives a repeat signal.
-        second = opportunity_cycle.run_cycle(self.state_dir, ledger, fetch_fn=fetch)
-        self.assertEqual(second.sweep_status, "UNCHANGED")
-        self.assertEqual(second.signal_count, 0)
-        self.assertEqual(second.ledger_records_written, 0)
-        self.assertEqual(len(ledger.all_records()), 1)
+        by_id = {r.source_id: r for r in report.source_results}
+        self.assertEqual(by_id[UK_MOUTH_ID].status, "FIRST_SEEN")
+        self.assertEqual(by_id[UK_MOUTH_ID].signal_count, 1)
+        self.assertIsNone(by_id[UK_MOUTH_ID].error)
+        self.assertEqual(by_id[TED_MOUTH_ID].status, "UNAVAILABLE")
+        self.assertEqual(by_id[TED_MOUTH_ID].signal_count, 0)
+        self.assertIsNotNone(by_id[TED_MOUTH_ID].error)
 
-    def test_failing_source_produces_structured_report_not_a_crash(self):
-        ledger = _make_ledger()
-        try:
-            report = opportunity_cycle.run_cycle(
-                self.state_dir, ledger, fetch_fn=lambda: b"not json at all {{{")
-        except Exception as exc:  # pragma: no cover - failure path itself
-            self.fail(f"run_cycle raised {exc!r} instead of a structured report")
+        # A partial cycle must be visibly distinguishable from a clean
+        # one in the printed report, not just in structured fields.
+        math = report.show_the_math()
+        self.assertIn("PARTIAL", math)
+        self.assertIn(TED_MOUTH_ID, math)
 
-        self.assertEqual(report.sweep_status, "UNAVAILABLE")
+    # -- both failing is a structured report, not a crash --------------
+
+    def test_both_sources_failing_is_a_structured_report_not_a_crash(self):
+        ledger, report = self._run(fetch_fns={
+            UK_MOUTH_ID: lambda: b"not json at all {{{",
+            TED_MOUTH_ID: lambda: b"also not json {{{",
+        })
+
+        self.assertEqual(report.sweep_status, "ALL_SOURCES_FAILED")
         self.assertIsNotNone(report.sweep_error)
         self.assertEqual(report.signal_count, 0)
         self.assertEqual(report.ledger_records_written, 0)
@@ -119,30 +163,86 @@ class RunCycleTests(unittest.TestCase):
         self.assertEqual(report.contracts, 0)
         self.assertEqual(report.cash, 0)
         self.assertEqual(len(ledger.all_records()), 0)
-        self.assertIn("sweep error", report.show_the_math())
+        for r in report.source_results:
+            self.assertEqual(r.status, "UNAVAILABLE")
+            self.assertIsNotNone(r.error)
 
-    def test_zero_signals_is_a_valid_outcome(self):
-        ledger = _make_ledger()
-        report = opportunity_cycle.run_cycle(
-            self.state_dir, ledger, fetch_fn=lambda: _feed())
+    # -- zero signals is a valid outcome --------------------------------
 
+    def test_zero_signals_from_both_sources_is_a_valid_outcome(self):
+        ledger, report = self._run(fetch_fns={
+            UK_MOUTH_ID: lambda: _feed(),
+            TED_MOUTH_ID: lambda: _ted_feed(),
+        })
+
+        self.assertEqual(report.sweep_status, "OK")
         self.assertEqual(report.signal_count, 0)
         self.assertEqual(report.controlling_party_count, 0)
         self.assertEqual(report.ledger_records_written, 0)
         self.assertEqual(len(ledger.all_records()), 0)
         self.assertIn("zero signals", report.show_the_math())
 
+    # -- cold start still works -----------------------------------------
+
     def test_cold_start_with_a_non_existent_state_directory_works(self):
-        ledger = _make_ledger()
         missing = Path(self._tmp.name) / "never" / "existed"
         self.assertFalse(missing.exists())
+        ledger = _make_ledger()
 
         report = opportunity_cycle.run_cycle(
-            missing, ledger, fetch_fn=lambda: _feed(_release()))
+            missing, ledger, fetch_fns={
+                UK_MOUTH_ID: lambda: _feed(_release()),
+                TED_MOUTH_ID: lambda: _ted_feed(_ted_notice()),
+            })
 
         self.assertTrue(missing.is_dir())
+        self.assertEqual(report.signal_count, 2)
+        self.assertEqual(report.ledger_records_written, 1)  # same buyer name
+
+    # -- re-running does not double-count in the ledger ------------------
+
+    def test_rerunning_the_same_cycle_does_not_double_count_in_the_ledger(self):
+        ledger = _make_ledger()
+        fetch_fns = {
+            UK_MOUTH_ID: lambda: _feed(_release()),
+            TED_MOUTH_ID: lambda: _ted_feed(_ted_notice()),
+        }
+
+        first = opportunity_cycle.run_cycle(
+            self.state_dir, ledger, fetch_fns=fetch_fns)
+        self.assertEqual(first.signal_count, 2)
+        self.assertGreaterEqual(len(ledger.all_records()), 1)
+        records_after_first = len(ledger.all_records())
+
+        second = opportunity_cycle.run_cycle(
+            self.state_dir, ledger, fetch_fns=fetch_fns)
+        self.assertEqual(second.sweep_status, "OK")
+        self.assertEqual(second.signal_count, 0)
+        self.assertEqual(second.ledger_records_written, 0)
+        self.assertEqual(len(ledger.all_records()), records_after_first)
+        for r in second.source_results:
+            self.assertEqual(r.status, "UNCHANGED")
+
+    # -- backwards compatibility: legacy single fetch_fn call shape ------
+
+    def test_legacy_single_fetch_fn_still_works_and_isolates_the_other_source(self):
+        """The exact call shape `swarm_contract.py` uses today:
+        `run_cycle(state_dir, ledger, fetch_fn=..., now=...)` with one
+        fetcher shaped for the UK OCDS feed. The TED source receives the
+        same bytes, cannot parse them (no 'notices' key), and is reported
+        as an isolated UNAVAILABLE -- it must never be silently skipped
+        or crash the cycle, and it must never reach the real network."""
+        ledger, report = self._run(fetch_fn=lambda: _feed(_release()))
+
         self.assertEqual(report.signal_count, 1)
         self.assertEqual(report.ledger_records_written, 1)
+
+        by_id = {r.source_id: r for r in report.source_results}
+        self.assertEqual(by_id[UK_MOUTH_ID].signal_count, 1)
+        self.assertEqual(by_id[TED_MOUTH_ID].status, "UNAVAILABLE")
+        self.assertEqual(by_id[TED_MOUTH_ID].signal_count, 0)
+        self.assertIsNotNone(by_id[TED_MOUTH_ID].error)
+        self.assertEqual(report.sweep_status, "PARTIAL")
 
 
 if __name__ == "__main__":
