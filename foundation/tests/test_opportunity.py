@@ -533,7 +533,14 @@ class TestSourceMultiplicityIsNotIndependence(unittest.TestCase):
         `identity_hash` present and distinct, the fixed code must not
         collapse them."""
         from foundation.opportunity import controlling_party
-        truncated_target = "SAME-DISPLAY-STRING-BOTH-COLLIDE"
+        # A REALISTIC truncated target, not a short stand-in. describe()
+        # truncates at 300 chars, so the collision this test describes
+        # can only occur on a string that long -- and controlling_party
+        # deliberately trusts the readable name below the truncation
+        # bound, because a short name is already a perfect identity and
+        # is stable across sources that do not compute a hash. A 32-char
+        # fixture was therefore testing a condition that cannot arise.
+        truncated_target = "COLLIDING-PREFIX-" + ("X" * 280)
         sig_a = SignalEvidence(kind="ACTIVITY", detail="obs", source_type="PLATFORM",
                                evidence={"identity_hash": "a" * 64})
         sig_b = SignalEvidence(kind="ACTIVITY", detail="obs", source_type="PLATFORM",

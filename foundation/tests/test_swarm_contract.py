@@ -5,12 +5,16 @@ from pathlib import Path
 
 from foundation import swarm_contract
 from foundation.discovery_authorization import DiscoveryBudgetExhausted
+from foundation.relevance import CapabilityProfile
 from foundation.swarm_contract import (
     AUTHORITY_HOLD,
     BUDGET_EXHAUSTED,
     DRY_RUN_OK,
     INTERNAL_ERROR,
     LIVE_OK,
+    SHORTLIST_NOT_REQUESTED,
+    SHORTLIST_PRODUCED,
+    SHORTLIST_SKIPPED_DRY_RUN,
     VALIDATION_REFUSED,
     SwarmTaskDescriptor,
     run_swarm_task,
@@ -214,6 +218,77 @@ class ResultVocabularyTests(BaseTmpTest):
     def test_show_the_math_does_not_raise(self):
         result = run_swarm_task(self.descriptor())
         self.assertIsInstance(result.show_the_math(), str)
+
+
+def _widget_profile():
+    return CapabilityProfile(
+        name="widget supply",
+        declared_by="test",
+        keywords=frozenset({"widget", "widgets"}),
+    )
+
+
+class ShortlistTests(BaseTmpTest):
+    def test_dry_run_with_profile_still_writes_nothing(self):
+        result = run_swarm_task(
+            self.descriptor(shortlist_profile=_widget_profile()))
+        self.assertEqual(result.status, DRY_RUN_OK)
+        self.assertEqual(result.shortlist_status, SHORTLIST_SKIPPED_DRY_RUN)
+        self.assertEqual(result.shortlist_digest, "")
+        self.assertFalse(self.state_dir.exists())
+        self.assertFalse(self.ledger_path.exists())
+
+    def test_live_without_profile_reports_no_shortlist_explicitly(self):
+        result = run_swarm_task(
+            self.descriptor(live=True, authorized_by="Kyle Graham"),
+            _fetch_fn_for_tests=lambda: _feed(_release()),
+        )
+        self.assertEqual(result.status, LIVE_OK)
+        self.assertEqual(result.shortlist_status, SHORTLIST_NOT_REQUESTED)
+        self.assertEqual(result.shortlist_digest, "")
+        self.assertEqual(result.shortlist_entry_count, 0)
+
+    def test_live_with_profile_produces_digest_in_result(self):
+        result = run_swarm_task(
+            self.descriptor(
+                live=True, authorized_by="Kyle Graham",
+                shortlist_profile=_widget_profile(), shortlist_limit=5),
+            _fetch_fn_for_tests=lambda: _feed(_release()),
+        )
+        self.assertEqual(result.status, LIVE_OK)
+        self.assertEqual(result.shortlist_status, SHORTLIST_PRODUCED)
+        self.assertIsInstance(result.shortlist_digest, str)
+        self.assertIn("OBSERVED PROCUREMENT SIGNALS", result.shortlist_digest)
+        self.assertGreaterEqual(result.shortlist_entry_count, 1)
+        # qualified/contracts/cash still cannot be nonzero even when a
+        # shortlist is produced.
+        self.assertEqual(result.qualified, 0)
+        self.assertEqual(result.contracts, 0)
+        self.assertEqual(result.cash, 0)
+
+    def test_live_with_profile_empty_feed_produces_honest_empty_digest(self):
+        result = run_swarm_task(
+            self.descriptor(
+                live=True, authorized_by="Kyle Graham",
+                shortlist_profile=_widget_profile()),
+            _fetch_fn_for_tests=lambda: _feed(),
+        )
+        self.assertEqual(result.status, LIVE_OK)
+        self.assertEqual(result.shortlist_status, SHORTLIST_PRODUCED)
+        self.assertEqual(result.shortlist_entry_count, 0)
+        self.assertIn("No signals in this shortlist", result.shortlist_digest)
+
+    def test_negative_shortlist_limit_refused(self):
+        result = run_swarm_task(
+            self.descriptor(
+                shortlist_profile=_widget_profile(), shortlist_limit=-1))
+        self.assertEqual(result.status, VALIDATION_REFUSED)
+        self.assertEqual(
+            result.refused_by, "SHORTLIST_LIMIT_MUST_BE_NON_NEGATIVE")
+
+    def test_shortlist_status_always_named(self):
+        result = run_swarm_task(self.descriptor())
+        self.assertIn(result.shortlist_status, swarm_contract.SHORTLIST_STATUSES)
 
 
 if __name__ == "__main__":

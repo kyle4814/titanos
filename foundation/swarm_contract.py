@@ -110,6 +110,61 @@ STRUCTURAL GUARANTEES (each is a property of the code, not a promise)
    crosses `run_swarm_task()`'s boundary -- the one outer `except
    Exception` clause exists specifically to make that a structural
    guarantee, not a best-effort one.
+
+OPTIONAL SHORTLIST: THE GAP THIS CYCLE CLOSES
+
+`foundation/shortlist.py` (`build_shortlist()` / `render_digest()`) was
+IMPLEMENTED_UNWIRED -- an agent running a cycle through this module got
+counts (`signal_count`, `controlling_party_count`, ...) but never the
+one thing a human actually wants to read: a ranked, skimmable digest.
+`SwarmTaskDescriptor.shortlist_profile` (optional, `None` by default)
+and `.shortlist_limit` close that gap without changing anything about
+guarantees 1-7 above:
+
+- Supplying a profile changes NOTHING about whether a task goes live --
+  `live`/`authorized_by` still gate that exactly as before. A dry run
+  with a profile still performs zero sweeps and zero writes (guarantee
+  1); it reports `shortlist_status=SHORTLIST_SKIPPED_DRY_RUN` rather
+  than fabricating a digest from data that was never fetched.
+- Not supplying a profile is the default and produces
+  `shortlist_status=SHORTLIST_NOT_REQUESTED` with an empty digest --
+  explicit, not an empty-looking-like-"nothing matched" digest (see
+  `shortlist.py`'s own "MISSING FIELDS ARE UNKNOWN, NEVER A GUESS"
+  discipline, restated here one level up).
+- Only a `LIVE_OK` run with a profile produces
+  `shortlist_status=SHORTLIST_PRODUCED` and a real `shortlist_digest`.
+  `render_digest()` is called exactly once, its return value is stored
+  as data on the result -- this module never calls `print()`.
+
+WHY THIS MODULE SWEEPS ONCE, NOT TWICE, TO GET BOTH COUNTS AND SIGNALS
+
+`opportunity_cycle.OpportunityCycleReport` (a file this agent does not
+own this cycle) exposes only counts, never the merged
+`CanonicalSignal` tuple `build_shortlist()` needs to score against a
+profile. The tempting shortcut -- call `run_cycle()` once for the
+report, then sweep every source a second time, separately, to get
+signals for the digest -- was rejected after tracing what a second
+sweep actually does: each source's own `sweep()` advances an on-disk
+dedup cursor in `state_dir` and spends against that source's
+module-level `DiscoveryPolicy` budget. A second sweep in the same task
+would silently desync the digest from what the ledger actually
+recorded (the cursor already moved past what the first sweep saw) and
+spend real discovery budget twice for one task -- a live correctness
+bug wearing a "just being thorough" costume.
+
+`_sweep_all_with_signals()` below sweeps once. It reuses
+`opportunity_cycle._sweep_one_source()` and `._summarize()` -- the
+exact, already-tested per-source isolation and roll-up logic
+`run_cycle()` itself calls -- and `opportunity_pipeline.run_pipeline()`,
+unchanged, to build the identical `OpportunityCycleReport` shape
+`run_cycle()` would have returned, while also handing back the merged
+pre-pipeline signals `run_cycle()` throws away. This is reuse of
+tested logic, not a re-derivation of it: the only lines that are new
+are the loop and report-assembly `run_cycle()` itself already
+contains, copied because this agent cannot add a `signals` field to
+`opportunity_cycle.py` this cycle. When a profile is not supplied,
+`run_swarm_task()` still calls `run_cycle()` directly, unchanged --
+the mirrored path only runs when a shortlist is actually requested.
 """
 
 from __future__ import annotations
@@ -129,13 +184,26 @@ from foundation.discovery_authorization import (
     UnboundedDiscoveryObjective,
     authorize_discovery,
 )
-from foundation.opportunity_cycle import OpportunityCycleReport, run_cycle
+from foundation.opportunity_cycle import (
+    OpportunityCycleReport,
+    _sweep_one_source,
+    _summarize,
+    run_cycle,
+)
+from foundation.opportunity_pipeline import run_pipeline
 from foundation.outcome_ledger import OutcomeLedger
+from foundation.relevance import CapabilityProfile
+from foundation.shortlist import build_shortlist, render_digest
+from foundation.signal_spine import CanonicalSignal
+from foundation.tender_sources import list_sources
 
 __all__ = [
     "STATUSES",
     "VALIDATION_REFUSED", "AUTHORITY_HOLD", "BUDGET_EXHAUSTED",
     "DRY_RUN_OK", "LIVE_OK", "INTERNAL_ERROR",
+    "SHORTLIST_STATUSES",
+    "SHORTLIST_NOT_REQUESTED", "SHORTLIST_SKIPPED_DRY_RUN",
+    "SHORTLIST_PRODUCED",
     "SwarmTaskDescriptor", "SwarmTaskResult", "run_swarm_task",
 ]
 
@@ -151,6 +219,17 @@ INTERNAL_ERROR = "INTERNAL_ERROR"           # last-resort catch, never a bare tr
 STATUSES = frozenset({
     VALIDATION_REFUSED, AUTHORITY_HOLD, BUDGET_EXHAUSTED, DRY_RUN_OK,
     LIVE_OK, INTERNAL_ERROR,
+})
+
+# Named, exhaustive shortlist states -- independent of `status` above.
+# A Sonnet agent branches on this string to know whether
+# `shortlist_digest` is meaningful, never on "is the string non-empty".
+SHORTLIST_NOT_REQUESTED = "SHORTLIST_NOT_REQUESTED"   # descriptor carried no profile
+SHORTLIST_SKIPPED_DRY_RUN = "SHORTLIST_SKIPPED_DRY_RUN"  # profile given, but dry-run never sweeps
+SHORTLIST_PRODUCED = "SHORTLIST_PRODUCED"             # profile given, live sweep completed
+
+SHORTLIST_STATUSES = frozenset({
+    SHORTLIST_NOT_REQUESTED, SHORTLIST_SKIPPED_DRY_RUN, SHORTLIST_PRODUCED,
 })
 
 # The one requested_scope this envelope will ever ask for. Fixed, not a
@@ -178,6 +257,15 @@ class SwarmTaskDescriptor:
     max_wall_clock_seconds: int = DEFAULT_MAX_WALL_CLOCK_SECONDS
     max_results: int = DEFAULT_MAX_RESULTS
     now: Optional[datetime] = None
+    # Optional -- `None` means "no shortlist wanted", not "empty profile".
+    # See module docstring's OPTIONAL SHORTLIST section. A profile
+    # requests nothing beyond scoring/rendering already-swept signals;
+    # it cannot itself flip `live`, raise a budget ceiling, or open any
+    # write path -- there is no code path from this field to `os`/
+    # `pathlib`/socket I/O other than the sweep `live=True` already
+    # authorizes.
+    shortlist_profile: Optional[CapabilityProfile] = None
+    shortlist_limit: int = 10
 
     def __post_init__(self) -> None:
         # Normalize path-like fields once, here, so every downstream
@@ -206,6 +294,13 @@ class SwarmTaskResult:
     qualified: int = 0
     contracts: int = 0
     cash: int = 0
+    # Independent of `status` -- see SHORTLIST_STATUSES above and the
+    # module docstring's OPTIONAL SHORTLIST section. `shortlist_digest`
+    # is data (the exact string `shortlist.render_digest()` returned),
+    # never printed from inside this module.
+    shortlist_status: str = SHORTLIST_NOT_REQUESTED
+    shortlist_digest: str = ""
+    shortlist_entry_count: int = 0
 
     def __post_init__(self) -> None:
         if self.status not in STATUSES:
@@ -214,6 +309,11 @@ class SwarmTaskResult:
                 f"the named STATUSES {sorted(STATUSES)} -- an unnamed "
                 f"status is exactly the 'bare traceback' outcome this "
                 f"module exists to prevent")
+        if self.shortlist_status not in SHORTLIST_STATUSES:
+            raise AssertionError(
+                f"SwarmTaskResult.shortlist_status="
+                f"{self.shortlist_status!r} is not one of the named "
+                f"SHORTLIST_STATUSES {sorted(SHORTLIST_STATUSES)}")
         if self.qualified != 0 or self.contracts != 0 or self.cash != 0:
             raise AssertionError(
                 "SwarmTaskResult refuses to be constructed with "
@@ -236,6 +336,9 @@ class SwarmTaskResult:
                 f"cash={self.cash}")
             if self.sweep_error:
                 lines.append(f"  sweep_error={self.sweep_error}")
+        lines.append(
+            f"  shortlist_status={self.shortlist_status} "
+            f"shortlist_entries={self.shortlist_entry_count}")
         return "\n".join(lines)
 
 
@@ -289,6 +392,10 @@ def _validate(descriptor: SwarmTaskDescriptor) -> Optional[SwarmTaskResult]:
         return _refused(VALIDATION_REFUSED, "BUDGET_MUST_BE_POSITIVE",
                          "max_queries, max_wall_clock_seconds and "
                          "max_results must all be positive integers")
+    if descriptor.shortlist_limit < 0:
+        return _refused(
+            VALIDATION_REFUSED, "SHORTLIST_LIMIT_MUST_BE_NON_NEGATIVE",
+            f"shortlist_limit={descriptor.shortlist_limit} must be >= 0")
     if descriptor.live and not str(descriptor.authorized_by).strip():
         # This is the authority gate, not a plain malformed-input
         # refusal: going live is a real action with real (if bounded)
@@ -301,6 +408,57 @@ def _validate(descriptor: SwarmTaskDescriptor) -> Optional[SwarmTaskResult]:
             "authorization, not just a flipped boolean",
             requires_human=("LIVE_EXECUTION_AUTHORIZATION",))
     return None
+
+
+def _sweep_all_with_signals(
+    state_dir: Path,
+    ledger: OutcomeLedger,
+    fetch_fn: Optional[Callable[[], bytes]],
+    now: Optional[datetime],
+) -> "tuple[OpportunityCycleReport, tuple[CanonicalSignal, ...]]":
+    """Exact mirror of `opportunity_cycle.run_cycle()`'s own body,
+    extended to also return the merged pre-pipeline signal set a
+    shortlist needs. See module docstring's "WHY THIS MODULE SWEEPS
+    ONCE, NOT TWICE" section for why this exists instead of calling
+    `run_cycle()` and then sweeping again -- a second sweep would desync
+    each source's on-disk dedup cursor from what the ledger actually
+    recorded and spend real discovery budget twice for one task.
+
+    Reuses `opportunity_cycle._sweep_one_source()` / `._summarize()`
+    and `opportunity_pipeline.run_pipeline()` unchanged -- the only new
+    code here is the loop and report assembly `run_cycle()` itself
+    already contains, copied because this module cannot add a `signals`
+    field to `opportunity_cycle.OpportunityCycleReport` this cycle
+    (that file belongs to a different agent this cycle). Only called
+    when a shortlist is actually requested -- see `run_swarm_task()`,
+    which still calls `run_cycle()` directly, unchanged, when no
+    profile is supplied.
+    """
+    source_results = []
+    merged_signals: "list[CanonicalSignal]" = []
+    for source_id in list_sources():
+        result, signals = _sweep_one_source(source_id, state_dir, fetch_fn, now)
+        source_results.append(result)
+        merged_signals.extend(signals)
+
+    sweep_status, sweep_error = _summarize(tuple(source_results))
+
+    pipeline_report = run_pipeline(tuple(merged_signals), ledger, now=now)
+
+    report = OpportunityCycleReport(
+        sweep_status=sweep_status,
+        sweep_error=sweep_error,
+        signal_count=pipeline_report.signal_count,
+        controlling_party_count=pipeline_report.controlling_party_count,
+        controlling_parties=tuple(
+            sorted(o.controlling_party for o in pipeline_report.opportunities)),
+        ledger_records_written=len(pipeline_report.opportunities),
+        qualified=pipeline_report.qualified,
+        contracts=pipeline_report.contracts,
+        cash=pipeline_report.cash,
+        source_results=tuple(source_results),
+    )
+    return report, tuple(merged_signals)
 
 
 def run_swarm_task(
@@ -356,7 +514,14 @@ def run_swarm_task(
         if not descriptor.live:
             # DRY RUN: validated, nothing executed. No filesystem touch,
             # no ledger construction, no sweep call -- see module
-            # docstring guarantee 1.
+            # docstring guarantee 1. A shortlist needs swept signals, so
+            # a profile supplied on a dry run cannot produce one -- that
+            # is reported explicitly (SHORTLIST_SKIPPED_DRY_RUN), never
+            # as a silent empty digest.
+            shortlist_status = (
+                SHORTLIST_SKIPPED_DRY_RUN
+                if descriptor.shortlist_profile is not None
+                else SHORTLIST_NOT_REQUESTED)
             return SwarmTaskResult(
                 status=DRY_RUN_OK,
                 reason=(
@@ -365,6 +530,7 @@ def run_swarm_task(
                     f"{descriptor.state_dir} and ledger_path="
                     f"{descriptor.ledger_path}; set live=True and "
                     f"authorized_by to actually run"),
+                shortlist_status=shortlist_status,
             )
 
         # LIVE: the only branch that touches disk or (via the real
@@ -372,9 +538,18 @@ def run_swarm_task(
         # _fetch_fn_for_tests is not supplied) a socket.
         try:
             ledger = OutcomeLedger(ledger_path=descriptor.ledger_path)
-            report: OpportunityCycleReport = run_cycle(
-                descriptor.state_dir, ledger,
-                fetch_fn=_fetch_fn_for_tests, now=descriptor.now)
+            if descriptor.shortlist_profile is not None:
+                # Shortlist requested -- sweep once, keeping the merged
+                # signals, instead of run_cycle()'s counts-only report.
+                # See _sweep_all_with_signals()'s own docstring.
+                report, merged_signals = _sweep_all_with_signals(
+                    descriptor.state_dir, ledger,
+                    _fetch_fn_for_tests, descriptor.now)
+            else:
+                report = run_cycle(
+                    descriptor.state_dir, ledger,
+                    fetch_fn=_fetch_fn_for_tests, now=descriptor.now)
+                merged_signals = ()
         except DiscoveryBudgetExhausted as exc:
             return _refused(BUDGET_EXHAUSTED, "DISCOVERY_BUDGET_EXHAUSTED", str(exc))
         except CommunicationDenied as exc:
@@ -409,6 +584,20 @@ def run_swarm_task(
                 AUTHORITY_HOLD, "DISCOVERY_SCOPE_DENIED", detail,
                 requires_human=("DISCOVERY_AUTHORIZATION_GATE",))
 
+        # Shortlist, only when requested and only from the signals this
+        # SAME sweep just produced -- never a second sweep. See
+        # module docstring's OPTIONAL SHORTLIST section.
+        shortlist_status = SHORTLIST_NOT_REQUESTED
+        shortlist_digest = ""
+        shortlist_entry_count = 0
+        if descriptor.shortlist_profile is not None:
+            shortlist = build_shortlist(
+                merged_signals, descriptor.shortlist_profile,
+                limit=descriptor.shortlist_limit)
+            shortlist_digest = render_digest(shortlist)  # data, never printed
+            shortlist_entry_count = len(shortlist)
+            shortlist_status = SHORTLIST_PRODUCED
+
         return SwarmTaskResult(
             status=LIVE_OK,
             sweep_status=report.sweep_status,
@@ -421,6 +610,9 @@ def run_swarm_task(
             # are already always 0 (opportunity_pipeline hardcodes
             # them); this line does not trust that from a distance.
             qualified=0, contracts=0, cash=0,
+            shortlist_status=shortlist_status,
+            shortlist_digest=shortlist_digest,
+            shortlist_entry_count=shortlist_entry_count,
         )
     except Exception as exc:  # last-resort structural guarantee, see (7)
         return _refused(

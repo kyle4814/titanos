@@ -56,7 +56,66 @@ fields, that is not evidence of success — stop and treat it as a bug
 report, because the code structurally refuses to construct such a
 result (`SwarmTaskResult.__post_init__` raises `AssertionError`).
 
-## 3. Reading the result
+## 3. Getting a shortlist (a ranked digest, not just counts)
+
+`run_swarm_task()` can return a rendered, ranked digest a human can
+read in thirty seconds — not just counts. Supply `shortlist_profile`
+(a `foundation.relevance.CapabilityProfile`) on the descriptor:
+
+```python
+from foundation.relevance import CapabilityProfile
+from foundation.swarm_contract import SwarmTaskDescriptor, run_swarm_task
+
+profile = CapabilityProfile(
+    name="operator capability profile",
+    declared_by="Kyle Graham",
+    keywords=frozenset({
+        "cyber security", "penetration testing", "security audit",
+        "incident response", "SOC", "IT consulting", "software development",
+    }),
+    cpv_codes=frozenset({"72000000"}),
+    exclusions=frozenset({
+        "construction", "catering", "cleaning", "vehicles", "medical supplies",
+    }),
+)
+
+descriptor = SwarmTaskDescriptor(
+    objective="observe open security/IT consulting tenders",
+    state_dir=Path("/tmp/opp_state"),
+    ledger_path=Path("/tmp/opp_ledger.jsonl"),
+    live=True,
+    authorized_by="Kyle Graham",
+    shortlist_profile=profile,
+    shortlist_limit=10,   # default 10; 0 means "score but return nothing"
+)
+result = run_swarm_task(descriptor)
+print(result.shortlist_digest)   # the rendered text — never printed by the envelope itself
+```
+
+`result.shortlist_status` is always one of:
+
+| shortlist_status | meaning |
+|---|---|
+| `SHORTLIST_NOT_REQUESTED` | no `shortlist_profile` was supplied — `shortlist_digest` is `""`. This is the default; a live run without a profile still just returns counts, exactly as before this capability existed. |
+| `SHORTLIST_SKIPPED_DRY_RUN` | a profile was supplied but the task was a dry run — dry runs never sweep, so there is nothing to score. Not an error; go live to actually get a digest. |
+| `SHORTLIST_PRODUCED` | a profile was supplied and the sweep completed — `shortlist_digest` holds the rendered text (a real, non-empty string even when zero notices matched: it says so explicitly, it does not render as blank). |
+
+A `SHORTLIST_PRODUCED` digest is **never** a lead, a qualified
+opportunity, or revenue — the digest's own header says this on every
+render. It is a surface-text match between a notice and a self-declared
+capability profile, nothing more. `result.qualified`/`.contracts`/
+`.cash` remain `0` on every shortlist-bearing result, exactly as on
+every other result — see §2.
+
+The shortlist is built from the SAME sweep that produced
+`result.signal_count` etc. — the envelope does not sweep twice to get
+it. Every field the digest renders (buyer, title, deadline, matched
+keywords, notice reference/URL) has already been passed through
+`untrusted_text.neutralise()` — it is public procurement notice text,
+attacker-influenceable, and it is display-safe by the time it reaches
+you.
+
+## 4. Reading the result
 
 `result.status` is always one of:
 
@@ -72,7 +131,7 @@ result (`SwarmTaskResult.__post_init__` raises `AssertionError`).
 `result.refused_by` and `result.requires_human` are always populated
 together with any non-`*_OK` status — never guess from a bare message.
 
-## 4. What each failure state actually means
+## 5. What each failure state actually means
 
 - **`VALIDATION_REFUSED`** — you built a `SwarmTaskDescriptor` the
   envelope refuses to act on: empty objective, missing/colliding paths,
@@ -96,7 +155,7 @@ together with any non-`*_OK` status — never guess from a bare message.
   traceback. Treat this the same as any other unhandled bug: reproduce,
   read `result.reason`, escalate — do not retry blindly.
 
-## 5. Running the tests
+## 6. Running the tests
 
 ```
 python3 -m unittest foundation.tests.test_swarm_contract
@@ -107,7 +166,7 @@ fail, do not "fix" the test to make it pass — the tests encode the
 safety contract this runbook describes; a failing test means the
 contract broke.
 
-## 6. What this runbook must NEVER be extended to include
+## 7. What this runbook must NEVER be extended to include
 
 - **No instructions for calling `opportunity_cycle.run_cycle()`,
   `tender_radar.sweep()`, or `discovery_authorization` directly.** The
@@ -137,3 +196,11 @@ contract broke.
   runs on a schedule is a human decision recorded in
   `HUMAN_DECISIONS.md`, not something this runbook authorizes by
   omission.
+- **No instructions for treating `shortlist_digest` as anything other
+  than unverified, attacker-influenceable notice text a human still has
+  to check.** Never relay it onward (email, chat post, ticket) as if it
+  were a vetted lead list — the digest's own header already says this
+  every render; a runbook edit must not contradict it. Do not add a
+  second sweep to "refresh" the digest without re-reading §3 first — a
+  second sweep desyncs each source's dedup cursor from what the ledger
+  recorded and spends real discovery budget twice for one task.

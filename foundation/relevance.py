@@ -145,9 +145,30 @@ def _keyword_pattern(term: str) -> re.Pattern:
     # Word-boundary match so "cat" does not match inside "category".
     # Multi-word terms match as a literal phrase with flexible internal
     # whitespace.
+    # re.IGNORECASE IS LOAD-BEARING, NOT A CONVENIENCE.
+    #
+    # This lowercased the search term and compiled WITHOUT IGNORECASE,
+    # while the notice text it matches was never lowercased. Ordinary
+    # English capitalisation therefore defeated matching in both
+    # directions, and the EXCLUDED band -- documented as "a hard
+    # boundary" that "wins over every positive signal" -- was defeated by
+    # a capital letter:
+    #
+    #   "...and weapons maintenance"        EXCLUDED   (correct)
+    #   "Weapons maintenance included"      WEAK       (bypassed)
+    #   "WEAPONS maintenance included"      WEAK       (bypassed)
+    #
+    # No attacker effort required; that is just how sentences start. The
+    # keyword side failed identically -- "IT consulting" did not match
+    # the term "it consulting" -- so real matches were being missed at
+    # the same time exclusions were being evaded.
+    #
+    # The existing tests missed it because their fixtures happened to
+    # write every phrase in lowercase mid-sentence. Found by blue-team
+    # pass 009.
     escaped = re.escape(term.strip().lower())
     escaped = escaped.replace(r"\ ", r"\s+")
-    return re.compile(rf"\b{escaped}\b")
+    return re.compile(rf"\b{escaped}\b", re.IGNORECASE)
 
 
 def _norm_set(values: Sequence[str]) -> FrozenSet[str]:

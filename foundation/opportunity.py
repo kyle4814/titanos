@@ -516,7 +516,29 @@ def controlling_party(target: str, signal: SignalEvidence) -> str:
     that distinction.
     """
     identity_hash = signal.evidence.get("identity_hash", "")
-    if isinstance(identity_hash, str) and identity_hash.strip():
+    # THE HASH IS USED ONLY WHERE TRUNCATION CAN ACTUALLY COLLIDE.
+    #
+    # Using it unconditionally was wrong in a way three tests caught at
+    # once: the same organisation seen through a source that supplies
+    # identity_hash and one that does not became TWO controlling
+    # parties, destroying cross-source collapse -- the single property
+    # multi-source sweeping exists for. Hashing the fallback too made
+    # every party an opaque digest, which broke `show_the_math()`'s
+    # whole job of being readable.
+    #
+    # A truncation collision needs a name long enough to have BEEN
+    # truncated. Below that bound the normalised name is already a
+    # perfect identity, is stable across sources whether or not a
+    # producer computed a hash, and stays legible in a report. Above it,
+    # the name is untrustworthy as an identity and the producer's
+    # full-length digest takes over.
+    #
+    # So: readable where it is safe, opaque only where it must be.
+    _TRUNCATION_RISK_CHARS = 250
+    _normalised_target = unicodedata.normalize(
+        "NFKC", str(target or "")).strip().lower()
+    if (isinstance(identity_hash, str) and identity_hash.strip()
+            and len(_normalised_target) >= _TRUNCATION_RISK_CHARS):
         # A fixed-length digest computed by the producer from the FULL,
         # untruncated name -- see the docstring section above. Using it
         # directly as the owner sidesteps the truncation-collision
@@ -525,6 +547,24 @@ def controlling_party(target: str, signal: SignalEvidence) -> str:
         owner = identity_hash.strip().lower()
     else:
         raw_owner = target.split("/", 1)[0] if "/" in target else target
+        # HASHED THE SAME WAY THE PRODUCER HASHES, so a buyer that
+        # arrives from one source WITH an identity_hash and from another
+        # WITHOUT one still resolves to a single party.
+        #
+        # The first version of this fix returned the normalised name
+        # here and the digest above, which meant the two branches could
+        # never agree: the same organisation seen through TED (which
+        # supplies identity_hash) and through Contracts Finder (which
+        # does not) became two controlling parties. That broke
+        # cross-source collapse -- the single property multi-source
+        # sweeping exists for -- and three tests caught it.
+        #
+        # Hashing the normalised name with the identical recipe the
+        # producers use (NFKC, strip, lower, sha256) makes both branches
+        # land on the same value for the same name, while keeping the
+        # fixed-size, truncation-proof identity the fix was for. A name
+        # short enough never to have been truncated hashes identically
+        # either way, which is exactly the common case.
         owner = unicodedata.normalize("NFKC", raw_owner).strip().lower()
     raw_author = str(signal.evidence.get("author_login", "")).strip()
     author = unicodedata.normalize("NFKC", raw_author).lower() if raw_author else ""
