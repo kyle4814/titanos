@@ -79,8 +79,11 @@ measurement that buries them has already failed.
 | Free of known bugs | ❌ **Three open defects**, with runnable reproductions in [failures/](failures/FAILURE_ARCHIVE.md) |
 
 That test number is a static count of `def test_` definitions; a real run
-executes 2,770. Both are true, they measure different things, and neither
-is rounded in this project's favour.
+executes 2,791. Both are true, they measure different things, and neither
+is rounded in this project's favour. Only the first is kept current
+automatically (`autonomy_loop.py`) — if the second has drifted, that is the
+hand-maintained-number problem this project keeps rediscovering, and
+`./run_all_tests.sh` is the authority.
 
 > **The most useful thing this repo learned about itself:** CI was red for
 > eight straight commits while every local run said PASS. Several tests
