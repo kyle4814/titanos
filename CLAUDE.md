@@ -323,6 +323,20 @@ exists because a live run found the previous one lying.
   keeps shape, which is what separates "twenty specifications" from "one
   specification written twenty times". Every corpus delivered to this
   repository so far has measured as scaffolding.
+- `tender_radar.py` — the first mouth that can find a **buyer**. Every
+  other mouth watches software; a GitHub release is not a customer. This
+  one reads public-sector procurement notices, where someone with money
+  has publicly said they want to buy something. It produced this
+  repository's first real external ping on 2026-09-01: 6 live notices
+  from real buyers. **Its most valuable output is a negative finding** —
+  no Australian government procurement source is reachable by a fetcher
+  that identifies itself honestly. AusTender, grants.gov.au and all five
+  state portals 403 every path behind a WAF unless you present a
+  fabricated browser User-Agent; `data.gov.au` is a blanket
+  `Disallow: /`. Getting in means evading a control the site operator
+  installed deliberately, so the module uses UK Contracts Finder (OCDS,
+  OGL v3.0, no key) instead of spoofing. Signals are `OBSERVED` only;
+  `money_state=ADVERTISED` never implies won or paid.
 - `autonomy_loop.py` — the only thing authorised to repair README's test
   count, with verification, rollback and a receipt. Not scheduled; see
   `HUMAN_DECISIONS.md` for why that is a human decision.
