@@ -479,7 +479,11 @@ def read_mouth_log_continuity(
                 parsed = parsed.replace(tzinfo=timezone.utc)
             if current.tzinfo is None:
                 current = current.replace(tzinfo=timezone.utc)
-            age_seconds = (current - parsed).total_seconds()
+            # abs(): a FUTURE-dated record must be flagged too. A one-way
+            # comparison goes negative and never exceeds the threshold,
+            # so a log stamped ahead of now reads as permanently fresh --
+            # exactly what a stopped or wrong clock produces.
+            age_seconds = abs((current - parsed).total_seconds())
             if age_seconds > LOG_STALE_AFTER_SECONDS:
                 stale = True
                 warnings.append(

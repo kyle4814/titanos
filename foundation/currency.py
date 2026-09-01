@@ -164,9 +164,21 @@ class RateTable:
         default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
     def is_stale(self, today: Optional[date] = None) -> bool:
-        """True once this table is older than STALE_AFTER_DAYS relative
-        to `today` (defaults to real today, UTC). A stale table is not
-        refused -- it is flagged, see this module's STALENESS note."""
+        """True once this table is more than STALE_AFTER_DAYS away from
+        `today` (defaults to real today, UTC) IN EITHER DIRECTION. A
+        stale table is not refused -- it is flagged, see this module's
+        STALENESS note.
+
+        Blue-team pass 014: this used to check only `ref - table_date >
+        STALE_AFTER_DAYS`, i.e. only whether the table was too OLD. A
+        table dated in the FUTURE relative to `today` makes that
+        subtraction negative, and a negative number is never greater
+        than STALE_AFTER_DAYS -- so a future-dated table read as
+        eternally fresh and every conversion made from it looked
+        current while being silently wrong. The ECB never publishes a
+        table dated ahead of the run date; a future date means the
+        table (or the caller's clock) cannot be trusted as "today's
+        rate" either, so it must be flagged exactly like a too-old one."""
         ref = today or datetime.now(timezone.utc).date()
         try:
             table_date = date.fromisoformat(self.date_str)
@@ -174,7 +186,7 @@ class RateTable:
             # A table whose own date doesn't parse cannot be dated at
             # all -- treat as stale rather than pretending freshness.
             return True
-        return (ref - table_date).days > STALE_AFTER_DAYS
+        return abs((ref - table_date).days) > STALE_AFTER_DAYS
 
     def to_dict(self) -> dict:
         return {"date_str": self.date_str, "rates": dict(self.rates),

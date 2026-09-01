@@ -237,7 +237,16 @@ class CanonicalSignal:
         seen = _parse(stamp)
         if seen is None:
             return True
-        return _now(now) - seen > timedelta(days=STALE_AFTER_DAYS)
+        # abs(): a FUTURE-dated stamp must be flagged too. A one-way
+        # comparison makes the difference negative, which is never
+        # greater than the threshold, so a stamp dated next year reads
+        # as permanently fresh. Found in currency.py by blue-team pass
+        # 014 and then found in five more places by auditing the class
+        # rather than the instance.
+        # Highest severity of the five: `event_at` is parsed from feed
+        # data, so a hostile source could mark its own signal fresh
+        # forever by dating it in the future.
+        return abs(_now(now) - seen) > timedelta(days=STALE_AFTER_DAYS)
 
     def money_claim(self) -> str:
         """Only PAID money is money. Everything else is a figure on a page."""

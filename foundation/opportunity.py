@@ -205,7 +205,13 @@ class OpportunityReceipt:
             return True
         if seen.tzinfo is None:
             seen = seen.replace(tzinfo=timezone.utc)
-        return (now - seen) > FRESHNESS_WINDOW
+        # abs(): a FUTURE-dated stamp must be flagged too. A one-way
+        # comparison makes the difference negative, which is never
+        # greater than the threshold, so a stamp dated next year reads
+        # as permanently fresh. Found in currency.py by blue-team pass
+        # 014 and then found in five more places by auditing the class
+        # rather than the instance.
+        return abs(now - seen) > FRESHNESS_WINDOW
 
     def blocking_disqualifiers(self) -> tuple[str, ...]:
         return tuple(d for d in self.disqualifiers if d in HARD_DISQUALIFIERS)

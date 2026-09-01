@@ -157,6 +157,24 @@ class TestRateTableIsStale(unittest.TestCase):
         table = RateTable(date_str="not-a-date", rates={"USD": 1.1})
         self.assertTrue(table.is_stale())
 
+    def test_future_dated_table_is_stale_not_eternally_fresh(self):
+        """Blue-team pass 014: is_stale() only checked whether the table
+        was OLDER than STALE_AFTER_DAYS. A table dated in the future
+        makes `(ref - table_date).days` negative, which is never greater
+        than STALE_AFTER_DAYS, so a future-dated table passed as fresh
+        forever and every conversion from it looked current while being
+        silently wrong. A table dated even one day ahead of `today` is
+        already impossible for a real ECB publication and must be
+        flagged, exactly like a too-old one."""
+        from datetime import date
+        future_table = RateTable(date_str="2027-06-01", rates={"USD": 1.1})
+        self.assertTrue(future_table.is_stale(today=date(2026, 9, 2)))
+
+    def test_far_future_dated_table_is_stale(self):
+        from datetime import date
+        table = RateTable(date_str="2026-09-10", rates={"USD": 1.1})
+        self.assertTrue(table.is_stale(today=date(2026, 8, 31)))
+
 
 class TestLoadRateTableCaching(unittest.TestCase):
     def test_fetches_once_and_caches_to_disk(self):

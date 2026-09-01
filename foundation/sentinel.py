@@ -635,7 +635,9 @@ def check_mouth_health(repo_root: Path, now: Optional["datetime"] = None) -> lis
             parsed = parsed.replace(tzinfo=_tz.utc)
         if current.tzinfo is None:
             current = current.replace(tzinfo=_tz.utc)
-        if (current - parsed).total_seconds() > LOG_STALE_AFTER_SECONDS:
+        # abs(): see mouth_common's matching guard. A future-stamped log
+        # must not read as fresh.
+        if abs((current - parsed).total_seconds()) > LOG_STALE_AFTER_SECONDS:
             findings.append(Finding(
                 observation=(
                     f"mouth {mouth_id!r} has stopped writing observations "
@@ -1689,7 +1691,10 @@ def read_pulse_continuity(
             parsed = parsed.replace(tzinfo=timezone.utc)
         if current.tzinfo is None:
             current = current.replace(tzinfo=timezone.utc)
-        age_seconds = (current - parsed).total_seconds()
+        # abs(): a pulse stamped in the FUTURE is exactly as suspect as one
+        # that is too old -- both mean the clock is wrong -- and a one-way
+        # comparison reports the future case as perfectly healthy.
+        age_seconds = abs((current - parsed).total_seconds())
         if age_seconds > PULSE_STALE_AFTER_SECONDS:
             stale = True
             warnings.append(
