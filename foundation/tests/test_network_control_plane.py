@@ -340,3 +340,71 @@ class TestTheBudgetIsRealNotDecorative(unittest.TestCase):
         self.assertEqual(
             spend_query(self.policy,
                         now=100.0 + self.policy.max_wall_clock_seconds + 1), 1)
+
+
+class TestPostIsNotASecondPathAroundTheGate(unittest.TestCase):
+    """POST was added to `fetch_feed` on 2026-09-01 so EU TED could be
+    reached (its search endpoint is POST-only; GET returns 405). TED
+    publishes ~397,000 open notices under CC BY 4.0 with no key.
+
+    The danger of adding a method to the only socket in the repository is
+    that it becomes a second door with weaker locks. These tests exist to
+    prove it is the same door: every gate that guards GET must guard POST
+    identically, and the request body must not be a way to smuggle a
+    different content type through.
+    """
+
+    URL = "https://example.invalid/search"
+    BODY = {"query": "x", "limit": 1}
+
+    def test_post_without_a_policy_is_refused(self):
+        with self.assertRaises(CommunicationDenied):
+            fetch_feed(self.URL, policy=None, json_body=self.BODY)
+
+    def test_post_with_a_fake_policy_object_is_refused(self):
+        class NotAPolicy:
+            objective = "looks real"
+            requested_scope = "READ_API"
+        with self.assertRaises(CommunicationDenied):
+            fetch_feed(self.URL, policy=NotAPolicy(), json_body=self.BODY)
+
+    def test_raw_bytes_body_is_refused(self):
+        """A caller handing over raw bytes could choose its own content
+        type, or a chunked/multipart shape, through the one socket."""
+        reset_budgets()
+        p = DiscoveryPolicy(objective="test: raw body refusal on the search endpoint",
+                            requested_scope="READ_API", max_queries=2)
+        with self.assertRaises(CommunicationDenied):
+            fetch_feed(self.URL, policy=p, json_body=b"raw bytes")
+
+    def test_an_oversized_request_body_is_refused(self):
+        reset_budgets()
+        p = DiscoveryPolicy(objective="test: oversized body refusal on search",
+                            requested_scope="READ_API", max_queries=2)
+        with self.assertRaises(CommunicationDenied):
+            fetch_feed(self.URL, policy=p, json_body={"q": "A" * 70_000})
+
+    def test_budget_is_charged_for_post_exactly_as_for_get(self):
+        """The gate that matters most. If POST skipped spend_query, an
+        attacker-influenced caller could drain a source for free."""
+        reset_budgets()
+        p = DiscoveryPolicy(objective="test: budget is charged on the post path",
+                            requested_scope="READ_API", max_queries=1)
+        with mock.patch("urllib.request.urlopen") as m:
+            m.return_value.__enter__.return_value.read.return_value = b"{}"
+            fetch_feed(self.URL, policy=p, json_body=self.BODY)
+            with self.assertRaises(DiscoveryBudgetExhausted):
+                fetch_feed(self.URL, policy=p, json_body=self.BODY)
+
+    def test_no_body_still_sends_a_get(self):
+        """POST must be reachable only by supplying a body, so PUT/DELETE/
+        PATCH stay unreachable by construction rather than by validation."""
+        reset_budgets()
+        p = DiscoveryPolicy(objective="test: default method remains get",
+                            requested_scope="READ_API", max_queries=2)
+        with mock.patch("urllib.request.urlopen") as m:
+            m.return_value.__enter__.return_value.read.return_value = b"{}"
+            fetch_feed(self.URL, policy=p)
+            request = m.call_args[0][0]
+            self.assertEqual(request.get_method(), "GET")
+            self.assertIsNone(request.data)

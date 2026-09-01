@@ -26,6 +26,7 @@ import urllib.request
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
+from collections.abc import Mapping
 from typing import Callable, Optional
 
 # Imported at module level so the gate's own exception type is part of
@@ -52,6 +53,9 @@ DEFAULT_TIMEOUT_SECONDS = 10
 # kilobytes; 5 MB is ~1000x headroom while still bounding memory. See
 # fetch_feed()'s docstring for why a timeout alone does not bound this.
 MAX_FEED_BYTES = 5 * 1024 * 1024
+# Bounds the REQUEST body. MAX_FEED_BYTES bounds the response; an
+# unbounded request is the same class of problem in the other direction.
+MAX_REQUEST_BYTES = 64 * 1024
 DEFAULT_USER_AGENT = "titanos-cosmic-library-mouth/1 (+https://github.com/kyle4814/titanos)"
 
 # Same cadence/threshold policy as foundation/sentinel.py's read_pulse_continuity —
@@ -70,7 +74,8 @@ class FetchError(Exception):
 
 def fetch_feed(url: str, timeout: int = DEFAULT_TIMEOUT_SECONDS,
                 user_agent: str = DEFAULT_USER_AGENT,
-                *, policy: "DiscoveryPolicy | None" = None) -> bytes:
+                *, policy: "DiscoveryPolicy | None" = None,
+                json_body: "Mapping[str, Any] | None" = None) -> bytes:
     """One GET request, real network I/O, no retry loop here — the
     caller's own schedule (cron) is the backoff policy.
 
@@ -144,7 +149,51 @@ def fetch_feed(url: str, timeout: int = DEFAULT_TIMEOUT_SECONDS,
     # anywhere, while this docstring told callers a policy names a
     # budget -- the gate advertised a limit it did not have.
     spend_query(policy)
-    request = urllib.request.Request(url, headers={"User-Agent": user_agent})
+    # A DECLARED JSON BODY, NOT AN ARBITRARY REQUEST BUILDER.
+    #
+    # EU TED publishes ~397,000 open notices under CC BY 4.0, needs no key,
+    # and answers this fetcher's honest User-Agent -- and its search
+    # endpoint is POST-only (GET returns 405, verified live 2026-09-01).
+    # So the largest lawful source of real demand this system has found was
+    # unreachable because of a constraint we imposed on ourselves, not one
+    # anybody imposed on us.
+    #
+    # This stays deliberately narrow rather than becoming a general HTTP
+    # client, because this function is the only socket in the repository
+    # and every widening of it widens the whole attack surface:
+    #
+    #   - the body must be a mapping, serialised to JSON here. A caller
+    #     cannot hand over raw bytes, so it cannot smuggle a different
+    #     content type or a chunked/multipart shape through this door.
+    #   - only POST is reachable, and only by supplying a body. There is
+    #     no `method` parameter, so PUT/DELETE/PATCH remain unreachable
+    #     by construction rather than by validation.
+    #   - the serialised body is capped. An unbounded request body is a
+    #     memory and egress problem in the one direction this function's
+    #     existing cap does not cover -- MAX_FEED_BYTES bounds what comes
+    #     back, and bounded a request is not the same thing.
+    #   - every gate above still ran first. Authorization and budget are
+    #     charged before this point regardless of method, so POST is not
+    #     a second path around the control plane. That is the property
+    #     the tests pin.
+    data = None
+    headers = {"User-Agent": user_agent}
+    if json_body is not None:
+        if not isinstance(json_body, Mapping):
+            raise CommunicationDenied(
+                f"refusing to fetch {url!r}: json_body must be a mapping, "
+                f"not {type(json_body).__name__} -- raw bytes would let a "
+                f"caller choose its own content type through the only "
+                f"socket in this repository"
+            )
+        data = json.dumps(json_body, sort_keys=True).encode("utf-8")
+        if len(data) > MAX_REQUEST_BYTES:
+            raise CommunicationDenied(
+                f"refusing to fetch {url!r}: request body is {len(data)} "
+                f"bytes, over MAX_REQUEST_BYTES ({MAX_REQUEST_BYTES})"
+            )
+        headers["Content-Type"] = "application/json"
+    request = urllib.request.Request(url, data=data, headers=headers)
     try:
         with urllib.request.urlopen(request, timeout=timeout) as response:
             payload = response.read(MAX_FEED_BYTES + 1)
