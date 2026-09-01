@@ -239,8 +239,20 @@ def parse_items(raw: bytes) -> tuple[dict, ...]:
     """
     try:
         payload = json.loads(raw)
-    except (json.JSONDecodeError, UnicodeDecodeError, TypeError) as exc:
-        raise FetchError(f"feed did not parse as JSON: {exc}") from exc
+    # RecursionError is in this tuple deliberately. `json.loads` recurses
+    # per nesting level, so a feed answering with 60,000 opening brackets
+    # blows the interpreter stack -- and RecursionError inherits from
+    # RuntimeError, not from any of the three exceptions above, so it
+    # escaped as an unhandled crash. Confirmed by execution during
+    # blue-team pass 004, not reasoned about: the sweep died instead of
+    # reporting UNAVAILABLE.
+    #
+    # This module's whole contract is that a malformed feed produces a
+    # structured refusal rather than a crash. A remote server choosing
+    # its own response body must never be able to take the process down.
+    except (json.JSONDecodeError, UnicodeDecodeError, TypeError,
+            RecursionError) as exc:
+        raise FetchError(f"feed did not parse as JSON: {type(exc).__name__}") from exc
     if not isinstance(payload, dict):
         raise FetchError("feed root is not a JSON object")
     releases = payload.get("releases")

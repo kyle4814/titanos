@@ -279,3 +279,33 @@ class TestTargetIsBounded(unittest.TestCase):
         sig = tender_radar.tender_signal(self._item(buyer_name=""))
         self.assertTrue(sig.target.strip(),
                         "a signal with no buyer must still have a target")
+
+
+class TestDeepNestingIsRefusedNotCrashed(unittest.TestCase):
+    """Blue-team pass 004, left UNVERIFIED there, confirmed by execution here.
+
+    `json.loads` recurses once per nesting level, so a feed answering with
+    60,000 opening brackets blows the interpreter stack. RecursionError
+    inherits from RuntimeError, not from JSONDecodeError/UnicodeDecodeError/
+    TypeError, so it escaped `parse_items`' except clause entirely and the
+    sweep died with an unhandled crash.
+
+    This module's contract is that a malformed feed produces a structured
+    refusal. A remote server choosing its own response body must never be
+    able to take the process down.
+    """
+
+    def test_deeply_nested_json_is_a_structured_refusal(self):
+        payload = ("[" * 60_000) + "1" + ("]" * 60_000)
+        with self.assertRaises(tender_radar.FetchError):
+            tender_radar.parse_items(payload.encode())
+
+    def test_the_refusal_does_not_echo_the_payload(self):
+        """A refusal that quotes a 120KB hostile payload into a log line is
+        a second problem, not a fix for the first."""
+        payload = ("[" * 60_000) + "1" + ("]" * 60_000)
+        try:
+            tender_radar.parse_items(payload.encode())
+        except tender_radar.FetchError as exc:
+            self.assertLess(len(str(exc)), 200)
+            self.assertIn("RecursionError", str(exc))
