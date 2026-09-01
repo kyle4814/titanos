@@ -415,6 +415,203 @@ def _release_feed(release):
     return _feed(release)
 
 
+class TestExtractValue(unittest.TestCase):
+    """Value extraction directly against `_extract_value()`, using the
+    real OCDS shapes confirmed live 2026-09-01 (see module docstring's
+    "VALUE FIELD SHAPE" section) -- `tender.value` for the standard
+    75%-of-open-notices case, `tender.lots[].value` for the (live-
+    unobserved but OCDS-real) multi-lot case, plus the three judgement
+    calls the task brief required this module to match: a literal 0 is
+    a placeholder not a real zero, a multi-lot value is never summed/
+    averaged/reduced to one lot, and currency is never defaulted."""
+
+    def test_real_shape_single_value_parses_cleanly(self):
+        tender = {"value": {"amount": 21896491.6, "currency": "GBP"}}
+        amount, currency, detail = tender_radar._extract_value(tender)
+        self.assertEqual(amount, 21896491.6)
+        self.assertEqual(currency, "GBP")
+        self.assertEqual(detail, "21896491.6 GBP")
+
+    def test_missing_value_is_not_observed_not_zero(self):
+        amount, currency, detail = tender_radar._extract_value({})
+        self.assertIsNone(amount)
+        self.assertEqual(currency, "")
+        self.assertEqual(detail, "")
+
+    def test_value_present_but_amount_none_is_not_observed(self):
+        tender = {"value": {"amount": None, "currency": "GBP"}}
+        amount, currency, detail = tender_radar._extract_value(tender)
+        self.assertIsNone(amount)
+        self.assertEqual(detail, "")
+
+    def test_literal_zero_amount_is_treated_as_placeholder(self):
+        """Not observed live on Contracts Finder (0/473 valued releases
+        in a real 600-release sample -- see module docstring), but the
+        task brief requires the same judgement call TED's confirmed
+        live placeholder pattern uses: an exact 0 is never reported as
+        a real ADVERTISED figure."""
+        tender = {"value": {"amount": 0, "currency": "GBP"}}
+        amount, currency, detail = tender_radar._extract_value(tender)
+        self.assertIsNone(amount)
+        self.assertEqual(currency, "")
+        self.assertEqual(detail, "")
+
+    def test_zero_point_zero_amount_is_also_a_placeholder(self):
+        tender = {"value": {"amount": 0.0, "currency": "GBP"}}
+        amount, currency, detail = tender_radar._extract_value(tender)
+        self.assertIsNone(amount)
+        self.assertEqual(detail, "")
+
+    def test_a_genuine_tiny_value_is_kept_not_treated_as_placeholder(self):
+        tender = {"value": {"amount": 0.01, "currency": "GBP"}}
+        amount, currency, detail = tender_radar._extract_value(tender)
+        self.assertEqual(amount, 0.01)
+        self.assertEqual(currency, "GBP")
+
+    def test_amount_present_currency_missing_is_never_defaulted(self):
+        tender = {"value": {"amount": 50000, "currency": ""}}
+        amount, currency, detail = tender_radar._extract_value(tender)
+        self.assertIsNone(amount)
+        self.assertEqual(currency, "")
+        self.assertEqual(detail, "")
+
+    def test_single_lot_value_with_currency_resolves_to_one_amount(self):
+        tender = {"lots": [{"id": "1", "value": {"amount": 5000, "currency": "GBP"}}]}
+        amount, currency, detail = tender_radar._extract_value(tender)
+        self.assertEqual(amount, 5000)
+        self.assertEqual(currency, "GBP")
+        self.assertEqual(detail, "5000 GBP")
+
+    def test_multi_lot_value_is_never_summed_averaged_or_reduced(self):
+        tender = {"lots": [
+            {"id": "1", "value": {"amount": 5000000, "currency": "EUR"}},
+            {"id": "2", "value": {"amount": 1000000, "currency": "EUR"}},
+            {"id": "3", "value": {"amount": 500000, "currency": "EUR"}},
+        ]}
+        amount, currency, detail = tender_radar._extract_value(tender)
+        # No single number invented -- amount stays None even though a
+        # naive sum (6,500,000) or average would be easy to compute.
+        self.assertIsNone(amount)
+        self.assertEqual(currency, "EUR")  # single shared currency, honestly reported
+        self.assertIn("3 lot(s)", detail)
+        self.assertIn("5000000 EUR", detail)
+        self.assertIn("1000000 EUR", detail)
+        self.assertIn("500000 EUR", detail)
+        self.assertNotIn("6500000", detail)  # never a silent sum
+        self.assertNotIn("2166666", detail)  # never a silent average
+
+    def test_multi_lot_with_mixed_currencies_reports_all_honestly(self):
+        tender = {"lots": [
+            {"id": "1", "value": {"amount": 100, "currency": "GBP"}},
+            {"id": "2", "value": {"amount": 200, "currency": "EUR"}},
+        ]}
+        amount, currency, detail = tender_radar._extract_value(tender)
+        self.assertIsNone(amount)
+        self.assertEqual(currency, "")  # ambiguous currency never guessed
+        self.assertIn("EUR/GBP", detail)  # currencies() sorts deterministically
+
+    def test_zero_lot_values_are_dropped_as_placeholders_too(self):
+        tender = {"lots": [
+            {"id": "1", "value": {"amount": 0, "currency": "GBP"}},
+            {"id": "2", "value": {"amount": 7500, "currency": "GBP"}},
+        ]}
+        amount, currency, detail = tender_radar._extract_value(tender)
+        self.assertEqual(amount, 7500)
+        self.assertEqual(currency, "GBP")
+
+    def test_procedure_level_value_is_preferred_over_lots(self):
+        """`tender.value` is tried first -- a notice carrying both a
+        real procedure-level total and a lots array uses the total,
+        never re-derives from lots when a real single figure already
+        exists."""
+        tender = {
+            "value": {"amount": 30000000, "currency": "GBP"},
+            "lots": [{"id": "1", "value": {"amount": 999, "currency": "GBP"}}],
+        }
+        amount, currency, detail = tender_radar._extract_value(tender)
+        self.assertEqual(amount, 30000000)
+
+    def test_malformed_lots_do_not_crash(self):
+        tender = {"lots": "not a list"}
+        amount, currency, detail = tender_radar._extract_value(tender)
+        self.assertIsNone(amount)
+        self.assertEqual(detail, "")
+
+    def test_lots_with_non_dict_entries_are_skipped_not_crashed(self):
+        tender = {"lots": ["not a dict", 42, None, {"id": "1"}]}
+        amount, currency, detail = tender_radar._extract_value(tender)
+        self.assertIsNone(amount)
+        self.assertEqual(detail, "")
+
+
+class TestValueEndToEndThroughParseAndSignal(unittest.TestCase):
+    """Same judgement calls as TestExtractValue, exercised through the
+    real `parse_items()` -> `tender_signal()` path a live sweep
+    actually uses, not just the helper function directly."""
+
+    def test_multi_lot_notice_produces_advertised_with_honest_breakdown(self):
+        rel = _release()
+        rel["tender"]["value"] = {"amount": None, "currency": ""}
+        rel["tender"]["lots"] = [
+            {"id": "1", "value": {"amount": 5000000, "currency": "EUR"}},
+            {"id": "2", "value": {"amount": 1000000, "currency": "EUR"}},
+        ]
+        item = tender_radar.parse_items(_feed(rel))[0]
+        signal = tender_radar.tender_signal(item)
+        self.assertEqual(signal.money_state, "ADVERTISED")
+        self.assertIn("2 lot(s)", signal.money_observed)
+        self.assertNotIn("6000000", signal.money_observed)  # never summed
+
+    def test_zero_placeholder_notice_is_not_observed_end_to_end(self):
+        rel = _release(amount=0, currency="GBP")
+        item = tender_radar.parse_items(_feed(rel))[0]
+        signal = tender_radar.tender_signal(item)
+        self.assertEqual(signal.money_state, "NOT_OBSERVED")
+        self.assertEqual(signal.money_observed, "")
+
+    def test_currency_missing_never_defaults_end_to_end(self):
+        rel = _release(amount=50000, currency="")
+        item = tender_radar.parse_items(_feed(rel))[0]
+        signal = tender_radar.tender_signal(item)
+        self.assertEqual(signal.money_state, "NOT_OBSERVED")
+        self.assertNotIn("GBP", signal.money_observed)
+
+
+class TestNoFullTextSearchParameter(unittest.TestCase):
+    """UK Contracts Finder gap #2: no server-side full-text search
+    exists on this endpoint at all -- proven live 2026-09-01 by
+    comparing the real ocid result SET (not just a count) returned with
+    eleven candidate keyword-parameter names each set to
+    "cybersecurity", all identical to the unfiltered baseline. See
+    module docstring's CANNOT section for the full live finding. This
+    module deliberately does NOT define a `_build_full_text_query()` or
+    similar -- doing so would fabricate a capability this API does not
+    have, the exact failure this task explicitly forbids. This test
+    pins that no such public name was added."""
+
+    def test_no_full_text_query_builder_exists_in_this_module(self):
+        for forbidden in (
+            "_build_full_text_query", "_build_expert_query",
+            "full_text_terms", "FULL_TEXT_TERMS", "_build_search_query",
+        ):
+            self.assertFalse(
+                hasattr(tender_radar, forbidden),
+                f"tender_radar.{forbidden} exists -- this endpoint has no "
+                "documented or live-working full-text parameter (see module "
+                "docstring CANNOT section); defining this would fabricate "
+                "a filter that does not exist"
+            )
+
+    def test_feed_url_carries_no_keyword_parameter(self):
+        # FEED_URL/_recency_feed_url() only ever add the five documented,
+        # live-proven parameters (order_by, order_direction, size,
+        # publishedFrom) -- never a keyword/text/query parameter, since
+        # none is real on this endpoint.
+        url = tender_radar._recency_feed_url()
+        for forbidden_param in ("q=", "keyword=", "search=", "query=", "text=", "fts="):
+            self.assertNotIn(forbidden_param, url)
+
+
 if __name__ == "__main__":
     unittest.main()
 

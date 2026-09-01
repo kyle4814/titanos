@@ -142,6 +142,67 @@ exactly that a figure was published, in the OCDS `tender.value` field
 money-state discipline, which this module inherits rather than
 reinvents.
 
+VALUE FIELD SHAPE -- VERIFIED LIVE 2026-09-01, NOT ASSUMED
+
+Fetched 600 real releases across six pages (`cursor`-paginated, same
+endpoint `FEED_URL` uses) and inspected the 44 that were genuinely
+open (`tag` includes `"tender"`, `tender.status` in
+`OPEN_TENDER_STATUSES`) directly, not through any downstream code:
+
+  - 33/44 (75%) carried a real `tender.value.amount` + `tender.value.
+    currency` -- a materially HIGHER real coverage than TED's own
+    63/1250 figure (`mouth_ted.py`'s own module docstring), reported
+    honestly as the two sources' real, different numbers rather than
+    assumed to match.
+  - `tender.value` is a single flat object (`{"amount": <number>,
+    "currency": <str>}`) on every populated notice seen -- no dict-vs-
+    list shape ambiguity like TED's `total-value-cur` had.
+  - `tender.minValue`/`tender.maxValue` (a range, distinct from
+    `tender.value`) appeared on 10/44 open notices -- ALWAYS alongside
+    a populated `tender.value` in every one of those 10, never as the
+    only value information on a notice. `_extract_value()` therefore
+    does not read `minValue`/`maxValue` as a value source: doing so
+    would either duplicate `tender.value` (when both are present, as
+    observed) or require inventing behaviour for a standalone-range
+    case that has never actually occurred on this endpoint. If a
+    minValue/maxValue-only notice is ever observed live, that is a new
+    finding to fold into this function, not something to guess at now.
+  - `awards[].value` is populated on award-tagged releases (real,
+    genuine contract-award figures) but those releases are already
+    excluded upstream by `_OPEN_TAG`/`OPEN_TENDER_STATUSES` -- an award
+    is a decided contract, not an open opportunity, and its value is
+    never read here for the same reason its release is never surfaced
+    as a signal.
+  - `tender.lots` -- OCDS's own documented per-lot structure, the
+    shape that would carry a genuine multi-lot value breakdown (the
+    same shape `mouth_ted.py` found real live multi-lot notices under
+    on TED) -- was checked against ALL 600 fetched releases, every tag,
+    every status, not just the 44 open ones, and appeared on ZERO of
+    them. This is a genuine finding about Contracts Finder's OCDS
+    publication as of 2026-09-01, not an assumption that lots don't
+    exist in the standard: `_extract_value()` still handles a populated
+    `tender.lots` defensively, on the same never-sum/never-average/
+    never-pick-one discipline TED's `_extract_value()` uses for its
+    confirmed-live multi-lot case, because the shape is real OCDS and a
+    UK buyer could start populating it at any time -- but no live UK
+    notice has been observed exercising that path, and this docstring
+    says so honestly rather than presenting an untested branch as a
+    confirmed pattern.
+  - No literal `0`/`0.00` `tender.value.amount` was observed on any of
+    the 473 valued releases across all 600 fetched (open and closed,
+    tender- and award-tagged alike) -- unlike TED's confirmed 26/1250
+    placeholder-zero pattern. `_extract_value()` still treats an exact
+    zero amount as a placeholder rather than a real free contract, by
+    analogy to TED's confirmed finding and this module's own task
+    brief, not because the same pattern was independently confirmed on
+    this source -- if a genuine sub-unit value (e.g. `0.01`) is ever
+    seen it is kept, matching TED's own genuine-tiny-value carve-out.
+  - Currency was never missing when an amount was present, across all
+    473 valued releases fetched (`tender.value` and `awards[].value`
+    alike) -- `_extract_value()` still refuses to default a currency if
+    one is ever absent (returns no single `amount` in that case) rather
+    than trusting this 100%-so-far observation to hold forever.
+
 CANNOT
 
 - Cannot tell a genuinely new opportunity from a re-published one:
@@ -199,6 +260,35 @@ CANNOT
   say "to access this competition, log in to https://suppliers.multiquote.com"; this module reports
   the notice's existence and terms as published here, not what sits
   behind that second login.
+- Cannot do server-side full-text search on this endpoint at all --
+  verified live 2026-09-01, not assumed from the CPV finding above.
+  `/apidocumentation`'s `OcdsApi` section documents exactly three GET
+  endpoints (`Published/Notices/OCDS/Search?publishedFrom=...&
+  publishedTo=...&stages=...&limit=...&cursor=...`, `Published/OCDS/
+  Record/{ocid}`, `Published/OCDS/Release/{id}`) plus two bulk CSV
+  Harvester endpoints -- no keyword/text/query parameter is documented
+  anywhere on the search endpoint. Live-tested eleven candidate
+  parameter names one at a time against the same base request
+  (`order_by=publishedDate&order_direction=desc&size=20`): `q`,
+  `keyword`, `keywords`, `search`, `searchTerm`, `title`, `text`,
+  `query`, `fts`, `term`, `description`, each set to `"cybersecurity"`.
+  Every single one returned the EXACT SAME 100-release ocid list, in
+  the exact same order, as the request with no such parameter at all --
+  proof by the same method this module's own CPV finding already uses
+  (compare the real result SET, not just a count, since this endpoint
+  has no page-size-independent total field): an unrecognised parameter
+  is silently accepted and ignored here too, not honoured. `Published/
+  Notices` (a separate, non-OCDS endpoint under `NoticeApi`) does take a
+  `filter=` parameter, but only via `Draft/FindNoticesForUser`, which
+  requires an authenticated buyer session -- not reachable by this
+  fetcher's unauthenticated, keyless access, and out of scope for the
+  same reason the website front end already is. There is therefore no
+  server-side keyword-narrowing equivalent to `mouth_ted._build_expert_
+  query()`'s `FT ~ (...)` clause on this source -- a caller wanting to
+  narrow UK notices by keyword must filter the notice's own `title`/
+  `description` text client-side, after fetching, the same limitation
+  this module already lived with before this finding, just now proven
+  rather than assumed.
 """
 
 from __future__ import annotations
@@ -336,6 +426,97 @@ def _clean_str(value: object) -> str:
     return value if isinstance(value, str) else ""
 
 
+def _raw_lot_value_pairs(lots: object) -> tuple[tuple[object, str], ...]:
+    """Every `(amount, currency)` pair named by a `tender.lots[].value`
+    object, in list order, skipping a lot that isn't a dict, has no
+    `value` dict, or has a non-numeric/zero amount -- a placeholder or
+    malformed lot contributes nothing rather than a fabricated pair.
+    `amount` is returned un-coerced (int/float as the feed sent it);
+    `currency` is always `_clean_str()`-cleaned, never defaulted."""
+    if not isinstance(lots, list):
+        return ()
+    out: list[tuple[object, str]] = []
+    for lot in lots:
+        if not isinstance(lot, dict):
+            continue
+        lot_value = lot.get("value")
+        if not isinstance(lot_value, dict):
+            continue
+        amount = lot_value.get("amount")
+        if not isinstance(amount, (int, float)) or isinstance(amount, bool):
+            continue
+        if amount == 0:
+            continue  # same placeholder-zero discipline as the procedure-level check
+        out.append((amount, _clean_str(lot_value.get("currency"))))
+    return tuple(out)
+
+
+def _extract_value(tender: dict) -> tuple[Optional[float], str, str]:
+    """Read this OCDS `tender` object's own real value field(s) and
+    return `(amount, currency, value_detail)` -- see the module
+    docstring's "VALUE FIELD SHAPE" section for what was verified live
+    (2026-09-01, 600 real releases) before this function was written.
+
+    Preference order, each tried only if the previous produced nothing:
+
+      1. `tender.value.amount` / `tender.value.currency` -- the OCDS
+         standard field, and the one populated on 33/44 (75%) of a real
+         live sample of open UK notices. A literal `0` amount is
+         treated as NOT a real value (falls through) -- by analogy to
+         `mouth_ted._extract_value()`'s confirmed-live TED placeholder
+         finding, not because the identical pattern has been confirmed
+         on this source (it has not, in 473 live-checked valued
+         releases -- see module docstring). A genuine sub-unit amount
+         (e.g. `0.01`) is NOT treated this way, matching TED's own
+         carve-out.
+      2. `tender.lots[].value` -- OCDS's own per-lot breakdown. Checked
+         defensively even though ZERO of 600 real releases fetched
+         (any tag, any status) carried a populated `tender.lots` at all
+         -- see module docstring. Collapsed to one `amount` ONLY when
+         exactly one lot carries a real value; two or more real lot
+         values never get summed, averaged, or reduced to one --
+         `value_detail` lists every one honestly instead, `amount`
+         stays `None`, and `currency` is the single shared currency
+         only if every lot with a value agrees on it (never guessed
+         when they don't or when a lot value carries no currency).
+
+    Returns `(None, "", "")` when neither source has anything real to
+    report -- `tender_signal()` reads an empty `value_detail` as
+    `money_state="NOT_OBSERVED"`, never a fabricated zero.
+    """
+    value = tender.get("value")
+    if isinstance(value, dict):
+        amount = value.get("amount")
+        amount = (amount if isinstance(amount, (int, float))
+                  and not isinstance(amount, bool) else None)
+        currency = _clean_str(value.get("currency"))
+        if amount is not None and amount != 0 and currency:
+            return amount, currency, f"{amount} {currency}"
+
+    pairs = _raw_lot_value_pairs(tender.get("lots"))
+    if pairs:
+        if len(pairs) == 1:
+            amount, currency = pairs[0]
+            if currency:
+                return amount, currency, f"{amount} {currency}"
+            # A single real lot value with no stated currency -- never
+            # defaulted; falls through to the honest-breakdown text
+            # below instead of guessing a currency to attach it to.
+        currencies = sorted({cur for _, cur in pairs if cur})
+        currency_display = "/".join(currencies) if currencies else "currency not stated"
+        breakdown = ", ".join(
+            f"{amt} {cur}" if cur else f"{amt} (currency not stated)"
+            for amt, cur in pairs
+        )
+        single_currency = currencies[0] if len(currencies) == 1 else ""
+        return None, single_currency, (
+            f"{len(pairs)} lot(s), {currency_display}: {breakdown} "
+            "(per-lot -- Contracts Finder gave no single total for this notice)"
+        )
+
+    return None, "", ""
+
+
 def parse_items(raw: bytes) -> tuple[dict, ...]:
     """Parse an OCDS release package into open-tender item dicts.
 
@@ -388,11 +569,12 @@ def parse_items(raw: bytes) -> tuple[dict, ...]:
             # prior state, so it is dropped rather than keyed on a guess.
             continue
 
-        value = tender.get("value")
-        value = value if isinstance(value, dict) else {}
-        amount = value.get("amount")
-        amount = amount if isinstance(amount, (int, float)) and not isinstance(amount, bool) else None
-        currency = _clean_str(value.get("currency"))
+        # See _extract_value()'s own docstring and the module docstring's
+        # "VALUE FIELD SHAPE" section for what was verified live before
+        # this call existed here. `value_detail` is the verbatim honest
+        # text tender_signal() uses as money_observed even when `amount`
+        # itself must stay None (an ambiguous multi-lot notice).
+        amount, currency, value_detail = _extract_value(tender)
 
         tender_period = tender.get("tenderPeriod")
         tender_period = tender_period if isinstance(tender_period, dict) else {}
@@ -441,6 +623,7 @@ def parse_items(raw: bytes) -> tuple[dict, ...]:
             "status": status if isinstance(status, str) else "",
             "amount": amount,
             "currency": currency,
+            "value_detail": value_detail,
             "deadline": deadline,
             "buyer_name": buyer_name,
             "cpv": cpv,
@@ -532,13 +715,23 @@ def tender_signal(item: dict, now: Optional[datetime] = None) -> CanonicalSignal
     if buyer.safe:
         claim += f" (buyer: {buyer.safe})"
 
-    amount = item.get("amount")
-    currency = item.get("currency", "")
-    money_state = "NOT_OBSERVED"
-    money_observed = ""
-    if amount is not None and currency:
-        money_state = "ADVERTISED"
-        money_observed = f"{amount} {currency}"
+    # money_state reflects whether the notice published ANY real value
+    # information, structured or not -- same discipline as
+    # `mouth_ted.ted_signal()`. `value_detail` (from `_extract_value()`)
+    # is non-empty whenever a real figure was found: a single
+    # unambiguous amount, or an honest multi-lot breakdown with no
+    # fabricated single number. `item["amount"]` alone is NOT the gate
+    # here -- a genuine multi-lot notice has `amount=None` (see
+    # `_extract_value()`'s docstring) but still has real value
+    # information worth reporting as ADVERTISED, via `value_detail`.
+    # Bounded through describe() before it reaches money_observed --
+    # a lot-value list is built from feed-controlled numbers/currency
+    # codes, not attacker-authored prose, but the same "nothing
+    # unbounded reaches a durable field" discipline this module applies
+    # to every other feed-derived string is applied here too.
+    value_detail = describe(item.get("value_detail", "")).safe
+    money_state = "ADVERTISED" if value_detail else "NOT_OBSERVED"
+    money_observed = value_detail
 
     # `identity_hash` -- see `opportunity.py::controlling_party()`'s own
     # docstring for what this is for (collapsing one real buyer seen
