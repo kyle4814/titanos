@@ -246,7 +246,25 @@ def _searchable_text(signal: CanonicalSignal) -> str:
     `foundation/untrusted_text.py`), so it is neutralised before this
     module ever matches against it or hands it back in an assessment.
     """
-    parts = [signal.claim, signal.target, signal.source_ref]
+    # `source_ref` IS DELIBERATELY EXCLUDED, and this is the whole bug.
+    #
+    # Calibration against 250 live EU TED notices (2026-09-01,
+    # docs/DECISIONS/D-004) returned STRONG_MATCH for 241 of them --
+    # 96.4%, including 55 identical "Supply services of personnel
+    # including temporary staff" notices that mention nothing this
+    # operator does.
+    #
+    # Cause: `mouth_ted` records the fetch URL and query in `source_ref`,
+    # and that query literally contains the CPV codes used to FIND the
+    # notices. So a profile declaring those same codes matched the
+    # question rather than the answer, on every single item, forever. The
+    # scorer's strongest evidence category was measuring its own filter.
+    #
+    # `source_ref` is provenance -- WHERE this came from. It is never
+    # evidence about WHAT the notice says, and searching it is circular by
+    # construction rather than by accident. Removing it took the CPV
+    # false-positive rate from 100% to zero.
+    parts = [signal.claim, signal.target]
     parts.extend(str(v) for v in signal.facts.values())
     parts.extend(str(v) for v in signal.evidence.values())
     joined = " ".join(p for p in parts if p)

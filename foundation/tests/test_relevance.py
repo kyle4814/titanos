@@ -250,3 +250,41 @@ class TestCapabilityProfileIsHonestData(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestProvenanceIsNotEvidence(unittest.TestCase):
+    """Calibration against 250 live EU TED notices (docs/DECISIONS/D-004)
+    returned STRONG_MATCH for 241 of them — 96.4% — including 55 identical
+    "Supply services of personnel including temporary staff" notices.
+
+    `mouth_ted` records the fetch URL and query in `source_ref`, and that
+    query literally contains the CPV codes used to FIND the notices. The
+    scorer searched `source_ref`, so a profile declaring those same codes
+    matched the question rather than the answer, on every item.
+
+    `source_ref` is provenance — WHERE this came from. It is never
+    evidence about WHAT the notice says. Searching it is circular by
+    construction, not by accident.
+    """
+
+    def _profile(self):
+        return CapabilityProfile(
+            name="T", declared_by="op", keywords=("penetration testing",),
+            cpv_codes=("72000000",), exclusions=())
+
+    def test_a_cpv_code_in_source_ref_alone_does_not_match(self):
+        sig = make_signal(
+            signal_id="s1", target="Some Buyer",
+            claim="Supply of temporary catering staff",
+            source_ref=("https://api.example/search "
+                        "query='classification-cpv IN (72000000)'"))
+        self.assertNotEqual(score(sig, self._profile()).band, "STRONG_MATCH")
+        self.assertEqual(score(sig, self._profile()).matched_cpv_codes, ())
+
+    def test_a_cpv_code_in_the_notices_own_facts_does_match(self):
+        """The fix must not disable CPV matching, only relocate what it
+        reads. A code the NOTICE carries is real evidence."""
+        sig = make_signal(signal_id="s2", target="Some Buyer",
+                      claim="IT services: consulting and system support",
+                      facts={"cpv": "72000000 72253000"})
+        self.assertIn("72000000", score(sig, self._profile()).matched_cpv_codes)

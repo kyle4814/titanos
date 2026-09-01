@@ -216,6 +216,13 @@ REQUEST_FIELDS = (
     "description-lot",
     "buyer-name",
     "deadline-receipt-request",
+    # The notice's OWN CPV classification. Absent until 2026-09-01, which
+    # made the relevance scorer's CPV path unusable: with no real code on
+    # the signal, the only CPV text anywhere was the fetch query stored in
+    # source_ref, so a profile declaring those codes matched its own
+    # filter on 100% of notices. Fetching the real code is what makes CPV
+    # evidence about the notice rather than about the question.
+    "classification-cpv",
 )
 
 # `limit=250` matches the live-verified page size (a real call with
@@ -341,6 +348,26 @@ def parse_items(raw: bytes) -> tuple[dict, ...]:
 
         buyer_name = _first_text(notice.get("buyer-name"))
 
+        # The notice's own CPV code(s). TED returns these as a list, a
+        # bare string, or a {lang: ...} mapping depending on the notice,
+        # so every shape is coerced rather than assumed -- a wrong-typed
+        # field must not crash a sweep.
+        raw_cpv = notice.get("classification-cpv")
+        if isinstance(raw_cpv, dict):
+            raw_cpv = list(raw_cpv.values())
+        if isinstance(raw_cpv, str):
+            cpv_list = [raw_cpv]
+        elif isinstance(raw_cpv, (list, tuple)):
+            cpv_list = []
+            for entry in raw_cpv:
+                if isinstance(entry, (list, tuple)):
+                    cpv_list.extend(str(x) for x in entry)
+                elif entry is not None:
+                    cpv_list.append(str(entry))
+        else:
+            cpv_list = []
+        cpv = " ".join(_clean_str(c) for c in cpv_list if _clean_str(c))
+
         deadlines = notice.get("deadline-receipt-request")
         deadline = ""
         if isinstance(deadlines, list):
@@ -368,6 +395,7 @@ def parse_items(raw: bytes) -> tuple[dict, ...]:
             "currency": "",
             "deadline": deadline,
             "buyer_name": buyer_name,
+            "cpv": cpv,
             "published": "",
         })
     return tuple(items)
@@ -458,6 +486,9 @@ def ted_signal(item: dict, now: Optional[datetime] = None) -> CanonicalSignal:
         target_established_by="SOURCE_NATIVE",
         facts={
             "deadline": item.get("deadline", ""),
+            # The notice's OWN CPV, so a relevance scorer matching CPV is
+            # matching the notice rather than the query used to find it.
+            "cpv": item.get("cpv", ""),
         },
         evidence=evidence,
         pressure_class="EXPLICIT_DEMAND",
