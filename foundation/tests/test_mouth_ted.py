@@ -8,14 +8,15 @@ from foundation import mouth_ted
 from foundation.communication_gate import CommunicationDenied
 from foundation.discovery_authorization import (
     DiscoveryBudgetExhausted, DiscoveryPolicy, authorize_discovery,
-    reset_budgets,
+    reset_budgets, spend_query,
 )
 from foundation.mouth_common import fetch_feed
 
 
 def _notice(pub="533561-2026", title="REDACTED — IT services supply",
             description="REDACTED — supply, install and support",
-            buyer_name="REDACTED Authority", deadline="2026-09-09T12:00:00+03:00"):
+            buyer_name="REDACTED Authority", deadline="2026-09-09T12:00:00+03:00",
+            links=None, publication_date=None):
     """A small, REDACTED real-shaped TED notice — trimmed from the
     genuine shape mouth_ted.py's own module docstring documents having
     pulled live from api.ted.europa.eu on 2026-09-01 (buyer/title/
@@ -23,13 +24,18 @@ def _notice(pub="533561-2026", title="REDACTED — IT services supply",
     shape — {lang: str} for notice-title/description-proc, {lang: [str]}
     for buyer-name, a list for deadline-receipt-request — is the real,
     unaltered TED response shape, not invented)."""
-    return {
+    notice = {
         "publication-number": pub,
         "notice-title": {"eng": title},
         "description-proc": {"eng": description},
         "buyer-name": {"eng": [buyer_name]},
         "deadline-receipt-request": [deadline],
     }
+    if links is not None:
+        notice["links"] = links
+    if publication_date is not None:
+        notice["publication-date"] = publication_date
+    return notice
 
 
 def _feed(*notices, total=None):
@@ -169,6 +175,65 @@ class ParseItemsTests(unittest.TestCase):
         items = mouth_ted.parse_items(_feed(total=0))
         self.assertEqual(items, ())
 
+    # ── source_ref / notice URL (real TED `links` shape, verified live 2026-09-01) ──
+
+    def _real_links(self, pub="56666-2017"):
+        """Real, live-verified TED `links` shape (trimmed to the html
+        map, the only part _notice_url() reads) -- uppercase 3-letter
+        language codes, ENG present among ~24 others."""
+        return {
+            "html": {
+                "BUL": f"https://ted.europa.eu/bg/notice/-/detail/{pub}",
+                "SPA": f"https://ted.europa.eu/es/notice/-/detail/{pub}",
+                "DEU": f"https://ted.europa.eu/de/notice/-/detail/{pub}",
+                "ENG": f"https://ted.europa.eu/en/notice/-/detail/{pub}",
+                "FRA": f"https://ted.europa.eu/fr/notice/-/detail/{pub}",
+            }
+        }
+
+    def test_url_prefers_english_link_when_present(self):
+        raw = _feed(_notice(pub="56666-2017", links=self._real_links("56666-2017")))
+        item = mouth_ted.parse_items(raw)[0]
+        self.assertEqual(item["url"], "https://ted.europa.eu/en/notice/-/detail/56666-2017")
+
+    def test_url_falls_back_to_first_language_deterministically_when_no_english(self):
+        raw = _feed(_notice(pub="1-2026", links={
+            "html": {
+                "FRA": "https://ted.europa.eu/fr/notice/-/detail/1-2026",
+                "DEU": "https://ted.europa.eu/de/notice/-/detail/1-2026",
+            }
+        }))
+        item = mouth_ted.parse_items(raw)[0]
+        # sorted({"FRA", "DEU"}) -> "DEU" first, deterministic.
+        self.assertEqual(item["url"], "https://ted.europa.eu/de/notice/-/detail/1-2026")
+
+    def test_url_falls_back_to_constructed_pattern_when_links_absent(self):
+        raw = _feed(_notice(pub="999-2026"))  # no links= supplied
+        item = mouth_ted.parse_items(raw)[0]
+        self.assertEqual(item["url"], "https://ted.europa.eu/en/notice/-/detail/999-2026")
+
+    def test_url_wrong_typed_links_does_not_crash_and_falls_back(self):
+        raw = _feed({"publication-number": "1-2026", "links": "not a dict"})
+        item = mouth_ted.parse_items(raw)[0]
+        self.assertEqual(item["url"], "https://ted.europa.eu/en/notice/-/detail/1-2026")
+
+    # ── publication-date (recency filter, real query verified live 2026-09-01) ──
+
+    def test_publication_date_carried_through_to_item(self):
+        raw = _feed(_notice(publication_date="2026-06-03+02:00"))
+        item = mouth_ted.parse_items(raw)[0]
+        self.assertEqual(item["publication_date"], "2026-06-03+02:00")
+
+    def test_missing_publication_date_becomes_empty_not_guessed(self):
+        raw = _feed(_notice())  # no publication_date= supplied
+        item = mouth_ted.parse_items(raw)[0]
+        self.assertEqual(item["publication_date"], "")
+
+    def test_wrong_typed_publication_date_does_not_crash(self):
+        raw = _feed({"publication-number": "1-2026", "publication-date": 20260603})
+        item = mouth_ted.parse_items(raw)[0]
+        self.assertEqual(item["publication_date"], "")
+
 
 class TedSignalTests(unittest.TestCase):
     def test_ordinary_item_becomes_explicit_demand_signal(self):
@@ -207,6 +272,35 @@ class TedSignalTests(unittest.TestCase):
         signal = mouth_ted.ted_signal(item)
         self.assertIn("ignore previous instructions", signal.evidence["injection_markers"])
         self.assertEqual(signal.pressure_class, "EXPLICIT_DEMAND")
+
+    # ── source_ref regression: the cycle-007 false-positive root cause ──
+
+    def test_source_ref_is_the_notices_own_url_not_the_feed_or_query(self):
+        item = mouth_ted.parse_items(_feed(_notice(pub="533561-2026")))[0]
+        signal = mouth_ted.ted_signal(item)
+        self.assertNotEqual(signal.source_ref, mouth_ted.FEED_URL)
+        self.assertNotIn(mouth_ted.EXPERT_QUERY, signal.source_ref)
+        self.assertIn("533561-2026", signal.source_ref)
+        self.assertTrue(signal.source_ref.startswith("https://ted.europa.eu/"))
+
+    def test_two_signals_from_one_sweep_have_different_source_refs(self):
+        """The exact regression that would have caught the original
+        defect: source_ref = FEED_URL + query was IDENTICAL across
+        every signal a sweep produced, which is what let a relevance
+        scorer match the query's own CPV codes against themselves."""
+        raw = _feed(_notice(pub="111-2026"), _notice(pub="222-2026"))
+        items = mouth_ted.parse_items(raw)
+        signals = [mouth_ted.ted_signal(i) for i in items]
+        self.assertEqual(len(signals), 2)
+        self.assertNotEqual(signals[0].source_ref, signals[1].source_ref)
+        for s in signals:
+            self.assertNotEqual(s.source_ref, mouth_ted.FEED_URL)
+
+    def test_publication_date_carried_through_to_signal_facts(self):
+        item = mouth_ted.parse_items(
+            _feed(_notice(publication_date="2026-06-03+02:00")))[0]
+        signal = mouth_ted.ted_signal(item)
+        self.assertEqual(signal.facts["publication_date"], "2026-06-03+02:00")
 
 
 class ObserveAndSweepTests(unittest.TestCase):
@@ -346,6 +440,349 @@ class TestTargetIsBounded(unittest.TestCase):
         item = mouth_ted.parse_items(_feed(rel))[0]
         signal = mouth_ted.ted_signal(item)
         self.assertLess(len(signal.target), len(huge))
+
+
+def _page(*notices, total=None, token=None):
+    body = {"notices": list(notices)}
+    if total is not None:
+        body["totalNoticeCount"] = total
+    if token is not None:
+        body["iterationNextToken"] = token
+    return json.dumps(body).encode()
+
+
+def _numbered_notices(start, count):
+    return [_notice(pub=f"{n}-2026") for n in range(start, start + count)]
+
+
+class PullPagesTests(unittest.TestCase):
+    """Direct tests of the offline stitching core, `_pull_pages()` --
+    the mechanism `observe_paginated()`/`sweep_paginated()` build on,
+    tested here without any DiscoveryPolicy/budget machinery in the way
+    so each termination condition is isolated."""
+
+    def test_pages_are_stitched_in_order(self):
+        pages = {
+            1: _page(*_numbered_notices(1, 3), total=5),
+            2: _page(*_numbered_notices(4, 2), total=5),  # short page -> natural end
+        }
+        items, fetched, partial, err, dupes, reason, total = mouth_ted._pull_pages(
+            2, lambda p: pages[p], page_size=3)
+        self.assertEqual([i["key"] for i in items],
+                          [f"{n}-2026" for n in range(1, 6)])
+        self.assertEqual(fetched, 2)
+        self.assertFalse(partial)
+        self.assertIsNone(err)
+        self.assertEqual(dupes, 0)
+        self.assertEqual(total, 5)
+        # page 2 returned fewer than page_size -> natural end.
+        self.assertEqual(reason, "short_page_natural_end")
+
+    def test_duplicates_across_pages_collapse(self):
+        # Page 2 repeats one item from page 1 (e.g. a server that
+        # shifted between calls) alongside genuinely new ones.
+        pages = {
+            1: _page(*_numbered_notices(1, 3), total=5),
+            2: _page(_notice(pub="3-2026"), *_numbered_notices(4, 2), total=5),
+        }
+        items, fetched, partial, err, dupes, reason, total = mouth_ted._pull_pages(
+            2, lambda p: pages[p], page_size=3)
+        keys = [i["key"] for i in items]
+        self.assertEqual(len(keys), len(set(keys)), "no duplicate keys in output")
+        self.assertEqual(sorted(keys), [f"{n}-2026" for n in range(1, 6)])
+        self.assertEqual(dupes, 1)
+
+    def test_mid_sequence_failure_returns_earlier_pages_and_signals_partial(self):
+        def fetch(page):
+            if page == 1:
+                return _page(*_numbered_notices(1, 3), total=20)
+            if page == 2:
+                return _page(*_numbered_notices(4, 3), total=20)
+            raise mouth_ted.FetchError("simulated page 3 failure")
+
+        items, fetched, partial, err, dupes, reason, total = mouth_ted._pull_pages(
+            5, fetch, page_size=3)
+        self.assertEqual([i["key"] for i in items],
+                          [f"{n}-2026" for n in range(1, 7)])
+        self.assertEqual(fetched, 2)
+        self.assertTrue(partial)
+        self.assertIn("simulated page 3 failure", err)
+        self.assertEqual(reason, "fetch_error")
+
+    def test_communication_denied_mid_pagination_is_partial_not_a_crash(self):
+        """DiscoveryBudgetExhausted subclasses CommunicationDenied --
+        budget running out mid-pull must land as a structured partial,
+        not propagate as an unhandled exception."""
+        def fetch(page):
+            if page == 1:
+                return _page(*_numbered_notices(1, 3), total=20)
+            raise CommunicationDenied("simulated budget exhaustion")
+
+        try:
+            items, fetched, partial, err, dupes, reason, total = mouth_ted._pull_pages(
+                5, fetch, page_size=3)
+        except Exception as exc:  # pragma: no cover - failure path itself
+            self.fail(f"budget exhaustion raised {exc!r} instead of a structured partial")
+        self.assertEqual(fetched, 1)
+        self.assertTrue(partial)
+        self.assertIn("simulated budget exhaustion", err)
+        self.assertEqual(reason, "fetch_error")
+
+    def test_repeating_identical_page_terminates(self):
+        same_page = _page(*_numbered_notices(1, 3), total=999)
+        calls = {"n": 0}
+
+        def fetch(page):
+            calls["n"] += 1
+            return same_page  # server keeps answering with the same set
+
+        items, fetched, partial, err, dupes, reason, total = mouth_ted._pull_pages(
+            10, fetch, page_size=3)
+        self.assertEqual(fetched, 2)  # fetched page 1, then page 2 (repeat), then stopped
+        self.assertEqual(reason, "repeating_page")
+        self.assertEqual(len(items), 3)
+        self.assertFalse(partial)
+
+    def test_non_advancing_token_terminates(self):
+        pages = {
+            1: _page(*_numbered_notices(1, 3), total=999, token="TOK-A"),
+            2: _page(*_numbered_notices(4, 3), total=999, token="TOK-A"),  # same token again
+            3: _page(*_numbered_notices(7, 3), total=999, token="TOK-B"),
+        }
+        items, fetched, partial, err, dupes, reason, total = mouth_ted._pull_pages(
+            10, lambda p: pages[p], page_size=3)
+        # Page 1 (token TOK-A) then page 2 (token TOK-A again -> stop).
+        self.assertEqual(fetched, 2)
+        self.assertEqual(reason, "non_advancing_token")
+        self.assertEqual([i["key"] for i in items],
+                          [f"{n}-2026" for n in range(1, 7)])
+        self.assertFalse(partial)
+
+    def test_hard_page_cap_holds_even_if_server_offers_more(self):
+        """A page that keeps returning a FULL page of genuinely new
+        items forever (no natural end signal, no repeat, no matching
+        token) must still stop at the caller's max_pages -- proven here
+        with a server that would keep answering all day."""
+        def fetch(page):
+            start = (page - 1) * mouth_ted._REQUEST_LIMIT + 1
+            return _page(*_numbered_notices(start, mouth_ted._REQUEST_LIMIT),
+                         total=10_000_000)
+
+        items, fetched, partial, err, dupes, reason, total = mouth_ted._pull_pages(
+            3, fetch)
+        self.assertEqual(fetched, 3)
+        self.assertEqual(reason, "page_ceiling_reached")
+        self.assertEqual(len(items), 3 * mouth_ted._REQUEST_LIMIT)
+
+    def test_empty_page_is_a_natural_end(self):
+        pages = {1: _page(*_numbered_notices(1, 3), total=3), 2: _page(total=3)}
+        items, fetched, partial, err, dupes, reason, total = mouth_ted._pull_pages(
+            5, lambda p: pages[p], page_size=3)
+        self.assertEqual(fetched, 2)
+        self.assertEqual(reason, "empty_page")
+        self.assertEqual(len(items), 3)
+
+
+class ObservePaginatedTests(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.state_dir = Path(self._tmp.name)
+        reset_budgets()
+        self.addCleanup(reset_budgets)
+
+    def tearDown(self):
+        self._tmp.cleanup()
+
+    def test_single_page_default_behaves_like_a_single_fetch(self):
+        state_path = self.state_dir / "state.json"
+        calls = {"n": 0}
+
+        def fetch_page(page):
+            calls["n"] += 1
+            self.assertEqual(page, 1)
+            return _page(*_numbered_notices(1, 3), total=3)
+
+        result = mouth_ted.observe_paginated(state_path, fetch_page_fn=fetch_page)
+        self.assertEqual(calls["n"], 1)
+        self.assertEqual(result.status, "FIRST_SEEN")
+        self.assertEqual(result.pages_requested, 1)
+        self.assertEqual(result.pages_fetched, 1)
+        self.assertFalse(result.partial)
+        self.assertEqual(result.item_count, 3)
+
+    def test_multi_page_pull_reports_real_page_counts(self):
+        state_path = self.state_dir / "state.json"
+        limit = mouth_ted._REQUEST_LIMIT
+        total = limit + 6
+        pages = {
+            1: _page(*_numbered_notices(1, limit), total=total),
+            2: _page(*_numbered_notices(limit + 1, 6), total=total),
+        }
+        result = mouth_ted.observe_paginated(
+            state_path, max_pages=2, fetch_page_fn=lambda p: pages[p])
+        self.assertEqual(result.pages_requested, 2)
+        self.assertEqual(result.pages_fetched, 2)
+        self.assertEqual(result.item_count, total)
+        self.assertFalse(result.partial)
+        self.assertEqual(result.reported_total_notice_count, total)
+
+    def test_partial_result_is_not_persisted_as_new_baseline(self):
+        state_path = self.state_dir / "state.json"
+        limit = mouth_ted._REQUEST_LIMIT
+
+        def failing_at_page_2(page):
+            if page == 1:
+                return _page(*_numbered_notices(1, limit), total=limit + 20)
+            raise mouth_ted.FetchError("boom")
+
+        result = mouth_ted.observe_paginated(
+            state_path, max_pages=5, fetch_page_fn=failing_at_page_2)
+        self.assertTrue(result.partial)
+        self.assertEqual(result.item_count, limit)
+        self.assertFalse(state_path.exists(),
+                          "a partial pull must not be written as the new baseline")
+
+    def test_page_ceiling_reached_is_reported_as_partial(self):
+        state_path = self.state_dir / "state.json"
+
+        def full_pages(page):
+            start = (page - 1) * mouth_ted._REQUEST_LIMIT + 1
+            return _page(*_numbered_notices(start, mouth_ted._REQUEST_LIMIT),
+                         total=10_000_000)
+
+        result = mouth_ted.observe_paginated(
+            state_path, max_pages=2, fetch_page_fn=full_pages)
+        self.assertTrue(result.partial)
+        self.assertEqual(result.stop_reason, "page_ceiling_reached")
+        self.assertEqual(result.pages_fetched, 2)
+
+    def test_max_pages_over_hard_cap_is_refused_before_any_fetch(self):
+        state_path = self.state_dir / "state.json"
+        with self.assertRaises(ValueError):
+            mouth_ted.observe_paginated(
+                state_path,
+                max_pages=mouth_ted.MAX_PAGES_HARD_CAP + 1,
+                fetch_page_fn=lambda p: self.fail("must not fetch"),
+            )
+
+    def test_policy_budget_smaller_than_max_pages_is_refused(self):
+        state_path = self.state_dir / "state.json"
+        small_policy = DiscoveryPolicy(
+            objective="test paginated pull with an undersized budget",
+            requested_scope="READ_API",
+            max_queries=2,
+        )
+        with self.assertRaises(ValueError):
+            mouth_ted.observe_paginated(
+                state_path, max_pages=5, policy=small_policy,
+                fetch_page_fn=lambda p: self.fail("must not fetch"),
+            )
+
+    def test_real_fetch_feed_budget_exhaustion_mid_pagination_is_structured_partial(self):
+        """End-to-end through the real fetch_feed()/DiscoveryPolicy
+        gate, not just the offline _pull_pages() core: a policy whose
+        max_queries is spent by an earlier caller mid-pull must come
+        back as a structured partial result from observe_paginated()."""
+        state_path = self.state_dir / "state.json"
+        policy = DiscoveryPolicy(
+            objective="test paginated pull hitting a real budget wall",
+            requested_scope="READ_API",
+            max_queries=2,
+        )
+
+        call_count = {"n": 0}
+
+        limit = mouth_ted._REQUEST_LIMIT
+
+        def fake_urlopen(request, timeout=None):
+            call_count["n"] += 1
+
+            class _Resp:
+                def read(self, n=-1):
+                    page_num = call_count["n"]
+                    # Full pages -- otherwise a short page would end the
+                    # pull naturally before the budget wall is even hit,
+                    # which is not the scenario this test verifies.
+                    return _page(*_numbered_notices((page_num - 1) * limit + 1, limit),
+                                 total=10_000_000)
+                def __enter__(self):
+                    return self
+                def __exit__(self, *a):
+                    return False
+            return _Resp()
+
+        with mock.patch("urllib.request.urlopen", fake_urlopen):
+            result = mouth_ted.observe_paginated(
+                state_path, max_pages=2, policy=policy)
+        self.assertTrue(result.partial)
+        self.assertEqual(result.pages_fetched, 2)
+        self.assertEqual(result.item_count, 2 * limit)
+        # A 3rd page would exceed max_queries=2 -- proven by exhausting
+        # the same policy directly.
+        with self.assertRaises(DiscoveryBudgetExhausted):
+            spend_query(policy)
+
+    def test_zero_pages_before_first_fetch_reports_unavailable(self):
+        state_path = self.state_dir / "state.json"
+
+        def always_fails(page):
+            raise mouth_ted.FetchError("page 1 itself failed")
+
+        result = mouth_ted.observe_paginated(
+            state_path, max_pages=3, fetch_page_fn=always_fails)
+        self.assertEqual(result.status, "UNAVAILABLE")
+        self.assertTrue(result.partial)
+        self.assertEqual(result.pages_fetched, 0)
+
+
+class SweepPaginatedTests(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.state_dir = Path(self._tmp.name)
+
+    def tearDown(self):
+        self._tmp.cleanup()
+
+    def test_sweep_paginated_produces_signals_for_every_page(self):
+        limit = mouth_ted._REQUEST_LIMIT
+        total = limit + 6
+        pages = {
+            1: _page(*_numbered_notices(1, limit), total=total),
+            2: _page(*_numbered_notices(limit + 1, 6), total=total),
+        }
+        result = mouth_ted.sweep_paginated(
+            self.state_dir, max_pages=2, fetch_page_fn=lambda p: pages[p])
+        self.assertEqual(len(result.signals), total)
+        self.assertEqual(result.pages_fetched, 2)
+        self.assertEqual(result.pages_requested, 2)
+        self.assertFalse(result.partial)
+        self.assertIn("pages: 2 fetched of 2 requested", result.show_the_math())
+
+    def test_sweep_paginated_uses_a_distinct_state_file_from_sweep(self):
+        single_fetch = lambda: _feed(_notice(pub="1-2026"))
+        paged = {1: _page(*_numbered_notices(1, 3), total=3)}
+        mouth_ted.sweep(self.state_dir, fetch_fn=single_fetch)
+        result = mouth_ted.sweep_paginated(
+            self.state_dir, max_pages=1, fetch_page_fn=lambda p: paged[p])
+        # If the two paths shared one state file, this would spuriously
+        # read as CHANGED/UNCHANGED against the other path's baseline
+        # instead of its own honest FIRST_SEEN.
+        self.assertEqual(result.status, "FIRST_SEEN")
+        self.assertTrue((self.state_dir / f"{mouth_ted.MOUTH_ID}.json").exists())
+        self.assertTrue((self.state_dir / f"{mouth_ted.MOUTH_ID}_paginated.json").exists())
+
+    def test_partial_sweep_shows_the_math_with_partial_warning(self):
+        limit = mouth_ted._REQUEST_LIMIT
+
+        def failing_at_page_2(page):
+            if page == 1:
+                return _page(*_numbered_notices(1, limit), total=limit + 20)
+            raise mouth_ted.FetchError("boom")
+
+        result = mouth_ted.sweep_paginated(
+            self.state_dir, max_pages=5, fetch_page_fn=failing_at_page_2)
+        self.assertTrue(result.partial)
+        self.assertIn("PARTIAL", result.show_the_math())
 
 
 if __name__ == "__main__":
