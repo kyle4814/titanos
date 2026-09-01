@@ -224,7 +224,27 @@ CAPACITY_RATIO_BARRIER = 10.0
 LARGE_LOT_COUNT = 5
 
 _MULTI_LOT_RE = re.compile(r"^(\d+)\s+lot\(s\),")
-_SINGLE_VALUE_RE = re.compile(r"^(-?\d+(?:\.\d+)?)\s+([A-Za-z]{3})\s+\(([^)]*)\)\s*$")
+# THE LABEL IS OPTIONAL, BECAUSE ONE SOURCE DOES NOT WRITE ONE.
+#
+# This required a parenthesised label, which is mouth_ted's shape:
+#     "50000000 EUR (total value)"
+# tender_radar (UK Contracts Finder) emits no label:
+#     "50000000 GBP"
+# so EVERY UK signal silently lost its amount on ordinary real data, with
+# no attacker involved.
+#
+# Blue-team pass 014 reproduced the consequence end to end: an identical
+# 50,000,000 contract, 25x over a declared 2,000,000 ceiling and closing in
+# 15 days, came back STRUCTURALLY_OUT_OF_REACH through TED and STRETCH
+# through the UK mouth -- and STRETCH outranks STRUCTURALLY_OUT_OF_REACH,
+# so the SAME deal was placed higher in the operator's list purely because
+# of which feed carried it.
+#
+# A parser that knows one producer's format and silently degrades on
+# another's is a cross-source consistency bug wearing a formatting bug's
+# clothes.
+_SINGLE_VALUE_RE = re.compile(
+    r"^(-?\d+(?:\.\d+)?)\s+([A-Za-z]{3})(?:\s+\(([^)]*)\))?\s*$")
 
 
 @dataclass(frozen=True)
@@ -401,8 +421,22 @@ def _parse_money(money_observed: str) -> Tuple[Optional[float], str,
             amount = float(single.group(1))
         except ValueError:
             amount = None
+        # A NEGATIVE CONTRACT VALUE IS NOT A SMALL CONTRACT.
+        #
+        # Only `== 0` was rejected upstream, so a negative amount reached
+        # the size assessment and produced NOT_BARRIER -- "within reach on
+        # arithmetic alone" -- off a nonsensical negative ratio against the
+        # declared ceiling. Any negative is below any positive capacity, so
+        # the arithmetic is technically correct and completely wrong.
+        #
+        # A negative value means the feed is malformed or hostile. That is
+        # an information gap, so it becomes UNKNOWN and lands in STRETCH,
+        # where a human looks -- not ACCESSIBLE, where they do not.
+        if amount is not None and amount < 0:
+            amount = None
         currency = single.group(2).upper()
-        label = single.group(3).lower()
+        # The label is optional; the UK mouth emits none.
+        label = (single.group(3) or "").lower()
         framework = "framework maximum value" in label
         return amount, currency, None, framework
 

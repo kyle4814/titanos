@@ -238,3 +238,48 @@ class TestLoadRateTableCaching(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestHostileRatesAreRefused(unittest.TestCase):
+    """Blue-team pass 014. `rate <= 0` is not enough.
+
+    Every comparison involving NaN is False, so `NaN <= 0` is False and NaN
+    passed the filter. Infinity is genuinely greater than zero and also
+    passed. Both were accepted from a crafted ECB feed:
+
+        rate NaN       -> status=OK, eur_amount=nan
+        rate Infinity  -> status=OK, eur_amount=0.0
+
+    The Infinity case is the worse one: it silently turns a million-euro
+    contract into zero, which sorts quietly to the bottom of the operator's
+    ranked list instead of announcing itself. NaN at least looks wrong.
+    """
+
+    def _feed(self, rate_text):
+        return (
+            '<?xml version="1.0"?><gesmes:Envelope '
+            'xmlns:gesmes="http://www.gesmes.org/xml/2002-08-01" '
+            'xmlns="http://www.ecb.int/vocabulary/2002-08-01/eurofxref">'
+            '<Cube><Cube time="2026-08-31">'
+            f'<Cube currency="ZZZ" rate="{rate_text}"/>'
+            '<Cube currency="USD" rate="1.1596"/>'
+            '</Cube></Cube></gesmes:Envelope>').encode()
+
+    def test_nan_and_infinity_rates_are_not_accepted(self):
+        for bad in ("NaN", "Infinity", "-Infinity", "-5", "0"):
+            with self.subTest(rate=bad):
+                table = parse_rate_table(self._feed(bad))
+                self.assertNotIn("ZZZ", table.rates,
+                                 f"rate {bad!r} was accepted into the table")
+                self.assertIn("USD", table.rates,
+                              "a hostile rate must not discard the good ones")
+
+    def test_a_string_rate_from_a_corrupted_cache_does_not_crash(self):
+        """The on-disk cache was read without validation, so a string-typed
+        rate reached the arithmetic and raised an unhandled TypeError --
+        contradicting this module's own never-crash contract."""
+        table = RateTable(date_str="2026-08-31",
+                          rates={"ZZZ": "not-a-number"}, fetched_at="x")
+        result = to_eur(1000, "ZZZ", table)
+        self.assertEqual(result.status, STATUS_UNKNOWN)
+        self.assertIsNone(result.eur_amount)

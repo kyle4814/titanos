@@ -92,6 +92,7 @@ hundreds of rows calls `load_rate_table()` once, not once per row.
 from __future__ import annotations
 
 import json
+import math
 import os
 import tempfile
 from dataclasses import dataclass, field
@@ -223,6 +224,32 @@ class Conversion:
                     rate_date=None, stale=False)
 
 
+def _usable_rate(rate: object) -> bool:
+    """True only for a rate that can safely divide a contract value.
+
+    `rate <= 0` is not enough, and blue-team pass 014 proved it on the real
+    parser. Every comparison involving NaN is False, so `NaN <= 0` is False
+    and NaN sails through; Infinity is genuinely greater than zero and also
+    passes. Both were accepted from a crafted ECB feed:
+
+        rate NaN       -> status=OK, eur_amount=nan
+        rate Infinity  -> status=OK, eur_amount=0.0
+
+    The second is the worse one. A poisoned Infinity silently turns a
+    million-euro contract into zero, which sorts quietly to the bottom of
+    the operator's list rather than announcing itself. NaN at least looks
+    wrong; a zero looks like a small contract.
+
+    `math.isfinite` rejects NaN and both infinities in one check, and the
+    type check keeps a string rate from a corrupted cache out of the
+    arithmetic entirely -- that path raised an unhandled TypeError, which
+    contradicts this module's own never-crash contract.
+    """
+    if not isinstance(rate, (int, float)) or isinstance(rate, bool):
+        return False
+    return math.isfinite(rate) and rate > 0
+
+
 def parse_rate_table(xml_bytes: bytes) -> RateTable:
     """Parse the ECB daily feed's real shape:
     `<Cube><Cube time='...'><Cube currency='X' rate='N'/>...</Cube></Cube>`.
@@ -268,7 +295,7 @@ def parse_rate_table(xml_bytes: bytes) -> RateTable:
             rate = float(raw_rate)
         except ValueError:
             continue
-        if rate <= 0:
+        if not _usable_rate(rate):
             continue
         rates[currency] = rate
 
@@ -380,7 +407,7 @@ def to_eur(amount: float, currency: str, rates: RateTable) -> Conversion:
             rate_date=rates.date_str, stale=stale)
 
     rate = rates.rates.get(code)
-    if rate is None or rate <= 0:
+    if not _usable_rate(rate):
         return Conversion.unknown(amount, code)
 
     eur_amount = amount / rate

@@ -365,3 +365,41 @@ class TestRank(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestCrossSourceValueShapes(unittest.TestCase):
+    """Blue-team pass 014, highest severity, ordinary real data, no attacker.
+
+    The money parser required a parenthesised label, which is mouth_ted's
+    shape. tender_radar (UK Contracts Finder) emits none, so EVERY UK signal
+    silently lost its amount.
+
+    The consequence, reproduced end to end: an identical 50,000,000
+    contract, 25x over a declared 2,000,000 ceiling and closing in 15 days,
+    came back STRUCTURALLY_OUT_OF_REACH through TED and STRETCH through the
+    UK mouth. STRETCH outranks STRUCTURALLY_OUT_OF_REACH, so the SAME deal
+    sat higher in the operator's list purely because of which feed carried
+    it.
+    """
+
+    def test_both_producers_money_shapes_parse_identically(self):
+        ted_shape = "50000000 EUR (total value)"
+        uk_shape = "50000000 GBP"
+        ted_amount = winnability._parse_money(ted_shape)[0]
+        uk_amount = winnability._parse_money(uk_shape)[0]
+        self.assertEqual(ted_amount, 50_000_000.0)
+        self.assertEqual(uk_amount, 50_000_000.0,
+                         "the UK shape lost its amount, so the same contract "
+                         "assesses differently depending on its source")
+
+    def test_a_negative_amount_is_unknown_not_a_small_contract(self):
+        """Only `== 0` was rejected, so a negative reached the size
+        assessment and produced 'within reach on arithmetic alone'. Any
+        negative is below any positive ceiling — the arithmetic is correct
+        and the conclusion is nonsense."""
+        amount, currency, _, _ = winnability._parse_money("-500 GBP")
+        self.assertIsNone(amount)
+        self.assertEqual(currency, "GBP")
+
+    def test_an_unparseable_shape_is_still_unknown(self):
+        self.assertIsNone(winnability._parse_money("garbage")[0])
