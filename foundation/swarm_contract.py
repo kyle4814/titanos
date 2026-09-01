@@ -618,3 +618,81 @@ def run_swarm_task(
         return _refused(
             INTERNAL_ERROR, "UNEXPECTED_EXCEPTION",
             f"{type(exc).__name__}: {exc}")
+
+
+# ── COMMAND LINE ──────────────────────────────────────────────────────
+#
+# RUNBOOK_OPPORTUNITY.md calls itself "Sonnet-operable", and every step in
+# it required writing and pasting a Python block. That is a higher bar
+# than it looks: a paste is a place to make a mistake, and the mistake
+# most available was constructing a descriptor with `live=True` while
+# meaning to rehearse. A command with dry-run as its default removes that
+# particular foot-gun by making the safe thing the shortest thing to type.
+#
+# The CLI adds no capability and relaxes no gate. It builds the same
+# descriptor `run_swarm_task` already validates, so every refusal, the
+# two-signal live requirement, and the structural zeros all still come
+# from one place rather than being re-implemented here.
+
+_DEFAULT_KEYWORDS = (
+    "cyber security", "penetration testing", "security audit",
+    "incident response", "soc", "it consulting", "software development",
+)
+_DEFAULT_EXCLUSIONS = (
+    "construction", "catering", "cleaning", "vehicles", "medical supplies",
+)
+
+
+def _cli(argv: "list[str]") -> int:
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        prog="python3 -m foundation.swarm_contract",
+        description="Run one opportunity cycle. Dry-run unless told otherwise.")
+    parser.add_argument("--state-dir", required=True)
+    parser.add_argument("--ledger", required=True)
+    parser.add_argument("--objective", required=True,
+                        help="a concrete objective; vague ones are refused")
+    parser.add_argument("--live", action="store_true",
+                        help="actually fetch and write. Requires --authorised-by.")
+    parser.add_argument("--authorised-by", default="",
+                        help="who authorised a live run. Required with --live.")
+    parser.add_argument("--shortlist", action="store_true",
+                        help="also produce a ranked digest")
+    parser.add_argument("--limit", type=int, default=10)
+    args = parser.parse_args(argv)
+
+    profile = None
+    if args.shortlist:
+        profile = CapabilityProfile(
+            name="operator-default", declared_by=args.authorised_by or "unattributed",
+            keywords=_DEFAULT_KEYWORDS, cpv_codes=("72000000",),
+            exclusions=_DEFAULT_EXCLUSIONS)
+
+    result = run_swarm_task(SwarmTaskDescriptor(
+        objective=args.objective,
+        state_dir=Path(args.state_dir), ledger_path=Path(args.ledger),
+        live=args.live, authorized_by=args.authorised_by,
+        shortlist_profile=profile, shortlist_limit=args.limit))
+
+    print(f"status              {result.status}")
+    if result.refused_by:
+        print(f"refused_by          {result.refused_by}")
+    if result.requires_human:
+        print(f"requires_human      {', '.join(result.requires_human)}")
+    print(f"signals             {result.signal_count}")
+    print(f"controlling parties {result.controlling_party_count}")
+    print(f"qualified/contracts/cash  {result.qualified}/"
+          f"{result.contracts}/{result.cash}")
+    if result.shortlist_digest:
+        print()
+        print(result.shortlist_digest)
+    # A refusal is a success state for this system, but it is not a
+    # success for the shell that invoked it -- a script must be able to
+    # branch on it without parsing prose.
+    return 0 if result.status in (DRY_RUN_OK, LIVE_OK) else 1
+
+
+if __name__ == "__main__":                                  # pragma: no cover
+    import sys as _sys
+    raise SystemExit(_cli(_sys.argv[1:]))
