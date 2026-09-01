@@ -79,7 +79,7 @@ measurement that buries them has already failed.
 | Free of known bugs | ❌ **Three open defects**, with runnable reproductions in [failures/](failures/FAILURE_ARCHIVE.md) |
 
 That test number is a static count of `def test_` definitions; a real run
-executes 3,151. Both are true, they measure different things, and neither
+executes 3,165. Both are true, they measure different things, and neither
 is rounded in this project's favour. Only the first is kept current
 automatically (`autonomy_loop.py`) — if the second has drifted, that is the
 hand-maintained-number problem this project keeps rediscovering, and
