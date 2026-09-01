@@ -9,6 +9,12 @@ from foundation.tender_radar import (
     MOUTH_ID as UK_MOUTH_ID,
     parse_items as uk_parse_items,
 )
+from foundation.mouth_ted import (
+    DISCOVERY_POLICY as TED_DISCOVERY_POLICY,
+    FEED_URL as TED_FEED_URL,
+    MOUTH_ID as TED_MOUTH_ID,
+    parse_items as ted_parse_items,
+)
 from foundation.tender_sources import (
     SOURCES,
     UNREGISTERED_CANDIDATES,
@@ -50,6 +56,28 @@ REDACTED_UK_SAMPLE = json.dumps({
             "tender": {"id": "T-000002", "status": "complete"},
         },
     ],
+}).encode("utf-8")
+
+
+# A small, REDACTED real-shaped TED /v3/notices/search response —
+# trimmed from the genuine shape mouth_ted.py's own module docstring
+# documents having pulled live from api.ted.europa.eu on 2026-09-01
+# (buyer/title/description text replaced with placeholder strings; the
+# structural shape — 'notices', 'publication-number', 'notice-title'/
+# 'description-proc'/'description-lot'/'buyer-name' as {lang: ...} maps,
+# 'deadline-receipt-request' as a list — is the real, unaltered TED
+# response shape this API returns, not invented).
+REDACTED_TED_SAMPLE = json.dumps({
+    "notices": [
+        {
+            "publication-number": "533561-2026",
+            "notice-title": {"eng": "REDACTED — IT services notice"},
+            "description-proc": {"eng": "REDACTED — supply and support"},
+            "buyer-name": {"eng": ["REDACTED Authority"]},
+            "deadline-receipt-request": ["2026-09-09T12:00:00+03:00"],
+        },
+    ],
+    "totalNoticeCount": 1,
 }).encode("utf-8")
 
 
@@ -97,8 +125,8 @@ class TestUnverifiedCandidatesAreNeverRegistered(unittest.TestCase):
 
 
 class TestListSources(unittest.TestCase):
-    def test_contains_exactly_the_registered_uk_source(self):
-        self.assertEqual(list_sources(), (UK_MOUTH_ID,))
+    def test_contains_exactly_the_registered_uk_and_ted_sources(self):
+        self.assertEqual(list_sources(), tuple(sorted((UK_MOUTH_ID, TED_MOUTH_ID))))
 
     def test_is_sorted_and_a_tuple(self):
         sources = list_sources()
@@ -121,6 +149,43 @@ class TestUKSourceReusesTenderRadarRatherThanDuplicating(unittest.TestCase):
 
     def test_parser_is_the_real_tender_radar_parse_items_function(self):
         self.assertIs(SOURCES[UK_MOUTH_ID].parser, uk_parse_items)
+
+
+class TestTEDSourceReusesMouthTedRatherThanDuplicating(unittest.TestCase):
+    """Same reuse-not-duplicate proof as the UK class above, for TED."""
+
+    def test_feed_url_is_the_real_mouth_ted_feed_url(self):
+        self.assertEqual(SOURCES[TED_MOUTH_ID].feed_url, TED_FEED_URL)
+
+    def test_discovery_policy_is_the_real_mouth_ted_policy_object(self):
+        self.assertIs(SOURCES[TED_MOUTH_ID].discovery_policy, TED_DISCOVERY_POLICY)
+        self.assertIsInstance(SOURCES[TED_MOUTH_ID].discovery_policy, DiscoveryPolicy)
+
+    def test_parser_is_the_real_mouth_ted_parse_items_function(self):
+        self.assertIs(SOURCES[TED_MOUTH_ID].parser, ted_parse_items)
+
+
+class TestParseSourceNormalisesTheRealTEDPayloadShape(unittest.TestCase):
+    def test_open_notice_is_normalised_into_the_common_item_shape(self):
+        items = parse_source(TED_MOUTH_ID, REDACTED_TED_SAMPLE)
+        self.assertEqual(len(items), 1)
+        item = items[0]
+        self.assertEqual(item["key"], "533561-2026")
+        self.assertEqual(item["tender_id"], "533561-2026")
+        self.assertEqual(item["buyer_name"], "REDACTED Authority")
+        self.assertEqual(item["title"], "REDACTED — IT services notice")
+        self.assertEqual(item["description"], "REDACTED — supply and support")
+        self.assertEqual(item["deadline"], "2026-09-09T12:00:00+03:00")
+
+    def test_matches_calling_mouth_ted_parse_items_directly(self):
+        self.assertEqual(
+            parse_source(TED_MOUTH_ID, REDACTED_TED_SAMPLE),
+            ted_parse_items(REDACTED_TED_SAMPLE),
+        )
+
+    def test_missing_notices_array_raises_FetchError(self):
+        with self.assertRaises(FetchError):
+            parse_source(TED_MOUTH_ID, b'{"message": "bad query"}')
 
 
 class TestParseSourceNormalisesTheRealPayloadShape(unittest.TestCase):
@@ -202,18 +267,21 @@ class TestWrongTypedFieldsDoNotCrash(unittest.TestCase):
 
 
 class TestSourceRegistryEntryFields(unittest.TestCase):
-    def test_registered_entry_declares_a_real_licence(self):
-        source = SOURCES[UK_MOUTH_ID]
-        self.assertTrue(source.licence.strip())
-        self.assertTrue(source.licence_note.strip())
+    def test_every_registered_entry_declares_a_real_licence(self):
+        for source_id in SOURCES:
+            source = SOURCES[source_id]
+            self.assertTrue(source.licence.strip(), source_id)
+            self.assertTrue(source.licence_note.strip(), source_id)
 
-    def test_registered_entry_declares_a_payload_shape(self):
-        self.assertTrue(SOURCES[UK_MOUTH_ID].payload_shape.strip())
+    def test_every_registered_entry_declares_a_payload_shape(self):
+        for source_id in SOURCES:
+            self.assertTrue(SOURCES[source_id].payload_shape.strip(), source_id)
 
-    def test_registered_entry_declares_verification_provenance(self):
-        source = SOURCES[UK_MOUTH_ID]
-        self.assertTrue(source.verified_at.strip())
-        self.assertTrue(source.verified_note.strip())
+    def test_every_registered_entry_declares_verification_provenance(self):
+        for source_id in SOURCES:
+            source = SOURCES[source_id]
+            self.assertTrue(source.verified_at.strip(), source_id)
+            self.assertTrue(source.verified_note.strip(), source_id)
 
 
 if __name__ == "__main__":

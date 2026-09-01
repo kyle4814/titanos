@@ -20,15 +20,21 @@ independently, and nothing here defines a second signal type.
 
 THE HONEST RESULT OF THIS CYCLE'S SEARCH (2026-09-01)
 
-`tender_radar.py`'s UK Contracts Finder OCDS API turns out to be the
-only source found that is simultaneously: (a) live and returning real,
-current data, (b) `robots.txt`-permitted for this repository's honest
-User-Agent, (c) reachable with no key/login, (d) licensed for this use,
-AND (e) fetchable through `mouth_common.fetch_feed()` as it actually
-exists — one GET request, returning the complete item payload in a
-single response. Two other candidates were verified LIVE and REAL but
-are structurally incompatible with (e), which is a genuine, load-bearing
-finding, not a shortfall in effort:
+`tender_radar.py`'s UK Contracts Finder OCDS API was, as of the prior
+cycle, the only source found that was simultaneously: (a) live and
+returning real, current data, (b) `robots.txt`-permitted for this
+repository's honest User-Agent, (c) reachable with no key/login, (d)
+licensed for this use, AND (e) fetchable through
+`mouth_common.fetch_feed()` as it existed at the time — one GET
+request, returning the complete item payload in a single response.
+
+**Corrected this cycle.** (e) changed: `fetch_feed()` gained a gated
+`json_body`/POST path specifically because of the finding below, and
+EU TED — the largest candidate this repository has ever found — is now
+REGISTERED as `tender_radar_eu_ted` (see `foundation/mouth_ted.py` for
+the full parser, signal construction, and verification trail). What
+follows is preserved as the historical record of why it was blocked,
+not a current statement:
 
   - EU TED (Tenders Electronic Daily), `api.ted.europa.eu/v3/notices/
     search` — verified live 2026-09-01. `robots.txt` on the API host
@@ -45,19 +51,20 @@ finding, not a shortfall in effort:
     HLR/AED-equipment tender (buyer: Räddningstjänstförbundet
     Storgöteborg, deadline 2026-09-26, value 5,000,000 SEK) and a
     Croatian tyre-supply tender (value 746.42, currency not resolved in
-    that specific record). THE DISQUALIFYING FACT: this endpoint answers
-    only `POST` — `GET https://api.ted.europa.eu/v3/notices/search` with
-    the exact same query as URL parameters returns HTTP 405
+    that specific record). THE FACT THAT USED TO DISQUALIFY THIS
+    SOURCE, RESOLVED THIS CYCLE: this endpoint answers only `POST` —
+    `GET https://api.ted.europa.eu/v3/notices/search` with the exact
+    same query as URL parameters returns HTTP 405
     `{"message":"Request method 'GET' is not supported"}`, confirmed
-    live. `mouth_common.fetch_feed()` issues
+    live both cycles. `mouth_common.fetch_feed()` used to issue
     `urllib.request.Request(url, headers=...)` with no request body —
-    an unconditional GET, by design, and this module does not own that
-    file and was explicitly told not to modify it. A real, live, lawful,
-    licensed source that this repository's one socket genuinely cannot
-    reach is a finding about the socket's shape, not a reason to build a
-    second one — doing that would violate the "one socket" discipline
-    `mouth_common.py`'s own docstring and `TITANOS_COMMUNICATION_SWITCH_
-    001.md` both hold to. NOT REGISTERED.
+    an unconditional GET, by design. That has changed: `fetch_feed()`
+    now accepts an optional `json_body` mapping, serialises it, and
+    charges the same `DiscoveryPolicy` budget before the socket opens —
+    still the one socket in the repository, POST reachable only by
+    supplying a body, no `method` parameter to widen the surface
+    further. See `foundation/mouth_common.py`'s own docstring and
+    `foundation/mouth_ted.py` for the details. REGISTERED.
 
   - Ukraine Prozorro, `public.api.openprocurement.org/api/2.5/tenders`
     — verified live 2026-09-01. `robots.txt` returns HTTP 404 (no
@@ -135,15 +142,17 @@ FINDINGS RECORDED BUT NOT REGISTERED, FOR OTHER REASONS
 
 THE RESULT
 
-One source registered: `tender_radar_uk_contracts_finder`, wrapping
+Two sources registered: `tender_radar_uk_contracts_finder`, wrapping
 `tender_radar.py`'s own already-verified `FEED_URL`, `DISCOVERY_POLICY`,
-and `parse_items` rather than re-declaring them — the exact "reuse, do
-not duplicate" discipline this repository's doctrine files require. This
-is a registry of one honest, already-proven source, not a registry
-padded with aspirational entries that were live but unreachable through
-this repository's actual fetch contract. A future source becomes
-registrable the moment a candidate satisfies all five conditions above,
-same shape as this one entry.
+and `parse_items` rather than re-declaring them, and (added this cycle)
+`tender_radar_eu_ted`, wrapping `foundation/mouth_ted.py`'s own
+`FEED_URL`, `DISCOVERY_POLICY`, and `parse_items` the same way — the
+exact "reuse, do not duplicate" discipline this repository's doctrine
+files require. This is a registry of honest, already-proven sources, not
+a registry padded with aspirational entries that were live but
+unreachable through this repository's actual fetch contract. A future
+source becomes registrable the moment a candidate satisfies all five
+conditions above, same shape as these two entries.
 """
 from __future__ import annotations
 
@@ -157,6 +166,12 @@ from foundation.tender_radar import (
     FEED_URL as _UK_FEED_URL,
     MOUTH_ID as _UK_MOUTH_ID,
     parse_items as _uk_parse_items,
+)
+from foundation.mouth_ted import (
+    DISCOVERY_POLICY as _TED_DISCOVERY_POLICY,
+    FEED_URL as _TED_FEED_URL,
+    MOUTH_ID as _TED_MOUTH_ID,
+    parse_items as _ted_parse_items,
 )
 
 __all__ = [
@@ -229,6 +244,46 @@ SOURCES: dict[str, TenderSource] = {
             "this module owns no new network call to it"
         ),
     ),
+    _TED_MOUTH_ID: TenderSource(
+        source_id=_TED_MOUTH_ID,
+        name="EU TED (Tenders Electronic Daily)",
+        base_url="https://api.ted.europa.eu",
+        feed_url=_TED_FEED_URL,
+        licence="Creative Commons Attribution 4.0 (CC BY 4.0)",
+        licence_note=(
+            "stated at ted.europa.eu/en/legal-notice: 'the procurement "
+            "notices published in the Supplement to the Official Journal "
+            "of the European Union can be freely reused, for commercial "
+            "or non-commercial purposes' — fetched and read live "
+            "2026-09-01"
+        ),
+        payload_shape=(
+            "TED /v3/notices/search JSON response: {'notices': "
+            "[{'publication-number': str, 'notice-title': "
+            "{lang: str}, 'description-proc': {lang: str}, "
+            "'description-lot': {lang: [str, ...]}, 'buyer-name': "
+            "{lang: [str, ...]}, 'deadline-receipt-request': "
+            "[str, ...]}, ...], 'totalNoticeCount': int}"
+        ),
+        discovery_policy=_TED_DISCOVERY_POLICY,
+        parser=_ted_parse_items,
+        verified_at="2026-09-01",
+        verified_note=(
+            "REGISTERED this cycle — the prior cycle's disqualifying "
+            "fact (api.ted.europa.eu/v3/notices/search answers only "
+            "POST, GET->405) was resolved when mouth_common.fetch_feed() "
+            "gained a gated json_body/POST path; TED was the reason it "
+            "was added. Live query "
+            "'deadline-receipt-request >= today() AND classification-cpv "
+            "IN (72000000, 79000000, 48000000)' returned "
+            "totalNoticeCount=7140 (2026-09-01), confirmed a real filter "
+            "(not silently unfiltered) by comparing against "
+            "totalNoticeCount=49002 with no CPV clause and 2930 with "
+            "only 72000000 — three different live counts from three "
+            "different queries. See mouth_ted.py's own module docstring "
+            "for the full verification trail and field-shape evidence."
+        ),
+    ),
 }
 
 
@@ -238,11 +293,6 @@ SOURCES: dict[str, TenderSource] = {
 # be able to reach a working parser for any of these via get_source() /
 # parse_source() — see TestUnverifiedCandidatesAreNeverRegistered.
 UNREGISTERED_CANDIDATES: dict[str, str] = {
-    "ted_eu": (
-        "live, lawful, CC BY 4.0, but api.ted.europa.eu/v3/notices/search "
-        "answers only POST (confirmed HTTP 405 on GET) — incompatible "
-        "with mouth_common.fetch_feed()'s GET-only single socket"
-    ),
     "prozorro_ua": (
         "live, lawful, no-auth, but the single-fetch changefeed endpoint "
         "returns null title/value for every record regardless of "
