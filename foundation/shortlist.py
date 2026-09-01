@@ -76,6 +76,7 @@ one sort, one place it lives.
 
 from __future__ import annotations
 
+import textwrap
 from dataclasses import dataclass, field
 from typing import Mapping, Optional, Sequence, Tuple
 
@@ -119,6 +120,65 @@ _DISPLAY_MAX_LEN = 200
 _REFERENCE_MAX_LEN = 320
 _SHORT_MAX_LEN = 80
 
+# FINDING A (BLUE_TEAM_009, HIGH) -- line-wrap forged-entry defence.
+#
+# `neutralise()` guarantees no field can forge a real newline. It
+# cannot, and was never designed to, guarantee anything about how a
+# *terminal* wraps the one long logical line each field still produces.
+# A `title`/`buyer` padded so a string shaped like
+# `"N. [BAND] Buyer -- ..."` lands at column 0 of the next wrapped
+# physical line renders, to a skimming human, as an independent
+# favourably-banded entry -- reproduced live against this exact module.
+#
+# Two alternatives were considered and rejected:
+#
+#   1. Cap `title`/`buyer` well below 80 columns. Rejected: it only
+#      raises the bar to whatever width is chosen -- an attacker who
+#      knows (or guesses) the defended width still wins, and it makes
+#      every legitimate long buyer/title name unreadable-truncated for
+#      no gain once the real fix is in place anyway.
+#   2. Do nothing and rely on `neutralise()`'s newline collapse.
+#      Rejected: demonstrated ineffective -- the forged string needs no
+#      real newline, no control byte, nothing `neutralise()` inspects;
+#      it only needs the *terminal* to wrap, which is a rendering step
+#      entirely outside this module's -- or `neutralise()`'s -- view.
+#
+# The fix actually applied: this module stops leaving wrap width to the
+# terminal. Every rendered line is hard-wrapped *here*, at a fixed
+# width safely under the common 80-column assumption, with every
+# continuation line forced to begin with `_CONTINUATION_GUTTER` -- a
+# marker no genuine entry-start line (always column 0, always digit-
+# led, `"N. [BAND] ..."`) ever carries, because we -- not attacker
+# text, not the terminal -- insert it, unconditionally, on every line
+# after the first. A reader (or an LLM agent) can trust "starts at
+# column 0 with a digit" to mean "a real entry" for exactly the same
+# reason `neutralise()`'s `\n` marker can be trusted: the defended
+# invariant is enforced by the renderer, not requested of the input.
+# Residual, named risk: a terminal narrower than `_WRAP_WIDTH` can still
+# re-wrap our already-wrapped output. This is accepted and out of scope
+# for the same reason `_WRAP_WIDTH` is chosen conservatively (56 cols,
+# well under the narrowest terminal in ordinary use, 80) -- a defended
+# width has to be named, not left infinite; see BLUE_TEAM_009 finding A.
+_WRAP_WIDTH = 56
+_CONTINUATION_GUTTER = "        | "
+
+
+def _wrap_line(line: str) -> Tuple[str, ...]:
+    """Hard-wrap one already-composed rendered line ourselves so no
+    wrap decision is ever left to the terminal -- see FINDING A comment
+    above `_WRAP_WIDTH`. Returns at least one line even for an empty
+    input (textwrap.wrap("") == []), so callers can always extend a
+    list with the result without checking for emptiness.
+    """
+    wrapped = textwrap.wrap(
+        line,
+        width=_WRAP_WIDTH,
+        subsequent_indent=_CONTINUATION_GUTTER,
+        break_long_words=True,
+        break_on_hyphens=False,
+    )
+    return tuple(wrapped) if wrapped else ("",)
+
 
 def _clean(value: object, max_len: int = _DISPLAY_MAX_LEN) -> str:
     """Render-safe, never-blank-looking-like-a-fact form of one field.
@@ -156,6 +216,19 @@ class ShortlistEntry:
     exclusion_reasons: Tuple[str, ...] = ()
     unknown_reason: str = ""
     stuffing_suspected: bool = False
+    # FINDING B (BLUE_TEAM_009, HIGH). `mouth_ted.py` already computes
+    # `evidence["injection_markers"]` via `untrusted_text.
+    # looks_like_injection()` -- a blocklist that returns MARKERS FOUND,
+    # never a verdict (see that module's docstring). This module used
+    # to never read the key at all, so a title carrying live injection
+    # phrasing rendered with zero warning even though the detection had
+    # already happened upstream. Carried through here unmodified -- a
+    # tuple of marker names, same discipline as `matched_keywords` and
+    # `exclusion_reasons` -- so `_render_entry` can surface it. This
+    # field does NOT suppress, re-band, or reorder the entry: per
+    # `untrusted_text.py`'s own discipline, a marker is evidence for a
+    # human/agent to weigh, not this module's verdict to act on.
+    injection_markers: Tuple[str, ...] = ()
     note: str = (
         "SURFACE MATCH ONLY. Not a lead, not an assessed opportunity, not "
         "revenue. Verify independently before acting."
@@ -205,6 +278,15 @@ def _entry_from_assessment(
             neutralise(r, max_len=_SHORT_MAX_LEN) for r in assessment.exclusion_reasons),
         unknown_reason=neutralise(assessment.unknown_reason, max_len=_DISPLAY_MAX_LEN),
         stuffing_suspected=assessment.stuffing_suspected,
+        # `injection_markers` are fixed marker *names* from `untrusted_
+        # text.INJECTION_MARKERS` (e.g. "ignore previous instructions"),
+        # not raw attacker text -- but neutralised anyway, same
+        # discipline as every other evidence-derived field this
+        # function copies, in case a future producer of this key
+        # stops guaranteeing that.
+        injection_markers=tuple(
+            neutralise(str(m), max_len=_SHORT_MAX_LEN)
+            for m in evidence.get("injection_markers", ()) or ()),
     )
 
 
@@ -254,6 +336,22 @@ def build_shortlist(
 
 def _render_entry(position: int, entry: ShortlistEntry) -> Tuple[str, ...]:
     lines = [f"{position}. [{entry.band}] {entry.buyer} -- {entry.title}"]
+
+    # FINDING B (BLUE_TEAM_009, HIGH). Placed immediately after the
+    # entry-start line -- the most visible position -- so a skimming
+    # human/agent cannot miss it. Deliberately unconditional on band:
+    # EXCLUDED can carry injection markers too, and this repository's
+    # discipline is "a marker is a marker, not a verdict" (see
+    # `untrusted_text.py`), so this does not suppress, re-band, or
+    # reorder anything -- it only adds one more visible, honest line,
+    # same as `stuffing_suspected`'s NOTE line below.
+    if entry.injection_markers:
+        lines.append(
+            "   FLAGGED: notice text matched known prompt-injection "
+            "phrasing (" + ", ".join(entry.injection_markers) + ") -- "
+            "not a verdict, this is evidence for a human to weigh; "
+            "text is otherwise rendered unmodified above")
+
     lines.append(f"   deadline: {entry.deadline}    source: {entry.source_id}")
 
     if entry.band == "EXCLUDED":
@@ -271,7 +369,15 @@ def _render_entry(position: int, entry: ShortlistEntry) -> Tuple[str, ...]:
                 "   NOTE: possible keyword stuffing detected in source text")
 
     lines.append(f"   notice: {entry.notice_id}    reference: {entry.reference}")
-    return tuple(lines)
+
+    # See FINDING A comment above `_WRAP_WIDTH`: every physical line is
+    # hard-wrapped here, ourselves, so no wrap boundary is left for a
+    # terminal to pick -- this is what actually defeats the forged-
+    # entry attack, not anything about the content above.
+    wrapped_lines: list = []
+    for line in lines:
+        wrapped_lines.extend(_wrap_line(line))
+    return tuple(wrapped_lines)
 
 
 def render_digest(shortlist: Sequence[ShortlistEntry]) -> str:
