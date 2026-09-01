@@ -1,6 +1,7 @@
 import json
 import tempfile
 import unittest
+from datetime import datetime, timezone
 from pathlib import Path
 
 from foundation import swarm_contract
@@ -16,12 +17,16 @@ from foundation.swarm_contract import (
     SHORTLIST_PRODUCED,
     SHORTLIST_SKIPPED_DRY_RUN,
     VALIDATION_REFUSED,
+    WATCH_NOT_REQUESTED,
+    WATCH_PRODUCED,
+    WATCH_SKIPPED_DRY_RUN,
     SwarmTaskDescriptor,
     run_swarm_task,
 )
 
 
-def _release(ocid="ocds-test-0001"):
+def _release(ocid="ocds-test-0001", end_date="2026-12-01T00:00:00Z"):
+    tender_period = {"endDate": end_date} if end_date is not None else {}
     return {
         "ocid": ocid,
         "tag": ["tender"],
@@ -33,7 +38,7 @@ def _release(ocid="ocds-test-0001"):
             "description": "A perfectly ordinary notice.",
             "status": "active",
             "value": {"amount": 50000, "currency": "GBP"},
-            "tenderPeriod": {"endDate": "2026-12-01T00:00:00Z"},
+            "tenderPeriod": tender_period,
         },
     }
 
@@ -49,6 +54,7 @@ class BaseTmpTest(unittest.TestCase):
         self.root = Path(self._tmp.name)
         self.state_dir = self.root / "state"
         self.ledger_path = self.root / "ledger.jsonl"
+        self.watch_state_path = self.root / "watch_seen.json"
 
     def descriptor(self, **overrides):
         fields = dict(
@@ -289,6 +295,148 @@ class ShortlistTests(BaseTmpTest):
     def test_shortlist_status_always_named(self):
         result = run_swarm_task(self.descriptor())
         self.assertIn(result.shortlist_status, swarm_contract.SHORTLIST_STATUSES)
+
+
+_FIXED_NOW = datetime(2026, 9, 2, tzinfo=timezone.utc)
+
+
+class WatchTests(BaseTmpTest):
+    def test_dry_run_with_watch_writes_nothing_and_reports_skipped(self):
+        result = run_swarm_task(
+            self.descriptor(watch_state_path=self.watch_state_path))
+        self.assertEqual(result.status, DRY_RUN_OK)
+        self.assertEqual(result.watch_status, WATCH_SKIPPED_DRY_RUN)
+        self.assertEqual(result.watch_new_count, 0)
+        self.assertEqual(result.watch_report_text, "")
+        self.assertFalse(self.state_dir.exists())
+        self.assertFalse(self.ledger_path.exists())
+        self.assertFalse(self.watch_state_path.exists())
+
+    def test_watch_disabled_behavior_unchanged(self):
+        result = run_swarm_task(
+            self.descriptor(live=True, authorized_by="Kyle Graham"),
+            _fetch_fn_for_tests=lambda: _feed(_release()),
+        )
+        self.assertEqual(result.status, LIVE_OK)
+        self.assertEqual(result.watch_status, WATCH_NOT_REQUESTED)
+        self.assertEqual(result.watch_new_count, 0)
+        self.assertEqual(result.watch_closing_count, 0)
+        self.assertEqual(result.watch_new_and_closing_count, 0)
+        self.assertEqual(result.watch_expired_count, 0)
+        self.assertEqual(result.watch_unknown_deadline_count, 0)
+        self.assertEqual(result.watch_report_text, "")
+
+    def test_first_live_run_reports_everything_new(self):
+        releases = tuple(_release(ocid=f"ocds-{i}") for i in range(3))
+        result = run_swarm_task(
+            self.descriptor(
+                live=True, authorized_by="Kyle Graham",
+                watch_state_path=self.watch_state_path, now=_FIXED_NOW),
+            _fetch_fn_for_tests=lambda: _feed(*releases),
+        )
+        self.assertEqual(result.status, LIVE_OK)
+        self.assertEqual(result.watch_status, WATCH_PRODUCED)
+        self.assertEqual(result.watch_new_count, result.signal_count)
+        self.assertGreaterEqual(result.watch_new_count, 1)
+        self.assertTrue(self.watch_state_path.exists())
+        self.assertIn("NEW SINCE LAST RUN", result.watch_report_text)
+
+    def test_second_identical_live_run_reports_nothing_new(self):
+        releases = tuple(_release(ocid=f"ocds-{i}") for i in range(3))
+        descriptor = self.descriptor(
+            live=True, authorized_by="Kyle Graham",
+            watch_state_path=self.watch_state_path, now=_FIXED_NOW)
+        first = run_swarm_task(
+            descriptor, _fetch_fn_for_tests=lambda: _feed(*releases))
+        self.assertEqual(first.watch_status, WATCH_PRODUCED)
+        self.assertGreaterEqual(first.watch_new_count, 1)
+
+        # A second live run against the SAME watch_state_path and the
+        # SAME underlying notices -- state_dir/ledger_path collision
+        # with a prior run's dedup cursor would itself already be an
+        # oddity, so use a fresh state_dir/ledger for the second sweep,
+        # isolating the one thing under test: the watch seen-set.
+        second_descriptor = self.descriptor(
+            live=True, authorized_by="Kyle Graham",
+            state_dir=self.root / "state2",
+            ledger_path=self.root / "ledger2.jsonl",
+            watch_state_path=self.watch_state_path, now=_FIXED_NOW)
+        second = run_swarm_task(
+            second_descriptor,
+            _fetch_fn_for_tests=lambda: _feed(*releases))
+        self.assertEqual(second.status, LIVE_OK)
+        self.assertEqual(second.watch_status, WATCH_PRODUCED)
+        self.assertEqual(second.watch_new_count, 0)
+        self.assertIn("NEW SINCE LAST RUN (0)", second.watch_report_text)
+
+    def test_crash_mid_run_does_not_mark_unseen_signals_as_seen(self):
+        releases = tuple(_release(ocid=f"ocds-{i}") for i in range(2))
+
+        def _raise():
+            raise DiscoveryBudgetExhausted(
+                "discovery budget exhausted (simulated for offline test)")
+
+        crashed = run_swarm_task(
+            self.descriptor(
+                live=True, authorized_by="Kyle Graham",
+                watch_state_path=self.watch_state_path, now=_FIXED_NOW),
+            _fetch_fn_for_tests=_raise,
+        )
+        self.assertEqual(crashed.status, BUDGET_EXHAUSTED)
+        # The crash happened before watch_report() was ever reached --
+        # the seen-set file must not exist at all.
+        self.assertFalse(self.watch_state_path.exists())
+
+        recovered = run_swarm_task(
+            self.descriptor(
+                live=True, authorized_by="Kyle Graham",
+                watch_state_path=self.watch_state_path, now=_FIXED_NOW),
+            _fetch_fn_for_tests=lambda: _feed(*releases),
+        )
+        self.assertEqual(recovered.status, LIVE_OK)
+        self.assertEqual(recovered.watch_status, WATCH_PRODUCED)
+        # Nothing from the crashed attempt was marked seen -- every
+        # signal in this first REAL run is still reported new.
+        self.assertEqual(recovered.watch_new_count, recovered.signal_count)
+        self.assertGreaterEqual(recovered.watch_new_count, 1)
+
+    def test_expired_and_unknown_deadline_counts_reported_distinctly(self):
+        releases = (
+            _release(ocid="ocds-future", end_date="2026-12-01T00:00:00Z"),
+            _release(ocid="ocds-past", end_date="2026-01-01T00:00:00Z"),
+            _release(ocid="ocds-unknown", end_date=None),
+        )
+        result = run_swarm_task(
+            self.descriptor(
+                live=True, authorized_by="Kyle Graham",
+                watch_state_path=self.watch_state_path, now=_FIXED_NOW),
+            _fetch_fn_for_tests=lambda: _feed(*releases),
+        )
+        self.assertEqual(result.status, LIVE_OK)
+        self.assertEqual(result.watch_status, WATCH_PRODUCED)
+        self.assertEqual(result.watch_expired_count, 1)
+        self.assertEqual(result.watch_unknown_deadline_count, 1)
+        self.assertIn("EXPIRED, STILL IN CORPUS (1)", result.watch_report_text)
+        self.assertIn("UNKNOWN DEADLINE (1)", result.watch_report_text)
+
+    def test_watch_state_path_colliding_with_state_dir_refused(self):
+        result = run_swarm_task(
+            self.descriptor(watch_state_path=self.state_dir))
+        self.assertEqual(result.status, VALIDATION_REFUSED)
+        self.assertEqual(result.refused_by, "WATCH_STATE_PATH_COLLIDES")
+
+    def test_negative_closing_window_refused(self):
+        result = run_swarm_task(
+            self.descriptor(
+                watch_state_path=self.watch_state_path,
+                watch_closing_within_days=-1))
+        self.assertEqual(result.status, VALIDATION_REFUSED)
+        self.assertEqual(
+            result.refused_by, "WATCH_CLOSING_WINDOW_MUST_BE_NON_NEGATIVE")
+
+    def test_watch_status_always_named(self):
+        result = run_swarm_task(self.descriptor())
+        self.assertIn(result.watch_status, swarm_contract.WATCH_STATUSES)
 
 
 if __name__ == "__main__":

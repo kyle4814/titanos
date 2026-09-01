@@ -115,7 +115,91 @@ keywords, notice reference/URL) has already been passed through
 attacker-influenceable, and it is display-safe by the time it reaches
 you.
 
-## 4. Reading the result
+## 4. Running a daily cycle — "what changed since last time"
+
+A live run without a watch state path returns the same digest every day
+— the operator re-reads yesterday's list with no indication of what's
+new. Supply `watch_state_path` (a `foundation.swarm_contract`
+descriptor field) or `--watch-state` (CLI flag) to get a delta instead:
+
+```python
+descriptor = SwarmTaskDescriptor(
+    objective="observe open security/IT consulting tenders",
+    state_dir=Path("/var/opp/state"),
+    ledger_path=Path("/var/opp/ledger.jsonl"),
+    live=True,
+    authorized_by="Kyle Graham",
+    watch_state_path=Path("/var/opp/watch_seen.json"),  # durable seen-set
+    watch_closing_within_days=30,                        # default is 30
+)
+result = run_swarm_task(descriptor)
+print(result.watch_report_text)   # the rendered NEW/CLOSING/EXPIRED/UNKNOWN text
+```
+
+or from the shell:
+
+```
+python3 -m foundation.swarm_contract \
+  --state-dir /var/opp/state --ledger /var/opp/ledger.jsonl \
+  --objective "observe open security/IT consulting tenders" \
+  --live --authorised-by "Kyle Graham" \
+  --watch-state /var/opp/watch_seen.json --closing-within-days 30
+```
+
+Run this **daily against the same `watch_state_path`** (a fixed file,
+not a fresh one each time) — that file is the only thing that lets the
+system tell today's notices apart from yesterday's. `state_dir` and
+`ledger_path` can rotate or stay fixed independently; `watch_state_path`
+is what must stay constant across runs for the delta to mean anything.
+
+`result.watch_status` is always one of:
+
+| watch_status | meaning |
+|---|---|
+| `WATCH_NOT_REQUESTED` | no `watch_state_path` was supplied — this is the default; behaviour is byte-identical to a run with no watch capability at all. |
+| `WATCH_SKIPPED_DRY_RUN` | a watch state path was supplied but the task was a dry run. **A dry run NEVER advances the seen-set** — see the warning below. |
+| `WATCH_PRODUCED` | a watch state path was supplied and the sweep completed — the count fields and `watch_report_text` are populated. |
+
+What each count means (all populated only on `WATCH_PRODUCED`):
+
+- **`watch_new_count`** — signals not present in the seen-set BEFORE
+  this run. The headline number: how many genuinely new notices arrived
+  since the last live run.
+- **`watch_closing_count`** — signals (new or previously seen) whose
+  deadline falls inside `watch_closing_within_days` from now.
+- **`watch_new_and_closing_count`** — the intersection of the two above.
+  This is the highest-priority row: something that just appeared AND is
+  closing soon.
+- **`watch_expired_count`** — signals whose deadline has already passed
+  but are still present in the corpus. Shown, never hidden — an expired
+  notice still in the feed is a fact worth seeing, not noise to drop.
+- **`watch_unknown_deadline_count`** — signals with no parseable
+  deadline at all. **This is not the same thing as "not closing soon."**
+  "We do not know when this closes" and "this does not close" are
+  different claims; the system never collapses one into the other. A
+  notice can be genuinely urgent and simply be missing a machine-
+  readable deadline field.
+
+`result.watch_report_text` is the full rendered section-by-section text
+(NEW AND CLOSING SOON / CLOSING WITHIN N DAYS / NEW SINCE LAST RUN /
+EXPIRED, STILL IN CORPUS / UNKNOWN DEADLINE) — data, never printed by
+the envelope itself; the CLI prints it after the shortlist digest, if
+any.
+
+### WARNING — a dry run deliberately does not advance the seen-set
+
+This is the single most important property of this capability, so it is
+stated three times across this repository (this file, the module
+docstring, the test suite) on purpose: **`WATCH_SKIPPED_DRY_RUN` means
+`opportunity_watch.new_since()` was never called.** If a dry run ever
+marked a signal seen, the very next LIVE run would silently report a
+real, never-before-seen notice as "not new" — the exact failure mode
+this capability exists to prevent. Rehearsing with a dry run against a
+real `watch_state_path` is always safe, any number of times, in any
+order relative to live runs — it can never cause a live run afterward to
+under-report.
+
+## 5. Reading the result
 
 `result.status` is always one of:
 
@@ -131,7 +215,7 @@ you.
 `result.refused_by` and `result.requires_human` are always populated
 together with any non-`*_OK` status — never guess from a bare message.
 
-## 5. What each failure state actually means
+## 6. What each failure state actually means
 
 - **`VALIDATION_REFUSED`** — you built a `SwarmTaskDescriptor` the
   envelope refuses to act on: empty objective, missing/colliding paths,
@@ -155,7 +239,7 @@ together with any non-`*_OK` status — never guess from a bare message.
   traceback. Treat this the same as any other unhandled bug: reproduce,
   read `result.reason`, escalate — do not retry blindly.
 
-## 6. Running the tests
+## 7. Running the tests
 
 ```
 python3 -m unittest foundation.tests.test_swarm_contract
@@ -166,13 +250,14 @@ fail, do not "fix" the test to make it pass — the tests encode the
 safety contract this runbook describes; a failing test means the
 contract broke.
 
-## 7. What this runbook must NEVER be extended to include
+## 8. What this runbook must NEVER be extended to include
 
 - **No instructions for calling `opportunity_cycle.run_cycle()`,
-  `tender_radar.sweep()`, or `discovery_authorization` directly.** The
-  envelope is the interface. If it's missing a capability you need, that
-  is a request to extend `foundation/swarm_contract.py`, not a reason to
-  route around it.
+  `tender_radar.sweep()`, `opportunity_watch.new_since()`/
+  `.closing_within()`/`.watch_report()`, or `discovery_authorization`
+  directly.** The envelope is the interface. If it's missing a
+  capability you need, that is a request to extend
+  `foundation/swarm_contract.py`, not a reason to route around it.
 - **No instructions for raising `max_queries`/`max_wall_clock_seconds`/
   `max_results` above the repository's standing defaults.** That
   ceiling is a human decision (see `TITANOS_CRITICAL_FUNCTION_SWITCH_
@@ -201,6 +286,14 @@ contract broke.
   to check.** Never relay it onward (email, chat post, ticket) as if it
   were a vetted lead list — the digest's own header already says this
   every render; a runbook edit must not contradict it. Do not add a
-  second sweep to "refresh" the digest without re-reading §3 first — a
-  second sweep desyncs each source's dedup cursor from what the ledger
-  recorded and spends real discovery budget twice for one task.
+  second sweep to "refresh" the digest or the watch report without
+  re-reading §3/§4 first — a second sweep desyncs each source's dedup
+  cursor from what the ledger recorded, spends real discovery budget
+  twice for one task, and would call `new_since()` twice in one task,
+  which would mark signals seen before this task's own caller ever saw
+  the first `watch_report_text`.
+- **No instructions for running a live task with `watch_state_path` set
+  to a fresh/temporary path each time.** Doing so silently defeats the
+  entire capability — every run would see an empty seen-set and report
+  everything as new, forever. `watch_state_path` must be a fixed,
+  durable location reused across every invocation this operator makes.

@@ -136,6 +136,43 @@ guarantees 1-7 above:
   `render_digest()` is called exactly once, its return value is stored
   as data on the result -- this module never calls `print()`.
 
+OPTIONAL WATCH: "WHAT CHANGED SINCE LAST TIME" WITHOUT A SECOND TOOL
+
+`foundation/opportunity_watch.py` (`new_since()` / `closing_within()` /
+`watch_report()`) existed, was tested, and answered the two questions an
+operator actually has -- what is NEW since the last run, and what is
+CLOSING SOON -- but had no production caller. An operator running this
+envelope daily re-read yesterday's full digest with no indication of
+what changed. `SwarmTaskDescriptor.watch_state_path` (optional, `None`
+by default) and `.watch_closing_within_days` close that gap without
+changing anything about guarantees 1-7 above:
+
+- Supplying `watch_state_path` changes NOTHING about whether a task goes
+  live -- `live`/`authorized_by` still gate that exactly as before. A
+  dry run with a watch state path still performs zero sweeps and zero
+  writes (guarantee 1) -- it reports `watch_status=WATCH_SKIPPED_DRY_RUN`
+  and, critically, never calls `opportunity_watch.new_since()`, so a dry
+  run cannot advance the seen-set even accidentally. This is the single
+  most important property this field adds: if a dry run ever marked a
+  signal seen, the very next LIVE run would silently report it as not
+  new, and an operator would never learn a real notice existed.
+- Not supplying `watch_state_path` is the default and produces
+  `watch_status=WATCH_NOT_REQUESTED` with every watch_* count at its
+  honest zero -- explicit, not an empty-looking-like-"nothing changed"
+  result. Watch-disabled behaviour is byte-identical to before this
+  field existed.
+- Only a `LIVE_OK` run with `watch_state_path` set produces
+  `watch_status=WATCH_PRODUCED`. `watch_report()` -- which internally
+  calls `new_since()` exactly once, which is the ONLY code in this
+  module's transitive call graph that ever writes `watch_state_path` --
+  runs from the SAME merged signal set the shortlist (if any) scores
+  against; never a second sweep, same reasoning as the shortlist section
+  above. EXPIRED and UNKNOWN-deadline counts are always populated from
+  `watch_report()`'s own `expired`/`unknown_deadline` tuples -- never
+  silently dropped, per `opportunity_watch.py`'s own module-level rule
+  that "we do not know when this closes" is not the same claim as "this
+  does not close."
+
 WHY THIS MODULE SWEEPS ONCE, NOT TWICE, TO GET BOTH COUNTS AND SIGNALS
 
 `opportunity_cycle.OpportunityCycleReport` (a file this agent does not
@@ -191,6 +228,7 @@ from foundation.opportunity_cycle import (
     run_cycle,
 )
 from foundation.opportunity_pipeline import run_pipeline
+from foundation.opportunity_watch import watch_report, render_watch
 from foundation.outcome_ledger import OutcomeLedger
 from foundation.relevance import CapabilityProfile
 from foundation.shortlist import build_shortlist, render_digest
@@ -204,6 +242,8 @@ __all__ = [
     "SHORTLIST_STATUSES",
     "SHORTLIST_NOT_REQUESTED", "SHORTLIST_SKIPPED_DRY_RUN",
     "SHORTLIST_PRODUCED",
+    "WATCH_STATUSES",
+    "WATCH_NOT_REQUESTED", "WATCH_SKIPPED_DRY_RUN", "WATCH_PRODUCED",
     "SwarmTaskDescriptor", "SwarmTaskResult", "run_swarm_task",
 ]
 
@@ -230,6 +270,20 @@ SHORTLIST_PRODUCED = "SHORTLIST_PRODUCED"             # profile given, live swee
 
 SHORTLIST_STATUSES = frozenset({
     SHORTLIST_NOT_REQUESTED, SHORTLIST_SKIPPED_DRY_RUN, SHORTLIST_PRODUCED,
+})
+
+# Named, exhaustive watch states -- independent of `status` and of
+# `shortlist_status`. A Sonnet agent branches on this string to know
+# whether the watch_* count fields are meaningful, never on "is a count
+# nonzero" (zero new signals is a legitimate, common, honest outcome).
+WATCH_NOT_REQUESTED = "WATCH_NOT_REQUESTED"      # descriptor carried no watch_state_path
+WATCH_SKIPPED_DRY_RUN = "WATCH_SKIPPED_DRY_RUN"  # requested, but dry-run never sweeps
+                                                  # and -- just as importantly -- never
+                                                  # advances the seen-set
+WATCH_PRODUCED = "WATCH_PRODUCED"                # requested, live sweep completed
+
+WATCH_STATUSES = frozenset({
+    WATCH_NOT_REQUESTED, WATCH_SKIPPED_DRY_RUN, WATCH_PRODUCED,
 })
 
 # The one requested_scope this envelope will ever ask for. Fixed, not a
@@ -266,6 +320,17 @@ class SwarmTaskDescriptor:
     # authorizes.
     shortlist_profile: Optional[CapabilityProfile] = None
     shortlist_limit: int = 10
+    # Optional -- `None` means "no watch behaviour wanted", not "watch
+    # from an empty state". See module docstring's OPTIONAL WATCH
+    # section. `watch_state_path` is the durable seen-set
+    # `opportunity_watch.new_since()` reads and atomically rewrites;
+    # `watch_closing_within_days` is the window `opportunity_watch.
+    # closing_within()` scores against. Neither field can itself flip
+    # `live`, raise a budget ceiling, or open any write path beyond the
+    # one file `watch_state_path` names -- there is no code path from
+    # these fields to any other write.
+    watch_state_path: Optional[Union[str, Path]] = None
+    watch_closing_within_days: int = 30
 
     def __post_init__(self) -> None:
         # Normalize path-like fields once, here, so every downstream
@@ -273,6 +338,9 @@ class SwarmTaskDescriptor:
         # raw string compared inconsistently in different branches.
         object.__setattr__(self, "state_dir", Path(self.state_dir))
         object.__setattr__(self, "ledger_path", Path(self.ledger_path))
+        if self.watch_state_path is not None:
+            object.__setattr__(
+                self, "watch_state_path", Path(self.watch_state_path))
 
 
 @dataclass(frozen=True)
@@ -301,6 +369,19 @@ class SwarmTaskResult:
     shortlist_status: str = SHORTLIST_NOT_REQUESTED
     shortlist_digest: str = ""
     shortlist_entry_count: int = 0
+    # Independent of `status` and `shortlist_status` -- see
+    # WATCH_STATUSES above and the module docstring's OPTIONAL WATCH
+    # section. "What changed since last time" without a second tool:
+    # these counts (and `watch_report_text`) are populated only on
+    # `watch_status == WATCH_PRODUCED`; every other status leaves them
+    # at their honest zero/empty default, never a fabricated number.
+    watch_status: str = WATCH_NOT_REQUESTED
+    watch_report_text: str = ""
+    watch_new_count: int = 0
+    watch_closing_count: int = 0
+    watch_new_and_closing_count: int = 0
+    watch_expired_count: int = 0
+    watch_unknown_deadline_count: int = 0
 
     def __post_init__(self) -> None:
         if self.status not in STATUSES:
@@ -314,6 +395,11 @@ class SwarmTaskResult:
                 f"SwarmTaskResult.shortlist_status="
                 f"{self.shortlist_status!r} is not one of the named "
                 f"SHORTLIST_STATUSES {sorted(SHORTLIST_STATUSES)}")
+        if self.watch_status not in WATCH_STATUSES:
+            raise AssertionError(
+                f"SwarmTaskResult.watch_status={self.watch_status!r} is "
+                f"not one of the named WATCH_STATUSES "
+                f"{sorted(WATCH_STATUSES)}")
         if self.qualified != 0 or self.contracts != 0 or self.cash != 0:
             raise AssertionError(
                 "SwarmTaskResult refuses to be constructed with "
@@ -339,6 +425,13 @@ class SwarmTaskResult:
         lines.append(
             f"  shortlist_status={self.shortlist_status} "
             f"shortlist_entries={self.shortlist_entry_count}")
+        lines.append(
+            f"  watch_status={self.watch_status} "
+            f"new={self.watch_new_count} "
+            f"closing_soon={self.watch_closing_count} "
+            f"new_and_closing={self.watch_new_and_closing_count} "
+            f"expired={self.watch_expired_count} "
+            f"unknown_deadline={self.watch_unknown_deadline_count}")
         return "\n".join(lines)
 
 
@@ -396,6 +489,18 @@ def _validate(descriptor: SwarmTaskDescriptor) -> Optional[SwarmTaskResult]:
         return _refused(
             VALIDATION_REFUSED, "SHORTLIST_LIMIT_MUST_BE_NON_NEGATIVE",
             f"shortlist_limit={descriptor.shortlist_limit} must be >= 0")
+    if descriptor.watch_closing_within_days < 0:
+        return _refused(
+            VALIDATION_REFUSED, "WATCH_CLOSING_WINDOW_MUST_BE_NON_NEGATIVE",
+            f"watch_closing_within_days="
+            f"{descriptor.watch_closing_within_days} must be >= 0")
+    if descriptor.watch_state_path is not None and descriptor.watch_state_path in (
+            descriptor.state_dir, descriptor.ledger_path):
+        return _refused(
+            VALIDATION_REFUSED, "WATCH_STATE_PATH_COLLIDES",
+            "watch_state_path must be distinct from state_dir and "
+            "ledger_path -- the watch seen-set, the dedup cursor cache, "
+            "and the outcome ledger must never collide on one path")
     if descriptor.live and not str(descriptor.authorized_by).strip():
         # This is the authority gate, not a plain malformed-input
         # refusal: going live is a real action with real (if bounded)
@@ -522,6 +627,17 @@ def run_swarm_task(
                 SHORTLIST_SKIPPED_DRY_RUN
                 if descriptor.shortlist_profile is not None
                 else SHORTLIST_NOT_REQUESTED)
+            # Same discipline as the shortlist above, and the single
+            # most important property this field adds: a dry run must
+            # NEVER advance opportunity_watch's seen-set, or the next
+            # live run would silently under-report "new" -- so a
+            # requested watch is reported SKIPPED here, and
+            # opportunity_watch.new_since() (the only code that ever
+            # writes watch_state_path) is never called on this path.
+            watch_status = (
+                WATCH_SKIPPED_DRY_RUN
+                if descriptor.watch_state_path is not None
+                else WATCH_NOT_REQUESTED)
             return SwarmTaskResult(
                 status=DRY_RUN_OK,
                 reason=(
@@ -531,17 +647,22 @@ def run_swarm_task(
                     f"{descriptor.ledger_path}; set live=True and "
                     f"authorized_by to actually run"),
                 shortlist_status=shortlist_status,
+                watch_status=watch_status,
             )
 
         # LIVE: the only branch that touches disk or (via the real
         # fetch path inside tender_radar/mouth_common, when
         # _fetch_fn_for_tests is not supplied) a socket.
+        needs_signals = (
+            descriptor.shortlist_profile is not None
+            or descriptor.watch_state_path is not None)
         try:
             ledger = OutcomeLedger(ledger_path=descriptor.ledger_path)
-            if descriptor.shortlist_profile is not None:
-                # Shortlist requested -- sweep once, keeping the merged
-                # signals, instead of run_cycle()'s counts-only report.
-                # See _sweep_all_with_signals()'s own docstring.
+            if needs_signals:
+                # Shortlist and/or watch requested -- sweep once,
+                # keeping the merged signals, instead of run_cycle()'s
+                # counts-only report. See _sweep_all_with_signals()'s
+                # own docstring.
                 report, merged_signals = _sweep_all_with_signals(
                     descriptor.state_dir, ledger,
                     _fetch_fn_for_tests, descriptor.now)
@@ -598,6 +719,37 @@ def run_swarm_task(
             shortlist_entry_count = len(shortlist)
             shortlist_status = SHORTLIST_PRODUCED
 
+        # Watch, only when requested and only from the signals this SAME
+        # sweep just produced -- never a second sweep, same discipline
+        # as shortlist above. This is the ONLY call to
+        # opportunity_watch.watch_report() -> new_since() anywhere in
+        # this module, and it only happens once every other refusal
+        # path above has already returned -- a budget/authority refusal
+        # or an exception raised before this point leaves
+        # watch_state_path completely untouched, which is exactly
+        # opportunity_watch's own "a process killed before the atomic
+        # publish leaves the previous state file untouched" guarantee,
+        # inherited rather than re-implemented here.
+        watch_status = WATCH_NOT_REQUESTED
+        watch_report_text = ""
+        watch_new_count = 0
+        watch_closing_count = 0
+        watch_new_and_closing_count = 0
+        watch_expired_count = 0
+        watch_unknown_deadline_count = 0
+        if descriptor.watch_state_path is not None:
+            w_report = watch_report(
+                merged_signals, descriptor.watch_state_path,
+                days=descriptor.watch_closing_within_days,
+                now=descriptor.now)
+            watch_report_text = render_watch(w_report)  # data, never printed
+            watch_new_count = len(w_report.new)
+            watch_closing_count = len(w_report.closing_soon)
+            watch_new_and_closing_count = len(w_report.new_and_closing)
+            watch_expired_count = len(w_report.expired)
+            watch_unknown_deadline_count = len(w_report.unknown_deadline)
+            watch_status = WATCH_PRODUCED
+
         return SwarmTaskResult(
             status=LIVE_OK,
             sweep_status=report.sweep_status,
@@ -613,6 +765,13 @@ def run_swarm_task(
             shortlist_status=shortlist_status,
             shortlist_digest=shortlist_digest,
             shortlist_entry_count=shortlist_entry_count,
+            watch_status=watch_status,
+            watch_report_text=watch_report_text,
+            watch_new_count=watch_new_count,
+            watch_closing_count=watch_closing_count,
+            watch_new_and_closing_count=watch_new_and_closing_count,
+            watch_expired_count=watch_expired_count,
+            watch_unknown_deadline_count=watch_unknown_deadline_count,
         )
     except Exception as exc:  # last-resort structural guarantee, see (7)
         return _refused(
@@ -660,6 +819,14 @@ def _cli(argv: "list[str]") -> int:
     parser.add_argument("--shortlist", action="store_true",
                         help="also produce a ranked digest")
     parser.add_argument("--limit", type=int, default=10)
+    parser.add_argument("--watch-state",
+                        help="path to the watch seen-set file. Supplying "
+                             "this enables 'what's new since last run' / "
+                             "'what's closing soon' reporting. A dry run "
+                             "with this set NEVER advances the seen-set.")
+    parser.add_argument("--closing-within-days", type=int, default=30,
+                        help="window for the CLOSING SOON section "
+                             "(default 30)")
     args = parser.parse_args(argv)
 
     profile = None
@@ -673,7 +840,10 @@ def _cli(argv: "list[str]") -> int:
         objective=args.objective,
         state_dir=Path(args.state_dir), ledger_path=Path(args.ledger),
         live=args.live, authorized_by=args.authorised_by,
-        shortlist_profile=profile, shortlist_limit=args.limit))
+        shortlist_profile=profile, shortlist_limit=args.limit,
+        watch_state_path=(
+            Path(args.watch_state) if args.watch_state else None),
+        watch_closing_within_days=args.closing_within_days))
 
     print(f"status              {result.status}")
     if result.refused_by:
@@ -684,9 +854,19 @@ def _cli(argv: "list[str]") -> int:
     print(f"controlling parties {result.controlling_party_count}")
     print(f"qualified/contracts/cash  {result.qualified}/"
           f"{result.contracts}/{result.cash}")
+    if result.watch_status != WATCH_NOT_REQUESTED:
+        print(f"watch_status        {result.watch_status}")
+        print(f"  new={result.watch_new_count} "
+              f"closing_soon={result.watch_closing_count} "
+              f"new_and_closing={result.watch_new_and_closing_count} "
+              f"expired={result.watch_expired_count} "
+              f"unknown_deadline={result.watch_unknown_deadline_count}")
     if result.shortlist_digest:
         print()
         print(result.shortlist_digest)
+    if result.watch_report_text:
+        print()
+        print(result.watch_report_text)
     # A refusal is a success state for this system, but it is not a
     # success for the shell that invoked it -- a script must be able to
     # branch on it without parsing prose.
