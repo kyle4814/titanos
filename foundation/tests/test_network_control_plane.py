@@ -55,7 +55,7 @@ def _never_called(*a, **k):                                   # pragma: no cover
 class TestTheSocketIsGated(unittest.TestCase):
 
     def test_no_policy_never_reaches_the_socket(self):
-        with mock.patch("urllib.request.urlopen", _never_called):
+        with _no_ssrf_check(), mock.patch("urllib.request.urlopen", _never_called):
             with self.assertRaises(CommunicationDenied):
                 fetch_feed("https://example.invalid/feed")
 
@@ -66,23 +66,38 @@ class TestTheSocketIsGated(unittest.TestCase):
             objective = "observe one named repository"
             requested_scope = "READ_URL"
             max_queries = 5
-        with mock.patch("urllib.request.urlopen", _never_called):
+        with _no_ssrf_check(), mock.patch("urllib.request.urlopen", _never_called):
             with self.assertRaises(CommunicationDenied):
                 fetch_feed("https://example.invalid/feed", policy=Impostor())
 
     def test_an_unauthorized_scope_never_reaches_the_socket(self):
         policy = DiscoveryPolicy(objective="receive a callback",
                                  requested_scope="RECEIVE_WEBHOOK")
-        with mock.patch("urllib.request.urlopen", _never_called):
+        with _no_ssrf_check(), mock.patch("urllib.request.urlopen", _never_called):
             with self.assertRaises(CommunicationDenied):
                 fetch_feed("https://example.invalid/feed", policy=policy)
 
     def test_none_is_not_a_scope(self):
         policy = DiscoveryPolicy(objective="observe one repository",
                                  requested_scope="")
-        with mock.patch("urllib.request.urlopen", _never_called):
+        with _no_ssrf_check(), mock.patch("urllib.request.urlopen", _never_called):
             with self.assertRaises(CommunicationDenied):
                 fetch_feed("https://example.invalid/feed", policy=policy)
+
+
+# Tests below mock `urllib.request.urlopen` and use `.invalid` placeholder
+# hosts, which by RFC 6761 never resolve. The SSRF guard added in cycle 006
+# resolves the host BEFORE the socket opens, so it correctly refuses those
+# placeholders and these tests would fail for the wrong reason.
+#
+# They bypass the guard deliberately. Each is testing a DIFFERENT property
+# -- budget accounting, objective validation, method selection -- and the
+# guard itself is covered by `TestSsrfGuard` below, which does not mock it.
+# Bypassing here does not reduce coverage of the guard; it stops unrelated
+# tests from depending on DNS, which would also make the suite
+# network-dependent and break the offline-CI rule every other suite obeys.
+def _no_ssrf_check():
+    return mock.patch("foundation.mouth_common._reject_unsafe_url")
 
 
 class TestUnboundedObjectivesNeverReachTheSocket(unittest.TestCase):
@@ -106,12 +121,12 @@ class TestUnboundedObjectivesNeverReachTheSocket(unittest.TestCase):
             with self.subTest(objective=objective):
                 policy = DiscoveryPolicy(objective=objective,
                                          requested_scope="READ_URL")
-                with mock.patch("urllib.request.urlopen", _never_called):
+                with _no_ssrf_check(), mock.patch("urllib.request.urlopen", _never_called):
                     with self.assertRaises(UnboundedDiscoveryObjective):
                         fetch_feed("https://example.invalid/f", policy=policy)
 
     def test_an_empty_objective_is_refused(self):
-        with mock.patch("urllib.request.urlopen", _never_called):
+        with _no_ssrf_check(), mock.patch("urllib.request.urlopen", _never_called):
             with self.assertRaises(UnboundedDiscoveryObjective):
                 fetch_feed("https://example.invalid/f",
                            policy=DiscoveryPolicy(objective="   ",
@@ -124,7 +139,7 @@ class TestUnboundedObjectivesNeverReachTheSocket(unittest.TestCase):
             def read(self, n=-1): return b"<feed/>"
             def __enter__(self): return self
             def __exit__(self, *a): return False
-        with mock.patch("urllib.request.urlopen", return_value=_Resp()):
+        with _no_ssrf_check(), mock.patch("urllib.request.urlopen", return_value=_Resp()):
             self.assertEqual(
                 fetch_feed("https://example.invalid/f", policy=VALID),
                 b"<feed/>")
@@ -246,7 +261,7 @@ class TestQuantifiedClassObjectivesAreRefused(unittest.TestCase):
             with self.subTest(objective=objective):
                 policy = DiscoveryPolicy(objective=objective,
                                          requested_scope="READ_URL")
-                with mock.patch("urllib.request.urlopen", _never_called):
+                with _no_ssrf_check(), mock.patch("urllib.request.urlopen", _never_called):
                     with self.assertRaises(UnboundedDiscoveryObjective):
                         fetch_feed("https://example.invalid/f", policy=policy)
 
@@ -287,7 +302,7 @@ class TestTheBudgetIsRealNotDecorative(unittest.TestCase):
         def counting(*a, **k):
             opened.append(1)
             return self._Resp()
-        with mock.patch("urllib.request.urlopen", counting):
+        with _no_ssrf_check(), mock.patch("urllib.request.urlopen", counting):
             for _ in range(3):
                 fetch_feed("https://example.invalid/f", policy=self.policy)
             with self.assertRaises(DiscoveryBudgetExhausted):
@@ -298,7 +313,7 @@ class TestTheBudgetIsRealNotDecorative(unittest.TestCase):
     def test_a_freshly_constructed_identical_policy_shares_the_budget(self):
         """Otherwise a caller resets its own budget by rebuilding the
         object in a loop -- the exact bypass this closes."""
-        with mock.patch("urllib.request.urlopen", lambda *a, **k: self._Resp()):
+        with _no_ssrf_check(), mock.patch("urllib.request.urlopen", lambda *a, **k: self._Resp()):
             for _ in range(3):
                 fetch_feed("https://example.invalid/f", policy=self.policy)
             twin = DiscoveryPolicy(
@@ -314,7 +329,7 @@ class TestTheBudgetIsRealNotDecorative(unittest.TestCase):
                                    CommunicationDenied))
 
     def test_the_budget_is_observable(self):
-        with mock.patch("urllib.request.urlopen", lambda *a, **k: self._Resp()):
+        with _no_ssrf_check(), mock.patch("urllib.request.urlopen", lambda *a, **k: self._Resp()):
             fetch_feed("https://example.invalid/f", policy=self.policy)
         self.assertEqual(budget_spent(self.policy), 1)
 
@@ -322,7 +337,7 @@ class TestTheBudgetIsRealNotDecorative(unittest.TestCase):
         other = DiscoveryPolicy(
             objective="observe the npm registry record for one named package",
             requested_scope="READ_API", max_queries=3)
-        with mock.patch("urllib.request.urlopen", lambda *a, **k: self._Resp()):
+        with _no_ssrf_check(), mock.patch("urllib.request.urlopen", lambda *a, **k: self._Resp()):
             for _ in range(3):
                 fetch_feed("https://example.invalid/f", policy=self.policy)
             fetch_feed("https://example.invalid/f", policy=other)
@@ -390,7 +405,7 @@ class TestPostIsNotASecondPathAroundTheGate(unittest.TestCase):
         reset_budgets()
         p = DiscoveryPolicy(objective="test: budget is charged on the post path",
                             requested_scope="READ_API", max_queries=1)
-        with mock.patch("urllib.request.urlopen") as m:
+        with _no_ssrf_check(), mock.patch("urllib.request.urlopen") as m:
             m.return_value.__enter__.return_value.read.return_value = b"{}"
             fetch_feed(self.URL, policy=p, json_body=self.BODY)
             with self.assertRaises(DiscoveryBudgetExhausted):
@@ -402,9 +417,88 @@ class TestPostIsNotASecondPathAroundTheGate(unittest.TestCase):
         reset_budgets()
         p = DiscoveryPolicy(objective="test: default method remains get",
                             requested_scope="READ_API", max_queries=2)
-        with mock.patch("urllib.request.urlopen") as m:
+        with _no_ssrf_check(), mock.patch("urllib.request.urlopen") as m:
             m.return_value.__enter__.return_value.read.return_value = b"{}"
             fetch_feed(self.URL, policy=p)
             request = m.call_args[0][0]
             self.assertEqual(request.get_method(), "GET")
             self.assertIsNone(request.data)
+
+
+class TestSsrfGuard(unittest.TestCase):
+    """Blue-team pass 006, highest-severity finding, confirmed statically.
+
+    `url` is caller-supplied and was passed straight into
+    `urllib.request.Request`. Grepping the entire control plane for any
+    scheme, host or IP check returned nothing. Authorization answered
+    "may this caller fetch?"; nothing answered "fetch WHAT?".
+
+    Adding POST made it worse: a request that can carry a body to an
+    internal address is a far more useful weapon than one that can only
+    GET.
+    """
+
+    def _policy(self, scope="READ_API"):
+        reset_budgets()
+        return DiscoveryPolicy(
+            objective="test: ssrf guard on the fetch path",
+            requested_scope=scope, max_queries=4)
+
+    def test_file_scheme_is_refused(self):
+        with self.assertRaises(CommunicationDenied):
+            fetch_feed("file:///etc/hostname", policy=self._policy())
+
+    def test_plaintext_http_is_refused(self):
+        with self.assertRaises(CommunicationDenied):
+            fetch_feed("http://example.com/feed", policy=self._policy())
+
+    def test_cloud_metadata_address_is_refused(self):
+        """169.254.169.254 is the single most valuable SSRF target in any
+        cloud environment: it serves instance credentials."""
+        with self.assertRaises(CommunicationDenied):
+            fetch_feed("https://169.254.169.254/latest/meta-data/",
+                       policy=self._policy())
+
+    def test_loopback_is_refused_even_by_name(self):
+        """Refusing the literal 127.0.0.1 and allowing 'localhost' would
+        be a guard that only catches the careless attacker."""
+        with self.assertRaises(CommunicationDenied):
+            fetch_feed("https://localhost:8080/x", policy=self._policy())
+
+    def test_rfc1918_is_refused(self):
+        with self.assertRaises(CommunicationDenied):
+            fetch_feed("https://10.0.0.1/x", policy=self._policy())
+
+    def test_an_unresolvable_host_is_refused_not_attempted(self):
+        """A host that cannot be resolved cannot be shown to be public, so
+        it is refused rather than tried and hoped about."""
+        with self.assertRaises(CommunicationDenied):
+            fetch_feed("https://this-host-does-not-exist.invalid/x",
+                       policy=self._policy())
+
+
+class TestScopeIsNotDecorative(unittest.TestCase):
+    """Blue-team pass 006: READ_URL and READ_API were only ever checked
+    for set-membership. Nothing compared the declared scope against what
+    the request actually did, so a READ_URL policy could drive a POST
+    carrying a caller-controlled body.
+
+    A scope that constrains nothing is a label, and this repository's
+    entire argument is that a label is not a control.
+    """
+
+    def test_read_url_scope_cannot_send_a_body(self):
+        reset_budgets()
+        p = DiscoveryPolicy(objective="test: read_url must not permit a post body",
+                            requested_scope="READ_URL", max_queries=2)
+        with self.assertRaises(CommunicationDenied):
+            fetch_feed("https://example.com/x", policy=p,
+                       json_body={"query": "x"})
+
+    def test_read_url_scope_may_still_get(self):
+        reset_budgets()
+        p = DiscoveryPolicy(objective="test: read_url still permits a plain get",
+                            requested_scope="READ_URL", max_queries=2)
+        with _no_ssrf_check(), mock.patch("urllib.request.urlopen") as m:
+            m.return_value.__enter__.return_value.read.return_value = b"{}"
+            self.assertEqual(fetch_feed("https://example.com/x", policy=p), b"{}")

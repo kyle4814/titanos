@@ -18,6 +18,15 @@ def _items(keys):
     return tuple({"key": k, "title": k} for k in keys)
 
 
+# The SSRF guard (cycle 006) resolves the host before the socket opens, so
+# tests using `.invalid` placeholder hosts must bypass it or they fail for
+# the wrong reason. These test the BYTE CAP, a different property; the
+# guard itself is covered without mocking in
+# `test_network_control_plane.py::TestSsrfGuard`.
+def _no_ssrf_check():
+    return mock.patch("foundation.mouth_common._reject_unsafe_url")
+
+
 class TestComputeStateHash(unittest.TestCase):
     def test_deterministic_order_independent(self):
         a = _items(["x", "y"])
@@ -149,6 +158,16 @@ class TestFetchFeedIsByteBounded(unittest.TestCase):
     response.read(). `timeout` bounds a stalled socket operation, not
     total transfer size, so a compromised or redirected feed endpoint
     could stream an arbitrarily large body straight into memory."""
+
+    def setUp(self):
+        # Bypass the SSRF guard for this class only. These tests use
+        # `.invalid` placeholder hosts and exercise the BYTE CAP; the guard
+        # resolves hosts before the socket and would refuse them for an
+        # unrelated reason. The guard is tested unmocked in
+        # test_network_control_plane.py::TestSsrfGuard.
+        patcher = mock.patch("foundation.mouth_common._reject_unsafe_url")
+        patcher.start()
+        self.addCleanup(patcher.stop)
 
     class _FakeResponse:
         def __init__(self, payload): self._payload = payload

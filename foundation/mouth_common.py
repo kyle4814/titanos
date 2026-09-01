@@ -22,6 +22,9 @@ from __future__ import annotations
 import hashlib
 import json
 import urllib.error
+import ipaddress
+import socket
+import urllib.parse
 import urllib.request
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -70,6 +73,66 @@ class FetchError(Exception):
     """The feed could not be retrieved or parsed this attempt. Bounded,
     expected, non-fatal — callers must treat this as UNAVAILABLE, never
     as 'zero items' or 'no change'."""
+
+
+# ── SSRF GUARD ────────────────────────────────────────────────────────
+#
+# THE DEFECT THIS CLOSES (blue-team pass 006, confirmed statically):
+# `url` is caller-supplied and was passed straight into
+# `urllib.request.Request` with no validation of any kind. Grepping the
+# whole control plane -- mouth_common, discovery_authorization,
+# communication_gate -- for a scheme, host or IP check returned nothing.
+# So `file:///etc/passwd`, `http://169.254.169.254/` (cloud metadata),
+# `http://localhost:8080/`, and every RFC1918 address were reachable by
+# any validly-authorized policy.
+#
+# Authorization answered "may this caller fetch?" and nothing answered
+# "fetch WHAT?". Adding POST made that worse: a request that can carry a
+# body to an internal address is a considerably more useful weapon than
+# one that can only GET.
+#
+# WHAT THIS DOES NOT DO. It resolves the hostname and rejects private
+# destinations, but resolution here and connection inside urllib are two
+# separate lookups -- a DNS entry that changes between them (rebinding)
+# is not caught. Closing that needs connection-level pinning, which
+# urllib does not expose. This raises the cost of the attack
+# substantially; it does not reduce it to zero, and saying so is the
+# point.
+_ALLOWED_SCHEMES = frozenset({"https"})
+
+
+def _reject_unsafe_url(url: str) -> None:
+    """Raise CommunicationDenied unless `url` is a public https endpoint."""
+    parsed = urllib.parse.urlparse(url)
+    if parsed.scheme not in _ALLOWED_SCHEMES:
+        raise CommunicationDenied(
+            f"refusing to fetch {url!r}: scheme {parsed.scheme!r} is not "
+            f"allowed. Only {sorted(_ALLOWED_SCHEMES)} may be fetched -- "
+            f"file://, ftp:// and plaintext http:// are refused outright"
+        )
+    host = parsed.hostname
+    if not host:
+        raise CommunicationDenied(f"refusing to fetch {url!r}: no host")
+    try:
+        infos = socket.getaddrinfo(host, parsed.port or 443,
+                                   proto=socket.IPPROTO_TCP)
+    except OSError as exc:
+        raise CommunicationDenied(
+            f"refusing to fetch {url!r}: host {host!r} did not resolve "
+            f"({exc.__class__.__name__}); an unresolvable host cannot be "
+            f"shown to be public"
+        ) from exc
+    for info in infos:
+        addr = ipaddress.ip_address(info[4][0])
+        if (addr.is_private or addr.is_loopback or addr.is_link_local
+                or addr.is_reserved or addr.is_multicast
+                or addr.is_unspecified):
+            raise CommunicationDenied(
+                f"refusing to fetch {url!r}: host {host!r} resolves to "
+                f"{addr}, which is not a public address. Cloud metadata "
+                f"services, loopback and RFC1918 ranges are refused -- "
+                f"this fetcher exists to read public feeds"
+            )
 
 
 def fetch_feed(url: str, timeout: int = DEFAULT_TIMEOUT_SECONDS,
@@ -176,6 +239,7 @@ def fetch_feed(url: str, timeout: int = DEFAULT_TIMEOUT_SECONDS,
     #     charged before this point regardless of method, so POST is not
     #     a second path around the control plane. That is the property
     #     the tests pin.
+    _reject_unsafe_url(url)
     data = None
     headers = {"User-Agent": user_agent}
     if json_body is not None:
@@ -193,6 +257,19 @@ def fetch_feed(url: str, timeout: int = DEFAULT_TIMEOUT_SECONDS,
                 f"bytes, over MAX_REQUEST_BYTES ({MAX_REQUEST_BYTES})"
             )
         headers["Content-Type"] = "application/json"
+        # SCOPE IS NOT DECORATIVE. Blue-team pass 006 found READ_URL and
+        # READ_API were only ever checked for set-membership -- nothing
+        # compared the declared scope against what the request actually
+        # does, so a READ_URL policy could drive a POST with a
+        # caller-controlled body. A scope that does not constrain
+        # anything is a label, and this repository's whole argument is
+        # that a label is not a control.
+        if getattr(policy, "requested_scope", None) == "READ_URL":
+            raise CommunicationDenied(
+                f"refusing to fetch {url!r}: policy scope is READ_URL, "
+                f"which authorises reading a URL, not sending a request "
+                f"body. Declare READ_API to POST."
+            )
     request = urllib.request.Request(url, data=data, headers=headers)
     try:
         with urllib.request.urlopen(request, timeout=timeout) as response:
