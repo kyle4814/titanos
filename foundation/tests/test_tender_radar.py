@@ -245,3 +245,37 @@ class TestColdStart(unittest.TestCase):
                 {"results": []}).encode())
             self.assertTrue(missing.is_dir())
             self.assertEqual(len(result.signals), 0)
+
+
+class TestTargetIsBounded(unittest.TestCase):
+    """Blue-team pass 004, finding 8a, severity MEDIUM.
+
+    `describe()` truncation was applied to the display fields and NOT to
+    `target`, which was built from the raw `buyer_name`. A 2MB buyer name
+    therefore produced a multi-megabyte write into the durable outcome
+    ledger. An attacker-controlled field that is bounded on screen and
+    unbounded on disk is exactly the wrong way round: the screen is
+    ephemeral and the ledger is not.
+    """
+
+    def _item(self, **over):
+        base = {"key": "k1", "buyer_name": "Acme Council", "title": "t",
+                "description": "d", "tender_id": "T1",
+                "tag": ["tender"], "status": "active"}
+        base.update(over)
+        return base
+
+    def test_a_two_megabyte_buyer_name_cannot_reach_the_ledger(self):
+        sig = tender_radar.tender_signal(self._item(buyer_name="A" * 2_000_000))
+        self.assertLessEqual(len(sig.target), 400)
+
+    def test_an_ordinary_buyer_name_survives_intact(self):
+        """Bounding must not mangle real data — the fix is a ceiling, not
+        a transformation."""
+        sig = tender_radar.tender_signal(self._item(buyer_name="Neston Town Council"))
+        self.assertIn("neston town council", sig.target.lower())
+
+    def test_target_falls_back_when_buyer_name_is_absent(self):
+        sig = tender_radar.tender_signal(self._item(buyer_name=""))
+        self.assertTrue(sig.target.strip(),
+                        "a signal with no buyer must still have a target")

@@ -223,3 +223,49 @@ class ShowTheMathTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestOperationIdIsNotInjectable(unittest.TestCase):
+    """Blue-team pass 004, finding 9b, severity HIGH.
+
+    `operation_id()` originally joined signal ids with commas. A single
+    signal whose id is literally "tender:X,tender:Y" then produced the
+    same joined string as two genuine signals, so both hashed identically
+    and `OutcomeLedger.record()` treated the second REAL observation as a
+    replay of the first -- returning the original record with no
+    exception and no log line.
+
+    That is the inverse of double-counting and it is the worse failure: a
+    double count shows up in the numbers, a swallowed observation looks
+    exactly like nothing having happened. signal_id is attacker-reachable
+    because it is derived from an external feed's identifiers.
+    """
+
+    def _sig(self, signal_id, target="acme corp"):
+        return _signal(signal_id=signal_id, target=target)
+
+    def test_a_comma_in_one_signal_id_does_not_impersonate_two_signals(self):
+        one = collapse_by_controlling_party([self._sig("tender:X,tender:Y")])
+        two = collapse_by_controlling_party(
+            [self._sig("tender:X"), self._sig("tender:Y")])
+        self.assertEqual(len(one), 1)
+        self.assertEqual(len(two), 1)
+        self.assertNotEqual(
+            one[0].operation_id(), two[0].operation_id(),
+            "one crafted signal id collides with two genuine signals; a real "
+            "observation would be silently discarded as a replay")
+
+    def test_identical_signal_sets_still_produce_identical_ids(self):
+        """The fix must not break replay safety, which is the whole point
+        of the id existing."""
+        a = collapse_by_controlling_party(
+            [self._sig("tender:X"), self._sig("tender:Y")])
+        b = collapse_by_controlling_party(
+            [self._sig("tender:Y"), self._sig("tender:X")])   # order swapped
+        self.assertEqual(a[0].operation_id(), b[0].operation_id())
+
+    def test_a_genuinely_new_signal_still_changes_the_id(self):
+        a = collapse_by_controlling_party([self._sig("tender:X")])
+        b = collapse_by_controlling_party(
+            [self._sig("tender:X"), self._sig("tender:Z")])
+        self.assertNotEqual(a[0].operation_id(), b[0].operation_id())

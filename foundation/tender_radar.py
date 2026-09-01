@@ -329,7 +329,16 @@ def tender_signal(item: dict, now: Optional[datetime] = None) -> CanonicalSignal
     buyer = describe(item.get("buyer_name", ""))
     markers = tuple(sorted(set(title.markers) | set(description.markers) | set(buyer.markers)))
 
-    target = item.get("buyer_name") or item.get("tender_id") or item["key"]
+    # TRUNCATED, and deliberately not the raw field. `buyer.safe` is the
+    # describe()d value; `item["buyer_name"]` is whatever the feed sent.
+    # Blue-team pass 004 finding 8a: this line used the raw value, so a
+    # 2MB buyer name produced a 4MB write into the durable outcome
+    # ledger -- the display fields were bounded and the one field that
+    # reaches persistent storage was not. An attacker-controlled field
+    # that is bounded on screen and unbounded on disk is the wrong way
+    # round.
+    target = (buyer.safe or describe(item.get("tender_id", "")).safe
+              or describe(str(item.get("key", ""))).safe)
 
     claim_subject = title.safe or item.get("tender_id") or item["key"]
     claim = f"open UK public-sector tender: {claim_subject}"

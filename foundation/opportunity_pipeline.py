@@ -120,8 +120,26 @@ class PipelineOpportunity:
         notice for the same buyer is a new observation and gets a new
         operation id, exactly matching the ledger's own documented
         distinction between a retried write and a genuinely new fact."""
-        signal_ids = ",".join(sorted(s.signal_id for s in self.signals))
-        raw = f"{self.opportunity_id}|{signal_ids}"
+        # LENGTH-PREFIXED, NOT COMMA-JOINED. The obvious `",".join(...)`
+        # is injectable and was exploited in blue-team pass 004: a single
+        # signal whose id is literally "tender:X,tender:Y" produces the
+        # same joined string as two genuine signals {"tender:X",
+        # "tender:Y"}, so both hash identically. The ledger then treats
+        # the second, REAL observation as a replay of the first and
+        # silently returns the original record -- no exception, no log.
+        #
+        # That is the inverse of double-counting and it is worse: a
+        # double count is visible in the numbers, whereas a swallowed
+        # observation looks exactly like nothing having happened. The
+        # attacker controls signal_id because it is derived from an
+        # external feed's identifiers.
+        #
+        # Prefixing each element with its own byte length makes the
+        # encoding unambiguous: no arrangement of element contents can
+        # reproduce a different element boundary.
+        parts = sorted(s.signal_id for s in self.signals)
+        encoded = "".join(f"{len(p.encode())}:{p}" for p in parts)
+        raw = f"{len(self.opportunity_id.encode())}:{self.opportunity_id}|{encoded}"
         return "OP-" + hashlib.sha256(raw.encode()).hexdigest()[:16]
 
 
