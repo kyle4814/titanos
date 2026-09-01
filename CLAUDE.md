@@ -293,6 +293,21 @@ exists because a live run found the previous one lying.
 - `mouth_common.py` + `mouth_github_releases/pypi/npm/github_issues/
   github_commits.py` — the fetchers. `fetch_feed()` is the repository's
   only socket and is gated (see the communication-gate note above).
+  **It issues POST as well as GET since 2026-09-01**, and the reason is
+  worth knowing: EU TED publishes ~397,000 open procurement notices under
+  CC BY 4.0 with no key, its search endpoint is POST-only (`GET` → 405),
+  and so the largest lawful source of real demand this project has found
+  was unreachable because of a constraint this repository imposed on
+  itself. POST stays deliberately narrow — the body must be a `Mapping`
+  serialised here so a caller cannot choose its own content type, there is
+  no `method` parameter so PUT/DELETE/PATCH are unreachable *by
+  construction*, and `MAX_REQUEST_BYTES` bounds the request the way
+  `MAX_FEED_BYTES` already bounded the response. Authorization and budget
+  are charged before the socket opens regardless of method: a second POST
+  against a `max_queries=1` policy raises `DiscoveryBudgetExhausted`, and
+  `foundation/tests/test_network_control_plane.py` pins that. **POST is
+  the same door, not a second door with weaker locks** — and if you are
+  extending this function, that sentence is the property to preserve.
 - `activity_shape.py` — human hands versus machines. `_is_bot` is the
   single bot classifier; nothing may grow a second one.
 - `code_pressure.py` — share of recent commits that are repair work.
