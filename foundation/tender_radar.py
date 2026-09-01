@@ -147,13 +147,52 @@ CANNOT
 - Cannot tell a genuinely new opportunity from a re-published one:
   `ocid` is the OCDS-assigned identity and is trusted as the dedupe
   key, but a buyer could in principle recycle text across notices.
-- Cannot verify a stable, fetchable per-notice URL. The Contracts
-  Finder *website* (as opposed to the API) 403s this fetcher's honest
-  User-Agent exactly like AusTender does, so `Notice/<id>`-shaped URLs
-  were tried and could not be verified live; none is fabricated here.
-  `source_ref` instead names the feed this signal was read from, and
-  `evidence["ocid"]` is the key to re-find the same notice in a fresh
-  pull -- honest about the limitation rather than guessing a link.
+- CORRECTED 2026-09-01: this bullet previously said this module could
+  not verify a per-notice URL and used `source_ref = FEED_URL` instead
+  -- identical on every signal, misleading to a human trying to open
+  the actual notice, and the same upstream-provenance defect class
+  `mouth_ted.py`'s own 2026-09-01 correction names (cycle 007's 96.4%
+  false-positive relevance failure traced to a `source_ref` that
+  pointed at the query, not the notice). The Contracts Finder
+  *website* front end (`contractsfinder.service.gov.uk/Notice/<id>`)
+  still 403s this fetcher's honest User-Agent, confirmed again live --
+  but the **API** publishes a working, unauthenticated, per-notice JSON
+  endpoint that is a distinct surface from the website and was never
+  tried before: `GET Published/Notice/OCDS/{id}`, documented at
+  `/apidocumentation` and confirmed live 2026-09-01 (`curl -A <this
+  fetcher's own User-Agent> https://www.contractsfinder.service.gov.uk/
+  Published/Notice/OCDS/5b380649-fa7f-42e5-a7bd-025b0c4650e1-912525` ->
+  HTTP 200, real JSON, whose own `uri` field independently names the
+  same notice). `{id}` here is the OCDS **release id** (`releases[].id`,
+  e.g. `"5b380649-fa7f-42e5-a7bd-025b0c4650e1-912525"`) -- NOT the
+  `ocid` (`releases[].ocid`) already used as this module's dedupe key;
+  the two are different fields and `Published/OCDS/Record/{ocid}` was
+  tried and confirmed live to 404 for the same notice
+  (`{"code":"NotFound","property":"PublishedNoticeId"}`), so `ocid`
+  cannot be substituted here. `parse_items()` now captures `releases[].id`
+  as `release_id`; `_notice_url()` builds the per-notice URL from it.
+  Never falls back to `FEED_URL` -- `""` is the honest result when a
+  release genuinely carries no `id` (see `_notice_url()`'s own
+  docstring for why that cannot occur for items that reach it in
+  practice), matching the "empty over misleading" rule this module's
+  task brief states explicitly.
+- Cannot filter this feed's own search endpoint by CPV/classification
+  server-side. `/apidocumentation` documents exactly five query
+  parameters for `Published/Notices/OCDS/Search`
+  (`publishedFrom`, `publishedTo`, `stages`, `limit`, `cursor`) -- no
+  CPV parameter exists. Verified live, not assumed: appending
+  `&cpv=72000000` or `&classification-cpv=72000000` to a real search
+  request returned HTTP 200 with the identical 100-release result set
+  (same count, same date range) as the request with neither parameter
+  -- an unrecognised query parameter is silently accepted and ignored
+  by this endpoint rather than rejected, exactly the failure class
+  this module's task brief named as a thing to check for rather than
+  assume. This module therefore does NOT attempt to filter by CPV on
+  the wire. It instead reads the notice's OWN classification
+  (`tender.classification` + `tender.additionalClassifications`,
+  confirmed live to be populated on real notices) into `facts["cpv"]`,
+  so a relevance scorer reading CPV evidence is matching the notice's
+  real declared category, not a query this endpoint cannot honour.
 - Cannot see notices published by a body using a different Contracts
   Finder-shaped platform (MultiQuote, in-house portals) that this feed
   only references by name in free text -- several live notices above
@@ -164,11 +203,14 @@ CANNOT
 
 from __future__ import annotations
 
+import hashlib
 import json
+import unicodedata
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Callable, Optional
+from urllib.parse import quote
 
 from foundation.discovery_authorization import DiscoveryPolicy
 from foundation.mouth_common import FetchError, MouthObservation, fetch_feed
@@ -178,8 +220,9 @@ from foundation.untrusted_text import describe
 
 __all__ = [
     "MOUTH_ID", "FEED_URL", "DISCOVERY_POLICY", "OPEN_TENDER_STATUSES",
-    "FetchError", "MouthObservation", "parse_items", "observe",
-    "tender_signal", "TenderRadarSweep", "sweep",
+    "RECENCY_WINDOW_DAYS", "NOTICE_URL_TEMPLATE", "FetchError",
+    "MouthObservation", "parse_items", "observe", "tender_signal",
+    "TenderRadarSweep", "sweep",
 ]
 
 MOUTH_ID = "tender_radar_uk_contracts_finder"
@@ -193,6 +236,73 @@ FEED_URL = (
     "https://www.contractsfinder.service.gov.uk/Published/Notices/OCDS/"
     "Search?order_by=publishedDate&order_direction=desc&size=100"
 )
+
+# RECENCY. `publishedFrom` is a real, documented query parameter for
+# this endpoint (`/apidocumentation`'s own signature: `Published/
+# Notices/OCDS/Search?publishedFrom={publishedFrom}&publishedTo=
+# {publishedTo}&stages={stages}&limit={limit}&cursor={cursor}`) --
+# proven to actually filter, not silently accepted and ignored (the
+# CPV parameter's failure mode -- see module docstring's CANNOT
+# section), by four live requests run back to back on 2026-09-01,
+# same order_by/size, only `publishedFrom` changed:
+#
+#   publishedFrom=2020-01-01T00:00:00Z  -> 100 releases (page cap),
+#                                           oldest returned 2026-08-28
+#   publishedFrom=2026-08-25T00:00:00Z  -> 100 releases (page cap),
+#                                           oldest returned 2026-08-28
+#   publishedFrom=2026-08-30T00:00:00Z  -> 5 releases,
+#                                           oldest returned 2026-08-30
+#   publishedFrom=2026-08-31T12:00:00Z  -> 1 release,
+#                                           the single 17:36 notice
+#
+# Monotonically decreasing as the window narrows past the point where
+# it actually excludes releases -- the clause changes what is
+# returned, the same live-comparison method `mouth_ted.py`'s own
+# publication-date proof uses. `_recency_feed_url()` computes
+# `publishedFrom` at fetch time (`now - RECENCY_WINDOW_DAYS days`) and
+# appends it to `FEED_URL`, matching the exact ISO-8601 `Z`-suffixed
+# form used in the live probe above -- untested alternate forms are
+# not assumed to work.
+RECENCY_WINDOW_DAYS = 90
+
+# The real, live-verified per-notice API endpoint (2026-09-01) --
+# see the module docstring's CORRECTED bullet for the full finding,
+# including why `Published/OCDS/Record/{ocid}` (the endpoint this
+# module's dedupe key would naturally suggest) does NOT work and
+# `Published/Notice/OCDS/{release_id}` does. `{release_id}` is
+# `releases[].id`, not `releases[].ocid`.
+NOTICE_URL_TEMPLATE = (
+    "https://www.contractsfinder.service.gov.uk/Published/Notice/OCDS/{id}"
+)
+
+
+def _recency_feed_url(now: Optional[datetime] = None) -> str:
+    """`FEED_URL` plus a live-verified `publishedFrom` clause (see
+    RECENCY_WINDOW_DAYS's own comment for the live proof this filters).
+    `now` is threaded through from `observe()`/`sweep()`'s own `now`
+    parameter so this is deterministic and testable, not a hidden call
+    to the wall clock.
+    """
+    published_from = (now or datetime.now(timezone.utc)) - timedelta(
+        days=RECENCY_WINDOW_DAYS)
+    stamp = published_from.strftime("%Y-%m-%dT%H:%M:%SZ")
+    return f"{FEED_URL}&publishedFrom={quote(stamp, safe='')}"
+
+
+def _notice_url(release_id: str) -> str:
+    """This notice's own per-notice API URL (see NOTICE_URL_TEMPLATE's
+    own comment for what was verified live). `release_id` must already
+    be the bounded, describe()d value -- callers never pass a raw,
+    unbounded field here (see `tender_signal()`). Returns `""` for an
+    empty `release_id` -- never falls back to `FEED_URL`, which would
+    misleadingly point a human at the search endpoint instead of the
+    notice they're being shown (the exact defect this fixes -- see
+    module docstring).
+    """
+    if not release_id:
+        return ""
+    return NOTICE_URL_TEMPLATE.format(id=quote(release_id, safe=""))
+
 
 DISCOVERY_POLICY = DiscoveryPolicy(
     objective=(
@@ -292,10 +402,40 @@ def parse_items(raw: bytes) -> tuple[dict, ...]:
         buyer = buyer if isinstance(buyer, dict) else {}
         buyer_name = _clean_str(buyer.get("name"))
 
+        # The OCDS release id -- distinct from `ocid` above, and the
+        # only field the live-verified per-notice endpoint accepts (see
+        # NOTICE_URL_TEMPLATE's own comment). Missing/wrong-typed ->
+        # "", which _notice_url() honestly turns into source_ref="".
+        release_id = _clean_str(rel.get("id"))
+
+        # The notice's OWN CPV classification -- `tender.classification`
+        # is the primary code, `tender.additionalClassifications` are
+        # secondary ones; both confirmed live (2026-09-01) to be
+        # populated on real notices. Read here (rather than filtered on
+        # the wire -- see module docstring's CANNOT section for why
+        # server-side CPV filtering does not exist on this endpoint) so
+        # a relevance scorer matches the notice's real declared
+        # category, not a query string.
+        cpv_codes: list[str] = []
+        classification = tender.get("classification")
+        if isinstance(classification, dict):
+            main_cpv = _clean_str(classification.get("id"))
+            if main_cpv:
+                cpv_codes.append(main_cpv)
+        additional = tender.get("additionalClassifications")
+        if isinstance(additional, list):
+            for entry in additional:
+                if isinstance(entry, dict):
+                    code = _clean_str(entry.get("id"))
+                    if code:
+                        cpv_codes.append(code)
+        cpv = " ".join(cpv_codes)
+
         items.append({
             "key": ocid,
             "ocid": ocid,
             "tender_id": _clean_str(tender.get("id")),
+            "release_id": release_id,
             "title": _clean_str(tender.get("title")),
             "description": _clean_str(tender.get("description")),
             "status": status if isinstance(status, str) else "",
@@ -303,6 +443,7 @@ def parse_items(raw: bytes) -> tuple[dict, ...]:
             "currency": currency,
             "deadline": deadline,
             "buyer_name": buyer_name,
+            "cpv": cpv,
             "published": _clean_str(rel.get("date")),
         })
     return tuple(items)
@@ -317,9 +458,11 @@ def observe(
     every test in `foundation/tests/test_tender_radar.py` -- no test in
     this repository touches the real network, this module included.
     When `fetch_fn` is None the default path goes through
-    `mouth_common.fetch_feed()`, which refuses without `DISCOVERY_POLICY`
-    -- there is no second, ungated path here."""
-    fetch = fetch_fn or (lambda: fetch_feed(FEED_URL, policy=DISCOVERY_POLICY))
+    `mouth_common.fetch_feed()` against `_recency_feed_url(now)` (see
+    that function's own docstring), which refuses without
+    `DISCOVERY_POLICY` -- there is no second, ungated path here."""
+    fetch = fetch_fn or (lambda: fetch_feed(
+        _recency_feed_url(now), policy=DISCOVERY_POLICY))
     return _observe(MOUTH_ID, state_path, fetch, parse_items, now=now)
 
 
@@ -352,7 +495,21 @@ def tender_signal(item: dict, now: Optional[datetime] = None) -> CanonicalSignal
     target = (buyer.safe or describe(item.get("tender_id", "")).safe
               or describe(str(item.get("key", ""))).safe)
 
-    claim_subject = title.safe or item.get("tender_id") or item["key"]
+    # Same fix, same reasoning, applied to the two OTHER identifier
+    # fields that reach the durable ledger unbounded before this change
+    # -- `evidence["ocid"]`/`evidence["tender_id"]` used the raw
+    # `item["key"]`/`item.get("tender_id")` directly, and `signal_id`
+    # below was built from the raw key too. `mouth_ted.py`'s own blue-
+    # team pass 008 finding 8 is the same defect on TED's
+    # publication-number: a 2,000,000-character identifier reproduced a
+    # >2MB single-record ledger write. A real OCDS `ocid`/tender id is
+    # short (e.g. "ocds-b5fd17-..."); anything this cap actually
+    # truncates is by definition hostile or broken, never a legitimate
+    # value lost.
+    safe_key = describe(str(item.get("key", ""))).safe
+    safe_tender_id = describe(str(item.get("tender_id", ""))).safe
+
+    claim_subject = title.safe or safe_tender_id or safe_key
     claim = f"open UK public-sector tender: {claim_subject}"
     if buyer.safe:
         claim += f" (buyer: {buyer.safe})"
@@ -365,11 +522,49 @@ def tender_signal(item: dict, now: Optional[datetime] = None) -> CanonicalSignal
         money_state = "ADVERTISED"
         money_observed = f"{amount} {currency}"
 
+    # `identity_hash` -- see `opportunity.py::controlling_party()`'s own
+    # docstring for what this is for (collapsing one real buyer seen
+    # through multiple sources, and through truncation, into one
+    # controlling party). Computed by the EXACT SAME recipe
+    # `mouth_ted.ted_signal()` uses, byte for byte: NFKC-normalise,
+    # strip, lower, UTF-8 encode, sha256 hex digest, computed from the
+    # RAW buyer name BEFORE `describe()` truncates it. If this recipe
+    # drifted from mouth_ted's by even a stray `.strip()` or `.lower()`,
+    # the same buyer arriving from TED and from Contracts Finder would
+    # hash to two different digests and never collapse into one party
+    # in `controlling_party()` -- the exact cross-source-collapse
+    # property multi-source sweeping exists for. See
+    # `foundation/tests/test_tender_radar.py`'s
+    # `TestIdentityHashMatchesMouthTed` for a direct byte-for-byte
+    # assertion against `mouth_ted`'s own recipe, not a description of
+    # intent.
+    buyer_raw = item.get("buyer_name", "")
+    identity_hash = (
+        hashlib.sha256(
+            unicodedata.normalize("NFKC", buyer_raw).strip().lower().encode("utf-8")
+        ).hexdigest()
+        if isinstance(buyer_raw, str) and buyer_raw.strip()
+        else ""
+    )
+
+    # This notice's own per-notice API URL -- see NOTICE_URL_TEMPLATE's
+    # own comment for what was verified live 2026-09-01, and the module
+    # docstring's CORRECTED bullet for the full finding. `release_id`
+    # is bounded via describe() before it reaches a URL that itself
+    # becomes part of a durable signal, same discipline as
+    # `safe_key`/`safe_tender_id` above -- an oversized `release_id`
+    # must not produce an oversized `source_ref`. Never falls back to
+    # FEED_URL: "" is the honest result when a notice genuinely has no
+    # derivable per-notice id (see `_notice_url()`'s own docstring).
+    safe_release_id = describe(str(item.get("release_id", ""))).safe
+    source_ref = _notice_url(safe_release_id)
+
     evidence = {
-        "ocid": item["key"],
-        "tender_id": item.get("tender_id", ""),
+        "ocid": safe_key,
+        "tender_id": safe_tender_id,
         "status": item.get("status", ""),
         "buyer_name_safe": buyer.safe,
+        "identity_hash": identity_hash,
         "deadline": item.get("deadline", ""),
         "published": item.get("published", ""),
         "title_safe": title.safe,
@@ -382,14 +577,10 @@ def tender_signal(item: dict, now: Optional[datetime] = None) -> CanonicalSignal
         kwargs["event_at"] = item["published"]
 
     return CanonicalSignal(
-        signal_id=f"tender:{item['key']}",
+        signal_id=f"tender:{safe_key}",
         source_id=MOUTH_ID,
         source_type="OFFICIAL",
-        # Website Notice/<id> pages could not be verified reachable by
-        # this fetcher's honest User-Agent (see module docstring) -- the
-        # feed itself, re-fetchable and matched by evidence["ocid"], is
-        # the honest source_ref rather than a guessed link.
-        source_ref=FEED_URL,
+        source_ref=source_ref,
         target=target,
         kind="DEMAND",
         claim=claim,
@@ -398,6 +589,14 @@ def tender_signal(item: dict, now: Optional[datetime] = None) -> CanonicalSignal
         facts={
             "tender_status": item.get("status", ""),
             "deadline": item.get("deadline", ""),
+            # The notice's OWN CPV classification, populated in
+            # parse_items() from tender.classification +
+            # tender.additionalClassifications -- so a relevance scorer
+            # matching CPV is matching the notice, not the (CPV-filter-
+            # less) query used to find it. See module docstring's
+            # CANNOT section for why this endpoint cannot be filtered
+            # by CPV on the wire.
+            "cpv": item.get("cpv", ""),
         },
         evidence=evidence,
         pressure_class="EXPLICIT_DEMAND",

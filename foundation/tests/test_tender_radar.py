@@ -1,10 +1,13 @@
+import hashlib
 import json
 import tempfile
+import unicodedata
 import unittest
+from datetime import datetime, timezone
 from pathlib import Path
 from unittest import mock
 
-from foundation import tender_radar
+from foundation import mouth_ted, tender_radar
 from foundation.communication_gate import CommunicationDenied
 from foundation.discovery_authorization import (
     DiscoveryBudgetExhausted, DiscoveryPolicy, authorize_discovery,
@@ -16,21 +19,31 @@ from foundation.mouth_common import fetch_feed
 def _release(ocid="ocds-test-0001", tag=("tender",), status="active",
              title="Supply of Widgets", description="A perfectly ordinary notice.",
              buyer_name="Example Council", amount=50000, currency="GBP",
-             deadline="2026-12-01T00:00:00Z", published="2026-09-01T00:00:00Z"):
-    return {
+             deadline="2026-12-01T00:00:00Z", published="2026-09-01T00:00:00Z",
+             release_id="rel-0001-912525", cpv="72000000", additional_cpv=()):
+    tender = {
+        "id": ocid,
+        "title": title,
+        "description": description,
+        "status": status,
+        "value": {"amount": amount, "currency": currency},
+        "tenderPeriod": {"endDate": deadline},
+    }
+    if cpv:
+        tender["classification"] = {"scheme": "CPV", "id": cpv}
+    if additional_cpv:
+        tender["additionalClassifications"] = [
+            {"scheme": "CPV", "id": c} for c in additional_cpv]
+    rel = {
         "ocid": ocid,
         "tag": list(tag),
         "date": published,
         "buyer": {"name": buyer_name},
-        "tender": {
-            "id": ocid,
-            "title": title,
-            "description": description,
-            "status": status,
-            "value": {"amount": amount, "currency": currency},
-            "tenderPeriod": {"endDate": deadline},
-        },
+        "tender": tender,
     }
+    if release_id is not None:
+        rel["id"] = release_id
+    return rel
 
 
 def _feed(*releases):
@@ -224,6 +237,182 @@ class DiscoveryPolicyGateTests(unittest.TestCase):
                 tender_radar.observe(state_path)  # spends the one query
                 with self.assertRaises(DiscoveryBudgetExhausted):
                     tender_radar.observe(state_path)  # refused, budget spent
+
+
+class TestPerNoticeSourceRef(unittest.TestCase):
+    """UK Contracts Finder gap #1: per-notice source_ref, not the same
+    search URL on every signal. Live-verified 2026-09-01: `GET
+    Published/Notice/OCDS/{release_id}` is a real, working,
+    unauthenticated per-notice endpoint distinct from the website
+    (which still 403s this fetcher's honest User-Agent)."""
+
+    def test_two_notices_from_one_sweep_have_different_source_ref(self):
+        item_a = tender_radar.parse_items(
+            _release_feed(_release(ocid="ocds-a", release_id="rel-a")))[0]
+        item_b = tender_radar.parse_items(
+            _release_feed(_release(ocid="ocds-b", release_id="rel-b")))[0]
+        sig_a = tender_radar.tender_signal(item_a)
+        sig_b = tender_radar.tender_signal(item_b)
+        self.assertNotEqual(sig_a.source_ref, sig_b.source_ref)
+        self.assertIn("rel-a", sig_a.source_ref)
+        self.assertIn("rel-b", sig_b.source_ref)
+
+    def test_source_ref_is_the_documented_per_notice_endpoint(self):
+        item = tender_radar.parse_items(
+            _release_feed(_release(release_id="rel-xyz")))[0]
+        signal = tender_radar.tender_signal(item)
+        self.assertEqual(
+            signal.source_ref,
+            "https://www.contractsfinder.service.gov.uk/Published/Notice/OCDS/rel-xyz")
+
+    def test_missing_release_id_leaves_source_ref_empty_not_feed_url(self):
+        item = tender_radar.parse_items(_release_feed(_release(release_id=None)))[0]
+        self.assertEqual(item["release_id"], "")
+        signal = tender_radar.tender_signal(item)
+        self.assertEqual(signal.source_ref, "")
+        self.assertNotEqual(signal.source_ref, tender_radar.FEED_URL)
+
+
+class TestIdentityHashMatchesMouthTed(unittest.TestCase):
+    """`opportunity.py::controlling_party()` uses `evidence["identity_hash"]`
+    to collapse one real buyer arriving from multiple sources into one
+    controlling party. If tender_radar's recipe drifts from
+    mouth_ted's by even a strip() or lower(), a buyer seen through both
+    sources never collapses -- the exact property multi-source sweeping
+    exists for. This asserts byte-for-byte agreement against
+    mouth_ted's own hash for the SAME buyer-name string, not merely
+    that both compute "a hash"."""
+
+    def test_identity_hash_recipe_matches_mouth_ted_exactly(self):
+        buyer_name = "  Ministère de la Santé  "
+        item = tender_radar.parse_items(
+            _release_feed(_release(buyer_name=buyer_name)))[0]
+        radar_signal = tender_radar.tender_signal(item)
+
+        ted_item = {
+            "key": "pub-1", "tender_id": "pub-1", "title": "t",
+            "description": "d", "buyer_name": buyer_name, "cpv": "",
+            "deadline": "", "publication_date": "",
+        }
+        ted_signal = mouth_ted.ted_signal(ted_item)
+
+        self.assertEqual(
+            radar_signal.evidence["identity_hash"],
+            ted_signal.evidence["identity_hash"])
+
+        # Independently recomputed from the documented recipe, so this
+        # test does not just check the two modules agree with EACH
+        # OTHER while both drifting from the documented recipe together.
+        expected = hashlib.sha256(
+            unicodedata.normalize("NFKC", buyer_name).strip().lower().encode("utf-8")
+        ).hexdigest()
+        self.assertEqual(radar_signal.evidence["identity_hash"], expected)
+
+    def test_empty_buyer_name_produces_empty_identity_hash(self):
+        item = tender_radar.parse_items(_release_feed(_release(buyer_name="")))[0]
+        signal = tender_radar.tender_signal(item)
+        self.assertEqual(signal.evidence["identity_hash"], "")
+
+
+class TestOversizedFieldsAreCappedOnThePathToDisk(unittest.TestCase):
+    """Blue-team pass 008, finding 8 (mouth_ted) applied to tender_radar:
+    `signal_id` and `evidence["ocid"]`/`evidence["tender_id"]` used to
+    carry the RAW ocid/tender_id straight into the durable ledger with
+    no length cap, unlike `target` (already fixed for the same reason
+    in an earlier pass). A 2,000,000-character ocid must not reproduce
+    a multi-megabyte ledger write via signal_id or evidence."""
+
+    def _item(self, **over):
+        base = {
+            "key": "k1", "ocid": "k1", "tender_id": "T1", "release_id": "r1",
+            "buyer_name": "Acme Council", "title": "t", "description": "d",
+            "status": "active", "cpv": "72000000",
+        }
+        base.update(over)
+        return base
+
+    def test_oversized_ocid_key_is_capped_in_signal_id(self):
+        huge = "K" * 2_000_000
+        sig = tender_radar.tender_signal(self._item(key=huge, ocid=huge))
+        self.assertLess(len(sig.signal_id), 1000)
+        self.assertLessEqual(len(sig.evidence["ocid"]), 400)
+
+    def test_oversized_tender_id_is_capped_in_evidence(self):
+        huge = "T" * 2_000_000
+        sig = tender_radar.tender_signal(self._item(tender_id=huge))
+        self.assertLessEqual(len(sig.evidence["tender_id"]), 400)
+
+    def test_oversized_release_id_is_capped_in_source_ref(self):
+        huge = "R" * 2_000_000
+        sig = tender_radar.tender_signal(self._item(release_id=huge))
+        self.assertLess(len(sig.source_ref), 1000)
+
+    def test_ordinary_ids_survive_intact(self):
+        sig = tender_radar.tender_signal(self._item())
+        self.assertIn("k1", sig.signal_id)
+        self.assertEqual(sig.evidence["ocid"], "k1")
+        self.assertEqual(sig.evidence["tender_id"], "T1")
+        self.assertIn("r1", sig.source_ref)
+
+
+class TestRecencyFilter(unittest.TestCase):
+    """UK Contracts Finder gap #4a: the search feed's own `publishedFrom`
+    parameter, live-verified to actually filter (see
+    RECENCY_WINDOW_DAYS's module-level comment for the live proof).
+    Tested here for URL construction only -- no network access."""
+
+    def test_recency_feed_url_appends_a_published_from_clause(self):
+        now = datetime(2026, 9, 1, tzinfo=timezone.utc)
+        url = tender_radar._recency_feed_url(now)
+        self.assertTrue(url.startswith(tender_radar.FEED_URL))
+        self.assertIn("publishedFrom=", url)
+        self.assertIn("2026-06-03", url)  # 90 days before 2026-09-01
+
+    def test_recency_window_moves_with_now(self):
+        earlier = tender_radar._recency_feed_url(datetime(2020, 1, 1, tzinfo=timezone.utc))
+        later = tender_radar._recency_feed_url(datetime(2026, 9, 1, tzinfo=timezone.utc))
+        self.assertNotEqual(earlier, later)
+
+    def test_default_observe_uses_a_recency_scoped_url(self):
+        seen_urls = []
+
+        def _fetch_fn():
+            return _release_feed(_release())
+
+        # observe() with fetch_fn injected does not touch the URL
+        # construction path at all -- this instead checks the helper
+        # directly composes with a fixed `now`, which is what
+        # observe()'s default (non-injected) path calls.
+        url = tender_radar._recency_feed_url(datetime(2026, 9, 1, tzinfo=timezone.utc))
+        self.assertIn("Search?order_by=publishedDate", url)
+        self.assertIn("publishedFrom=", url)
+
+
+class TestNoticeOwnCpvInFacts(unittest.TestCase):
+    """UK Contracts Finder gap #4b: the notice's own CPV classification
+    (tender.classification + tender.additionalClassifications) carried
+    in facts["cpv"], since this feed's search endpoint cannot be
+    filtered by CPV server-side (see module docstring's CANNOT
+    section) -- so a relevance scorer must read the notice's real code,
+    not a query string."""
+
+    def test_primary_and_additional_cpv_codes_are_joined(self):
+        rel = _release(cpv="72000000", additional_cpv=("79000000", "48000000"))
+        item = tender_radar.parse_items(_release_feed(rel))[0]
+        self.assertEqual(item["cpv"], "72000000 79000000 48000000")
+        signal = tender_radar.tender_signal(item)
+        self.assertEqual(signal.facts["cpv"], "72000000 79000000 48000000")
+
+    def test_no_cpv_populated_degrades_to_empty_not_a_guess(self):
+        rel = _release(cpv="", additional_cpv=())
+        item = tender_radar.parse_items(_release_feed(rel))[0]
+        self.assertEqual(item["cpv"], "")
+        signal = tender_radar.tender_signal(item)
+        self.assertEqual(signal.facts["cpv"], "")
+
+
+def _release_feed(release):
+    return _feed(release)
 
 
 if __name__ == "__main__":
