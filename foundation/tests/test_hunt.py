@@ -15,6 +15,7 @@ from foundation.hunt import (
     REQUEST_FIELDS_UNION,
     hunt,
     render_hunt,
+    with_recency,
 )
 from foundation.eligibility import FIELDS as ELIGIBILITY_FIELDS
 from foundation.mouth_ted import REQUEST_FIELDS as TED_FIELDS
@@ -216,6 +217,30 @@ class TestRelevanceIsAdditive(unittest.TestCase):
         with_cap = hunt("q", SOLO, capability=cap,
                         fetch_notices_fn=lambda: [degewo_notice()])
         self.assertEqual(without.entries[0].band, with_cap.entries[0].band)
+
+
+class TestRecency(unittest.TestCase):
+    def test_appends_a_publication_date_bound(self):
+        q = with_recency('FT ~ ("x")', 30)
+        self.assertIn("publication-date >= today(-30)", q)
+        self.assertTrue(q.startswith('FT ~ ("x")'))
+
+    def test_rejects_empty_query(self):
+        with self.assertRaises(HuntIntegrityError):
+            with_recency("  ", 30)
+
+    def test_rejects_out_of_range_days(self):
+        with self.assertRaises(HuntIntegrityError):
+            with_recency("q", 0)
+        with self.assertRaises(HuntIntegrityError):
+            with_recency("q", 99_999)
+
+    def test_does_not_filter_on_deadline(self):
+        # Measured 2026-09-02: every deadline-receipt-request comparison
+        # returns zero against the live API, so a query built on it looks
+        # successful and silently matches nothing. This module must never
+        # emit one.
+        self.assertNotIn("deadline", with_recency("q", 30))
 
 
 class TestRender(unittest.TestCase):

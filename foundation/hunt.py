@@ -81,6 +81,7 @@ __all__ = [
     "HuntReport",
     "hunt",
     "render_hunt",
+    "with_recency",
     "REQUEST_FIELDS_UNION",
 ]
 
@@ -105,6 +106,51 @@ BAND_ORDER = ("QUALIFIED", "INSUFFICIENT_DATA", "DISQUALIFIED")
 REQUEST_FIELDS_UNION = tuple(sorted(set(REQUEST_FIELDS) | set(ELIGIBILITY_FIELDS)))
 
 _MAX_NOTICES_HARD_CAP = 250
+
+
+# RECENCY -- measured against the live API on 2026-09-02, not assumed.
+#
+# The obvious filter is the one that does not work. Against the same
+# full-text query returning 54 notices unfiltered:
+#
+#   publication-date >= today(-30)          ->  1
+#   publication-date >= today(-90)          ->  2
+#   deadline-receipt-request >  today(0)    ->  0
+#   deadline-receipt-request >= today(0)    ->  0
+#   deadline-receipt-request >  today(1)    ->  0
+#
+# Every `deadline-receipt-request` comparison returns zero, including
+# ones that must match something. The field is real -- it comes back
+# populated when requested per-notice -- but it is not usable as a
+# filter here, so filtering on "still open" server-side silently
+# returns nothing rather than erroring. That is the same silent-drop
+# class as UK Contracts Finder's ignored `keyword` and the World Bank's
+# ignored date parameters: the query looks like it worked.
+#
+# `publication-date` filters correctly. Recency is therefore expressed
+# as "published recently", which is NOT the same question as "still
+# open" -- a notice published 200 days ago can still be accepting
+# tenders. Callers wanting genuinely-open notices must check each
+# entry's own deadline after fetching. This function does not pretend
+# otherwise, and is named for what it actually does.
+_RECENCY_FIELD = "publication-date"
+_MAX_RECENCY_DAYS = 3650
+
+
+def with_recency(query: str, days: int) -> str:
+    """Append a publication-date bound to a TED expert query.
+
+    This narrows to notices PUBLISHED in the last `days`. It does not
+    and cannot narrow to notices still accepting tenders -- see the
+    measurement above. Do not rename this to something that implies it
+    does.
+    """
+    if not query.strip():
+        raise HuntIntegrityError("cannot add recency to an empty query")
+    if days < 1 or days > _MAX_RECENCY_DAYS:
+        raise HuntIntegrityError(
+            f"days must be between 1 and {_MAX_RECENCY_DAYS}, got {days}")
+    return f"{query} AND {_RECENCY_FIELD} >= today(-{days})"
 
 
 @dataclass(frozen=True)
