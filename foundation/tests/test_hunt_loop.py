@@ -387,3 +387,31 @@ class TestLoopCanRunMultiSource(unittest.TestCase):
                 root, "q", SOLO, now=NOW, sources=(src,),
                 fetch_notices_fn=lambda: [notice("1-2026")])
         self.assertEqual([e.publication_number for e in r.entries], ["1-2026"])
+
+
+class TestLoopForwardsSources(unittest.TestCase):
+    """run_one_hunt_cycle() gained `sources` and routes to hunt_multi(),
+    but run_hunt_loop() did not forward it, so every real unattended run
+    still fell into the single-source branch. The fix to the inner
+    function was invisible from the outside -- which is the only way
+    that mattered, since the CLI calls the outer one."""
+
+    def test_run_hunt_loop_accepts_and_forwards_sources(self):
+        import inspect
+        sig = inspect.signature(run_hunt_loop)
+        self.assertIn("sources", sig.parameters)
+
+    def test_loop_uses_the_sources_it_is_given(self):
+        from foundation.sources import Source
+        src = Source(source_id="FAKE",
+                     fetch_items=lambda: [{"key": "L-1", "title": "Sec review",
+                                           "organisation": "B",
+                                           "link": "https://l.test/1"}],
+                     normalise=lambda i: {"publication-number": i["key"],
+                                          "notice-title": {"eng": (i["title"],)}},
+                     server_side_filterable=False, keyword_fields=("title",))
+        with TempRepo() as root:
+            results = run_hunt_loop(root, "sec", SOLO,
+                                    sources=(src,), max_cycles=1,
+                                    sleep_seconds=0)
+        self.assertEqual(results[0].entries[0].publication_number, "L-1")

@@ -409,18 +409,28 @@ def sources_for_query(
     ted_policy: Optional[DiscoveryPolicy] = None,
     include: Optional[Sequence[str]] = None,
 ) -> Tuple[Source, ...]:
-    """Build the standard three-source list for one `hunt_multi()` call
+    """Build the full source list for one `hunt_multi()` call
     -- a fresh TED `Source` bound to `query` (TED's fetch is server-
     side filtered, so it needs the query at construction time; NZ_GETS
     and UK_CONTRACTS_FINDER do not, and are filtered client-side by
     `hunt_multi()` itself using the same `query`), plus the two
     module-level constants. `include`, if given, names a subset of
-    {"TED", "NZ_GETS", "UK_CONTRACTS_FINDER"} to build -- default is
+    `ALL_SOURCES`'s ids to build -- default is
     every reachable source, which is the whole point of this module."""
+    # MUST STAY IN STEP WITH `ALL_SOURCES`. On 2026-09-02 an end-to-end
+    # verification run found UK_FIND_A_TENDER and ETENDERS_IE listed in
+    # ALL_SOURCES, fully built, individually loadable -- and unreachable
+    # from the operator CLI under any keyword, because this dict is what
+    # the CLI actually calls and it named only three. Registering a
+    # source in one list and not the other means it exists everywhere
+    # except where someone would use it. `test_sources.py` now asserts
+    # the two lists agree.
     all_by_id = {
         "TED": lambda: _make_ted_source(query, limit=ted_limit, policy=ted_policy),
         "NZ_GETS": lambda: NZ_GETS,
         "UK_CONTRACTS_FINDER": lambda: UK_CONTRACTS_FINDER,
+        "UK_FIND_A_TENDER": lambda: UK_FIND_A_TENDER,
+        "ETENDERS_IE": lambda: ETENDERS_IE,
     }
     ids = include if include is not None else tuple(all_by_id)
     unknown = [i for i in ids if i not in all_by_id]

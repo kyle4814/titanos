@@ -388,6 +388,71 @@ class TestRecencyFilter(unittest.TestCase):
         self.assertIn("publishedFrom=", url)
 
 
+class TestStagesParamDefault(unittest.TestCase):
+    """`stages=tender` -- live-verified 2026-09-02 to genuinely filter
+    (nonsense value -> HTTP 400; real value -> tag composition changes),
+    the opposite failure mode from the CPV/keyword parameters this
+    module already proved are silently ignored. See module docstring's
+    PAGINATION section. Tested here for URL construction only -- no
+    network access."""
+
+    def test_recency_feed_url_appends_stages_tender(self):
+        url = tender_radar._recency_feed_url(datetime(2026, 9, 1, tzinfo=timezone.utc))
+        self.assertIn("stages=tender", url)
+
+    def test_stages_tender_only_constant_matches_live_finding(self):
+        self.assertEqual(tender_radar.STAGES_TENDER_ONLY, "tender")
+
+
+class TestNextCursorUrl(unittest.TestCase):
+    """`_next_cursor_url()` -- reads the real, live-verified `links.next`
+    forward-pagination field (see module docstring's PAGINATION section
+    for the live proof this is genuine, not decorative). Never touches
+    the network; every case here is constructed JSON."""
+
+    def test_reads_next_link_when_present(self):
+        raw = json.dumps({
+            "releases": [],
+            "links": {"next": "https://example.invalid/Search?cursor=abc"},
+        }).encode("utf-8")
+        self.assertEqual(
+            tender_radar._next_cursor_url(raw),
+            "https://example.invalid/Search?cursor=abc",
+        )
+
+    def test_returns_none_when_links_absent(self):
+        raw = json.dumps({"releases": []}).encode("utf-8")
+        self.assertIsNone(tender_radar._next_cursor_url(raw))
+
+    def test_returns_none_when_links_not_a_dict(self):
+        raw = json.dumps({"releases": [], "links": "not-a-dict"}).encode("utf-8")
+        self.assertIsNone(tender_radar._next_cursor_url(raw))
+
+    def test_returns_none_when_next_missing(self):
+        raw = json.dumps({"releases": [], "links": {}}).encode("utf-8")
+        self.assertIsNone(tender_radar._next_cursor_url(raw))
+
+    def test_returns_none_when_next_is_empty_string(self):
+        raw = json.dumps({"releases": [], "links": {"next": ""}}).encode("utf-8")
+        self.assertIsNone(tender_radar._next_cursor_url(raw))
+
+    def test_returns_none_when_next_is_wrong_type(self):
+        raw = json.dumps({"releases": [], "links": {"next": 12345}}).encode("utf-8")
+        self.assertIsNone(tender_radar._next_cursor_url(raw))
+
+    def test_returns_none_on_malformed_json(self):
+        self.assertIsNone(tender_radar._next_cursor_url(b"{not json"))
+
+    def test_returns_none_on_non_object_root(self):
+        raw = json.dumps([1, 2, 3]).encode("utf-8")
+        self.assertIsNone(tender_radar._next_cursor_url(raw))
+
+    def test_never_raises_on_garbage_bytes(self):
+        # Same discipline as parse_items() -- a remote server choosing
+        # its own response body must never crash the caller.
+        self.assertIsNone(tender_radar._next_cursor_url(b"\xff\xfe\x00\x01garbage"))
+
+
 class TestNoticeOwnCpvInFacts(unittest.TestCase):
     """UK Contracts Finder gap #4b: the notice's own CPV classification
     (tender.classification + tender.additionalClassifications) carried

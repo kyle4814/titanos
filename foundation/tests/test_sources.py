@@ -170,10 +170,17 @@ class TestSourceConstruction(unittest.TestCase):
 
 
 class TestSourcesForQuery(unittest.TestCase):
-    def test_returns_three_sources_by_default(self):
+    def test_returns_every_registered_source_by_default(self):
+        """Was `test_returns_three_sources_by_default` and hard-coded
+        three ids. Two more sources were added to ALL_SOURCES on
+        2026-09-02 and this test kept passing -- because it asserted a
+        frozen list rather than agreement with the registry, it could
+        not notice that the factory had fallen behind. Now it compares
+        against ALL_SOURCES, so the same drift fails loudly."""
+        from foundation.sources import ALL_SOURCES
         srcs = sources_for_query("cyber security")
         self.assertEqual({s.source_id for s in srcs},
-                          {"TED", "NZ_GETS", "UK_CONTRACTS_FINDER"})
+                          {s.source_id for s in ALL_SOURCES})
 
     def test_include_narrows_the_set(self):
         srcs = sources_for_query("cyber security", include=("NZ_GETS",))
@@ -394,3 +401,28 @@ class TestHonestyRule(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestRegistryAndFactoryAgree(unittest.TestCase):
+    """ALL_SOURCES and sources_for_query() must name the same sources.
+
+    Found 2026-09-02 by an end-to-end run: UK_FIND_A_TENDER and
+    ETENDERS_IE were in ALL_SOURCES, fully built, individually loadable
+    -- and unreachable from the operator CLI under any keyword, because
+    sources_for_query() is what the CLI calls and it named only three.
+    A source registered in one list and not the other exists everywhere
+    except where someone would actually use it, which is the same class
+    of gap as a mouth with no production caller."""
+
+    def test_every_all_sources_id_is_buildable_by_the_factory(self):
+        from foundation.sources import ALL_SOURCES, sources_for_query
+        for src in ALL_SOURCES:
+            built = sources_for_query("x", include=[src.source_id])
+            self.assertEqual(len(built), 1)
+            self.assertEqual(built[0].source_id, src.source_id)
+
+    def test_default_factory_returns_every_registered_source(self):
+        from foundation.sources import ALL_SOURCES, sources_for_query
+        self.assertEqual(
+            sorted(s.source_id for s in sources_for_query("x")),
+            sorted(s.source_id for s in ALL_SOURCES))

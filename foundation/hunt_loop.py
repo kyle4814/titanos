@@ -456,6 +456,15 @@ def run_hunt_loop(
     capability: Optional[CapabilityProfile] = None,
     limit: int = 50,
     fetch_notices_fn: Optional[Callable[[], Sequence[Mapping]]] = None,
+    # MUST BE FORWARDED. run_one_hunt_cycle() gained `sources` and
+    # routes to hunt_multi() when given one -- but this outer wrapper
+    # did not expose it, so every real unattended run fell into the
+    # single-source TED branch regardless. An operator running `hunt` or
+    # `brief` saw three sources; the same operator running the
+    # unattended `loop` -- the one they trust most, because it runs when
+    # they are not watching -- silently watched TED alone, with nothing
+    # in the output saying so. Found 2026-09-02 by an end-to-end run.
+    sources: Optional[Sequence] = None,
     deadline_window_days: int = DEFAULT_DEADLINE_WINDOW_DAYS,
     sleep_seconds: int = 3600,
     sleep_slice_seconds: int = 5,
@@ -482,6 +491,7 @@ def run_hunt_loop(
         result = run_one_hunt_cycle(
             repo_root, query, operator, policy=policy, capability=capability,
             limit=limit, fetch_notices_fn=fetch_notices_fn,
+            sources=sources,
             deadline_window_days=deadline_window_days,
             log_path=resolved_log_path,
         )

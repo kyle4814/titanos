@@ -289,6 +289,59 @@ CANNOT
   `description` text client-side, after fetching, the same limitation
   this module already lived with before this finding, just now proven
   rather than assumed.
+
+PAGINATION -- VERIFIED LIVE 2026-09-02, AND GENUINELY DIFFERENT FROM
+THE CPV/KEYWORD FINDING ABOVE
+
+Prior recon (2026-09-01) proved `publishedFrom`/`publishedTo` filter for
+real. It had not tested `stages`, `limit` or `cursor` against a nonsense
+value the same way the CPV/keyword probe did -- so "this endpoint cannot
+be paginated past page 1" was an assumption riding on an incomplete
+test, not a proven finding. It was wrong. Tested live, 2026-09-02, same
+method as the CPV probe (nonsense value vs. no value vs. real value,
+comparing the real result SET/behaviour, not just a count):
+
+  - `stages=xyzzy123` (nonsense) -> HTTP 400 Bad Request.
+    `stages=tender` (real) -> HTTP 200, and the tag composition of the
+    100 releases returned changed from a baseline mix of
+    `{'award': 89, 'tender': 5, 'awardUpdate': 5, 'planning': 1}` to
+    `{'tender': 82, 'tenderAmendment': 18}` -- every award/awardUpdate/
+    planning release gone. This parameter is REAL and VALIDATED
+    server-side (garbage input is rejected, not silently ignored).
+  - `limit=notanumber` (nonsense) -> HTTP 400 Bad Request. `limit=20`
+    (real) -> HTTP 200 with exactly 20 releases returned (vs. 100 with
+    no `limit`). REAL and VALIDATED.
+  - `cursor=nonsense12345` (nonsense) -> HTTP 400 Bad Request. The real
+    cursor read from the baseline response's own `links.next` field
+    (a genuine field on this feed's JSON root, not documented in
+    `/apidocumentation`'s query-string signature but present on every
+    live response captured this cycle) -> HTTP 200 with a disjoint set
+    of 100 releases (baseline and next-page ocid sets share zero
+    members in the samples compared). REAL and VALIDATED forward
+    pagination.
+
+  This is the opposite failure mode from CPV/keyword: those two are
+  silently accepted and ignored (200, identical result set) on garbage
+  input -- proof they do NOT filter. `stages`/`limit`/`cursor` all
+  **reject** garbage with HTTP 400 -- proof the server actually parses
+  and validates them, which combined with the real-value behaviour
+  change above is direct evidence they genuinely filter/paginate.
+
+  DECISION: `_recency_feed_url()` now appends `&stages=tender` by
+  default (see `STAGES_TENDER_ONLY` below) -- every default sweep this
+  module makes already only wants `tag="tender"` releases per
+  `parse_items()`'s own filter, so asking the server to drop the
+  award/awardUpdate noise before it crosses the wire is a real,
+  verified efficiency gain, not a speculative one. `_next_cursor_url()`
+  exposes the real `links.next` pagination path for a caller that wants
+  to walk multiple pages -- NOT wired into `observe()`/`sweep()`'s
+  default single-fetch cycle, which stays one bounded request per call
+  by the same "bounded by construction" discipline every other mouth in
+  this repository uses; a caller wanting a deeper multi-page sweep
+  (see `UK_SUBTHRESHOLD.md` for one such sweep, run as a one-off script
+  the same way `SMALL_CONTRACTS.md`'s prior sweep was, not baked into
+  this module's default cycle) calls `_next_cursor_url()` itself,
+  throttled, the same way that one-off sweep did.
 """
 
 from __future__ import annotations
@@ -310,9 +363,9 @@ from foundation.untrusted_text import describe
 
 __all__ = [
     "MOUTH_ID", "FEED_URL", "DISCOVERY_POLICY", "OPEN_TENDER_STATUSES",
-    "RECENCY_WINDOW_DAYS", "NOTICE_URL_TEMPLATE", "FetchError",
-    "MouthObservation", "parse_items", "observe", "tender_signal",
-    "TenderRadarSweep", "sweep",
+    "RECENCY_WINDOW_DAYS", "NOTICE_URL_TEMPLATE", "STAGES_TENDER_ONLY",
+    "FetchError", "MouthObservation", "parse_items", "observe",
+    "tender_signal", "TenderRadarSweep", "sweep",
 ]
 
 MOUTH_ID = "tender_radar_uk_contracts_finder"
@@ -366,17 +419,60 @@ NOTICE_URL_TEMPLATE = (
 )
 
 
+
+# The real, live-verified `stages` value that keeps only 'tender'/
+# 'tenderAmendment'-tagged releases -- see the module docstring's
+# "PAGINATION -- VERIFIED LIVE 2026-09-02" section for the live proof
+# (nonsense value -> HTTP 400, this value -> tag composition genuinely
+# changes). `parse_items()` already discards every non-'tender'-tagged
+# release client-side; asking the server to drop award/awardUpdate/
+# planning noise before it crosses the wire is a verified efficiency
+# gain, not a new filtering behaviour -- the set of releases this
+# module ultimately surfaces is unchanged by this parameter.
+STAGES_TENDER_ONLY = "tender"
+
+
 def _recency_feed_url(now: Optional[datetime] = None) -> str:
     """`FEED_URL` plus a live-verified `publishedFrom` clause (see
-    RECENCY_WINDOW_DAYS's own comment for the live proof this filters).
-    `now` is threaded through from `observe()`/`sweep()`'s own `now`
-    parameter so this is deterministic and testable, not a hidden call
-    to the wall clock.
+    RECENCY_WINDOW_DAYS's own comment for the live proof this filters)
+    and a live-verified `stages=tender` clause (see `STAGES_TENDER_ONLY`
+    and the module docstring's PAGINATION section). `now` is threaded
+    through from `observe()`/`sweep()`'s own `now` parameter so this is
+    deterministic and testable, not a hidden call to the wall clock.
     """
     published_from = (now or datetime.now(timezone.utc)) - timedelta(
         days=RECENCY_WINDOW_DAYS)
     stamp = published_from.strftime("%Y-%m-%dT%H:%M:%SZ")
-    return f"{FEED_URL}&publishedFrom={quote(stamp, safe='')}"
+    return (f"{FEED_URL}&publishedFrom={quote(stamp, safe='')}"
+            f"&stages={quote(STAGES_TENDER_ONLY, safe='')}")
+
+
+def _next_cursor_url(raw: bytes) -> Optional[str]:
+    """Read the real, live-verified forward-pagination link
+    (`links.next`) out of an already-fetched OCDS release package -- see
+    the module docstring's PAGINATION section for the live proof this is
+    a genuine cursor, not a decorative field (a garbage `cursor=` value
+    gets HTTP 400; this URL, followed, returns a disjoint page). Returns
+    `None` on malformed JSON, a non-object root, a missing/mistyped
+    `links` object, or a missing/empty `next` -- deliberately never
+    raises, so a caller can loop `while url is not None` without a
+    second layer of error handling. Not wired into `observe()`/
+    `sweep()`'s default single-fetch cycle -- see module docstring for
+    why a caller wanting multi-page depth calls this directly, throttled,
+    the same way `UK_SUBTHRESHOLD.md`'s sweep did.
+    """
+    try:
+        payload = json.loads(raw)
+    except (json.JSONDecodeError, UnicodeDecodeError, TypeError,
+            RecursionError):
+        return None
+    if not isinstance(payload, dict):
+        return None
+    links = payload.get("links")
+    if not isinstance(links, dict):
+        return None
+    nxt = links.get("next")
+    return nxt if isinstance(nxt, str) and nxt.strip() else None
 
 
 def _notice_url(release_id: str) -> str:

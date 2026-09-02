@@ -403,7 +403,21 @@ def _text_map(value: object) -> Optional[dict[str, tuple[str, ...]]]:
             continue
         if isinstance(entry, str) and entry.strip():
             texts = (entry,)
-        elif isinstance(entry, list):
+        elif isinstance(entry, (list, tuple)):
+            # TUPLES COUNT. TED's own API returns lists here, so `list`
+            # was enough while TED was the only source. It is not any
+            # more: `sources.py`'s normalisers build `{lang: (text,)}`
+            # tuples, and a tuple hitting this branch fell through to
+            # `continue` -- so every NZ GETS, UK Contracts Finder, UK
+            # Find a Tender and Ireland eTenders notice arrived with
+            # `notice_title=None`, and the morning brief identified them
+            # by bare opaque URLs an operator cannot act on.
+            #
+            # Found 2026-09-02 by rendering a live multi-source brief and
+            # looking at it, not by reading code. Same failure mode as
+            # the three defects before it: no exception, no empty result,
+            # nothing that looks wrong -- just a field silently dropped
+            # because the type check was one type too narrow.
             texts = tuple(e for e in entry if isinstance(e, str) and e.strip())
         else:
             continue

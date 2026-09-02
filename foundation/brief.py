@@ -141,6 +141,33 @@ _NON_ISO_DEADLINE_FORMATS = (
 )
 
 
+def _title_of(entry) -> str:
+    """A human-readable name for a notice, or "" if the source gave none.
+
+    WHY THIS EXISTS: a live multi-source brief rendered every NZ entry as
+    a bare `https://www.gets.govt.nz//DC/ExternalTenderDetails.htm?id=...`
+    with no title. An operator cannot act on that -- they cannot even
+    tell whether it is worth clicking. The titles were present all along;
+    `eligibility._text_map()` silently dropped tuple-shaped values, so
+    every non-TED source arrived with `notice_title=None`.
+
+    That is fixed at the source. This renders what now survives, and
+    returns "" rather than a placeholder when a notice genuinely has no
+    title -- a fabricated name would be worse than an honest URL.
+    """
+    title_map = getattr(entry.eligibility, "notice_title", None)
+    if not isinstance(title_map, dict):
+        return ""
+    for lang in ("eng", "ENG", "en"):
+        texts = title_map.get(lang)
+        if texts:
+            return str(texts[0])
+    for texts in title_map.values():
+        if texts:
+            return str(texts[0])
+    return ""
+
+
 def _raw_deadline(entry) -> str:
     """The closing date a `HuntEntry`'s signal carries, whichever key
     its source uses. Returns "" when the signal genuinely has none --
@@ -209,6 +236,11 @@ class DeadlineEntry:
     deadline_display: str
     notice_url: str
 
+    # Human-readable name, or "" when the source published none.
+    # Defaulted and last so every existing positional construction
+    # keeps working -- see _title_of() for why this field exists.
+    title: str = ""
+
     def __post_init__(self) -> None:
         if not self.publication_number.strip():
             raise BriefIntegrityError(
@@ -240,6 +272,11 @@ class NewEntry:
     band: str
     notice_url: str
 
+    # Human-readable name, or "" when the source published none.
+    # Defaulted and last so every existing positional construction
+    # keeps working -- see _title_of() for why this field exists.
+    title: str = ""
+
     def __post_init__(self) -> None:
         if not self.publication_number.strip():
             raise BriefIntegrityError(
@@ -256,6 +293,11 @@ class UnresolvedEntry:
     publication_number: str
     document_url: str
     unresolved_dimensions: Tuple[str, ...]
+
+    # Human-readable name, or "" when the source published none.
+    # Defaulted and last so every existing positional construction
+    # keeps working -- see _title_of() for why this field exists.
+    title: str = ""
 
     def __post_init__(self) -> None:
         if not self.publication_number.strip():
@@ -283,6 +325,11 @@ class BlockedEntry:
 
     publication_number: str
     blocking_clause: str
+
+    # Human-readable name, or "" when the source published none.
+    # Defaulted and last so every existing positional construction
+    # keeps working -- see _title_of() for why this field exists.
+    title: str = ""
 
     def __post_init__(self) -> None:
         if not self.publication_number.strip():
@@ -389,6 +436,7 @@ def build_brief(
 
         action_required.append(DeadlineEntry(
             publication_number=entry.publication_number,
+        title=_title_of(entry),
             band=entry.band,
             days_remaining=days,
             deadline_display=display,
@@ -408,6 +456,7 @@ def build_brief(
         new_since_last = tuple(
             NewEntry(
                 publication_number=entry.publication_number,
+        title=_title_of(entry),
                 band=entry.band,
                 notice_url=entry.eligibility.notice_url or "",
             )
@@ -419,6 +468,7 @@ def build_brief(
     unresolved = tuple(
         UnresolvedEntry(
             publication_number=entry.publication_number,
+        title=_title_of(entry),
             document_url=_first_document_url(entry) or UNKNOWN,
             unresolved_dimensions=_dimensions_needing_resolution(entry.qualification),
         )
@@ -428,6 +478,7 @@ def build_brief(
     blocked = tuple(
         BlockedEntry(
             publication_number=entry.publication_number,
+        title=_title_of(entry),
             blocking_clause=" | ".join(entry.blocking_clauses) or UNKNOWN,
         )
         for entry in report.by_band("DISQUALIFIED")
@@ -489,8 +540,11 @@ def render_brief(brief: Brief) -> str:
                 else f"{e.days_remaining} day(s)"
             )
             lines.append(
-                f"  [{e.band}] {e.publication_number}  closes in: {urgency}"
+                f"  [{e.band}] {e.title or e.publication_number}"
+                f"  closes in: {urgency}"
                 f"  (deadline: {e.deadline_display})")
+            if e.title:
+                lines.append(f"      ref: {e.publication_number}")
             if e.notice_url:
                 lines.append(f"      notice: {e.notice_url}")
     lines.append("")
@@ -506,7 +560,9 @@ def render_brief(brief: Brief) -> str:
         lines.append("Nothing new since the last brief.")
     else:
         for e in brief.new_since_last:
-            lines.append(f"  [{e.band}] {e.publication_number}")
+            lines.append(f"  [{e.band}] {e.title or e.publication_number}")
+            if e.title:
+                lines.append(f"      ref: {e.publication_number}")
             if e.notice_url:
                 lines.append(f"      notice: {e.notice_url}")
     lines.append("")
@@ -518,7 +574,9 @@ def render_brief(brief: Brief) -> str:
         lines.append("Nothing unresolved.")
     else:
         for e in brief.unresolved:
-            lines.append(f"  {e.publication_number}")
+            lines.append(f"  {e.title or e.publication_number}")
+            if e.title:
+                lines.append(f"      ref: {e.publication_number}")
             lines.append(f"      open this document: {e.document_url}")
             lines.append(
                 f"      unresolved: {', '.join(e.unresolved_dimensions)}")
@@ -531,7 +589,8 @@ def render_brief(brief: Brief) -> str:
         lines.append("Nothing blocked.")
     else:
         for e in brief.blocked:
-            lines.append(f"  {e.publication_number}: {e.blocking_clause}")
+            lines.append(
+                f"  {e.title or e.publication_number}: {e.blocking_clause}")
 
     nothing_to_show = (
         not brief.action_required
