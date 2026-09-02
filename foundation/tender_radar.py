@@ -364,6 +364,8 @@ from foundation.untrusted_text import describe
 __all__ = [
     "MOUTH_ID", "FEED_URL", "DISCOVERY_POLICY", "OPEN_TENDER_STATUSES",
     "RECENCY_WINDOW_DAYS", "NOTICE_URL_TEMPLATE", "STAGES_TENDER_ONLY",
+    "STAGES_PLANNING_ONLY",
+    "planning_feed_url",
     "FetchError", "MouthObservation", "parse_items", "observe",
     "tender_signal", "TenderRadarSweep", "sweep",
 ]
@@ -430,6 +432,43 @@ NOTICE_URL_TEMPLATE = (
 # gain, not a new filtering behaviour -- the set of releases this
 # module ultimately surfaces is unchanged by this parameter.
 STAGES_TENDER_ONLY = "tender"
+
+
+# THE PRE-TENDER STAGE. `stages=planning` is the same live-verified
+# parameter as `stages=tender` -- a garbage value returns HTTP 400, so
+# the server genuinely reads it -- pointed at notices that exist BEFORE
+# a tender does.
+#
+# WHY THIS MATTERS MORE THAN IT SOUNDS. A planning-stage notice is a
+# buyer describing what they intend to buy, usually as preliminary
+# market engagement. Nothing is being awarded, so there are no selection
+# criteria to fail: no turnover floor, no insurance limit, no reference
+# count. For an operator who is eliminated by every one of those at the
+# tender stage -- measured across five Irish documents at EUR400,000 to
+# EUR2,600,000 turnover and EUR13,000,000 employer's liability -- this
+# is the only stage where the barrier is genuinely zero.
+#
+# Confirmed live 2026-09-03: this filter returns real planning-stage
+# releases with `status: "planned"` and no `tenderPeriod`, which is
+# exactly the shape `notice_class.classify_notice()` reads as
+# MARKET_ENGAGEMENT.
+STAGES_PLANNING_ONLY = "planning"
+
+
+def planning_feed_url(now: Optional[datetime] = None) -> str:
+    """`_recency_feed_url()`'s pre-tender counterpart: same recency
+    window, `stages=planning` instead of `stages=tender`.
+
+    Deliberately a separate function rather than a parameter on the
+    existing one. The two answer different questions -- "what can I bid
+    on" versus "what is a buyer about to want" -- and a caller should
+    have to say which it means.
+    """
+    published_from = (now or datetime.now(timezone.utc)) - timedelta(
+        days=RECENCY_WINDOW_DAYS)
+    stamp = published_from.strftime("%Y-%m-%dT%H:%M:%SZ")
+    return (f"{FEED_URL}&publishedFrom={quote(stamp, safe='')}"
+            f"&stages={quote(STAGES_PLANNING_ONLY, safe='')}")
 
 
 def _recency_feed_url(now: Optional[datetime] = None) -> str:

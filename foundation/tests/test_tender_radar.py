@@ -760,3 +760,42 @@ class TestDeepNestingIsRefusedNotCrashed(unittest.TestCase):
         except tender_radar.FetchError as exc:
             self.assertLess(len(str(exc)), 200)
             self.assertIn("RecursionError", str(exc))
+
+
+class TestPlanningStageSweep(unittest.TestCase):
+    """`stages=planning` reaches notices that exist BEFORE a tender does.
+
+    Why this is a separate capability rather than a parameter: a
+    planning-stage notice is a buyer describing what they intend to buy,
+    with nothing yet being awarded and therefore no selection criteria
+    to fail. Measured across five Irish tender documents, the tender
+    stage demands EUR400,000-EUR2,600,000 turnover and EUR13,000,000
+    employer's liability. The planning stage demands nothing, because
+    there is nothing to qualify for yet.
+
+    "What can I bid on" and "what is a buyer about to want" are
+    different questions, and a caller should have to say which it means.
+    """
+
+    def test_planning_url_carries_the_planning_stage(self):
+        from foundation.tender_radar import planning_feed_url
+        url = planning_feed_url(datetime(2026, 9, 3, tzinfo=timezone.utc))
+        self.assertIn("stages=planning", url)
+
+    def test_planning_url_keeps_the_recency_window(self):
+        from foundation.tender_radar import planning_feed_url
+        url = planning_feed_url(datetime(2026, 9, 3, tzinfo=timezone.utc))
+        self.assertIn("publishedFrom=", url)
+
+    def test_planning_and_tender_urls_differ_only_in_stage(self):
+        from foundation.tender_radar import (
+            planning_feed_url, _recency_feed_url)
+        now = datetime(2026, 9, 3, tzinfo=timezone.utc)
+        p = planning_feed_url(now).replace("stages=planning", "STAGE")
+        t = _recency_feed_url(now).replace("stages=tender", "STAGE")
+        self.assertEqual(p, t)
+
+    def test_planning_url_is_deterministic(self):
+        from foundation.tender_radar import planning_feed_url
+        now = datetime(2026, 9, 3, tzinfo=timezone.utc)
+        self.assertEqual(planning_feed_url(now), planning_feed_url(now))

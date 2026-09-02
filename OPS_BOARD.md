@@ -114,6 +114,20 @@ And the buyer's own framing of the whole scheme:
   criteria say "business" and "company" without defining or excluding.
   UNKNOWN, and worth one email.
 
+**THE APPLICATION QUESTIONS ARE BEHIND A FREE ACCOUNT — a human step.**
+The GETS notice lists its attachments, and one is literally *"Standing
+Notice of Procurement: Appendix 2: The I/TMS Application questions"* —
+the exact document that would answer what the application asks. On the
+anonymous page every attachment link routes through
+`TendererLogin.auth`. That is a supplier account, not a paywall and not
+a block: free to create, and this cycle will not create one because
+account creation is yours, not mine.
+
+**Ten minutes with a GETS account gets you the actual application
+questions, the Information Security Tiering Standard, and the four GCDO
+certification scoping templates.** Everything currently marked UNKNOWN
+above is inside those files.
+
 Contact published on the notice: `marketplace@dia.govt.nz`, and their
 own site currently warns *"Due to high demand, it may take us longer
 than usual to process applications"* — which is a live scheme, not a
@@ -523,6 +537,34 @@ genuinely receive.
 **Pwn2Own Ireland is gated:** it requires **$15,000 already earned
 through ZDI** before you may compete. Quoted from its own rules. Which
 is another reason ZDI is item 1 on this board.
+
+---
+
+## THE STAGE BEFORE THE BARRIER EXISTS
+
+Every threshold on this board — €2,600,000 turnover, €13,000,000
+employer's liability, three reference contracts — is a **selection
+criterion**, and selection criteria only exist once a buyer is running a
+competition. Before that, a buyer publishes what they intend to buy, and
+there is nothing to qualify for because nothing is being awarded.
+
+UK Contracts Finder exposes this directly: `stages=planning`, the same
+live-verified parameter as `stages=tender` (a garbage value returns
+HTTP 400, so the server genuinely reads it). Confirmed live 2026-09-03 —
+it returns real releases with `status: "planned"` and no `tenderPeriod`,
+which is exactly the shape the classifier reads as MARKET_ENGAGEMENT.
+
+`foundation/tender_radar.py::planning_feed_url()` now makes that a
+standing capability rather than a one-off query.
+
+**First live run found three security notices in planning stage — all
+physical security** (manned guarding for Waltham Forest at £5,798,058;
+MoD supply-chain notice WP073 for CCTV, access and intruder at
+£300,000). No cyber this pass.
+
+That is an honest empty result for one sweep, not a verdict on the
+route. The route is now permanent, runs on every cycle, and is the only
+stage where the barrier is genuinely zero rather than merely unstated.
 
 ---
 
