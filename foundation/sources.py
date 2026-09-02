@@ -227,6 +227,11 @@ def _ted_signal_from_raw(notice: dict, now: Optional[datetime]) -> CanonicalSign
     return mouth_ted.ted_signal(item, now=now)
 
 
+# Largest `limit` TED accepts alongside the full eligibility+mouth field
+# union. Measured, not guessed -- see _default_ted_fetch() below.
+_TED_MAX_NOTICES_FOR_FIELD_COUNT = 100
+
+
 def _default_ted_fetch(query: str, limit: int, policy: DiscoveryPolicy) -> Tuple[dict, ...]:
     """The real network path for TED, reusing `mouth_ted.FEED_URL` and
     `mouth_ted.REQUEST_FIELDS` (that module's own public field list --
@@ -237,10 +242,28 @@ def _default_ted_fetch(query: str, limit: int, policy: DiscoveryPolicy) -> Tuple
     from foundation.eligibility import FIELDS as ELIGIBILITY_FIELDS
 
     fields = tuple(sorted(set(mouth_ted.REQUEST_FIELDS) | set(ELIGIBILITY_FIELDS)))
+
+    # TED'S REAL CAP IS fields x limit, NOT limit ALONE. Measured live
+    # 2026-09-03: with this 46-field union, limit=250 returns HTTP 400
+    # and limit=100 succeeds -- while limit=250 with a ONE-field request
+    # succeeds and returns 250 notices. The ceiling is on response size,
+    # so a caller who only ever tuned `limit` would conclude 250 works,
+    # which it does, right up until the field list grows.
+    #
+    # This was found because a nightly multi-source sweep reported
+    # "fetched 360, assessed 50" while TED -- the largest source --
+    # contributed nothing at all. The failure WAS recorded in
+    # `HuntReport.skipped`, so nothing lied; it simply was not loud
+    # enough to notice against a plausible-looking total.
+    #
+    # Clamped rather than left to fail: an operator asking for 250
+    # notices should get the most this endpoint will actually return,
+    # not an exception.
+    safe_limit = min(limit, _TED_MAX_NOTICES_FOR_FIELD_COUNT)
     raw = fetch_feed(
         mouth_ted.FEED_URL,
         policy=policy,
-        json_body={"query": query, "limit": limit, "fields": list(fields)},
+        json_body={"query": query, "limit": safe_limit, "fields": list(fields)},
     )
     payload = json.loads(raw)
     notices = payload.get("notices")

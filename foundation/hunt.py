@@ -528,8 +528,22 @@ def hunt_multi(
         try:
             raw_items = tuple(i for i in src.fetch_items() if isinstance(i, dict))
         except Exception as exc:  # noqa: BLE001 - one bad source must not blind the rest
+            # A WHOLE SOURCE FAILING IS NOT THE SAME AS ONE NOTICE BEING
+            # SKIPPED, and burying both in one list hides the worse of
+            # the two. On 2026-09-03 a nightly sweep reported "fetched
+            # 360, assessed 50, skipped 1" while TED -- the largest
+            # source -- had returned HTTP 400 and contributed nothing.
+            # Nothing lied: the failure was in `skipped`. It was just
+            # one line among per-notice noise, under a total that looked
+            # entirely plausible.
+            #
+            # The prefix makes it greppable and `render_hunt` now calls
+            # it out separately, because an operator who thinks they
+            # swept five sources and actually swept four has a false
+            # picture of the market, not a smaller one.
             skipped.append(
-                f"{src.source_id}: fetch failed ({type(exc).__name__}: {exc})")
+                f"SOURCE FAILED -- {src.source_id}: fetch failed "
+                f"({type(exc).__name__}: {exc})")
             continue
         fetched_total += len(raw_items)
 
@@ -654,9 +668,22 @@ def render_hunt(report: HuntReport, limit: Optional[int] = None) -> str:
                 f"    {factor.dimension:24s} {factor.status:12s} {factor.verdict}")
         for clause in entry.blocking_clauses:
             lines.append(f"    BLOCKED BY: {clause}")
-    if report.skipped:
+    # A failed SOURCE is surfaced above the per-notice skips and never
+    # mixed in with them -- see the SOURCE FAILED comment in
+    # `hunt_multi()` for the sweep this distinction was added after.
+    source_failures = [r for r in report.skipped if r.startswith("SOURCE FAILED")]
+    other_skips = [r for r in report.skipped if not r.startswith("SOURCE FAILED")]
+    if source_failures:
+        lines.append("=" * 72)
+        lines.append(
+            f"WARNING: {len(source_failures)} SOURCE(S) RETURNED NOTHING. "
+            "This report covers less than it appears to.")
+        for reason in source_failures:
+            lines.append(f"  {reason}")
+        lines.append("=" * 72)
+    if other_skips:
         lines.append("-" * 72)
         lines.append("skipped:")
-        for reason in report.skipped:
+        for reason in other_skips:
             lines.append(f"  {reason}")
     return "\n".join(lines)

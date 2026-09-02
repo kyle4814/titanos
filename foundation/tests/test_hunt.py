@@ -320,3 +320,45 @@ class TestRender(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestSourceFailureIsLoud(unittest.TestCase):
+    """A whole source failing is not the same as one notice being
+    skipped, and burying both in one undifferentiated list hides the
+    worse of the two.
+
+    2026-09-03: a nightly multi-source sweep reported "fetched 360,
+    assessed 50, skipped 1" while TED -- the largest source -- had
+    returned HTTP 400 and contributed nothing. Nothing lied; the failure
+    was in `skipped`. It was simply one line among per-notice noise,
+    under a total that looked entirely plausible. An operator who
+    believes they swept five sources and actually swept four has a false
+    picture of the market, not a smaller one."""
+
+    def _failing_source(self):
+        from foundation.sources import Source
+
+        def boom():
+            raise RuntimeError("simulated 400")
+        return Source(source_id="BROKEN", fetch_items=boom,
+                      normalise=lambda i: None,
+                      server_side_filterable=False, keyword_fields=("title",))
+
+    def test_source_failure_is_prefixed(self):
+        from foundation.hunt import hunt_multi
+        r = hunt_multi("q", SOLO, (self._failing_source(),))
+        self.assertTrue(any(s.startswith("SOURCE FAILED") for s in r.skipped))
+
+    def test_render_warns_loudly_about_a_failed_source(self):
+        from foundation.hunt import hunt_multi
+        r = hunt_multi("q", SOLO, (self._failing_source(),))
+        text = render_hunt(r)
+        self.assertIn("SOURCE(S) RETURNED NOTHING", text)
+        self.assertIn("covers less than it appears to", text)
+
+    def test_per_notice_skip_does_not_trigger_the_source_warning(self):
+        r = hunt("q", SOLO, fetch_notices_fn=lambda: [
+            {"notice-title": {"eng": ["no publication number"]}},
+            degewo_notice()])
+        self.assertEqual(len(r.skipped), 1)
+        self.assertNotIn("SOURCE(S) RETURNED NOTHING", render_hunt(r))

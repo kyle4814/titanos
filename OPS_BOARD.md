@@ -519,6 +519,50 @@ and it is the one the documents say buyers expect to see.
 
 ---
 
+## MARKET ENGAGEMENT — the notice type with no qualification at all
+
+Found 2026-09-03. A **preliminary market engagement** notice (UK) or a
+**Request for Information** (NZ, Ireland) is a buyer asking the market
+what is possible, BEFORE writing a tender. Responding to one requires no
+turnover, no insurance, no references, no certifications — because
+nothing is being awarded yet.
+
+It is the only public-sector notice type a solo operator can answer on
+equal terms with a consultancy, and it puts you in front of the buyer
+while the requirement is still being shaped.
+
+| | |
+|---|---|
+| **UKRI-6251 — Cyber Security, Managed Service, Detection & Response, SOC** | |
+| Buyer | UK Research & Innovation |
+| Type | **Preliminary market engagement notice (UK2)** |
+| Notice | 2026/S 000-080084, published 21 Aug 2026 |
+| Scope | *"A Cyber Security provider to deliver collaborative SOC services, working with the existing STFC cyber security team"* |
+| Stated qualification requirements | **None** |
+| URL | find-tender.service.gov.uk/procurement/ocds-h6vhtk-06e9f0 |
+
+Note the word **collaborative**, and *"working with the existing STFC
+cyber security team"*. That is a buyer describing augmentation of their
+own team, not replacement of it — which is the shape that fits a
+specialist rather than a managed-service prime.
+
+**Deadline UNKNOWN** — not published on the notice page. Needs a human
+to open it or contact the buyer.
+
+Also in this class, already on the board:
+
+- **Health NZ — Enterprise Observability**, RFI, closes 25 Sep, regions
+  International, `Required Pre-qualifications: None`
+- **NZ Ministry of Defence — TSS Panel Reset**, Advance Notice, closes
+  30 Sep, `Required Pre-qualifications: None`
+
+**Three live notices where the barrier is zero.** After five Irish
+documents proved the tender lane is closed at €400k–€2.6M turnover, this
+is the class worth watching — and no sweep before tonight distinguished
+it from ordinary tenders.
+
+---
+
 ## TIER 3 — no credential gate, results-paid, slow
 
 ### 11. Bug bounty
