@@ -271,11 +271,32 @@ It still fails on turnover and insurance. But it proves the personnel
 requirement is not universally a headcount test, and it is worth
 watching this buyer for smaller future work.
 
-#### ⏳ Houses of the Oireachtas — Managed Security Services, closes 28 Sep
+#### ❌ Houses of the Oireachtas — closes 28 Sep — CANNOT APPLY, hardest of the five
 
-RFT downloaded (`1. RFT Managed Security Services FINAL.pdf`, 669KB) but
-not yet parsed — PDF, unlike the others. **Criteria UNKNOWN, not
-cleared.** Next cycle.
+Tender ref `2026/1021`, 88-page RFT, now parsed.
+
+> *"Tenderers are required to demonstrate that they have a minimum
+> average annual turnover of €2,600,000 (excl. VAT) in each of the last
+> three financial years. Failure to demonstrate the minimum required
+> turnover will result in the tenderer being eliminated from the
+> competition."*
+
+| Requirement | Threshold |
+|---|---|
+| Minimum average annual turnover, each of last 3 years | **€2,600,000** |
+| Employer's Liability | €13,000,000 |
+| Public Liability | €6,500,000 |
+| **Professional Indemnity** | **€10,000,000 in aggregate** |
+| Cyber Liability (incl. loss of data) | €5,000,000 |
+| Evidence | Banker's statement within 6 months + 3 years audited accounts |
+
+The highest turnover bar and the highest professional indemnity of any
+notice assessed in this campaign — €10m PI against €1–2m elsewhere.
+
+Award is 55% weighted on functional and technical merit (SIEM platform
+management, SOC threat detection and response, incident response
+retainer), which is genuine capability scoring — but you never reach it,
+because §3.2 eliminates first.
 
 ---
 
@@ -283,27 +304,54 @@ cleared.** Next cycle.
 
 Five notices, five independent sources, one consistent shape:
 
-| Buyer | Turnover | Employer's Liability | References |
-|---|---|---|---|
-| HSA | €1,800,000 | €13,000,000 | 3 |
-| An Post | €1,000,000 | €13,000,000 | 3 |
-| Dept of Justice | €800,000 | €12,700,000 | 1 × >€50k |
-| Fáilte Ireland | €400,000 | €13,000,000 | 3 |
+| Buyer | Turnover | Employer's Liability | Prof. Indemnity | References |
+|---|---|---|---|---|
+| Oireachtas | €2,600,000 | €13,000,000 | €10,000,000 | prev. contracts |
+| HSA | €1,800,000 | €13,000,000 | €1,000,000 | 3 |
+| An Post | €1,000,000 | €13,000,000 | — | 3 |
+| Dept of Justice | €800,000 | €12,700,000 | €1,000,000 | 1 × >€50k |
+| Fáilte Ireland | €400,000 | €13,000,000 | €2,000,000 | 3 |
 
-**€13,000,000 employer's liability appears in three of four, unchanged.**
-That is not four buyers each deciding independently — it is a standard
-Irish public-sector template. Which means the barrier is not negotiable
-per-contract, and it also means it is **predictable**: any Irish public
-security tender will want roughly this, and there is no point assessing
-them one at a time hoping for an outlier.
+**€13,000,000 employer's liability appears in four of five, unchanged**
+(the fifth is €12.7M). That is not five buyers each deciding
+independently — it is a standard Irish public-sector template. The
+barrier is therefore not negotiable per-contract, and it is
+**predictable**: any Irish public security tender will want roughly
+this. There is no point assessing them one at a time hoping for a
+lenient buyer.
 
-**Turnover is where they vary — €400k to €1.8M — and turnover is the one
-they let a consortium satisfy jointly.**
+**Turnover is the figure that varies — €400,000 to €2,600,000, a 6.5×
+spread — and turnover is precisely the one they let a consortium satisfy
+jointly.**
 
-**Why Ireland still matters:** eTenders carries 2,916 open notices; TED
-carries 746 Irish ones. Roughly **2,170 below-threshold Irish notices
-are structurally invisible to TED** — a different tier, with different
-economics, and the one worth sweeping.
+All five documents were checked for the reliance clause. **All five
+carry it.** The Oireachtas RFT, verbatim:
+
+> *"Tenderers should note that where a Tenderer is relying on the capacity
+> of other entities (for example, Subcontractors) for the purposes of
+> fulfilling any of the Selection Criteria in part 3.2 below it must
+> ensure that each such entity: (i) completes and submits a separate
+> eESPD in respect of..."*
+
+Five for five. This is not a quirk of one buyer — it is how Irish public
+procurement is written.
+
+**Deeper sweep, 2026-09-02:** 400 of 2,916 open Irish notices walked
+(double the previous 200, 40 pages). Security-relevant hits: **7, of
+which 5 are the notices already resolved above** and 2 are false
+positives (an Irish Rail mediation system, an internal communications
+platform).
+
+**No new Irish security work exists in the visible half of the
+platform.** The five resolved notices are the Irish market right now,
+and all five are closed to a solo bidder. That is a complete answer for
+Ireland, not a partial one.
+
+eTenders carries 2,916 open notices against TED's 746 Irish ones, so
+roughly 2,170 remain below TED's threshold and structurally invisible to
+it. Worth re-sweeping periodically — but the current answer is
+established, and re-running it hoping for a different result would be
+waiting rather than working.
 
 ---
 
@@ -394,10 +442,10 @@ is another reason ZDI is item 1 on this board.
 
 ## THE MECHANISM THAT CHANGES THE STRATEGY
 
-Found 2026-09-02 by reading four Irish tender documents in full. It
-appears in three of them independently, in the buyers' own words, and
-one puts a **checkbox** on the form for it. This is a procurement
-mechanism, not a workaround.
+Found 2026-09-02 by reading **all five** live Irish tender documents in
+full. **All five carry it**, in the buyers' own words, and one puts a
+**checkbox** on the form for it. This is not a quirk of one buyer — it
+is how Irish public procurement is written.
 
 **You do not have to meet the selection criteria yourself.**
 
