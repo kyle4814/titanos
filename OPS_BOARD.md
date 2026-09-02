@@ -970,6 +970,32 @@ board with legal exposure attached, and it is cheap to close.
 
 ---
 
+## CHECK A TENDER DOCUMENT BEFORE YOU SPEND ANYTHING ON IT
+
+```sh
+python3 -m foundation.operator_cli access path/to/tender.pdf
+```
+
+Reads a `.pdf`, `.docx` or text tender pack and reports the barriers
+that have **nothing to do with whether you qualify**: document fees,
+paper-only submission, mandatory site visits, local-entity
+requirements, bid bonds.
+
+PNG's NPC/2026-26 is why this exists. Its own words were *"without
+prequalification ... open to all eligible Bidders"* — zero eligibility
+criteria — and it was still unreachable behind a **PGK 5,000
+non-refundable document fee** and *"Electronic Bidding will not be
+permitted"*. Every other filter here scored it as promising.
+
+Run it on anything before paying a document fee or booking travel.
+
+**What it will not do:** an unreadable document (a scanned image, which
+PNG's own addendum is) reports `NOT_ASSESSED`, never `NONE_DETECTED`.
+Nothing extractable and nothing to find look identical from inside a
+text scanner, and it says so rather than implying a clean result.
+
+---
+
 ## RUN THE SYSTEM
 
 ```sh

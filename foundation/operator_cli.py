@@ -51,6 +51,7 @@ and touch nothing until `--live` is passed explicitly. `dossier` and
 from __future__ import annotations
 
 import json
+import re
 import sys
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -64,6 +65,7 @@ from foundation.discovery_authorization import (
     DEFAULT_MAX_WALL_CLOCK_SECONDS,
     DiscoveryPolicy,
 )
+from foundation.access_barriers import assess_access, format_access
 from foundation.deal_pipeline import (
     DealBoard,
     DealError,
@@ -474,6 +476,98 @@ def cmd_deals(args) -> int:
     return 0
 
 
+def _read_document_text(path: Path) -> str:
+    """Extract text from a tender document.
+
+    Handles the three shapes real tender packs actually arrive in --
+    .docx, .pdf and plain text -- because those are what the Irish and
+    PNG documents were, and a tool that only reads .txt would not have
+    read any of them.
+
+    Returns "" when nothing can be extracted, which `assess_access()`
+    reports as NOT_ASSESSED rather than as a clean bill of health. That
+    distinction matters here: PNG's own addendum is a scanned image with
+    no extractable text, and a scanned page must never be mistaken for a
+    page with no barriers on it.
+    """
+    # DETECT BY CONTENT, NOT BY EXTENSION.
+    #
+    # A real tender .docx handed over with a .bin extension fell through
+    # to the plain-text branch, which read 752,954 characters of raw ZIP
+    # bytes and reported NONE_DETECTED -- a confident clean verdict on
+    # binary noise. Tender packs arrive from portals with whatever name
+    # the download gave them, so extension is not something to trust.
+    #
+    # Magic bytes: "PK\x03\x04" is a ZIP, which is what a .docx is;
+    # "%PDF" is a PDF.
+    try:
+        with path.open("rb") as fh:
+            head = fh.read(4)
+    except OSError:
+        return ""
+    if head[:4] == b"PK\x03\x04":
+        suffix = ".docx"
+    elif head[:4] == b"%PDF":
+        suffix = ".pdf"
+    else:
+        suffix = path.suffix.lower()
+    if suffix == ".docx":
+        import zipfile
+        try:
+            xml = zipfile.ZipFile(path).read("word/document.xml").decode(
+                "utf-8", errors="ignore")
+        except (KeyError, zipfile.BadZipFile):
+            return ""
+        text = re.sub(r"<w:p[ >]", "\n", xml)
+        return re.sub(r"<[^>]+>", "", text)
+    if suffix == ".pdf":
+        try:
+            import pypdf
+        except ImportError:
+            print("REFUSED: reading a PDF needs pypdf (pip install pypdf).",
+                  file=sys.stderr)
+            return ""
+        try:
+            reader = pypdf.PdfReader(str(path))
+        except Exception:  # noqa: BLE001 - a malformed PDF is not a crash
+            return ""
+        return "\n".join((page.extract_text() or "") for page in reader.pages)
+    try:
+        return path.read_text(encoding="utf-8", errors="ignore")
+    except OSError:
+        return ""
+
+
+def cmd_access(args) -> int:
+    """Scan a tender document for barriers that have nothing to do with
+    whether the operator qualifies.
+
+    Wired as a document command rather than folded into `hunt`, because
+    this module needs the tender DOCUMENT and a hunt only ever has the
+    notice metadata. Running it over notice summaries would return
+    NOT_ASSESSED on every entry and teach the operator to ignore it --
+    which is how a real signal becomes noise.
+
+    PNG's NPC/2026-26 is why this exists: zero eligibility criteria, and
+    still unreachable behind a PGK5,000 document fee and a paper-only
+    submission rule.
+    """
+    path = Path(args.document).expanduser()
+    if not path.exists():
+        print(f"REFUSED: no such file: {path}", file=sys.stderr)
+        return 1
+    text = _read_document_text(path)
+    assessment = assess_access(text)
+    print(f"document : {path.name}")
+    print(f"extracted: {len(text)} characters")
+    if not text.strip():
+        print("NOTE     : nothing extractable. A scanned image reads the "
+              "same as a clean document from here -- open it yourself.")
+    print()
+    print(format_access(assessment))
+    return 0
+
+
 def cmd_profile(args) -> int:
     try:
         loaded = load_operator_profile()
@@ -589,6 +683,14 @@ def build_parser() -> "object":
         "--stale-after-days", type=int, default=7,
         help="flag live deals untouched this long (default 7)")
     p_deals.set_defaults(func=cmd_deals)
+
+    p_access = sub.add_parser(
+        "access",
+        help="scan a tender document for fees, paper-only submission and "
+             "other barriers unrelated to qualification")
+    p_access.add_argument("document",
+                          help="path to a .pdf, .docx or text tender document")
+    p_access.set_defaults(func=cmd_access)
 
     p_profile = sub.add_parser(
         "profile", help="show the currently configured operator profile")

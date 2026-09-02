@@ -415,3 +415,81 @@ class TestDealsCommand(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestAccessCommand(unittest.TestCase):
+    """`access_barriers.py` needs the tender DOCUMENT, which a hunt never
+    has -- a hunt only carries notice metadata. Folding it into `hunt`
+    would return NOT_ASSESSED on every entry and teach the operator to
+    ignore it, which is how a real signal becomes noise. So it is wired
+    as a document command instead."""
+
+    def _write(self, tmp, name, data: bytes):
+        p = Path(tmp) / name
+        p.write_bytes(data)
+        return p
+
+    def test_access_is_registered_with_a_handler(self):
+        from foundation.operator_cli import build_parser
+        parser = build_parser()
+        actions = [a for a in parser._subparsers._group_actions
+                   if hasattr(a, "choices")]
+        choices = actions[0].choices
+        self.assertIn("access", choices)
+        self.assertTrue(callable(choices["access"].get_default("func")))
+
+    def test_missing_file_is_refused_without_a_traceback(self):
+        from foundation.operator_cli import main
+        err = io.StringIO()
+        with redirect_stderr(err), redirect_stdout(io.StringIO()):
+            rc = main(["access", "/definitely/not/here.pdf"])
+        self.assertEqual(rc, 1)
+        self.assertIn("REFUSED", err.getvalue())
+        self.assertNotIn("Traceback", err.getvalue())
+
+    def test_a_fee_and_paper_only_document_is_flagged(self):
+        from foundation.operator_cli import main
+        with tempfile.TemporaryDirectory() as tmp:
+            p = self._write(tmp, "rfp.txt", (
+                b"Bidders may obtain the document upon payment of a "
+                b"non-refundable fee of PGK5,000.00. Electronic Bidding "
+                b"will not be permitted."))
+            buf = io.StringIO()
+            with redirect_stdout(buf):
+                rc = main(["access", str(p)])
+        out = buf.getvalue()
+        self.assertEqual(rc, 0)
+        self.assertIn("BARRIERS_FOUND", out)
+        self.assertIn("DOCUMENT_FEE", out)
+
+    def test_an_unreadable_document_is_not_assessed_not_clean(self):
+        """A scanned image extracts nothing. It must never read as a
+        document with no barriers -- PNG's own addendum is exactly this."""
+        from foundation.operator_cli import main
+        with tempfile.TemporaryDirectory() as tmp:
+            p = self._write(tmp, "scan.pdf", b"%PDF-1.4\n%garbage\n")
+            buf = io.StringIO()
+            with redirect_stdout(buf), redirect_stderr(io.StringIO()):
+                rc = main(["access", str(p)])
+        out = buf.getvalue()
+        self.assertEqual(rc, 0)
+        self.assertIn("NOT_ASSESSED", out)
+        self.assertNotIn("NONE_DETECTED", out)
+
+    def test_file_type_is_detected_by_content_not_extension(self):
+        """A REAL DEFECT THIS CAUGHT. A genuine tender .docx arrived with
+        a .bin extension, fell through to the plain-text branch, and
+        yielded 752,954 characters of raw ZIP bytes reported as
+        NONE_DETECTED -- a confident clean verdict on binary noise.
+        Portals name downloads whatever they like, so the extension is
+        not trustworthy."""
+        from foundation.operator_cli import _read_document_text
+        import zipfile
+        with tempfile.TemporaryDirectory() as tmp:
+            p = Path(tmp) / "downloaded.bin"
+            with zipfile.ZipFile(p, "w") as z:
+                z.writestr("word/document.xml",
+                           "<w:p>Electronic Bidding will not be permitted.</w:p>")
+            text = _read_document_text(p)
+        self.assertIn("Electronic Bidding will not be permitted", text)
+        self.assertNotIn("PK", text[:4])
