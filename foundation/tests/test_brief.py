@@ -149,20 +149,38 @@ def report_of(*entries: HuntEntry, objective: str = "test") -> HuntReport:
 NOW = datetime(2026, 9, 2, 0, 0, 0, tzinfo=timezone.utc)
 
 
-class TestPipelineDeadlineIsAlwaysUnknown(unittest.TestCase):
-    """Documents the real, verified behaviour of `hunt()` this module's
-    own docstring relies on: a capability profile does NOT give a real
-    deadline through the actual `hunt()` pipeline today."""
+class TestPipelineDeadline(unittest.TestCase):
+    """This class used to be `TestPipelineDeadlineIsAlwaysUnknown` and
+    asserted that `hunt()` could never produce a real deadline. That was
+    true when written -- `hunt()` passed the raw notice to
+    `ted_signal()`, which reads `parse_items()`'s flat keys -- and it is
+    no longer true: `hunt()` now re-shapes through `parse_items()`.
 
-    def test_capability_profile_does_not_yield_a_real_deadline(self):
+    The old test kept passing after the fix, because its fixture carries
+    no `deadline-receipt-request` at all. A test that passes for a
+    reason other than the one in its name is a test that will mislead
+    the next person to read it, so both cases are now pinned
+    explicitly."""
+
+    def _signal_deadline(self, notice):
         from foundation.relevance import CapabilityProfile
         cap = CapabilityProfile(name="x", declared_by="y",
-                                 keywords=frozenset({"advisory"}))
-        r = hunt("q", FULL, capability=cap,
-                 fetch_notices_fn=lambda: [qualified_notice()])
+                                keywords=frozenset({"advisory"}))
+        r = hunt("q", FULL, capability=cap, fetch_notices_fn=lambda: [notice])
         entry = r.entries[0]
         self.assertIsNotNone(entry.signal)
-        self.assertEqual(entry.signal.facts.get("deadline", ""), "")
+        return entry.signal.facts.get("deadline", "")
+
+    def test_notice_without_a_deadline_field_yields_no_deadline(self):
+        self.assertEqual(self._signal_deadline(qualified_notice()), "")
+
+    def test_notice_with_a_real_deadline_field_yields_it(self):
+        notice = qualified_notice()
+        notice["deadline-receipt-request"] = ["2026-10-01T12:00:00+00:00"]
+        self.assertEqual(
+            self._signal_deadline(notice), "2026-10-01T12:00:00+00:00",
+            "hunt() re-shapes through parse_items() now; a real "
+            "deadline-receipt-request must reach the signal")
 
 
 class TestEmptyBrief(unittest.TestCase):
@@ -338,6 +356,73 @@ class TestBlocked(unittest.TestCase):
         u = hunt_entry(bare_notice(), SOLO)
         brief = build_brief(report_of(q, u), now=NOW)
         self.assertEqual(brief.blocked, ())
+
+
+class TestDeadlineFactKeys(unittest.TestCase):
+    """A source that publishes perfectly good closing dates must not
+    read as a source with none.
+
+    Found live 2026-09-02: a multi-source brief put all 30 NZ GETS
+    notices into ACTION REQUIRED as "closes in: UNKNOWN -- treat as
+    urgent". GETS publishes a real closing date on every notice;
+    `gets_signal()` carries it as `close_date` while `ted_signal()`
+    uses `deadline`, and this module read only `deadline`.
+
+    The failure direction was safe, which is exactly why it hid: it
+    looked like the honest-unknown rule firing correctly, while the
+    brief's most important section quietly filled with noise.
+    """
+
+    def _entry_with_facts(self, facts):
+        eligibility = assess_eligibility(qualified_notice())
+        operator = SOLO
+        qualification = assess(eligibility, operator)
+        signal = CanonicalSignal(
+            signal_id="tender:test:222222-2026",
+            source_id="test", source_type="OFFICIAL",
+            source_ref="https://example.test",
+            target="222222-2026", kind="DEMAND",
+            claim="test notice", observed_at="2026-09-02T00:00:00+00:00",
+            facts=facts,
+        )
+        return HuntEntry(
+            publication_number=eligibility.publication_number,
+            band=qualification.band, eligibility=eligibility,
+            qualification=qualification, relevance=None, signal=signal)
+
+    def _days(self, entry):
+        report = HuntReport(entries=(entry,), fetched=1, assessed=1,
+                            skipped=(), objective="test")
+        brief = build_brief(report, now=NOW, closing_within_days=30)
+        return brief.action_required[0].days_remaining
+
+    def test_gets_close_date_key_is_read(self):
+        entry = self._entry_with_facts(
+            {"close_date": "Friday, 4 September 2026 5:00 PM +12:00"})
+        self.assertIsNotNone(
+            self._days(entry),
+            "a GETS notice with a real close_date must not read as UNKNOWN")
+
+    def test_ted_deadline_key_still_wins(self):
+        entry = self._entry_with_facts(
+            {"deadline": "2026-09-04T17:00:00+00:00",
+             "close_date": "Friday, 30 October 2026 5:00 PM +12:00"})
+        # `deadline` is first in priority order; the earlier date proves
+        # it was the one used.
+        self.assertEqual(self._days(entry), 2)
+
+    def test_genuinely_absent_date_is_still_unknown(self):
+        entry = self._entry_with_facts({"categories": "81110000"})
+        self.assertIsNone(
+            self._days(entry),
+            "no date anywhere must still be UNKNOWN, not a fabricated one")
+
+    def test_malformed_date_is_unknown_not_coerced(self):
+        entry = self._entry_with_facts({"close_date": "sometime next spring"})
+        self.assertIsNone(
+            self._days(entry),
+            "an unreadable date must stay UNKNOWN rather than be coerced "
+            "into a plausible-looking wrong one")
 
 
 class TestVocabularyDiscipline(unittest.TestCase):

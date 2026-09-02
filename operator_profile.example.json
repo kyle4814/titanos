@@ -1,0 +1,38 @@
+{
+  "_comment": "Copy this file to operator_profile.json (repo root) and edit the real values. operator_profile.json is gitignored -- it is your own business data, never committed. Every field documented below.",
+
+  "name": "solo operator (AU)",
+  "_name": "Free text. How you refer to yourself/your business in reports.",
+
+  "staff_count": 1,
+  "_staff_count": "Integer >= 0. Real headcount available to deliver work.",
+
+  "certifications": [],
+  "_certifications": "List of certification codes/names you actually hold (e.g. ISO27001, OSCP, CISSP). Empty list means you confirm you hold none -- not 'unknown'.",
+
+  "insurance_cover_eur": null,
+  "_insurance_cover_eur": "Number (EUR) or null. Professional/risk indemnity insurance cover you actually hold. null means no insurance -- not 'unknown'.",
+
+  "corporate_references": [],
+  "_corporate_references": "List of strings naming past contracts/clients you can evidence as references. Empty list means you have none right now.",
+
+  "languages": ["ENG"],
+  "_languages": "List of language codes you can genuinely work/submit in (e.g. ENG, DEU, FRA). Must have at least one entry.",
+
+  "business_facts": {
+    "_comment": "Optional -- only read by the 'dossier' command. Every field is optional and defaults to unknown/absent. Never fabricate a value here -- the dossier renderer prints 'UNKNOWN -- VERIFICATION REQUIRED' for anything left null/empty, which is the honest, correct behaviour.",
+    "abn": null,
+    "acn": null,
+    "business_address": null,
+    "licence_number": null,
+    "registration_number": null,
+    "insurance_policy_number": null,
+    "insurance_pi_cover_aud": null,
+    "insurance_pl_cover_aud": null,
+    "years_experience": null,
+    "revenue_band": null,
+    "skills": [],
+    "referees": []
+  },
+  "_business_facts_referees": "Each referee entry, if any, must be an object: {\"name\": \"...\", \"organisation\": \"...\", \"contact\": \"...\"} -- all three required if you add a referee at all."
+}

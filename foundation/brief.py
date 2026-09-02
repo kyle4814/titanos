@@ -116,6 +116,45 @@ def _as_utc(dt: datetime) -> datetime:
     return dt.astimezone(timezone.utc)
 
 
+# Fact keys that carry a closing date, in priority order.
+#
+# WHY MORE THAN ONE -- measured live 2026-09-02. A multi-source brief
+# across TED + NZ GETS + UK Contracts Finder put all 30 NZ notices into
+# ACTION REQUIRED with "closes in: UNKNOWN -- treat as urgent". That
+# looked like the honest-unknown rule working. It was a mapping bug:
+# GETS publishes a real closing date on every notice and
+# `mouth_gets_nz.gets_signal()` carries it as `close_date`, while
+# `mouth_ted.ted_signal()` uses `deadline`. This module read only
+# `deadline`, so a source with perfectly good dates read as a source
+# with none.
+#
+# The failure direction was safe -- unknown urgency sorts as urgent --
+# which is exactly why it was invisible until a live run: nothing threw,
+# nothing looked wrong, and the brief just quietly filled its most
+# important section with noise. A rule that is safe when it fires is
+# still a defect when it fires for the wrong reason.
+_DEADLINE_FACT_KEYS = ("deadline", "close_date")
+
+# Non-ISO closing-date formats a real source actually emits.
+_NON_ISO_DEADLINE_FORMATS = (
+    "%A, %d %B %Y %I:%M %p %z",   # NZ GETS
+)
+
+
+def _raw_deadline(entry) -> str:
+    """The closing date a `HuntEntry`'s signal carries, whichever key
+    its source uses. Returns "" when the signal genuinely has none --
+    which then means UNKNOWN, and UNKNOWN still means urgent."""
+    if entry.signal is None:
+        return ""
+    facts = entry.signal.facts
+    for key in _DEADLINE_FACT_KEYS:
+        value = str(facts.get(key) or "").strip()
+        if value:
+            return value
+    return ""
+
+
 def _parse_deadline(raw: str) -> Optional[datetime]:
     """Parse a TED-shaped ISO-8601 deadline string. Returns `None` for
     anything empty, malformed, or otherwise unparseable -- NEVER raises,
@@ -134,10 +173,20 @@ def _parse_deadline(raw: str) -> Optional[datetime]:
     if text.endswith("Z"):
         text = text[:-1] + "+00:00"
     try:
-        parsed = datetime.fromisoformat(text)
+        return _as_utc(datetime.fromisoformat(text))
     except ValueError:
-        return None
-    return _as_utc(parsed)
+        pass
+    # NZ GETS publishes a human-readable date, not ISO-8601 --
+    # "Monday, 31 December 2029 5:00 PM +13:00", confirmed live
+    # 2026-09-02. Parsed explicitly rather than by loosening the ISO
+    # path, so a genuinely malformed date still returns None instead of
+    # being coerced into a plausible-looking wrong one.
+    for fmt in _NON_ISO_DEADLINE_FORMATS:
+        try:
+            return _as_utc(datetime.strptime(text, fmt))
+        except ValueError:
+            continue
+    return None
 
 
 def _days_remaining(deadline: datetime, now: datetime) -> int:
@@ -325,9 +374,7 @@ def build_brief(
     for entry in report.entries:
         if entry.band == "DISQUALIFIED":
             continue
-        raw_deadline = ""
-        if entry.signal is not None:
-            raw_deadline = str(entry.signal.facts.get("deadline") or "")
+        raw_deadline = _raw_deadline(entry)
         parsed = _parse_deadline(raw_deadline)
 
         if parsed is None:

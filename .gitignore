@@ -45,3 +45,9 @@ foundation/outcome_ledger.jsonl
 dist/
 build/
 *.egg-info/
+
+# foundation/operator_cli.py's operator profile -- the real operator's
+# own business data (staff count, certifications, insurance, referees).
+# Never tracked; operator_profile.example.json documents every field
+# and ships with the real current placeholder values.
+/operator_profile.json
