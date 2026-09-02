@@ -425,6 +425,73 @@ class TestPostIsNotASecondPathAroundTheGate(unittest.TestCase):
             self.assertIsNone(request.data)
 
 
+class TestFormBodyIsTheSameDoor(unittest.TestCase):
+    """Form-encoded POST was added on 2026-09-02 for one measured
+    reason: Ireland's eTenders export endpoint is a Struts-era form
+    handler that ignores a JSON body entirely, so the largest
+    concentration of English-language procurement this project has found
+    was unreachable purely because this function could serialise only one
+    content type.
+
+    Same danger as when POST itself was added, same answer: widening what
+    may be SENT must never widen who may send it. Every guard the JSON
+    path carries is asserted here against the form path.
+    """
+
+    URL = "https://example.invalid/export"
+    FORM = {"isExport": "true", "searchType": "cft"}
+
+    def test_form_post_without_a_policy_is_refused(self):
+        with self.assertRaises(CommunicationDenied):
+            fetch_feed(self.URL, policy=None, form_body=self.FORM)
+
+    def test_form_body_must_be_a_mapping(self):
+        p = DiscoveryPolicy(objective="probe form body type",
+                            requested_scope="READ_API", max_queries=2)
+        with self.assertRaises(CommunicationDenied):
+            fetch_feed(self.URL, policy=p, form_body=b"raw bytes")
+
+    def test_form_body_respects_the_request_size_cap(self):
+        p = DiscoveryPolicy(objective="probe form body size",
+                            requested_scope="READ_API", max_queries=2)
+        with self.assertRaises(CommunicationDenied):
+            fetch_feed(self.URL, policy=p, form_body={"q": "A" * 70_000})
+
+    def test_read_url_scope_cannot_send_a_form_body(self):
+        """The scope check must cover BOTH body kinds. A guard that
+        covered only json_body would let READ_URL drive a form POST --
+        the exact bypass the scope check was added to close."""
+        p = DiscoveryPolicy(objective="probe form body scope",
+                            requested_scope="READ_URL", max_queries=2)
+        with self.assertRaises(CommunicationDenied):
+            fetch_feed(self.URL, policy=p, form_body=self.FORM)
+
+    def test_supplying_both_bodies_is_refused(self):
+        """One request, one body, one content type. A caller that passed
+        both has not decided what request it is making, and guessing for
+        it is how a content type gets chosen by accident."""
+        p = DiscoveryPolicy(objective="probe dual body refusal",
+                            requested_scope="READ_API", max_queries=2)
+        with self.assertRaises(CommunicationDenied):
+            fetch_feed(self.URL, policy=p,
+                       json_body={"a": 1}, form_body={"b": 2})
+
+    def test_form_post_is_charged_against_the_budget(self):
+        p = DiscoveryPolicy(objective="probe form body budget",
+                            requested_scope="READ_API", max_queries=1)
+        with self.assertRaises(Exception):
+            fetch_feed(self.URL, policy=p, form_body=self.FORM)
+        with self.assertRaises(DiscoveryBudgetExhausted):
+            fetch_feed(self.URL, policy=p, form_body=self.FORM)
+
+    def test_form_post_still_cannot_reach_a_private_address(self):
+        p = DiscoveryPolicy(objective="probe form body ssrf",
+                            requested_scope="READ_API", max_queries=2)
+        with self.assertRaises(CommunicationDenied):
+            fetch_feed("https://localhost/export", policy=p,
+                       form_body=self.FORM)
+
+
 class TestSsrfGuard(unittest.TestCase):
     """Blue-team pass 006, highest-severity finding, confirmed statically.
 

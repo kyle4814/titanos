@@ -138,7 +138,8 @@ def _reject_unsafe_url(url: str) -> None:
 def fetch_feed(url: str, timeout: int = DEFAULT_TIMEOUT_SECONDS,
                 user_agent: str = DEFAULT_USER_AGENT,
                 *, policy: "DiscoveryPolicy | None" = None,
-                json_body: "Mapping[str, Any] | None" = None) -> bytes:
+                json_body: "Mapping[str, Any] | None" = None,
+                form_body: "Mapping[str, Any] | None" = None) -> bytes:
     """One GET request, real network I/O, no retry loop here — the
     caller's own schedule (cron) is the backoff policy.
 
@@ -242,21 +243,57 @@ def fetch_feed(url: str, timeout: int = DEFAULT_TIMEOUT_SECONDS,
     _reject_unsafe_url(url)
     data = None
     headers = {"User-Agent": user_agent}
-    if json_body is not None:
-        if not isinstance(json_body, Mapping):
+    if json_body is not None and form_body is not None:
+        raise CommunicationDenied(
+            f"refusing to fetch {url!r}: json_body and form_body are "
+            f"mutually exclusive -- a request carries one body with one "
+            f"content type, and a caller that supplied both has not "
+            f"decided which request it is making"
+        )
+    body = json_body if json_body is not None else form_body
+    if body is not None:
+        kind = "json_body" if json_body is not None else "form_body"
+        if not isinstance(body, Mapping):
             raise CommunicationDenied(
-                f"refusing to fetch {url!r}: json_body must be a mapping, "
-                f"not {type(json_body).__name__} -- raw bytes would let a "
+                f"refusing to fetch {url!r}: {kind} must be a mapping, "
+                f"not {type(body).__name__} -- raw bytes would let a "
                 f"caller choose its own content type through the only "
                 f"socket in this repository"
             )
-        data = json.dumps(json_body, sort_keys=True).encode("utf-8")
+        if json_body is not None:
+            data = json.dumps(body, sort_keys=True).encode("utf-8")
+            content_type = "application/json"
+        else:
+            # FORM-ENCODED POST -- added 2026-09-02 for one real,
+            # measured reason, not for generality.
+            #
+            # Ireland's eTenders export endpoint (viewCFTSAction.do) is a
+            # Struts-era form handler. It ignores a JSON body entirely,
+            # so the 10,000-row CSV carrying 232 live security notices --
+            # the largest concentration of English-language procurement
+            # this project has found -- was unreachable purely because
+            # this function could only serialise one content type.
+            #
+            # Every constraint the JSON path carries applies here
+            # unchanged, deliberately: Mapping only (so a caller can
+            # never hand over raw bytes and pick its own content type),
+            # the same MAX_REQUEST_BYTES cap, the same READ_URL refusal
+            # below, and the same authorization and budget already
+            # charged before this point. There is still no `method`
+            # parameter, so PUT/DELETE/PATCH remain unreachable by
+            # construction.
+            #
+            # This widens what may be SENT, never who may send it.
+            data = urllib.parse.urlencode(
+                sorted((str(k), str(v)) for k, v in body.items())
+            ).encode("utf-8")
+            content_type = "application/x-www-form-urlencoded"
         if len(data) > MAX_REQUEST_BYTES:
             raise CommunicationDenied(
                 f"refusing to fetch {url!r}: request body is {len(data)} "
                 f"bytes, over MAX_REQUEST_BYTES ({MAX_REQUEST_BYTES})"
             )
-        headers["Content-Type"] = "application/json"
+        headers["Content-Type"] = content_type
         # SCOPE IS NOT DECORATIVE. Blue-team pass 006 found READ_URL and
         # READ_API were only ever checked for set-membership -- nothing
         # compared the declared scope against what the request actually
