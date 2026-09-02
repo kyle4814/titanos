@@ -60,3 +60,4 @@ foundation/hunt_loop_log.jsonl
 foundation/scheduled_brief_log.jsonl
 foundation/scheduled_brief_cron.log
 briefs/
+foundation/deal_pipeline_log.jsonl
