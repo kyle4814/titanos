@@ -64,6 +64,13 @@ from foundation.discovery_authorization import (
     DEFAULT_MAX_WALL_CLOCK_SECONDS,
     DiscoveryPolicy,
 )
+from foundation.deal_pipeline import (
+    DealBoard,
+    DealError,
+    append_deal_event,
+    load_deals,
+    render_pipeline,
+)
 from foundation.dossier import (
     BusinessFacts,
     Referee,
@@ -414,6 +421,59 @@ def cmd_dossier(args) -> int:
     return 0
 
 
+# The pipeline lives beside the other durable ledgers, and is gitignored
+# for the same reason they are: it names counterparties the operator
+# intends to approach, and this repository is public.
+DEAL_LOG = Path(__file__).resolve().parent / "deal_pipeline_log.jsonl"
+
+
+def cmd_deals(args) -> int:
+    """Show the deal pipeline, or move one deal forward.
+
+    Wired because `deal_pipeline.py` was built, seeded with twelve real
+    positions, tested at 33 cases -- and reachable only by someone who
+    knew to import it. This repository has already documented four
+    mouths and one classifier that reached exactly that state, and the
+    audit that found them called it the highest-severity finding of the
+    session.
+    """
+    if getattr(args, "move", None):
+        try:
+            deal_id, stage = args.move.split(":", 1)
+        except ValueError:
+            print("REFUSED: --move expects DEAL_ID:STAGE, e.g. "
+                  "pulse-security:APPROACHED", file=sys.stderr)
+            return 1
+        known = load_deals(DEAL_LOG)
+        prior = known.get(deal_id.strip())
+        if prior is None:
+            print(f"REFUSED: no deal with id {deal_id.strip()!r}. Run "
+                  "`deals` with no arguments to see the ids.",
+                  file=sys.stderr)
+            return 1
+        next_action = args.next_action or prior.next_action
+        if stage.strip() not in ("WON", "LOST", "PARKED") and not next_action.strip():
+            print("REFUSED: a live deal needs a next action. Pass "
+                  "--next-action.", file=sys.stderr)
+            return 1
+        try:
+            moved = append_deal_event(
+                DEAL_LOG, deal_id=prior.deal_id, counterparty=prior.counterparty,
+                lane=prior.lane, stage=stage.strip(), next_action=next_action,
+                money_observed=args.money or prior.money_observed,
+                notes=prior.notes)
+        except DealError as exc:
+            print(f"REFUSED: {exc}", file=sys.stderr)
+            return 1
+        print(f"{moved.counterparty}: {prior.stage} -> {moved.stage}")
+        return 0
+
+    deals = load_deals(DEAL_LOG)
+    board = DealBoard(deals=tuple(deals.values()))
+    print(render_pipeline(board, stale_after_days=args.stale_after_days))
+    return 0
+
+
 def cmd_profile(args) -> int:
     try:
         loaded = load_operator_profile()
@@ -513,6 +573,22 @@ def build_parser() -> "object":
     p_dossier = sub.add_parser(
         "dossier", help="render the supplier dossier and missing-facts list")
     p_dossier.set_defaults(func=cmd_dossier)
+
+    p_deals = sub.add_parser(
+        "deals", help="show the deal pipeline, or move a deal forward")
+    p_deals.add_argument(
+        "--move", metavar="DEAL_ID:STAGE",
+        help="move one deal to a new stage, e.g. pulse-security:APPROACHED")
+    p_deals.add_argument(
+        "--next-action", default="",
+        help="the next action after the move (required unless terminal)")
+    p_deals.add_argument(
+        "--money", default="",
+        help="observed money, only valid on a WON deal, e.g. '2500 AUD'")
+    p_deals.add_argument(
+        "--stale-after-days", type=int, default=7,
+        help="flag live deals untouched this long (default 7)")
+    p_deals.set_defaults(func=cmd_deals)
 
     p_profile = sub.add_parser(
         "profile", help="show the currently configured operator profile")

@@ -325,15 +325,92 @@ class TestExitCodes(unittest.TestCase):
 
 
 class TestBuildParser(unittest.TestCase):
-    def test_all_six_subcommands_registered(self):
+    def test_every_registered_subcommand_is_runnable(self):
+        """Was `test_all_six_subcommands_registered` and asserted a
+        frozen set of six names. That is the same defect already found
+        in `test_sources.py`: a test pinned to a hardcoded list cannot
+        notice the list growing, so a seventh subcommand can be added
+        and the test still passes without ever exercising it.
+
+        Now it asserts a property instead -- every registered subcommand
+        has a callable bound to it -- which stays true as the CLI
+        grows and would fail on a subcommand wired up with no handler."""
         parser = operator_cli.build_parser()
-        # argparse exposes subparser choices via the subparsers action
         actions = [a for a in parser._subparsers._group_actions
                    if hasattr(a, "choices")]
         self.assertTrue(actions)
+        choices = actions[0].choices
+        self.assertGreaterEqual(len(choices), 6)
+        for name, subparser in choices.items():
+            func = subparser.get_default("func")
+            self.assertTrue(
+                callable(func),
+                f"subcommand {name!r} is registered with no handler")
+
+    def test_the_core_subcommands_are_present(self):
+        """Named separately from the property above: these six are the
+        documented interface in HOW_TO_RUN.md, and removing one is a
+        breaking change a property test would not catch."""
+        parser = operator_cli.build_parser()
+        actions = [a for a in parser._subparsers._group_actions
+                   if hasattr(a, "choices")]
         choices = set(actions[0].choices.keys())
-        self.assertEqual(
-            choices, {"hunt", "brief", "loop", "income", "dossier", "profile"})
+        for required in ("hunt", "brief", "loop", "income", "dossier",
+                         "profile"):
+            self.assertIn(required, choices)
+
+
+class TestDealsCommand(unittest.TestCase):
+    """`deal_pipeline.py` was built, seeded with twelve real positions,
+    and tested at 33 cases -- and reachable only by someone who knew to
+    import it. This repository has already documented four mouths and a
+    classifier that reached exactly that state; the audit called it the
+    highest-severity finding of that session. This pins the wiring."""
+
+    def test_deals_is_a_registered_subcommand(self):
+        from foundation.operator_cli import build_parser
+        parser = build_parser()
+        actions = [a for a in parser._actions if hasattr(a, "choices") and a.choices]
+        names = set()
+        for a in actions:
+            names.update(a.choices.keys())
+        self.assertIn("deals", names)
+
+    def test_deals_runs_with_no_arguments(self):
+        from foundation.operator_cli import main
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            rc = main(["deals"])
+        self.assertEqual(rc, 0)
+        self.assertIn("DEAL PIPELINE", buf.getvalue())
+
+    def test_deals_never_touches_the_network(self):
+        """Reading a local ledger must not open a socket. `deals` has no
+        --live flag for exactly this reason."""
+        from foundation.operator_cli import main
+        with patch("urllib.request.urlopen",
+                        side_effect=AssertionError("network touched")):
+            buf = io.StringIO()
+            with redirect_stdout(buf):
+                rc = main(["deals"])
+        self.assertEqual(rc, 0)
+
+    def test_malformed_move_is_refused_without_a_traceback(self):
+        from foundation.operator_cli import main
+        err = io.StringIO()
+        with redirect_stderr(err), redirect_stdout(io.StringIO()):
+            rc = main(["deals", "--move", "no-colon-here"])
+        self.assertEqual(rc, 1)
+        self.assertIn("REFUSED", err.getvalue())
+        self.assertNotIn("Traceback", err.getvalue())
+
+    def test_unknown_deal_id_is_refused_with_a_useful_message(self):
+        from foundation.operator_cli import main
+        err = io.StringIO()
+        with redirect_stderr(err), redirect_stdout(io.StringIO()):
+            rc = main(["deals", "--move", "does-not-exist:APPROACHED"])
+        self.assertEqual(rc, 1)
+        self.assertIn("no deal with id", err.getvalue())
 
 
 if __name__ == "__main__":

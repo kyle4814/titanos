@@ -1,8 +1,9 @@
 # OPS BOARD — every live opportunity, what it's worth, what it needs
 
-Compiled 2026-09-02. Every figure here was read off a primary source
-during this campaign, not recalled. Where something is unknown it says
-UNKNOWN — that is a real state, not a gap someone forgot to fill.
+Compiled 2026-09-02, last re-swept 2026-09-03. Every figure here was
+read off a primary source during this campaign, not recalled. Where
+something is unknown it says UNKNOWN — that is a real state, not a gap
+someone forgot to fill.
 
 **Operator profile this board is scored against:** solo trader, Cairns
 QLD, has an ABN, **no certifications** (no OSCP/CREST/GIAC/CISSP), **no
@@ -236,7 +237,7 @@ declared service skills.
 
 ## TIER 2 — live, dated, act within weeks
 
-### 6. City of Bradford MDC — penetration testing framework ⏰ 12 DAYS
+### 6. City of Bradford MDC — penetration testing framework ⏰ 11 DAYS
 
 | | |
 |---|---|
@@ -903,7 +904,7 @@ Bands mean exactly this and nothing more:
 
 ## IF YOU DO FOUR THINGS
 
-1. **Open the Bradford portal in a browser.** 12 days, £300,327, and one
+1. **Open the Bradford portal in a browser.** 11 days, £300,327, and one
    unanswered question that a human session resolves in ten minutes.
 2. **Register with ZDI.** Free, no deadline, no gate, and it is the
    prerequisite for the six-figure prizes.
@@ -915,3 +916,85 @@ Then, when those are moving: the **NZ Ministry of Defence TSS Panel
 Reset** (30 Sep, pre-qualifications None) and the **Health NZ
 Observability RFI** (25 Sep, International, pre-qualifications None).
 Both are low-commitment ways onto a buyer's list.
+
+---
+
+## SWEEP LOG — 2026-09-03
+
+Re-ran `sources_for_query()` + `hunt_multi()` across all five sources
+(TED, NZ_GETS, UK_CONTRACTS_FINDER, UK_FIND_A_TENDER, ETENDERS_IE)
+against four keywords ("cyber security", "penetration testing",
+"security testing", "security"), TED bounded to the last 30 days via
+`with_recency()`. Also ran `tender_radar.planning_feed_url()` for the
+UK pre-tender (planning-stage) feed directly. `operator_profile.json`
+does not exist at the repo root — this run classified notices only
+(title/buyer/value/deadline/notice class), which does not depend on the
+real operator's facts; no EXAMPLE-profile band verdict is asserted as
+real qualification here.
+
+**Fetched (raw, deduped across keyword passes):** 1,520 items touched,
+125 unique notices actually reached assessment (TED 75, NZ_GETS 30,
+UK_FIND_A_TENDER 20). UK_CONTRACTS_FINDER (5 raw open-status items this
+cycle) and ETENDERS_IE (10 raw items) matched none of the four keywords
+client-side — a real zero, not a fetch failure (no `SOURCE FAILED` in
+either run's skip list).
+
+**Planning-stage feed (UK Contracts Finder, `stages=planning`):**
+0 items. A genuinely empty pre-tender sweep this cycle, not an error.
+
+**New MARKET_ENGAGEMENT / ROLLING_ADMISSION notices found:** the NZ
+Government Marketplace standing invitation (id 33732411) and the NZ
+Defence TSS Panel Reset (id 33830698) both resurfaced — both already on
+this board, nothing new there. Two more NZ_GETS RFIs from Ministry of
+Defence matched the broad "security" keyword client-side —
+**Persistent Surveillance (Air) Phase 1** (id 34593228) and
+**Supplier Data Directory Service** (id 34758151) — read and confirmed
+**not relevant** to a cyber security / penetration-testing capability
+(drone surveillance and a supplier-directory service respectively).
+Logged here, not added to the pipeline.
+
+**New COMPETITIVE notices found, none actionable:** an Ireland IT
+services RFT (554895-2026, EUR180,000, closed 2026-08-28 — already past
+deadline), an Ireland educational-software services contract
+(560033-2026, EUR335,917, cyber-irrelevant), and four NZ_GETS RFPs/RFTs
+(MOSP 2027, two Fire & Security fire-alarm-remediation contracts,
+Pacific renewable-energy scoping, interactive-tool replacement) — all
+read and confirmed out of scope.
+
+**New TED notices found, genuinely cyber-relevant, genuinely new, not
+on this board — but flagged as likely out of reach on scale, not
+added to the pipeline without a value check:**
+
+| Notice | Buyer | Value | Deadline |
+|---|---|---|---|
+| [Poland — SOC (Security Operations Center) service](https://ted.europa.eu/en/notice/-/detail/545435-2026) | Ministerstwo Aktywów Państwowych | 1,491,951.90 PLN | UNKNOWN — not published in the feed item |
+| [Austria — Cyber Security und SOC Dienstleistungen](https://ted.europa.eu/en/notice/-/detail/604199-2026) | Umweltbundesamt GmbH | 7,200,000 EUR | UNKNOWN — not published in the feed item |
+| [Belgium — Cyber Security](https://ted.europa.eu/en/notice/-/detail/605935-2026) | Opdrachtencentrale vzw | 35,000,000 EUR | UNKNOWN — not published in the feed item |
+
+All three are UNKNOWN notice class (title didn't match any of
+`classify_notice()`'s four pattern sets; this does not mean they are
+not tenders — TED's own procedure-type field was not read by this
+extraction pass). All three publish only a total contract value, no
+per-supplier turnover/insurance/reference threshold in the fields this
+sweep read — same "unresolved, not promising" caveat as everything else
+INSUFFICIENT_DATA on this board. Given the five-Irish-document finding
+(EUR400,000–2,600,000 turnover typically required in the competitive
+lane) and these three contracts running 5–200x that ceiling, they are
+logged here for completeness, not added to the deal pipeline — opening
+the actual procurement documents is the next step if you want to check,
+not something this sweep fabricates a verdict on.
+
+**UKRI-6251** (Cyber Security Managed Service / SOC, UK_FIND_A_TENDER)
+resurfaced under this cycle's keywords — already on this board and in
+the pipeline (deal_id `ukri-6251`), nothing new there.
+
+**Deadlines checked against today, 2026-09-03:** only **Bradford (14
+Sep)** falls inside the 14-day window — 11 days out. Fáilte Ireland (24
+Sep, 21 days), Health NZ RFI (25 Sep, 22 days), Oireachtas (28 Sep, 25
+days), An Post (29 Sep, 26 days), NZ Defence TSS (30 Sep, 27 days),
+Dept of Justice (2 Oct, 29 days) and HSA (12 Oct, 39 days) all remain
+outside the window.
+
+**Pipeline:** no new deal events appended this cycle — every notice
+found was either already tracked or read and confirmed not relevant/not
+actionable. `foundation/deal_pipeline_log.jsonl` is unchanged.
