@@ -42,6 +42,53 @@ below, which requires $15,000 already earned through ZDI.
 
 ---
 
+### 2. NZ Government Marketplace — all-of-government IT, open to 2029, international
+
+Found 2026-09-03 by the new notice classifier, which is the only reason
+it surfaced: it had been sitting in every NZ sweep since the start,
+scoring `INSUFFICIENT_DATA` alongside 324 other notices.
+
+| | |
+|---|---|
+| **Buyer** | Department of Internal Affairs |
+| **Type** | Invitation to Participate (ITP) |
+| **Coverage** | **All of Government** |
+| **Open** | 25 March 2026 → **closes 25 May 2029** |
+| **Categories** | 43000000 Information Technology · **81110000 Computer services** · 81160000 IT service delivery |
+| **Regions** | **International** |
+| **Required Pre-qualifications** | **None** |
+| **URL** | gets.govt.nz//DIA/ExternalTenderDetails.htm?id=33732411 |
+
+Read that row set again. An **all-of-government** IT marketplace, in
+**computer services**, explicitly **international**, with
+**pre-qualifications stated as None**, open for another **two years and
+eight months**.
+
+It is the New Zealand analogue of the NSW ICT Services Scheme — except
+NZ states the international eligibility outright, and NZ's procurement
+rules already confirm they *"do not discriminate against suppliers
+(domestic or international)"* under the Australia New Zealand Government
+Procurement Agreement.
+
+**No deadline pressure, no credential gate published, and a buyer that
+covers every NZ government agency.**
+
+**UNKNOWN and worth checking before assuming:** what the ITP application
+itself asks for. `Required Pre-qualifications: None` is the buyer's own
+stated field, but the application form may still request insurance or
+references — the same lesson the Irish documents taught, where TED
+published nothing and the document demanded €2.6M turnover. Open the
+notice and read the ITP before committing effort.
+
+Also live, same class, same buyer type:
+
+- **All-of-Government Construction Consultancy** — Standing Open
+  Invitation, MBIE, closes 30 Sep, pre-qualifications None. Wrong
+  category for you, listed only because it confirms the pattern: NZ runs
+  several of these standing invitations and they recur.
+
+---
+
 ### 2. NSW ICT Services Scheme (SCM0020) — $150,000 contract ceiling
 
 | | |
