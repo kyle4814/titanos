@@ -220,18 +220,85 @@ first explicit, quoted confirmation in this entire campaign that
 solo.** It reframes the subcontracting lane from a workaround into a
 procurement mechanism the buyer names itself.
 
-#### Still open, criteria not yet pulled
+#### ❌ An Post — SOC/SIEM, closes 29 Sep — CANNOT APPLY
 
-| Notice | Buyer | Closes | Procedure |
+Tender ref `0055`. Sections 2.1 Turnover, 2.2 Insurance, 2.3 Tax
+Clearance and 2.4 Going Concern are each marked **(PASS/FAIL)**, plus
+References 1, 2 and 3.
+
+> *"TURNOVER (exclusive of VAT): A minimum annual turnover of one million
+> euro (€1,000,000.00) per annum for any two of the last three financial
+> year ends."*
+
+Insurance limits: €13,000,000 / €6,500,000 / €2,600,000 / €3,000,000.
+
+**But this one hands you the consortium route on a form field:**
+
+> *"In the case of a consortium, the turnover threshold must be met by the
+> combined annual turnover of all members of the consortium for any two
+> of the last 3 audited financial year end."*
+
+> *"Tick to confirm if Applicant is relying on combined turnover of
+> consortium members or those of any other persons/entities, in order to
+> meet the minimum financial qualification..."*
+
+There is a **checkbox on the PQQ** for exactly this. Third independent
+confirmation, and the most explicit.
+
+#### ❌ Department of Justice — national PKI, closes 2 Oct — CANNOT APPLY, but closest yet
+
+Contract up to €2,000,000; initial phase €450,000–€700,000.
+
+| Requirement | Threshold | You |
+|---|---|---|
+| Turnover, each of last 3 years | **€800,000** | ✗ |
+| Employer's Liability | €12,700,000 | ✗ |
+| Public Liability | €6,500,000 | ✗ |
+| Professional Indemnity | €1,000,000 | ✗ |
+| Reference | PKI delivery **> €50,000** | ✗ |
+
+**Two things make this the most solo-friendly document found anywhere:**
+
+> *"Applicants must demonstrate access to at least the minimum numbers of
+> skilled personnel stated. **Please note that the skills outlined may
+> reside in the same person.**"*
+
+A buyer explicitly accommodating one person holding several skills — the
+opposite of degewo's "minimum 3 penetration testers". And the reference
+bar is **€50,000**, against €100,000-and-similar-value elsewhere.
+
+It still fails on turnover and insurance. But it proves the personnel
+requirement is not universally a headcount test, and it is worth
+watching this buyer for smaller future work.
+
+#### ⏳ Houses of the Oireachtas — Managed Security Services, closes 28 Sep
+
+RFT downloaded (`1. RFT Managed Security Services FINAL.pdf`, 669KB) but
+not yet parsed — PDF, unlike the others. **Criteria UNKNOWN, not
+cleared.** Next cycle.
+
+---
+
+### What five Irish documents establish
+
+Five notices, five independent sources, one consistent shape:
+
+| Buyer | Turnover | Employer's Liability | References |
 |---|---|---|---|
-| Managed Security Services | Houses of the Oireachtas | **28 Sep** | Open |
-| SOC/SIEM | An Post | **29 Sep** | Negotiated w/ prior call |
-| National PKI managed services (PQQ) | Dept of Justice | **2 Oct** | Competitive w/ negotiation |
+| HSA | €1,800,000 | €13,000,000 | 3 |
+| An Post | €1,000,000 | €13,000,000 | 3 |
+| Dept of Justice | €800,000 | €12,700,000 | 1 × >€50k |
+| Fáilte Ireland | €400,000 | €13,000,000 | 3 |
 
-Expect the same shape. Both resolved notices demanded €400k–€1.8M
-turnover, €13M employer's liability and three reference contracts —
-**that is what a mid-size EU public security contract costs to enter**,
-and it is now measured twice rather than assumed.
+**€13,000,000 employer's liability appears in three of four, unchanged.**
+That is not four buyers each deciding independently — it is a standard
+Irish public-sector template. Which means the barrier is not negotiable
+per-contract, and it also means it is **predictable**: any Irish public
+security tender will want roughly this, and there is no point assessing
+them one at a time hoping for an outlier.
+
+**Turnover is where they vary — €400k to €1.8M — and turnover is the one
+they let a consortium satisfy jointly.**
 
 **Why Ireland still matters:** eTenders carries 2,916 open notices; TED
 carries 746 Irish ones. Roughly **2,170 below-threshold Irish notices
@@ -327,9 +394,10 @@ is another reason ZDI is item 1 on this board.
 
 ## THE MECHANISM THAT CHANGES THE STRATEGY
 
-Found 2026-09-02 by reading two Irish tender documents in full. It
-appears in both, independently, in the buyers' own words — and it is a
-procurement mechanism, not a workaround.
+Found 2026-09-02 by reading four Irish tender documents in full. It
+appears in three of them independently, in the buyers' own words, and
+one puts a **checkbox** on the form for it. This is a procurement
+mechanism, not a workaround.
 
 **You do not have to meet the selection criteria yourself.**
 
@@ -338,6 +406,12 @@ Health & Safety Authority RFT, §3.1:
 > *"Tenderers should note that where a Tenderer is relying on the
 > capacity of other entities (for example, Subcontractors) for the
 > purposes of fulfilling any of the Selection Criteria..."*
+
+An Post SOC/SIEM PQQ — a tickbox on the form itself:
+
+> *"Tick to confirm if Applicant is relying on combined turnover of
+> consortium members or those of any other persons/entities, in order to
+> meet the minimum financial qualification..."*
 
 Fáilte Ireland PQQ, Section A:
 
