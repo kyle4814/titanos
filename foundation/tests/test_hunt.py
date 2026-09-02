@@ -16,6 +16,7 @@ from foundation.hunt import (
     hunt,
     render_hunt,
     with_recency,
+    with_open_deadline,
 )
 from foundation.eligibility import FIELDS as ELIGIBILITY_FIELDS
 from foundation.mouth_ted import REQUEST_FIELDS as TED_FIELDS
@@ -197,6 +198,26 @@ class TestGuards(unittest.TestCase):
 
 
 class TestRelevanceIsAdditive(unittest.TestCase):
+    def test_signal_is_built_from_the_correctly_reshaped_notice(self):
+        # Regression: hunt() used to hand ted_signal() the RAW,
+        # hyphenated notice dict (deadline-receipt-request, notice-title)
+        # instead of mouth_ted.parse_items()'s flat shape (deadline,
+        # title) that ted_signal() actually reads -- silently producing
+        # a signal with an empty deadline and no title. A test asserting
+        # only "a signal exists" passes even while the signal is hollow,
+        # so this asserts the actual field content.
+        notice = degewo_notice()
+        notice["deadline-receipt-request"] = ["2026-09-22T12:00:00+02:00"]
+        cap = CapabilityProfile(
+            name="pentest", declared_by="operator",
+            keywords=frozenset({"penetration"}))
+        r = hunt("q", SOLO, capability=cap, fetch_notices_fn=lambda: [notice])
+        entry = r.entries[0]
+        self.assertIsNotNone(entry.signal)
+        self.assertEqual(
+            entry.signal.facts["deadline"], "2026-09-22T12:00:00+02:00")
+        self.assertIn("penetration testing", entry.signal.claim)
+
     def test_relevance_absent_when_no_capability_profile(self):
         r = hunt("q", SOLO, fetch_notices_fn=lambda: [degewo_notice()])
         self.assertIsNone(r.entries[0].relevance)
@@ -236,11 +257,35 @@ class TestRecency(unittest.TestCase):
             with_recency("q", 99_999)
 
     def test_does_not_filter_on_deadline(self):
-        # Measured 2026-09-02: every deadline-receipt-request comparison
-        # returns zero against the live API, so a query built on it looks
-        # successful and silently matches nothing. This module must never
-        # emit one.
+        # with_recency() is the FT-oriented lever; deadline-receipt-request
+        # is a separate, genuinely-working filter (see with_open_deadline)
+        # that must never be silently folded into this one.
         self.assertNotIn("deadline", with_recency("q", 30))
+
+
+class TestOpenDeadline(unittest.TestCase):
+    def test_appends_a_bare_today_deadline_bound(self):
+        q = with_open_deadline("classification-cpv IN (72000000)")
+        self.assertIn("deadline-receipt-request >= today()", q)
+
+    def test_never_emits_today_with_a_zero_argument(self):
+        # today(0) is wrong grammar -- measured live to silently return
+        # zero results. This function must never regress to emitting it.
+        q = with_open_deadline("classification-cpv IN (72000000)")
+        self.assertNotIn("today(0)", q)
+
+    def test_rejects_empty_query(self):
+        with self.assertRaises(HuntIntegrityError):
+            with_open_deadline("  ")
+
+    def test_rejects_combination_with_full_text_clause(self):
+        # Measured live: FT ~ (...) combined with deadline-receipt-request
+        # silently returns zero results even though each half matches
+        # plenty alone. This function refuses to build that query.
+        with self.assertRaises(HuntIntegrityError):
+            with_open_deadline('FT ~ ("penetration testing")')
+        with self.assertRaises(HuntIntegrityError):
+            with_open_deadline('FT~("penetration testing")')
 
 
 class TestRender(unittest.TestCase):

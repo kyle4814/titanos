@@ -66,6 +66,7 @@ from foundation.eligibility import (
 )
 from foundation.mouth_common import fetch_feed
 from foundation.mouth_ted import FEED_URL, REQUEST_FIELDS, ted_signal
+from foundation.mouth_ted import parse_items as parse_ted_items
 from foundation.qualification import (
     OperatorProfile,
     QualificationResult,
@@ -80,8 +81,10 @@ __all__ = [
     "HuntEntry",
     "HuntReport",
     "hunt",
+    "hunt_multi",
     "render_hunt",
     "with_recency",
+    "with_open_deadline",
     "REQUEST_FIELDS_UNION",
 ]
 
@@ -109,31 +112,40 @@ _MAX_NOTICES_HARD_CAP = 250
 
 
 # RECENCY -- measured against the live API on 2026-09-02, not assumed.
+# CORRECTED same day: an earlier version of this comment claimed
+# `deadline-receipt-request` never filters. That was a wrong-grammar
+# artefact (`today(0)` is not a form the API accepts as meaning "today"
+# -- it silently matches nothing rather than erroring, same silent-drop
+# class as UK Contracts Finder's ignored `keyword`), not a property of
+# the field. Retested with the correct bare-`today()` grammar, same
+# session:
 #
-# The obvious filter is the one that does not work. Against the same
-# full-text query returning 54 notices unfiltered:
+#   FT ~ ("penetration testing" OR "cyber security")                 -> 54
+#   ... AND deadline-receipt-request >= today()                      ->  0
+#   ... AND deadline-receipt-request >  today()                      ->  0
+#   ... AND deadline-receipt-request >= today(0)                     ->  0
+#   deadline-receipt-request >= today() AND classification-cpv IN
+#     (72000000, 79000000, 48000000, 72212730, 48730000, 72810000)   -> 7142
 #
-#   publication-date >= today(-30)          ->  1
-#   publication-date >= today(-90)          ->  2
-#   deadline-receipt-request >  today(0)    ->  0
-#   deadline-receipt-request >= today(0)    ->  0
-#   deadline-receipt-request >  today(1)    ->  0
+# Two separate findings, not one:
 #
-# Every `deadline-receipt-request` comparison returns zero, including
-# ones that must match something. The field is real -- it comes back
-# populated when requested per-notice -- but it is not usable as a
-# filter here, so filtering on "still open" server-side silently
-# returns nothing rather than erroring. That is the same silent-drop
-# class as UK Contracts Finder's ignored `keyword` and the World Bank's
-# ignored date parameters: the query looks like it worked.
+#   1. `today(0)` is simply wrong grammar -- always returns 0, with or
+#      without FT. `mouth_ted.py`'s own EXPERT_QUERY has used bare
+#      `today()` all along; this module must never emit `today(0)`.
+#   2. `deadline-receipt-request >= today()` genuinely works (7,142
+#      live matches) when combined with `classification-cpv`, but
+#      returns 0 when combined with the `FT ~ (...)` full-text
+#      operator specifically -- FT and the deadline filter are mutually
+#      exclusive on this API. A query combining them looks like a
+#      normal query and silently matches nothing, which is the actual
+#      silent-drop finding worth keeping.
 #
-# `publication-date` filters correctly. Recency is therefore expressed
-# as "published recently", which is NOT the same question as "still
-# open" -- a notice published 200 days ago can still be accepting
-# tenders. Callers wanting genuinely-open notices must check each
-# entry's own deadline after fetching. This function does not pretend
-# otherwise, and is named for what it actually does.
+# `publication-date` filters correctly with FT, which is why
+# `with_recency()` (FT-oriented) still uses it. `with_open_deadline()`
+# below is for CPV-shaped queries, where the real "still open" filter
+# does work -- it must never be appended to an FT query.
 _RECENCY_FIELD = "publication-date"
+_DEADLINE_FIELD = "deadline-receipt-request"
 _MAX_RECENCY_DAYS = 3650
 
 
@@ -141,9 +153,10 @@ def with_recency(query: str, days: int) -> str:
     """Append a publication-date bound to a TED expert query.
 
     This narrows to notices PUBLISHED in the last `days`. It does not
-    and cannot narrow to notices still accepting tenders -- see the
-    measurement above. Do not rename this to something that implies it
-    does.
+    narrow to notices still accepting tenders -- for that, on a
+    non-FT (e.g. CPV-based) query, see `with_open_deadline()` instead;
+    combining the two on an FT query silently returns nothing (see the
+    measurement above).
     """
     if not query.strip():
         raise HuntIntegrityError("cannot add recency to an empty query")
@@ -151,6 +164,34 @@ def with_recency(query: str, days: int) -> str:
         raise HuntIntegrityError(
             f"days must be between 1 and {_MAX_RECENCY_DAYS}, got {days}")
     return f"{query} AND {_RECENCY_FIELD} >= today(-{days})"
+
+
+def with_open_deadline(query: str) -> str:
+    """Append a genuinely-working `deadline-receipt-request >= today()`
+    bound to a TED expert query -- narrows to notices still accepting
+    tenders, confirmed live (7,142 matches combined with
+    `classification-cpv`, see the measurement above).
+
+    CPV-compatible, FT-INCOMPATIBLE: combining this with an `FT ~ (...)`
+    full-text clause measured 0 results live, silently, even though
+    each half matches plenty alone. Do not call this on a query that
+    contains an `FT ~` clause -- raises `HuntIntegrityError` if it
+    detects one, rather than building a query proven to return nothing.
+
+    Always emits bare `today()`, never `today(0)` -- `today(0)` is
+    wrong grammar that silently matches nothing regardless of what it
+    is combined with (see the measurement above); this function must
+    never regress to emitting it.
+    """
+    if not query.strip():
+        raise HuntIntegrityError("cannot add a deadline bound to an empty query")
+    if "FT ~" in query or "FT~" in query:
+        raise HuntIntegrityError(
+            "with_open_deadline() cannot be combined with an FT ~ (...) "
+            "full-text clause -- measured live to silently return zero "
+            "results even though each half matches plenty alone; use "
+            "with_recency() for an FT query instead")
+    return f"{query} AND {_DEADLINE_FIELD} >= today()"
 
 
 @dataclass(frozen=True)
@@ -166,6 +207,13 @@ class HuntEntry:
     qualification: QualificationResult
     relevance: Optional[RelevanceAssessment]
     signal: Optional[CanonicalSignal]
+    # Which source this notice came from ("TED" for the single-source
+    # `hunt()` path -- kept as a real value, never "" for that path, so
+    # a merged report from `hunt_multi()` can always tell TED entries
+    # apart from every other source without a special case). Defaulted
+    # so every pre-existing direct `HuntEntry(...)` construction (this
+    # module's own tests included) keeps working unchanged.
+    source: str = "TED"
 
     def __post_init__(self) -> None:
         if self.band not in BAND_ORDER:
@@ -221,12 +269,17 @@ class HuntReport:
         return tuple(e for e in self.entries if e.band == band)
 
 
-def _sort_key(entry: HuntEntry) -> Tuple[int, str]:
-    """Band first, then publication number for determinism. No value
-    ordering inside a band: `shortlist.py` owns money ranking and
-    duplicating that logic here would give this repository two answers
-    to one question -- the defect its own doctrine names most often."""
-    return (BAND_ORDER.index(entry.band), entry.publication_number)
+def _sort_key(entry: HuntEntry) -> Tuple[int, str, str]:
+    """Band first, then publication number, then source, for
+    determinism. No value ordering inside a band: `shortlist.py` owns
+    money ranking and duplicating that logic here would give this
+    repository two answers to one question -- the defect its own
+    doctrine names most often. The `source` tiebreaker only ever
+    matters for `hunt_multi()`'s merged report, where two different
+    sources could coincidentally mint the same publication number --
+    for the single-source `hunt()` path every entry's source is the
+    same constant and this changes nothing."""
+    return (BAND_ORDER.index(entry.band), entry.publication_number, entry.source)
 
 
 def _default_fetch(
@@ -250,6 +303,86 @@ def _default_fetch(
     if not isinstance(notices, list):
         return ()
     return tuple(n for n in notices if isinstance(n, dict))
+
+
+def _parsed_ted_items_by_key(notices: Sequence[dict]) -> dict:
+    """Re-shape the same raw TED notices already fetched into
+    `mouth_ted.parse_items()`'s flat, non-hyphenated item shape
+    (`deadline`, `title`, `key`, `amount`, ...), keyed by each item's
+    own `key` (== the raw notice's `publication-number`). No second
+    fetch: `parse_items()` only accepts its one documented input shape
+    (the `{"notices": [...]}` envelope `/v3/notices/search` itself
+    returns), so the already-fetched notices are re-wrapped into that
+    shape locally, in memory, and parsed once.
+
+    Never raises: a notice `parse_items()` itself would drop (no usable
+    `publication-number`) is simply absent from the returned mapping --
+    `ted_signal()`'s caller falls back to the raw notice for that one
+    case (see `hunt()`), which is a strictly safer degrade than a crash
+    mid-hunt over a single malformed notice.
+    """
+    try:
+        raw_bytes = json.dumps({"notices": list(notices)}).encode("utf-8")
+        parsed = parse_ted_items(raw_bytes)
+    except (TypeError, ValueError):
+        # A notice containing something json.dumps cannot serialise
+        # (should not happen for a dict already round-tripped through
+        # json.loads, but never assumed) -- degrade to "no parsed
+        # counterpart for anything", not a crash.
+        return {}
+    return {item.get("key"): item for item in parsed if item.get("key")}
+
+
+def _assess_notice(
+    notice: dict,
+    operator: OperatorProfile,
+    *,
+    capability: Optional[CapabilityProfile] = None,
+    now: Optional[datetime] = None,
+    signal_fn: Optional[Callable[[dict, Optional[datetime]], CanonicalSignal]] = None,
+    source: str = "TED",
+) -> Tuple[Optional[HuntEntry], Optional[str]]:
+    """The one per-notice chain -- eligibility -> qualification (and
+    relevance, when both `capability` and `signal_fn` are supplied) --
+    shared by `hunt()` and `hunt_multi()` so there is exactly one place
+    this sequence is written, not two copies that can drift apart.
+
+    Returns `(entry, note)`. `entry` is `None` only when the notice
+    could not be assessed at all (no stable identity) -- `note` then
+    names why and the caller must not add anything to its report.
+    `entry` non-`None` with a non-`None` `note` means the notice WAS
+    assessed but relevance additionally could not be computed --
+    relevance is additive colour, not the verdict, so a signal this
+    function cannot build must not discard a qualification verdict it
+    already computed correctly (see `hunt()`'s original docstring
+    reasoning, preserved here rather than restated).
+    """
+    try:
+        eligibility = assess_eligibility(notice)
+    except ValueError as exc:
+        return None, f"unassessable notice: {exc}"
+    qualification = assess(eligibility, operator)
+    relevance = None
+    signal = None
+    note = None
+    if capability is not None and signal_fn is not None:
+        try:
+            signal = signal_fn(notice, now)
+            relevance = score(signal, capability)
+        except Exception as exc:  # noqa: BLE001 - see below
+            note = (
+                f"{eligibility.publication_number}: relevance unavailable "
+                f"({type(exc).__name__})")
+    entry = HuntEntry(
+        publication_number=eligibility.publication_number,
+        band=qualification.band,
+        eligibility=eligibility,
+        qualification=qualification,
+        relevance=relevance,
+        signal=signal,
+        source=source,
+    )
+    return entry, note
 
 
 def hunt(
@@ -295,40 +428,43 @@ def hunt(
         notices = _default_fetch(policy, query, limit)
         objective = policy.objective
 
+    # `ted_signal()` reads FLAT, non-hyphenated keys (`deadline`,
+    # `title`, `key`, `amount`, ...) -- `mouth_ted.parse_items()`'s own
+    # output shape. `notices` here are the RAW search-API dicts
+    # `assess_eligibility()` needs (hyphenated: `deadline-receipt-
+    # request`, `notice-title`, `publication-number`). Passing a raw
+    # notice straight to `ted_signal()` silently produces a signal with
+    # an empty deadline and no title -- caught 2026-09-02: it fails in
+    # the safe direction (UNKNOWN, not a wrong date) which is exactly
+    # why it went unnoticed by any test asserting only "a signal
+    # exists". `parse_ted_items()` is re-run here, on the SAME notices
+    # already fetched (re-wrapped into the one JSON shape it accepts,
+    # never a second network call), to get the correctly-shaped
+    # counterpart for each notice, matched by its own publication
+    # number -- both shapes come from one fetch.
+    parsed_by_key = _parsed_ted_items_by_key(notices) if capability is not None else {}
+
     entries = []
     skipped = []
     for notice in notices:
-        try:
-            eligibility = assess_eligibility(notice)
-        except ValueError as exc:
-            # A notice with no stable identity cannot be keyed, tracked
-            # or re-checked. Recorded by reason, never dropped silently.
-            skipped.append(f"unassessable notice: {exc}")
-            continue
-        qualification = assess(eligibility, operator)
-        relevance = None
-        signal = None
-        if capability is not None:
-            try:
-                signal = ted_signal(notice, now=now)
-                relevance = score(signal, capability)
-            except Exception as exc:  # noqa: BLE001 - see below
-                # Relevance is additive colour, not the verdict. A
-                # signal this module cannot build must not discard a
-                # qualification verdict it already computed correctly.
-                skipped.append(
-                    f"{eligibility.publication_number}: relevance unavailable "
-                    f"({type(exc).__name__})")
-        entries.append(
-            HuntEntry(
-                publication_number=eligibility.publication_number,
-                band=qualification.band,
-                eligibility=eligibility,
-                qualification=qualification,
-                relevance=relevance,
-                signal=signal,
-            )
+        # A notice with no stable identity cannot be keyed, tracked or
+        # re-checked -- `_assess_notice` returns `entry=None` for that
+        # case and it is recorded by reason, never dropped silently.
+        entry, note = _assess_notice(
+            notice, operator,
+            capability=capability, now=now,
+            signal_fn=(
+                lambda n, t: ted_signal(
+                    parsed_by_key.get(n.get("publication-number"), n), now=t)
+            ) if capability is not None else None,
+            source="TED",
         )
+        if entry is None:
+            skipped.append(note)
+            continue
+        if note is not None:
+            skipped.append(note)
+        entries.append(entry)
 
     ordered = tuple(sorted(entries, key=_sort_key))
     return HuntReport(
@@ -337,6 +473,129 @@ def hunt(
         assessed=len(ordered),
         skipped=tuple(skipped),
         objective=objective,
+    )
+
+
+def hunt_multi(
+    query: str,
+    operator: OperatorProfile,
+    sources: Sequence["Source"],
+    *,
+    capability: Optional[CapabilityProfile] = None,
+    now: Optional[datetime] = None,
+) -> HuntReport:
+    """Run the same eligibility -> qualification (and relevance) chain
+    `hunt()` runs, across every `Source` in `sources`, and return ONE
+    merged, ranked `HuntReport` -- every `HuntReport`/`HuntEntry`
+    invariant from the single-source path applies unchanged: band
+    ordering, `INSUFFICIENT_DATA` outranking `DISQUALIFIED`, an entry
+    that cannot restate its own band.
+
+    `sources` are `foundation.sources.Source` instances (imported
+    lazily below, not at module load time, so `hunt.py` gains no new
+    hard dependency on `sources.py` for callers who only ever use the
+    single-source `hunt()`). Each source's own `fetch_items` is the
+    offline-injection point -- exactly like `hunt()`'s
+    `fetch_notices_fn`, no test anywhere in this repository opens a
+    socket.
+
+    For a source that is not server-side query-filterable (see
+    `Source.server_side_filterable`), `query` is applied client-side as
+    a case-insensitive substring match over that source's own declared
+    `keyword_fields`, BEFORE normalisation -- never trusted to a query
+    parameter a source is known to silently ignore.
+    """
+    if not isinstance(operator, OperatorProfile):
+        raise HuntIntegrityError(
+            f"operator must be an OperatorProfile, got {type(operator).__name__}")
+    if not query.strip():
+        raise HuntIntegrityError(
+            "a hunt must name what it is looking for -- an empty query "
+            "would fetch whatever the source felt like returning")
+    if not sources:
+        raise HuntIntegrityError(
+            "hunt_multi() needs at least one Source -- an empty source "
+            "list would silently report zero notices from every source "
+            "at once, indistinguishable from every source genuinely "
+            "having nothing")
+
+    entries = []
+    skipped = []
+    fetched_total = 0
+    needle = query.strip().lower()
+
+    for src in sources:
+        try:
+            raw_items = tuple(i for i in src.fetch_items() if isinstance(i, dict))
+        except Exception as exc:  # noqa: BLE001 - one bad source must not blind the rest
+            skipped.append(
+                f"{src.source_id}: fetch failed ({type(exc).__name__}: {exc})")
+            continue
+        fetched_total += len(raw_items)
+
+        if not src.server_side_filterable:
+            def _matches(item: dict) -> bool:
+                for field in src.keyword_fields:
+                    value = item.get(field)
+                    if isinstance(value, str) and needle in value.lower():
+                        return True
+                return False
+            raw_items = tuple(i for i in raw_items if _matches(i))
+
+        signal_fn = None
+        if capability is not None and src.signal_fn is not None:
+            signal_fn = src.signal_fn
+
+        for raw in raw_items:
+            try:
+                notice = src.normalise(raw)
+            except Exception as exc:  # noqa: BLE001
+                skipped.append(
+                    f"{src.source_id}: normalise failed "
+                    f"({type(exc).__name__}: {exc})")
+                continue
+            if notice is None:
+                # The source's own normaliser declined this item --
+                # most commonly no stable identity to key on. Recorded,
+                # never silently dropped.
+                skipped.append(
+                    f"{src.source_id}: item skipped by normaliser "
+                    "(no stable identity)")
+                continue
+            # `signal_fn` (a source's own `ted_signal`/`gets_signal`/
+            # `tender_signal`) reads that source's RAW item shape, never
+            # the TED-shaped adapter dict `src.normalise()` just built
+            # for `assess_eligibility()` -- passing the normalised
+            # `notice` here would be the exact "wrong input shape,
+            # fails quietly in the safe direction" bug found and fixed
+            # in `hunt()`'s own TED path (see `_parsed_ted_items_by_key()`),
+            # reproduced source-by-source if `raw` were not captured by
+            # closure instead of relying on `_assess_notice`'s own
+            # `notice` argument.
+            entry, note = _assess_notice(
+                notice, operator,
+                capability=capability, now=now,
+                signal_fn=(lambda n, t, fn=signal_fn, r=raw: fn(r, t)) if signal_fn else None,
+                source=src.source_id,
+            )
+            if entry is None:
+                skipped.append(f"{src.source_id}: {note}")
+                continue
+            if note is not None:
+                skipped.append(f"{src.source_id}: {note}")
+            entries.append(entry)
+
+    ordered = tuple(sorted(entries, key=_sort_key))
+    return HuntReport(
+        entries=ordered,
+        fetched=fetched_total,
+        assessed=len(ordered),
+        skipped=tuple(skipped),
+        objective=(
+            f"multi-source hunt for {query!r} across "
+            f"{len(sources)} source(s): "
+            + ", ".join(s.source_id for s in sources)
+        ),
     )
 
 
