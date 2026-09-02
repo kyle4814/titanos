@@ -82,6 +82,7 @@ from datetime import datetime, timezone
 from typing import Iterable, Optional, Sequence, Tuple
 
 from foundation.hunt import HuntEntry, HuntReport
+from foundation.notice_class import classify_notice
 
 __all__ = [
     "BriefIntegrityError",
@@ -139,6 +140,34 @@ _DEADLINE_FACT_KEYS = ("deadline", "close_date")
 _NON_ISO_DEADLINE_FORMATS = (
     "%A, %d %B %Y %I:%M %p %z",   # NZ GETS
 )
+
+
+def _notice_class_of(entry) -> str:
+    """The entry's notice class, or "" when the source said nothing.
+
+    WHY THE BRIEF NEEDS THIS: five Irish tenders closed at EUR400,000 to
+    EUR2,600,000 turnover and three notices with NO qualification
+    barrier all scored INSUFFICIENT_DATA identically, because none
+    published structured criteria. Ranking them together told the
+    operator to spend equal attention on a door and a wall.
+
+    A MARKET_ENGAGEMENT notice is answerable by anyone; a COMPETITIVE
+    one may not be. That distinction belongs in front of the operator,
+    not in a module nothing calls -- this repository already documents
+    what happens to capabilities with no production caller.
+    """
+    elig = entry.eligibility
+    title = ""
+    tm = getattr(elig, "notice_title", None)
+    if isinstance(tm, dict):
+        for texts in tm.values():
+            if texts:
+                title = str(texts[0])
+                break
+    procedure = getattr(elig, "procedure_type_label", None) or \
+        getattr(elig, "procedure_type_code", None) or ""
+    c = classify_notice(title=title, procedure=str(procedure))
+    return "" if c.notice_class == "UNKNOWN" else c.notice_class
 
 
 def _title_of(entry) -> str:
@@ -241,6 +270,10 @@ class DeadlineEntry:
     # keeps working -- see _title_of() for why this field exists.
     title: str = ""
 
+    # Notice class from `notice_class.py`, "" when the source said
+    # nothing. Defaulted and last so existing constructions still work.
+    notice_class: str = ""
+
     def __post_init__(self) -> None:
         if not self.publication_number.strip():
             raise BriefIntegrityError(
@@ -277,6 +310,10 @@ class NewEntry:
     # keeps working -- see _title_of() for why this field exists.
     title: str = ""
 
+    # Notice class from `notice_class.py`, "" when the source said
+    # nothing. Defaulted and last so existing constructions still work.
+    notice_class: str = ""
+
     def __post_init__(self) -> None:
         if not self.publication_number.strip():
             raise BriefIntegrityError(
@@ -298,6 +335,10 @@ class UnresolvedEntry:
     # Defaulted and last so every existing positional construction
     # keeps working -- see _title_of() for why this field exists.
     title: str = ""
+
+    # Notice class from `notice_class.py`, "" when the source said
+    # nothing. Defaulted and last so existing constructions still work.
+    notice_class: str = ""
 
     def __post_init__(self) -> None:
         if not self.publication_number.strip():
@@ -330,6 +371,10 @@ class BlockedEntry:
     # Defaulted and last so every existing positional construction
     # keeps working -- see _title_of() for why this field exists.
     title: str = ""
+
+    # Notice class from `notice_class.py`, "" when the source said
+    # nothing. Defaulted and last so existing constructions still work.
+    notice_class: str = ""
 
     def __post_init__(self) -> None:
         if not self.publication_number.strip():
@@ -437,6 +482,7 @@ def build_brief(
         action_required.append(DeadlineEntry(
             publication_number=entry.publication_number,
         title=_title_of(entry),
+        notice_class=_notice_class_of(entry),
             band=entry.band,
             days_remaining=days,
             deadline_display=display,
@@ -457,6 +503,7 @@ def build_brief(
             NewEntry(
                 publication_number=entry.publication_number,
         title=_title_of(entry),
+        notice_class=_notice_class_of(entry),
                 band=entry.band,
                 notice_url=entry.eligibility.notice_url or "",
             )
@@ -469,6 +516,7 @@ def build_brief(
         UnresolvedEntry(
             publication_number=entry.publication_number,
         title=_title_of(entry),
+        notice_class=_notice_class_of(entry),
             document_url=_first_document_url(entry) or UNKNOWN,
             unresolved_dimensions=_dimensions_needing_resolution(entry.qualification),
         )
@@ -479,6 +527,7 @@ def build_brief(
         BlockedEntry(
             publication_number=entry.publication_number,
         title=_title_of(entry),
+        notice_class=_notice_class_of(entry),
             blocking_clause=" | ".join(entry.blocking_clauses) or UNKNOWN,
         )
         for entry in report.by_band("DISQUALIFIED")
@@ -543,6 +592,8 @@ def render_brief(brief: Brief) -> str:
                 f"  [{e.band}] {e.title or e.publication_number}"
                 f"  closes in: {urgency}"
                 f"  (deadline: {e.deadline_display})")
+            if e.notice_class:
+                lines.append(f"      class: {e.notice_class}")
             if e.title:
                 lines.append(f"      ref: {e.publication_number}")
             if e.notice_url:
@@ -575,6 +626,8 @@ def render_brief(brief: Brief) -> str:
     else:
         for e in brief.unresolved:
             lines.append(f"  {e.title or e.publication_number}")
+            if e.notice_class:
+                lines.append(f"      class: {e.notice_class}")
             if e.title:
                 lines.append(f"      ref: {e.publication_number}")
             lines.append(f"      open this document: {e.document_url}")

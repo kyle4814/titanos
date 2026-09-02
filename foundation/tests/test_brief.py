@@ -515,3 +515,41 @@ class TestIntegrity(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestNoticeClassReachesTheBrief(unittest.TestCase):
+    """`notice_class.py` classifies a notice as answerable-by-anyone or
+    not. That distinction is worthless in a module nothing calls — this
+    repository already documents four mouths that were built, tested,
+    confidently documented, and reachable by nobody.
+
+    Five Irish tenders closed at €400k–€2.6M turnover and three notices
+    with no barrier at all scored INSUFFICIENT_DATA identically. Ranking
+    them together tells the operator to spend equal attention on a door
+    and a wall."""
+
+    def test_market_engagement_reaches_the_rendered_brief(self):
+        notice = qualified_notice()
+        notice["notice-title"] = {"eng": ["Preliminary market engagement notice"]}
+        entry = hunt_entry(notice, FULL, deadline="2026-09-09T12:00:00+00:00")
+        text = render_brief(build_brief(report_of(entry), now=NOW,
+                                        closing_within_days=30))
+        self.assertIn("MARKET_ENGAGEMENT", text)
+
+    def test_rolling_admission_reaches_the_rendered_brief(self):
+        notice = qualified_notice()
+        notice["notice-title"] = {"eng": ["Dynamic Purchasing System for X"]}
+        entry = hunt_entry(notice, FULL, deadline="2026-09-09T12:00:00+00:00")
+        text = render_brief(build_brief(report_of(entry), now=NOW,
+                                        closing_within_days=30))
+        self.assertIn("ROLLING_ADMISSION", text)
+
+    def test_unclassifiable_notice_adds_no_class_line(self):
+        """An unknown class must print nothing rather than the word
+        UNKNOWN — the brief already carries UNKNOWN for deadlines, and a
+        second unrelated UNKNOWN in the same block reads as one fact."""
+        entry = hunt_entry(qualified_notice(), FULL,
+                           deadline="2026-09-09T12:00:00+00:00")
+        text = render_brief(build_brief(report_of(entry), now=NOW,
+                                        closing_within_days=30))
+        self.assertNotIn("class:", text)

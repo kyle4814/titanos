@@ -73,12 +73,51 @@ Procurement Agreement.
 **No deadline pressure, no credential gate published, and a buyer that
 covers every NZ government agency.**
 
-**UNKNOWN and worth checking before assuming:** what the ITP application
-itself asks for. `Required Pre-qualifications: None` is the buyer's own
-stated field, but the application form may still request insurance or
-references — the same lesson the Irish documents taught, where TED
-published nothing and the document demanded €2.6M turnover. Open the
-notice and read the ITP before committing effort.
+**THE APPLICATION CRITERIA, read 2026-09-03 from marketplace.govt.nz.**
+The channel open for application is literally **Managed Security
+Services** (alongside Infrastructure and Telecommunications). Quoted:
+
+> *"accept the Collaborative Marketplace Agreement terms"*
+> *"be an active and legitimate business"*
+> *"be financially viable to provide the services applied for"*
+> *"have in place appropriate insurance provisions"*
+> *"should not be involved in disputes or legal proceedings"*
+> *"demonstrate relevant experience in the services they applied for"*
+> *"demonstrate relevant capability and capacity to provide services"*
+> *"provide required security information"*
+
+**No turnover threshold. No insurance amount. No certification named. No
+reference count.** Compare to Ireland, where four of five buyers wanted
+€13,000,000 employer's liability and three reference contracts, and
+turnover ran €400,000 to €2,600,000.
+
+And the buyer's own framing of the whole scheme:
+
+> *"The Marketplace simplifies how the NZ Government buys ICT and lowers
+> the barriers for suppliers to provide us with services — in short, the
+> Marketplace makes it easier for suppliers — large and small — to do
+> business with government."*
+
+**What is still genuinely UNKNOWN, and matters:**
+
+- *"appropriate insurance provisions"* names no figure. Undefined is not
+  absent — it could still mean $5M public liability at contract stage.
+- *"demonstrate relevant experience"* names no threshold. This is the
+  clause most likely to bite, and it is the same shape as the referee
+  question outstanding at NSW.
+- The detailed security documents (Marketplace Information Security
+  Tiering Standard, GCDO Continuous Security Certification Controls
+  Validation Plan, and four scoping templates) are **only available
+  after registration begins.** They are listed on the GETS notice as
+  attachments, so they exist and they are substantial.
+- **Whether a sole trader may apply is not stated either way.** The
+  criteria say "business" and "company" without defining or excluding.
+  UNKNOWN, and worth one email.
+
+Contact published on the notice: `marketplace@dia.govt.nz`, and their
+own site currently warns *"Due to high demand, it may take us longer
+than usual to process applications"* — which is a live scheme, not a
+dormant one.
 
 Also live, same class, same buyer type:
 
