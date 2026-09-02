@@ -165,56 +165,134 @@ highest-value live item on the board.
 
 ---
 
-### 7. Ireland — five open security notices, English submission
+### 7. Ireland — two RESOLVED (both no), three still open
+
+**2026-09-02 overnight: the documents are now readable.** eTenders'
+document pages offer **"Proceed without association"** — anonymous
+download is an option the site itself provides, not a control worked
+around. The static path is
+`/epps/cft/downloadContractDocument.do?documentId=<id>&resourceId=<id>`,
+recovered by reading (never executing) the page's own JavaScript.
+
+That closes the two biggest Irish notices with quoted evidence.
+
+#### ❌ Health & Safety Authority — €900,000, closes 12 Oct — CANNOT APPLY
+
+> *"Tenderers will either pass OR fail each of the Selection Criteria in
+> this part 3.2. A Tenderer who fails a selection criterion will be
+> excluded from participation."*
+
+| Requirement | Threshold | You |
+|---|---|---|
+| Annual turnover, auditor-signed | **€1,800,000** | ✗ |
+| Employer's Liability | €13,000,000 | ✗ |
+| Public Liability | €6,500,000 | ✗ |
+| Product Liability | €6,500,000 | ✗ |
+| Professional Indemnity | €1,000,000 | ✗ |
+| Cyber Security insurance | €2,500,000 | ✗ |
+| Reference contracts | **3 of similar value, last 3 years** | ✗ |
+| Bank letter confirming good standing | required | ✗ |
+
+#### ❌ Fáilte Ireland — €800,000, closes 24 Sep — CANNOT APPLY
+
+Section A is explicitly **"PASS/FAIL CRITERIA"** with a **"MINIMUM RULE
+/ ELIMINATOR"**. Reference `IT/2026/08`, 3-year contract.
+
+| Requirement | Threshold | You |
+|---|---|---|
+| Turnover, any of previous 3 financial years | **€400,000** | ✗ |
+| Employer's Liability | €13,000,000 | ✗ |
+| Public Liability | €6,500,000 | ✗ |
+| Professional Indemnity | €2,000,000 | ✗ |
+| Cyber Liability | €5,000,000 | ✗ |
+| Reference contracts | **3 in last 3 years, similar scope, scale and complexity** | ✗ |
+
+**ONE GENUINELY USEFUL CLAUSE, quoted verbatim:**
+
+> *"NOTE #1: in the case of the Candidate being a grouping, the condition
+> at (i) above may be satisfied by the group members as a whole."*
+
+**Turnover can be met by a consortium as a whole.** That is written into
+the rules, not inferred. It does not make you eligible alone — the
+insurance and reference bars still apply to the grouping — but it is the
+first explicit, quoted confirmation in this entire campaign that
+**joining a group is a sanctioned route into contracts you cannot reach
+solo.** It reframes the subcontracting lane from a workaround into a
+procurement mechanism the buyer names itself.
+
+#### Still open, criteria not yet pulled
 
 | Notice | Buyer | Closes | Procedure |
 |---|---|---|---|
-| SOC/SIEM/Managed IR | Health & Safety Authority | **12 Oct** | Open |
 | Managed Security Services | Houses of the Oireachtas | **28 Sep** | Open |
 | SOC/SIEM | An Post | **29 Sep** | Negotiated w/ prior call |
 | National PKI managed services (PQQ) | Dept of Justice | **2 Oct** | Competitive w/ negotiation |
-| Cybersecurity Specialist Services | Fáilte Ireland | **24 Sep** | Restricted |
 
-All English submission. All reachable at
-`etenders.gov.ie/epps/cft/prepareViewCfTWS.do?resourceId=<id>`.
+Expect the same shape. Both resolved notices demanded €400k–€1.8M
+turnover, €13M employer's liability and three reference contracts —
+**that is what a mid-size EU public security contract costs to enter**,
+and it is now measured twice rather than assumed.
 
-**Honest caveat on the two SOC/SIEM ones:** a Security Operations Centre
-is a 24/7 monitored service. That is a genuine delivery-capacity
-barrier, not a paperwork one — one person cannot staff it round the
-clock. As a prime bid they are out of reach; as a **subcontract
-position** they are live.
-
-**"Cybersecurity Specialist Services"** is the interesting title —
-*specialist services* is the shape that gets subcontracted to
-individuals — but it is Restricted procedure with a PQQ.
-
-**Why Ireland matters beyond these five:** eTenders carries 2,916 open
-notices; TED carries 746 Irish ones. So roughly **2,170 below-threshold
-Irish notices are structurally invisible to TED** — a non-overlapping
-tier of demand, and the low-barrier band a solo operator can win in.
+**Why Ireland still matters:** eTenders carries 2,916 open notices; TED
+carries 746 Irish ones. Roughly **2,170 below-threshold Irish notices
+are structurally invisible to TED** — a different tier, with different
+economics, and the one worth sweeping.
 
 ---
 
-### 8. New Zealand GETS — 36 live matches, no pre-qualification
+### 8. New Zealand GETS — two real items, and a correction
+
+**CORRECTION, 2026-09-02 overnight sweep.** This entry previously said
+"36 security/IT keyword matches". That figure was produced by a LOOSE
+keyword set including `ICT`, `software`, `data`, `network` and
+`technology`. Swept properly against tight security terms:
+
+```
+325  open NZ notices
+  5  titles contain "secur" at all
+  0  are cyber security
+```
+
+All five are physical: fire-alarm remediation at two schools, corporate
+(guard) security, an enterprise CCTV install, and a poultry biosecurity
+grant. The 43 broad matches are payroll, ERP, footpath replacement,
+train-door technology and glazing panels.
+
+**New Zealand currently has zero live cyber security tenders.** The
+earlier headline was IT-adjacent volume, not demand for your work, and
+promoting it as "36 matches" overstated the market.
+
+**What IS real, both confirmed `Required Pre-qualifications: None`:**
 
 | | |
 |---|---|
-| **Pool** | 324 open tenders, **36 security/IT keyword matches** |
-| **Barrier** | Three sampled notices **all state `Required Pre-qualifications: None`** |
-| **Eligibility** | NZ rules *"do not discriminate against suppliers (domestic or international)"* and reflect *"the Australia New Zealand Government Procurement Agreement"* and the WTO GPA |
-| **Local presence** | No NZBN or local-presence requirement found across five procurement.govt.nz pages |
+| **NZ Ministry of Defence — Technical Support Services (TSS) Panel Reset 2026** | |
+| Closes | **30 September 2026** |
+| Type | Notice of Information (Advance Notice), ref `TSS-2026-AN` |
+| Pre-qualifications | **None** |
+| Categories | Management advisory, professional engineering, technical writing |
 
-That "None" is the buyer **positively stating** there is no gate — not
-silence being read as permission. That distinction is the whole reason
-these verdicts are worth anything.
+A **panel reset** is the rolling-admission structure that fits a solo
+operator — and an Advance Notice means the real RFP is still coming, so
+there is time to prepare rather than react.
 
-**Sampled:** University of Waikato, Ministry of Education, Statistics NZ.
-**3 of 36 checked** — deliberately, because fetching 36 detail pages in a
-burst is rude to a live public service. The other 33 are UNKNOWN, not
-assumed clear.
+| | |
+|---|---|
+| **Health NZ — Enterprise Observability Capability and Platform** | |
+| Closes | **25 September 2026** |
+| Type | Request for Information (market research), ref `RFI26-663` |
+| Pre-qualifications | **None** |
+| Regions | **International** — explicitly open to non-NZ suppliers |
+| Category | Software |
 
-**Absence of evidence caveat:** no local-presence requirement was
-*found*. That is not the same as one being confirmed absent.
+An RFI is low-commitment by design: responding is a legitimate way onto
+a buyer's radar with no bid machinery, no consortium, no references.
+
+**Eligibility (unchanged, still verified):** NZ rules *"do not
+discriminate against suppliers (domestic or international)"* and reflect
+*"the Australia New Zealand Government Procurement Agreement"* and the
+WTO GPA. No NZBN or local-presence requirement found across five
+procurement.govt.nz pages — absence of evidence, not confirmed absence.
 
 ---
 
@@ -244,6 +322,78 @@ genuinely receive.
 **Pwn2Own Ireland is gated:** it requires **$15,000 already earned
 through ZDI** before you may compete. Quoted from its own rules. Which
 is another reason ZDI is item 1 on this board.
+
+---
+
+## THE MECHANISM THAT CHANGES THE STRATEGY
+
+Found 2026-09-02 by reading two Irish tender documents in full. It
+appears in both, independently, in the buyers' own words — and it is a
+procurement mechanism, not a workaround.
+
+**You do not have to meet the selection criteria yourself.**
+
+Health & Safety Authority RFT, §3.1:
+
+> *"Tenderers should note that where a Tenderer is relying on the
+> capacity of other entities (for example, Subcontractors) for the
+> purposes of fulfilling any of the Selection Criteria..."*
+
+Fáilte Ireland PQQ, Section A:
+
+> *"NOTE #1: in the case of the Candidate being a grouping, the condition
+> at (i) above may be satisfied by the group members as a whole."*
+
+And the same PQQ, on how capability is assessed:
+
+> *"Candidates should distinguish between capabilities delivered directly
+> by the Candidate and those delivered by consortium members or
+> subcontractors."*
+
+### What this actually means
+
+Every EU tender on this board demanded turnover you do not have,
+insurance you do not carry, and reference contracts you have never held.
+The conclusion drawn all campaign was "these are structurally out of
+reach."
+
+That conclusion was about **bidding as the prime**. The rules explicitly
+provide for a different position: the specialist whose capacity a prime
+**relies on**. The buyer does not merely tolerate this — the PQQ has a
+dedicated field for it and requires the prime to name who delivers what.
+
+So the honest reframing:
+
+| | |
+|---|---|
+| **Wrong question** | "How do I reach €1,800,000 turnover?" |
+| **Right question** | "Which prime bidding this contract needs a tester, and how do I become the named specialist in their submission?" |
+
+That is not a lesser path. It is the position the procurement framework
+was written to accommodate, and it needs no turnover, no insurance of
+your own, and no corporate reference history — the prime carries those.
+
+### What it does NOT mean
+
+It does not make you eligible alone. The insurance and reference bars
+still apply to the grouping as a whole, and the prime still has to want
+you. It also does not bypass anything: the ESPD must be completed for
+every consortium member and every subcontractor whose capacity is relied
+on, so you are declared, visible, and accountable in the submission.
+
+### Why this outranks everything else found tonight
+
+`SUBCONTRACT_TARGETS.md` and `SUBCONTRACT_APPROACH_PACK.md` were built
+as a fallback lane — what to do because the tenders were closed. This
+promotes that lane from consolation to **the mechanism the buyers
+themselves specify**. Pulse Security, Volkis, INFODAS and AWARE7 stop
+being "firms that might give you work" and become "firms whose bids
+have a slot with your name on it."
+
+**ACTION:** when approaching any firm on that list, the offer is not
+"do you have spare work." It is "I am available as named specialist
+capacity for tenders you are bidding." That is a different conversation,
+and it is the one the documents say buyers expect to see.
 
 ---
 
@@ -432,3 +582,8 @@ Bands mean exactly this and nothing more:
 3. **Email NSW about referees.** One email unlocks a $150,000 ceiling.
 4. **Finish ICN Gateway.** No reference gate at all — the one you can
    complete today without waiting on anyone.
+
+Then, when those are moving: the **NZ Ministry of Defence TSS Panel
+Reset** (30 Sep, pre-qualifications None) and the **Health NZ
+Observability RFI** (25 Sep, International, pre-qualifications None).
+Both are low-commitment ways onto a buyer's list.
