@@ -43,6 +43,59 @@ below, which requires $15,000 already earned through ZDI.
 
 ---
 
+### 2. ADB Consultant Management System — the modality built for people
+
+Every barrier on this board — €13,000,000 employer's liability,
+€2,600,000 turnover, three corporate references — exists because the
+buyer was procuring from a **firm**. Development banks run a separate
+track for procuring from a **person**, and it does not carry those
+requirements because there is no company to carry them.
+
+**What I verified myself, 2026-09-03:**
+
+| | |
+|---|---|
+| `cms.adb.org` | **live, HTTP 200, publicly reachable** |
+| robots.txt | permits it — only `/admin/`, `/user/`, `/search/` disallowed |
+| Registration | open: *"Don't have an account yet? Register here."* |
+| Menu | Consulting Opportunities · Shortlisted Firms · Awarded Contracts |
+| **Australia's ADB membership** | **1966** — quoted from ADB's own members page |
+| ADB founded | 1966, with 31 members. **So Australia is a founding member.** |
+| Members today | 69 |
+
+**What I could NOT verify, and it is the load-bearing part.**
+
+A research pass reported ADB's individual-consultant eligibility as
+*"a citizen of an ADB member country, not barred, not a close relative
+of an ADB staff member"* — with no incorporation, insurance, turnover or
+reference requirement. If accurate that is the single most important
+finding of this campaign.
+
+**I could not confirm it.** Every CMS path — the registration page, the
+terms page, the opportunities listing — returns the same 14,518-byte
+shell, because CMS is a JavaScript application that routes client-side.
+The rule is real or it is not; static fetch cannot tell you which, and
+neither can I.
+
+It is recorded here as **UNVERIFIED** rather than promoted to the top of
+the board, because a wrong eligibility claim is exactly the error that
+produced a false QUALIFIED on ECHA earlier in this campaign — and that
+one cost a €1,000,000 turnover clause hiding in plain sight.
+
+**ACTION, and it is small:** open `cms.adb.org` in an ordinary browser
+and click Register. The form itself states what it requires. Ten minutes
+answers whether the biggest structural opening found in nine cycles is
+real.
+
+**Related, same class, same unresolved status:** UNGM's registration
+reportedly offers "Individual Consultant" and "Sole proprietor" account
+types with no incorporation requirement. UNOPS's Individual Contractor
+Agreement, the World Bank's individual-consultant track and the EU
+expert roster are all JavaScript applications that static fetch cannot
+read. All four are reachable and unblocked — none is confirmed.
+
+---
+
 ### 2. NZ Government Marketplace — all-of-government IT, open to 2029, international
 
 Found 2026-09-03 by the new notice classifier, which is the only reason
@@ -540,6 +593,43 @@ through ZDI** before you may compete. Quoted from its own rules. Which
 is another reason ZDI is item 1 on this board.
 
 ---
+
+## ❌ PNG e-GP (NPC/2026-26) — CLOSED, and worth reading why
+
+The Asia-Pacific sweep surfaced this as the only genuinely live cyber
+notice in the region: Papua New Guinea's National Procurement Commission
+seeking an Electronic Government Procurement system, scoping
+"cybersecurity risk assessment and testing".
+
+The RFP was downloaded and read. It is closed, and three separate
+things would have blocked it anyway:
+
+> *"Bidding will be conducted through competitive procurement using a
+> Request for Proposals (RFP), a two-envelope system with rated
+> criteria, **without prequalification** ... and is open to all eligible
+> Bidders."*
+
+**No prequalification** and **open to all eligible bidders** — genuinely
+the shape we have been hunting. Then:
+
+| | |
+|---|---|
+| Deadline | **June 15, 2026, 17:00 PNG time** — passed |
+| Bidding document | **non-refundable fee of PGK 5,000** (~AUD 1,900) |
+| Submission | **"Electronic Bidding will not be permitted"** — sealed envelopes, physically delivered to Port Moresby |
+| Structure | four lots |
+
+An addendum exists (`ADDENDUM-1-NPC-2026-26.pdf`) but is a scanned
+image with no extractable text, so whether it moved the date is
+**UNKNOWN** — a human could open it in seconds.
+
+**The lesson worth keeping, beyond this one notice.** "Without
+prequalification" and "open to all eligible bidders" is exactly the
+language this campaign has been searching for — and it still came with a
+AUD1,900 document fee and a requirement to physically deliver paper to
+another country. **Qualification is not the only barrier.** Access cost
+and submission mechanics can close a notice that has no eligibility
+criteria at all, and no filter built so far would have caught either.
 
 ## THE STAGE BEFORE THE BARRIER EXISTS
 
