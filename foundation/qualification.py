@@ -343,6 +343,68 @@ def _labelled(codes: Tuple[CodedRequirement, ...]) -> str:
     return "; ".join(f"{c.code} ({c.label or fallback})" for c in codes)
 
 
+def _unparsed_criteria_text(elig: EligibilityAssessment) -> str:
+    """The notice's free-text selection criteria, if it stated any.
+
+    THE DEFECT THIS EXISTS TO CLOSE -- found live 2026-09-02 on TED
+    244223-2024 (ECHA Helsinki, EUR 14m IT services DPS).
+
+    This module returned QUALIFIED for a solo operator against that
+    notice. The notice's own `selection-criterion-description-lot`
+    field, which we fetch and which `EligibilityAssessment` carries,
+    says verbatim:
+
+        "Average yearly turnover of the last two (2) financial years
+         above EUR 1.000.000."
+
+    plus five reference contracts of at least EUR 100,000 each. Both
+    exclude the operator outright.
+
+    The reason we cleared it: every dimension below decided
+    `NOT_BARRIER` from the CODED criteria alone -- "codes were present,
+    and none of them was a staffing/insurance/reference code, therefore
+    no such requirement exists". That inference is false. TED's coded
+    vocabulary does not capture every requirement a buyer writes, and
+    the buyer's real threshold lived in prose the codes never mentioned.
+
+    So: absence of a CODE, while free-text criteria exist that this
+    module cannot parse, is NOT clearance. It is exactly the "silence
+    is not permission" rule this project already enforces one level up
+    (an absent field yields UNKNOWN, never QUALIFIED) -- applied one
+    level down, where it was missing.
+
+    Returns "" only when the notice genuinely stated no criteria prose
+    at all, which is the one case where "no code of this type" really
+    does mean the notice named no such requirement.
+    """
+    return _quote_text(elig.selection_criteria_description_text)
+
+
+def _no_code_of_type(
+    dim: str,
+    elig: EligibilityAssessment,
+    clear_evidence: str,
+) -> QualificationFactor:
+    """Verdict for "criteria codes were present, but none of the type
+    this dimension checks".
+
+    Clear only if the notice also stated no free-text criteria. If it
+    did state prose, this module has not read it and must say so --
+    INFO, which forces INSUFFICIENT_DATA rather than QUALIFIED.
+    """
+    quoted = _unparsed_criteria_text(elig)
+    if not quoted:
+        return QualificationFactor(dim, "KNOWN", "NOT_BARRIER", clear_evidence)
+    return QualificationFactor(
+        dim, "KNOWN", "INFO",
+        f"{clear_evidence}. BUT the notice states free-text selection "
+        f"criteria this module does not parse, and a real requirement "
+        f"can live there with no matching code (proven on TED "
+        f"244223-2024, where an unstated-in-codes EUR 1,000,000 "
+        f"turnover floor was written only in prose). Unresolved, not "
+        f"cleared. Notice text: {quoted}")
+
+
 def _assess_staff(elig: EligibilityAssessment, profile: OperatorProfile) -> QualificationFactor:
     dim = "technical_staff_capacity"
     tech = elig.technical_professional_criteria
@@ -354,14 +416,14 @@ def _assess_staff(elig: EligibilityAssessment, profile: OperatorProfile) -> Qual
             "selection-criterion codes (absent field) -- staffing/"
             "technician requirements, if any, are unknown")
     if not tech:
-        return QualificationFactor(
-            dim, "KNOWN", "NOT_BARRIER",
+        return _no_code_of_type(
+            dim, elig,
             "selection-criterion-lot was present but no technical/"
             "professional-ability code was among the stated criteria")
     staff_codes = tuple(c for c in tech if c.code.startswith(_STAFF_CODE_PREFIX))
     if not staff_codes:
-        return QualificationFactor(
-            dim, "KNOWN", "NOT_BARRIER",
+        return _no_code_of_type(
+            dim, elig,
             "technical/professional criteria stated, but none named a "
             "required staffing/technician level")
     return QualificationFactor(
@@ -384,8 +446,8 @@ def _assess_certifications(elig: EligibilityAssessment, profile: OperatorProfile
             "the notice did not return selection-criterion codes (absent "
             "field) -- certification requirements, if any, are unknown")
     if not cert:
-        return QualificationFactor(
-            dim, "KNOWN", "NOT_BARRIER",
+        return _no_code_of_type(
+            dim, elig,
             "selection-criterion-lot was present but no independent-"
             "certification code (quality/environmental-management-body "
             "certificate) was among the stated criteria. Note: specific "
@@ -420,8 +482,8 @@ def _assess_insurance(elig: EligibilityAssessment, profile: OperatorProfile) -> 
             "criterion codes (absent field) -- an insurance requirement, "
             "if any, is unknown")
     if not econ:
-        return QualificationFactor(
-            dim, "KNOWN", "NOT_BARRIER",
+        return _no_code_of_type(
+            dim, elig,
             "selection-criterion-lot was present but no economic/"
             "financial-standing code was among the stated criteria")
     ins_codes = tuple(c for c in econ if c.code == _INSURANCE_CODE)
@@ -468,14 +530,14 @@ def _assess_references(elig: EligibilityAssessment, profile: OperatorProfile) ->
             "selection-criterion codes (absent field) -- a reference-"
             "contract requirement, if any, is unknown")
     if not tech:
-        return QualificationFactor(
-            dim, "KNOWN", "NOT_BARRIER",
+        return _no_code_of_type(
+            dim, elig,
             "selection-criterion-lot was present but no technical/"
             "professional-ability code was among the stated criteria")
     ref_codes = tuple(c for c in tech if c.code in _REFERENCE_CODES)
     if not ref_codes:
-        return QualificationFactor(
-            dim, "KNOWN", "NOT_BARRIER",
+        return _no_code_of_type(
+            dim, elig,
             "technical/professional criteria stated, but none named a "
             "reference-contract requirement")
     if not profile.corporate_references:

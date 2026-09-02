@@ -81,17 +81,40 @@ def _notice_with_no_criteria():
 def _notice_with_empty_criteria():
     """A notice where selection-criterion-lot IS present (so the
     category fields come back as real, present-but-empty tuples, not
-    None) but every code present is a suitability code -- none of it
-    falls into economic/technical/certification categories -- and
-    submission language is English, matching the operator. Used to
-    prove QUALIFIED is a reachable band, not merely a name."""
+    None), every code present is a suitability code, submission
+    language is English, AND the notice states no free-text criteria
+    at all. Used to prove QUALIFIED is a reachable band, not merely a
+    name.
+
+    The absent description text is load-bearing as of 2026-09-02. This
+    fixture used to carry "Enrolment in a trade register is required."
+    and still expected QUALIFIED -- which is precisely the shape that
+    produced a false QUALIFIED on the live ECHA notice 244223-2024,
+    whose EUR 1,000,000 turnover floor and five EUR 100,000 reference
+    contracts were written ONLY in that prose field and matched no
+    code. A notice that states prose this module cannot parse is
+    unresolved, not cleared, so QUALIFIED is now reachable only when
+    the notice genuinely published no criteria prose."""
     return {
         "publication-number": "111111-2026",
         "buyer-name": {"eng": ["Example Buyer 2"]},
         "submission-language": ["ENG"],
         "selection-criterion-lot": ["slc-suit-reg-trade"],
+    }
+
+
+def _notice_with_unparsed_criteria_prose():
+    """The ECHA shape: codes present, none of them economic/technical/
+    certification, but real requirements written in free text. Must
+    never come back QUALIFIED."""
+    return {
+        "publication-number": "244223-2024",
+        "buyer-name": {"eng": ["European Chemicals Agency"]},
+        "submission-language": ["ENG"],
+        "selection-criterion-lot": ["slc-suit-reg-trade"],
         "selection-criterion-description-lot": {
-            "eng": ["Enrolment in a trade register is required."],
+            "eng": ["Average yearly turnover of the last two (2) "
+                    "financial years above EUR 1.000.000."],
         },
     }
 
@@ -302,9 +325,17 @@ class AssessTests(unittest.TestCase):
         self.assertIn("Penetrationstester", staff_factor.evidence)
 
         # certifications: no dedicated certification code was among the
-        # stated criteria for this notice.
+        # stated criteria for this notice -- but the notice DOES state
+        # free-text criteria, and degewo's own prose names OSCP/OSWE/
+        # GIAC/CREST as hard requirements under a staff code rather than
+        # a certification code. Reporting NOT_BARRIER here (as this test
+        # asserted until 2026-09-02) said "this notice demands no
+        # certification" about a notice that demands five. INFO is the
+        # honest verdict: a requirement of this kind may live in prose
+        # this module does not parse.
         cert_factor = result.factor("certifications")
-        self.assertEqual(cert_factor.verdict, "NOT_BARRIER")
+        self.assertEqual(cert_factor.verdict, "INFO")
+        self.assertIn("free-text selection", cert_factor.evidence)
 
         # format_result() must not raise and must surface the blocking
         # clauses to a human.
@@ -325,6 +356,47 @@ class AssessTests(unittest.TestCase):
         for f in result.factors:
             self.assertEqual(f.status, "KNOWN")
             self.assertIn(f.verdict, ("NOT_BARRIER",))
+
+    def test_echa_244223_2024_shape_is_never_qualified(self):
+        """The false positive this module actually produced, live, on
+        2026-09-02, and reported to the operator as good news.
+
+        TED 244223-2024 (ECHA Helsinki, EUR 14m IT services DPS) came
+        back QUALIFIED for a solo operator with no turnover history and
+        no references. The notice's own selection-criterion-description
+        field -- which we fetch, and which the assessment carries --
+        states "Average yearly turnover of the last two (2) financial
+        years above EUR 1.000.000." plus five reference contracts of at
+        least EUR 100,000 each. Both exclude this operator outright.
+
+        The cause was not a missing field. It was every dimension
+        reading "codes are present and none of them is MY kind of code"
+        as clearance, when the real requirement was written in prose
+        that matched no code at all.
+
+        This test pins the fix: prose the module cannot parse makes a
+        notice UNRESOLVED, never CLEARED."""
+        elig = assess_eligibility(_notice_with_unparsed_criteria_prose())
+        result = assess(elig, _real_operator_profile())
+        self.assertEqual(result.band, "INSUFFICIENT_DATA")
+        self.assertNotEqual(result.band, "QUALIFIED")
+        # and the operator must be able to read the clause we couldn't parse
+        info = [f for f in result.factors if f.verdict == "INFO"]
+        self.assertTrue(info, "unparsed prose must surface as INFO")
+        self.assertTrue(
+            any("1.000.000" in f.evidence for f in info),
+            "the real quoted threshold must reach the human")
+
+    def test_qualified_requires_absence_of_unparsed_prose(self):
+        """QUALIFIED and INSUFFICIENT_DATA differ on exactly one thing
+        here: whether the notice published criteria prose this module
+        cannot read. Same codes, same language, same operator."""
+        clean = assess(assess_eligibility(_notice_with_empty_criteria()),
+                       _real_operator_profile())
+        prosed = assess(assess_eligibility(_notice_with_unparsed_criteria_prose()),
+                        _real_operator_profile())
+        self.assertEqual(clean.band, "QUALIFIED")
+        self.assertEqual(prosed.band, "INSUFFICIENT_DATA")
 
     def test_bands_tuple_matches_module_contract(self):
         self.assertEqual(BANDS, ("DISQUALIFIED", "QUALIFIED", "INSUFFICIENT_DATA"))
