@@ -39,23 +39,31 @@ NOW = datetime(2026, 9, 2, 12, 0, 0, tzinfo=timezone.utc)
 
 
 def notice(pn, deadline="", title="Security assessment services"):
-    """A bare notice (no bidder conditions) shaped the way `ted_signal()`
-    reads it -- `key`/`title`/`deadline` are the fields it actually
-    consumes, so this is the shape that exercises this module's deadline
-    logic, not `hunt.py`'s eligibility parsing (owned by another file)."""
-    return {
+    """A bare notice (no bidder conditions) in TED's REAL raw shape --
+    the hyphenated field names the API actually returns.
+
+    This fixture used to carry flat `key`/`title`/`deadline` keys as
+    well, because `hunt()` passed the raw notice straight to
+    `ted_signal()`, which reads the flat shape `mouth_ted.parse_items()`
+    produces. That was a real defect in `hunt.py` -- every signal it
+    built had an empty deadline -- and this fixture was modelling the
+    defect rather than the API, so these tests passed against behaviour
+    that could never occur on a live fetch.
+
+    `hunt()` now re-shapes notices through `parse_items()` before
+    building a signal, so the raw shape below is what both a real fetch
+    and this module actually see. A fixture must never be the reason a
+    test agrees with broken code.
+    """
+    raw = {
         "publication-number": pn,
         "notice-title": {"eng": [title]},
         "buyer-name": {"eng": ["Some Buyer"]},
         "procedure-type": ["open"],
-        # ted_signal() reads these lower-cased/underscored keys directly;
-        # a real fetch never produces them this way (that mismatch is
-        # hunt.py's own territory), but this is the shape this module's
-        # public contract (HuntEntry.signal.facts["deadline"]) depends on.
-        "key": pn,
-        "title": title,
-        "deadline": deadline,
     }
+    if deadline:
+        raw["deadline-receipt-request"] = [deadline]
+    return raw
 
 
 class TempRepo:
