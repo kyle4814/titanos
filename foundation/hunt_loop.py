@@ -239,6 +239,16 @@ class HuntCycleResult:
         if self.action not in HUNT_ACTIONS:
             raise ValueError(f"unknown HuntCycleResult action {self.action!r}")
 
+    # The full HuntReport this cycle produced, when there was one.
+    # Carried so a consumer can render the classified,
+    # deadline-ranked view without fetching a second time --
+    # `scheduled_brief.py` needs it, and re-running the hunt to
+    # get it would double every source's load for no new data.
+    # Optional and last: every existing construction, including
+    # every STOPPED_* path above, keeps working untouched, and a
+    # cycle that never got a report honestly has none.
+    report: Optional["HuntReport"] = None
+
     def is_stop(self) -> bool:
         return self.action.startswith("STOPPED_")
 
@@ -442,6 +452,7 @@ def run_one_hunt_cycle(
         new_entries=new_entries, closing_soon_entries=closing_soon,
         newly_closing_entries=newly_closing,
         unknown_deadline_entries=unknown_deadline, skipped=report.skipped,
+        report=report,
     )
     _append_cycle_record(log_path, result)
     return result

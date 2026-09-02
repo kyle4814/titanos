@@ -93,6 +93,7 @@ from foundation.discovery_authorization import (
     DEFAULT_MAX_WALL_CLOCK_SECONDS,
     DiscoveryPolicy,
 )
+from foundation.brief import build_brief, render_brief
 from foundation.hunt_loop import (
     HUNT_STOP_FILENAME,
     HuntCycleResult,
@@ -433,7 +434,34 @@ def run_scheduled_brief_cycle(
             log_path=hunt_log_path,
         )
 
+        # THE CRON PATH MUST NOT SHOW LESS THAN THE HAND-RUN PATH.
+        #
+        # `render_hunt_cycle()` is the diff -- what changed since last
+        # time -- and that is the right thing to lead with. But it is
+        # NOT the classified, deadline-ranked view that
+        # `operator_cli brief` produces, and this file is the one the
+        # operator actually reads every morning because cron writes it.
+        #
+        # Leaving the two different meant the unattended path silently
+        # omitted the notice class: a MARKET_ENGAGEMENT notice, which
+        # anyone can answer with no turnover, insurance or references,
+        # rendered identically to a COMPETITIVE tender that would
+        # eliminate him on all three. Same shape as the loop that was
+        # TED-only while `brief` was three-source -- the surface you
+        # trust most, showing you the least.
+        #
+        # A rendering failure here must not lose the diff, which is why
+        # the append is guarded: a broken classifier costs the extra
+        # section, never the brief itself.
         text = render_hunt_cycle(cycle)
+        try:
+            full = build_brief(cycle.report, now=now) if cycle.report else None
+            if full is not None:
+                text = text + "\n\n" + render_brief(full)
+        except Exception as exc:  # noqa: BLE001
+            text = text + (
+                f"\n\n[classified view unavailable: "
+                f"{type(exc).__name__}. The diff above is unaffected.]")
         path = write_brief_file(briefs_dir, now, text)
         update_latest(briefs_dir, text)
         deleted = enforce_retention(briefs_dir, retain_count)

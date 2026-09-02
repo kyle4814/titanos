@@ -345,3 +345,64 @@ class TestProfileLoadFailure(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestCronBriefShowsTheClassifiedView(unittest.TestCase):
+    """The cron path must not show less than the hand-run path.
+
+    `render_hunt_cycle()` is the diff -- correct to lead with -- but it
+    is not the classified, deadline-ranked view `operator_cli brief`
+    produces. This file is the one the operator actually reads each
+    morning, because cron writes it. Leaving the two different meant the
+    unattended surface silently omitted the notice class, so a
+    MARKET_ENGAGEMENT notice (answerable by anyone, no turnover, no
+    insurance, no references) rendered identically to a COMPETITIVE
+    tender that would eliminate him on all three.
+
+    Same shape as the loop that was TED-only while `brief` was
+    three-source: the surface trusted most, showing the least."""
+
+    def _notice(self, pn="222222-2026", title="Preliminary market engagement notice"):
+        return {
+            "publication-number": pn,
+            "notice-title": {"eng": [title]},
+            "buyer-name": {"eng": ["Some Buyer"]},
+            "procedure-type": ["open"],
+            "submission-language": ["ENG"],
+            "selection-criterion-lot": ["slc-suit-reg-prof"],
+        }
+
+    def test_the_written_brief_contains_the_classified_section(self):
+        with TempRepo() as root:
+            run_scheduled_brief_cycle(
+                root, operator=SOLO, capability=CAP, now=NOW,
+                fetch_notices_fn=lambda: [self._notice()])
+            latest = (root / "briefs" / "LATEST.md").read_text(encoding="utf-8")
+        self.assertIn("MORNING BRIEF", latest,
+                      "cron brief must carry the same view as `brief`")
+
+    def test_the_diff_still_leads(self):
+        with TempRepo() as root:
+            run_scheduled_brief_cycle(
+                root, operator=SOLO, capability=CAP, now=NOW,
+                fetch_notices_fn=lambda: [self._notice()])
+            latest = (root / "briefs" / "LATEST.md").read_text(encoding="utf-8")
+        self.assertLess(latest.index("RAN_"), latest.index("MORNING BRIEF"),
+                        "what changed must come before the full view")
+
+    def test_a_stopped_cycle_carries_no_report_and_does_not_crash(self):
+        """A STOPPED_* cycle has no HuntReport, so the classified view
+        cannot be built. That must degrade quietly rather than raise.
+
+        It also writes no brief at all -- deliberate, and asserted here
+        rather than assumed: a kill switch means the operator turned
+        this off, which is a different state from a run that found
+        nothing. Confusing the two would have this test arguing with
+        TestKillSwitch."""
+        with TempRepo() as root:
+            (root / ".hunt_stop").write_text("stop")
+            result = run_scheduled_brief_cycle(
+                root, operator=SOLO, capability=CAP, now=NOW,
+                fetch_notices_fn=lambda: [self._notice()])
+            self.assertEqual(result.action, "STOPPED_KILL_SWITCH")
+            self.assertFalse((root / "briefs" / "LATEST.md").exists())
