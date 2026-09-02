@@ -109,6 +109,8 @@ from datetime import datetime
 from typing import Callable, Optional, Sequence, Tuple
 from urllib.parse import quote
 
+from foundation import mouth_etenders_ie
+from foundation import mouth_find_a_tender_uk
 from foundation import mouth_gets_nz, mouth_ted, tender_radar
 from foundation.discovery_authorization import DiscoveryPolicy
 from foundation.mouth_common import fetch_feed
@@ -118,6 +120,10 @@ __all__ = [
     "Source",
     "normalise_ted",
     "normalise_gets_nz",
+    "normalise_find_a_tender_uk",
+    "normalise_etenders_ie",
+    "UK_FIND_A_TENDER",
+    "ETENDERS_IE",
     "normalise_uk_contracts_finder",
     "TED",
     "NZ_GETS",
@@ -423,8 +429,100 @@ def sources_for_query(
     return tuple(all_by_id[i]() for i in ids)
 
 
+def _normalise_criteria_less(item: dict, *, url_key: str = "link") -> Optional[dict]:
+    """Shared normaliser for every source that publishes NO bidder
+    criteria vocabulary at all.
+
+    THE HONESTY RULE, restated because this is where it would be easiest
+    to break: not one criteria-shaped field is ever set here. Not
+    `selection-criterion-lot`, not `exclusion-grounds`, not
+    `tenderer-legal-form-lot`. These feeds simply do not state bidder
+    conditions, and `assess_eligibility()` already reads an absent field
+    as UNKNOWN rather than as "no requirement", which
+    `qualification.assess()` then refuses to turn into QUALIFIED.
+
+    So a notice from any of these sources can only ever come back
+    INSUFFICIENT_DATA. That is the correct answer -- the feed genuinely
+    does not say -- and it falls out of existing, already-tested code
+    rather than a second rule that could drift away from it.
+    """
+    key = item.get("key")
+    if not isinstance(key, str) or not key.strip():
+        return None
+    notice: dict = {"publication-number": key.strip()}
+    title = item.get("title")
+    if isinstance(title, str) and title.strip():
+        notice["notice-title"] = {"eng": (title,)}
+    org = item.get("organisation")
+    if isinstance(org, str) and org.strip():
+        notice["buyer-name"] = {"eng": (org,)}
+    link = item.get(url_key)
+    if isinstance(link, str) and link.strip():
+        notice["links"] = {"html": {"eng": link}}
+    return notice
+
+
+def normalise_find_a_tender_uk(item: dict) -> Optional[dict]:
+    """UK Find a Tender Service. Publishes no criteria vocabulary."""
+    return _normalise_criteria_less(item)
+
+
+def normalise_etenders_ie(item: dict) -> Optional[dict]:
+    """Ireland eTenders. Publishes no criteria vocabulary."""
+    return _normalise_criteria_less(item)
+
+
+def _default_find_a_tender_uk_fetch(policy: DiscoveryPolicy) -> Tuple[dict, ...]:
+    raw = fetch_feed(mouth_find_a_tender_uk.FEED_URL, policy=policy)
+    return mouth_find_a_tender_uk.parse_items(raw)
+
+
+def _default_etenders_ie_fetch(policy: DiscoveryPolicy) -> Tuple[dict, ...]:
+    raw = fetch_feed(mouth_etenders_ie.FEED_URL, policy=policy)
+    return mouth_etenders_ie.parse_items(raw)
+
+
+UK_FIND_A_TENDER = Source(
+    source_id="UK_FIND_A_TENDER",
+    fetch_items=lambda: _default_find_a_tender_uk_fetch(
+        mouth_find_a_tender_uk.DISCOVERY_POLICY),
+    normalise=normalise_find_a_tender_uk,
+    # This source DOES filter server-side -- the only one in this
+    # registry that provably does. Verified by comparing a real CPV
+    # filter against a nonsense value against no filter at all
+    # (200 / 0 / 15,087). Recorded because four other sources in this
+    # project silently ignore their own documented parameters, so
+    # "filters work" is a claim that has to be earned per source.
+    server_side_filterable=True,
+    keyword_fields=("title",),
+    signal_fn=lambda item, now: mouth_find_a_tender_uk.find_a_tender_signal(
+        item, now=now),
+    notes=("UK post-Brexit above-threshold register. CPV filter verified "
+           "to actually filter. Found the Bradford penetration-testing "
+           "framework."),
+)
+
+ETENDERS_IE = Source(
+    source_id="ETENDERS_IE",
+    fetch_items=lambda: _default_etenders_ie_fetch(
+        mouth_etenders_ie.DISCOVERY_POLICY),
+    normalise=normalise_etenders_ie,
+    # freeText, pagination and sorting are all silently ignored on the
+    # stateless fetch -- proven live against nonsense values. Only the
+    # first page of open CFTs is reachable without a session.
+    server_side_filterable=False,
+    keyword_fields=("title", "description"),
+    signal_fn=lambda item, now: mouth_etenders_ie.etenders_ie_signal(
+        item, now=now),
+    notes=("Ireland eTenders. The only EU member state producing "
+           "English-submission notices this project has found. Stateless "
+           "fetch reaches page 1 only."),
+)
+
+
 # The full, static registry -- every source this module knows about,
 # for a caller that just wants "everything reachable" without building
 # a query-bound TED source (e.g. inspecting `notes`/`throttle_seconds`
 # without fetching anything).
-ALL_SOURCES = (TED, NZ_GETS, UK_CONTRACTS_FINDER)
+ALL_SOURCES = (TED, NZ_GETS, UK_CONTRACTS_FINDER,
+               UK_FIND_A_TENDER, ETENDERS_IE)

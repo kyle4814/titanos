@@ -67,7 +67,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Callable, Mapping, Optional, Sequence
 
-from foundation.hunt import HuntEntry, HuntReport, hunt
+from foundation.hunt import HuntEntry, HuntReport, hunt, hunt_multi
 from foundation.qualification import OperatorProfile
 from foundation.relevance import CapabilityProfile
 from foundation.discovery_authorization import DiscoveryPolicy
@@ -143,6 +143,29 @@ def _deadline_status(raw: str, now: datetime, window_days: int) -> str:
     return "NOT_CLOSING_SOON"
 
 
+
+# Closing-date fact keys, in priority order. Kept identical to
+# `brief.py`'s `_DEADLINE_FACT_KEYS` -- see `from_entry` below for why
+# a single key is not enough. If a new source uses a third key name,
+# both lists must gain it; a divergence between them means the loop and
+# the brief disagree about when something closes.
+_DEADLINE_FACT_KEYS = ("deadline", "close_date")
+
+
+def _raw_deadline(entry: HuntEntry) -> str:
+    """The closing date an entry's signal carries, whichever key its
+    source uses. "" when there genuinely is none -- which stays UNKNOWN,
+    and UNKNOWN stays urgent."""
+    if entry.signal is None:
+        return ""
+    facts = entry.signal.facts
+    for key in _DEADLINE_FACT_KEYS:
+        value = str(facts.get(key) or "").strip()
+        if value:
+            return value
+    return ""
+
+
 @dataclass(frozen=True)
 class HuntEntrySnapshot:
     """One notice as recorded in one cycle -- the minimum needed to diff
@@ -163,9 +186,20 @@ class HuntEntrySnapshot:
     @classmethod
     def from_entry(cls, entry: HuntEntry, now: datetime,
                     window_days: int) -> "HuntEntrySnapshot":
-        deadline_raw = ""
-        if entry.signal is not None:
-            deadline_raw = str(entry.signal.facts.get("deadline", "") or "")
+        # Reads the SAME priority-ordered key set brief.py reads, and
+        # for the same reason. NZ GETS publishes a real closing date on
+        # every notice under `close_date`; TED uses `deadline`. brief.py
+        # once read only `deadline` and consequently reported all 30 NZ
+        # notices as "closes: UNKNOWN -- treat as urgent", filling its
+        # most important section with noise while looking correct.
+        #
+        # This module was not affected then, only because the loop was
+        # silently TED-only. It is multi-source now, so reading one key
+        # here would reintroduce a bug this project already fixed once
+        # today. Flagged by the 2026-09-02 audit as a landmine before it
+        # ever fired -- which is the cheapest possible moment to fix a
+        # defect.
+        deadline_raw = _raw_deadline(entry)
         return cls(
             publication_number=entry.publication_number,
             band=entry.band,
@@ -323,6 +357,7 @@ def run_one_hunt_cycle(
     capability: Optional[CapabilityProfile] = None,
     limit: int = 50,
     fetch_notices_fn: Optional[Callable[[], Sequence[Mapping]]] = None,
+    sources: Optional[Sequence] = None,
     deadline_window_days: int = DEFAULT_DEADLINE_WINDOW_DAYS,
     now: Optional[datetime] = None,
     log_path: Optional[Path] = None,
@@ -352,10 +387,22 @@ def run_one_hunt_cycle(
     ever_seen, last_status = load_hunt_state(log_path)
 
     try:
-        report: HuntReport = hunt(
-            query, operator, policy=policy, capability=capability,
-            limit=limit, fetch_notices_fn=fetch_notices_fn, now=now,
-        )
+        if sources is not None and fetch_notices_fn is None:
+            # MULTI-SOURCE. The 2026-09-02 audit found this loop was
+            # silently TED-only while `hunt`/`brief` were three-source --
+            # an operator running the unattended loop was watching a
+            # narrower world than the same operator running `brief`, and
+            # nothing said so. `sources` stays optional and defaulted to
+            # None so every existing single-source caller and every
+            # injected-fetch test keeps working unchanged.
+            report: HuntReport = hunt_multi(
+                query, operator, sources, capability=capability, now=now,
+            )
+        else:
+            report = hunt(
+                query, operator, policy=policy, capability=capability,
+                limit=limit, fetch_notices_fn=fetch_notices_fn, now=now,
+            )
     except Exception as exc:  # noqa: BLE001 - a fetch/assess failure must
         # never crash the loop or go unreceipted; it becomes a stop with
         # the real exception named, so a human can see exactly what broke.

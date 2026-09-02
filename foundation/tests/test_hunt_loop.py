@@ -314,3 +314,76 @@ class TestRender(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestDeadlineFactKeysMatchBrief(unittest.TestCase):
+    """The 2026-09-02 audit flagged this as a landmine: `brief.py` was
+    patched to read ("deadline", "close_date") after NZ GETS notices all
+    read as UNKNOWN, and this module still read only "deadline". It was
+    harmless solely because the loop was TED-only at the time. Wiring
+    more sources in without fixing it would have reintroduced a bug
+    already fixed once the same day."""
+
+    def test_close_date_is_read(self):
+        from foundation.hunt_loop import _raw_deadline
+        from foundation.signal_spine import CanonicalSignal
+
+        class E:
+            signal = CanonicalSignal(
+                signal_id="s", source_id="t", source_type="OFFICIAL",
+                source_ref="https://example.test", target="x", kind="DEMAND",
+                claim="c", observed_at="2026-09-02T00:00:00+00:00",
+                facts={"close_date": "Friday, 4 September 2026 5:00 PM +12:00"},
+            )
+        self.assertTrue(_raw_deadline(E()))
+
+    def test_key_list_matches_brief_exactly(self):
+        from foundation.brief import _DEADLINE_FACT_KEYS as brief_keys
+        from foundation.hunt_loop import _DEADLINE_FACT_KEYS as loop_keys
+        self.assertEqual(
+            brief_keys, loop_keys,
+            "the loop and the brief must agree on where a closing date "
+            "lives; a divergence means they disagree about when something "
+            "closes, and only one of them would be right")
+
+
+class TestLoopCanRunMultiSource(unittest.TestCase):
+    """The 2026-09-02 audit found this loop was silently TED-only while
+    `hunt` and `brief` were three-source. An operator running the
+    unattended loop was watching a narrower world than the same operator
+    running `brief`, and nothing said so."""
+
+    def test_sources_argument_is_accepted_and_used(self):
+        from foundation.sources import Source
+
+        def fake_fetch():
+            return [{"key": "A-1", "title": "Security review",
+                     "organisation": "Buyer A", "link": "https://a.test/1"}]
+
+        def normalise(item):
+            return {"publication-number": item["key"],
+                    "notice-title": {"eng": (item["title"],)}}
+
+        src = Source(source_id="FAKE", fetch_items=fake_fetch,
+                     normalise=normalise, server_side_filterable=False,
+                     keyword_fields=("title",))
+        with TempRepo() as root:
+            r = run_one_hunt_cycle(root, "security", SOLO, now=NOW,
+                                   sources=(src,))
+        self.assertEqual(r.new_count, 1)
+        self.assertEqual(r.entries[0].publication_number, "A-1")
+
+    def test_injected_fetch_still_takes_precedence(self):
+        """Every existing test injects fetch_notices_fn. That path must
+        keep working unchanged -- a new optional argument must not
+        silently change what an old caller does."""
+        from foundation.sources import Source
+        src = Source(source_id="UNUSED",
+                     fetch_items=lambda: [{"key": "SHOULD-NOT-APPEAR"}],
+                     normalise=lambda i: {"publication-number": i["key"]},
+                     server_side_filterable=False, keyword_fields=("title",))
+        with TempRepo() as root:
+            r = run_one_hunt_cycle(
+                root, "q", SOLO, now=NOW, sources=(src,),
+                fetch_notices_fn=lambda: [notice("1-2026")])
+        self.assertEqual([e.publication_number for e in r.entries], ["1-2026"])
