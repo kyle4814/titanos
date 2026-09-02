@@ -174,3 +174,85 @@ verify every fact, and sign it. It is never a submission.
   reporting.
 - `loop --live` refuses to start if it can't build a valid request — it
   will tell you exactly why rather than failing silently.
+
+## 5. Run it on a schedule, unattended (cron)
+
+`operator_cli loop --live` runs forever inside one terminal you have to
+keep open. `foundation/scheduled_brief.py` is the alternative for a
+machine that is on all the time but where nobody is watching a
+terminal: it runs **one** hunt cycle, writes a dated brief file, and
+exits — the right shape for cron to call repeatedly on its own clock,
+the same way `foundation/cron_pulse.py` already does for this
+repository's health pulse.
+
+Try it by hand first, exactly as cron would run it:
+
+```
+python3 -m foundation.scheduled_brief
+```
+
+This reads your real `operator_profile.json` (same fallback-to-example
+rule as every other command above), runs one live hunt, and:
+
+- writes a new dated file to `briefs/brief_<UTC timestamp>.md`
+- updates `briefs/LATEST.md` to match it — **always read this path**;
+  it is the one stable filename that never changes, so you never have
+  to know today's timestamp to check the latest result
+- deletes old dated briefs beyond the last 30 (configurable — see
+  below), and only files it created itself, matching its own
+  `brief_YYYYMMDDTHHMMSSZ.md` pattern; nothing else in `briefs/` is
+  ever touched
+- appends one line to `foundation/scheduled_brief_log.jsonl`, every
+  single run, including a run that finds nothing
+
+The brief itself leads with **what changed since the last run** — new
+notices, newly-closing deadlines — not a full re-dump, the same
+diff-led format `operator_cli loop` already uses.
+
+**It is safe to schedule.** Two overlapping invocations cannot both
+write: the second one sees a lock file, writes no brief, and exits
+cleanly (still logging a receipt that says so). A crash mid-run always
+releases the lock in a `finally` block, so one bad run cannot silence
+every run after it. It takes no outward action of any kind — no email,
+no webhook, no application — it only ever reads notices and writes
+local files under this repository.
+
+### Installing the cron entry
+
+**This repository does not install a crontab entry for you.** Editing
+your crontab is a persistent change to your machine, and that decision
+belongs to you, not to a script. To add it yourself:
+
+```
+crontab -e
+```
+
+Then add this line (runs once a day at 07:00 local time — adjust the
+schedule to taste, `crontab.guru` explains the five time fields if
+you want a different one):
+
+```
+0 7 * * * cd /home/tech2/cosmic-library && /usr/bin/python3 -m foundation.scheduled_brief >> foundation/scheduled_brief_cron.log 2>&1
+```
+
+Replace `/usr/bin/python3` with the output of `which python3` if it
+differs, and replace the path after `cd` if this repository ever moves.
+Save and exit — `crontab -e` installs it immediately; nothing further
+to run.
+
+**To stop it**, either remove the line from `crontab -e` again, or drop
+the same kill-switch file the live `loop` command already uses:
+
+```
+touch .hunt_stop
+```
+
+`scheduled_brief.py` checks for `.hunt_stop` before every cycle, the
+same file and the same check `operator_cli loop --live` already uses —
+one kill switch, not two. Delete `.hunt_stop` to resume.
+
+**To change how many briefs are kept**, pass `retain_count` when
+calling `run_scheduled_brief_cycle()` directly from your own script —
+the default is 30. There is no `--retain-count` command-line flag on
+`scheduled_brief.py` itself; it takes no arguments at all, by design,
+so the one line above is the entire cron contract.
