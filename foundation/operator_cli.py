@@ -74,6 +74,7 @@ from foundation.dossier import (
 )
 from foundation.hunt import HuntReport, hunt_multi, render_hunt
 from foundation.hunt_loop import HUNT_STOP_FILENAME, render_hunt_cycle, run_hunt_loop
+from foundation import income_watch
 from foundation.qualification import OperatorProfile
 from foundation.relevance import CapabilityProfile
 from foundation.sources import sources_for_query
@@ -344,6 +345,56 @@ def cmd_loop(args) -> int:
     return 1 if last.action == "STOPPED_HUNT_ERROR" else 0
 
 
+def cmd_income(args) -> int:
+    """Watch the non-procurement income mouths (`mouth_bounty.py`'s
+    YesWeHack programs, `mouth_gigs.py`'s HN 'Who is hiring?' contract
+    matches) and print what's new. See `foundation/income_watch.py` for
+    why this is a separate report type from `hunt`/`brief`: a bug bounty
+    program was never issued by a buyer running a procurement process,
+    and `HuntReport`'s whole vocabulary is buyer selection criteria that
+    simply do not apply here."""
+    objective = args.objective or (
+        "observe YesWeHack's public bug bounty program directory and "
+        "Hacker News's monthly 'Who is hiring?' thread for new "
+        "contract/freelance security-testing opportunities -- "
+        "non-procurement income mouths, see foundation/income_watch.py")
+
+    if not args.live:
+        print("DRY RUN (default) -- no network request will be made.")
+        print(f"  objective   : {objective}")
+        print("  sources     : mouth_bounty (YesWeHack programs), "
+              "mouth_gigs (HN 'Who is hiring?')")
+        print(
+            f"  budget      : max_queries={args.max_queries} "
+            f"max_wall_clock_seconds={args.max_wall_clock_seconds} "
+            f"max_results={args.max_results}")
+        print("Pass --live to actually fetch.")
+        return 0
+
+    # Unlike `hunt`/`brief`/`loop`, `--objective`/`--max-*` are not
+    # forwarded into a policy consumed here: each income source builds
+    # and enforces its own DiscoveryPolicy internally (mouth_bounty.
+    # DISCOVERY_POLICY / mouth_gigs.DISCOVERY_POLICY), checked inside
+    # `mouth_common.fetch_feed()` before any socket opens regardless of
+    # what this CLI does. Constructing a second, unconsumed policy here
+    # would be exactly the decorative-gate pattern Black Ice forbids --
+    # the printed objective above documents intent for the operator, it
+    # does not additionally gate anything.
+    state_path = REPO_ROOT / "income_watch_state.jsonl"
+    try:
+        sources = income_watch.default_sources()
+        report = income_watch.watch(
+            sources, state_path, now=datetime.now(timezone.utc))
+    except Exception as exc:  # noqa: BLE001 -- never a bare traceback to the operator
+        print(f"INCOME WATCH FAILED: {type(exc).__name__}: {exc}", file=sys.stderr)
+        return 1
+    print()
+    print(income_watch.render_income_watch(report, limit=args.print_limit))
+    # Zero new programs/gigs this cycle is success, not failure -- same
+    # discipline as cmd_hunt's own empty-result handling.
+    return 0
+
+
 def cmd_dossier(args) -> int:
     loaded = load_operator_profile()
     _print_profile_notice(loaded)
@@ -443,6 +494,21 @@ def build_parser() -> "object":
     p_loop.add_argument("--max-cycles", type=int, default=None,
                          help="stop after N cycles (default: run until killed/stopped)")
     p_loop.set_defaults(func=cmd_loop)
+
+    p_income = sub.add_parser(
+        "income", help="watch non-procurement income sources (bug bounty "
+                        "programs, HN contract-security gigs) for new listings")
+    p_income.add_argument("--objective", default=None,
+                           help="override the discovery objective text recorded on the policy")
+    p_income.add_argument("--live", action="store_true",
+                           help="actually fetch over the network. Default is dry-run.")
+    p_income.add_argument("--max-queries", type=int, default=DEFAULT_MAX_QUERIES)
+    p_income.add_argument("--max-wall-clock-seconds", type=int,
+                           default=DEFAULT_MAX_WALL_CLOCK_SECONDS)
+    p_income.add_argument("--max-results", type=int, default=DEFAULT_MAX_RESULTS)
+    p_income.add_argument("--print-limit", type=int, default=None,
+                           help="only print the first N entries (default: all)")
+    p_income.set_defaults(func=cmd_income)
 
     p_dossier = sub.add_parser(
         "dossier", help="render the supplier dossier and missing-facts list")

@@ -278,10 +278,18 @@ class DiscoveryPolicyGateTests(unittest.TestCase):
                 fetch_feed(mouth_etenders_ie.FEED_URL)
 
     def test_default_observe_path_refuses_once_budget_is_exhausted(self):
+        # A full sweep now walks up to MAX_PAGES pages, one fetch_feed()
+        # call each -- so a budget of exactly MAX_PAGES is what "one
+        # sweep's worth" means here, not the single-digit default. The
+        # mock always returns a page carrying a <tbody> (a real row), so
+        # `_fetch_pages()` walks the full MAX_PAGES before stopping --
+        # spending exactly MAX_PAGES queries on the first sweep, then
+        # refusing the first request of a second sweep.
         low_budget = DiscoveryPolicy(
             objective=mouth_etenders_ie.DISCOVERY_POLICY.objective,
             requested_scope=mouth_etenders_ie.DISCOVERY_POLICY.requested_scope,
-            max_queries=1,
+            max_queries=mouth_etenders_ie.MAX_PAGES,
+            max_wall_clock_seconds=180,
         )
         with mock.patch.object(mouth_etenders_ie, "DISCOVERY_POLICY", low_budget):
             class _Resp:
@@ -297,6 +305,77 @@ class DiscoveryPolicyGateTests(unittest.TestCase):
                 with self.assertRaises(Exception):
                     mouth_etenders_ie.observe(
                         Path(tempfile.mkdtemp()) / "state.json")
+
+    def test_default_observe_path_walks_multiple_pages_until_honest_end(self):
+        """Real end-to-end proof of the CORRECTION: page 1 and page 2
+        each carry a real row, page 3 is the honest "past the last
+        page" shape (no <tbody>, no marker) -- confirmed live 2026-09-02
+        against etenders.gov.ie's own out-of-range behaviour. The sweep
+        should collect both real rows and stop at page 3 without error,
+        spending exactly 3 queries (not MAX_PAGES)."""
+        import re as _re
+        calls = []
+
+        class _Resp:
+            def __init__(self, body):
+                self._body = body
+            def read(self, n=-1):
+                return self._body
+            def __enter__(self):
+                return self
+            def __exit__(self, *a):
+                return False
+
+        def _urlopen(request, timeout=None):
+            calls.append(request.full_url)
+            match = _re.search(r'd-3680175-p=(\d+)', request.full_url)
+            page = int(match.group(1))
+            if page == 1:
+                return _Resp(_page(_row_html(resource_id="1001", row_num="1")))
+            if page == 2:
+                return _Resp(_page(_row_html(resource_id="1002", row_num="1")))
+            return _Resp(b"<html><body>No results</body></html>")
+
+        policy = DiscoveryPolicy(
+            objective=mouth_etenders_ie.DISCOVERY_POLICY.objective,
+            requested_scope=mouth_etenders_ie.DISCOVERY_POLICY.requested_scope,
+            max_queries=mouth_etenders_ie.MAX_PAGES,
+            max_wall_clock_seconds=180,
+        )
+        with mock.patch.object(mouth_etenders_ie, "DISCOVERY_POLICY", policy), \
+             mock.patch("urllib.request.urlopen", side_effect=_urlopen):
+            result = mouth_etenders_ie.sweep(Path(tempfile.mkdtemp()))
+
+        self.assertEqual(len(result.signals), 2)
+        self.assertEqual(
+            {s.evidence["resource_id"] for s in result.signals}, {"1001", "1002"})
+        # exactly 3 requests: page 1, page 2, page 3 (the one that
+        # proved there is no page 4) -- not MAX_PAGES.
+        self.assertEqual(len(calls), 3)
+
+    def test_page_url_is_1_indexed_and_targets_the_real_results_endpoint(self):
+        self.assertIn("quickSearchAction.do", mouth_etenders_ie._page_url(1))
+        self.assertIn("d-3680175-p=1", mouth_etenders_ie._page_url(1))
+        self.assertIn("d-3680175-p=5", mouth_etenders_ie._page_url(5))
+
+    def test_merge_pages_html_never_fabricates_a_marker(self):
+        # Two pages, neither carrying a recognisable marker or a
+        # <tbody> -- parse_items() must still raise FetchError on the
+        # merged result, not silently read it as zero results.
+        merged = mouth_etenders_ie._merge_pages_html([
+            b"<html>nothing recognisable</html>",
+            b"<html>still nothing</html>",
+        ])
+        with self.assertRaises(mouth_etenders_ie.FetchError):
+            mouth_etenders_ie.parse_items(merged)
+
+    def test_merge_pages_html_combines_rows_from_multiple_real_pages(self):
+        merged = mouth_etenders_ie._merge_pages_html([
+            _page(_row_html(resource_id="1", row_num="1")),
+            _page(_row_html(resource_id="2", row_num="1")),
+        ])
+        items = mouth_etenders_ie.parse_items(merged)
+        self.assertEqual({i["key"] for i in items}, {"1", "2"})
 
 
 if __name__ == "__main__":

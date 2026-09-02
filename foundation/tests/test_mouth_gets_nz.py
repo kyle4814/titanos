@@ -281,5 +281,141 @@ class TestBoundedFields(unittest.TestCase):
         self.assertLess(len(signal.signal_id), 10_000)
 
 
+def _detail_page_html(
+    rfx_id="34808478",
+    tender_name="322859 - Security Services",
+    reference="322859",
+    department="Property Services",
+    tender_coverage='Sole Agency&nbsp;&nbsp;<a><span id="tender-coverage-tooltip">[?]</span></a>',
+    categories=("92120000 - Security and personal safety",),
+    regions=("Bay of Plenty", "Waikato"),
+    exemption_reason="None",
+    required_pre_qualifications="None",
+    contact="Procurement<br/>procurement@waikato.ac.nz<br/>",
+    include_pre_qual_row=True,
+):
+    """A minimal reproduction of the real
+    tender-details-info-tbl markup fetched live 2026-09-02 from
+    www.gets.govt.nz/UW/ExternalTenderDetails.htm?id=34808478 -- row
+    shape (label-cell td + value td), not the surrounding page chrome,
+    which parse_tender_detail() never reads."""
+    cats_html = "".join(f"<li>{c}</li>" for c in categories)
+    regions_html = "".join(f"<li>{r}<br/></li>" for r in regions)
+    pre_qual_row = (
+        f'<tr><td class="label-cell">Required Pre-qualifications&nbsp;:</td>'
+        f'<td><span class="notice">{required_pre_qualifications}</span></td></tr>'
+        if include_pre_qual_row else ""
+    )
+    return f"""<html><body>
+    <table class="tender-details-info-tbl">
+      <tr><td class="label-cell">RFx ID&nbsp;:</td><td>{rfx_id}</td></tr>
+      <tr><td class="label-cell">Tender Name&nbsp;:</td><td>{tender_name}</td></tr>
+      <tr><td class="label-cell">Reference #&nbsp;:</td><td>{reference}</td></tr>
+      <tr><td class="label-cell">Department/Business Unit&nbsp;:</td><td>{department}</td></tr>
+      <tr><td class="label-cell">Tender Coverage&nbsp;:</td><td>{tender_coverage}</td></tr>
+      <tr><td class="label-cell">Categories&nbsp;:</td>
+          <td><ul>{cats_html}</ul></td></tr>
+      <tr><td class="label-cell">Regions:</td>
+          <td><ul>{regions_html}</ul></td></tr>
+      <tr><td class="label-cell">Exemption Reason&nbsp;:</td>
+          <td><span class="notice">{exemption_reason}</span></td></tr>
+      {pre_qual_row}
+      <tr><td class="label-cell">Contact&nbsp;:</td><td>{contact}</td></tr>
+      <tr><td class="label-cell">Alternate Physical Fax Number &nbsp;:</td><td></td></tr>
+    </table>
+    </body></html>""".encode()
+
+
+class ParseTenderDetailTests(unittest.TestCase):
+    """Offline tests against a reproduction of the real page shape
+    fetched live 2026-09-02 (robots.txt permits it -- only SEMrushBot
+    variants are disallowed site-wide). No test here touches the real
+    network."""
+
+    def test_extracts_the_genuinely_present_fields(self):
+        detail = mouth_gets_nz.parse_tender_detail(_detail_page_html())
+        self.assertEqual(detail["rfx_id"], "34808478")
+        self.assertEqual(detail["tender_name"], "322859 - Security Services")
+        self.assertEqual(detail["reference"], "322859")
+        self.assertEqual(detail["department"], "Property Services")
+        self.assertIn("92120000 - Security and personal safety",
+                       detail["categories"])
+        self.assertEqual(detail["regions"], ("Bay of Plenty", "Waikato"))
+        self.assertEqual(detail["exemption_reason"], "None")
+
+    def test_stated_no_pre_qualification_is_captured_verbatim(self):
+        """The one genuinely new, genuinely useful field: a page that
+        states 'Required Pre-qualifications: None' must yield exactly
+        that string -- positive evidence, not an inference."""
+        detail = mouth_gets_nz.parse_tender_detail(_detail_page_html(
+            required_pre_qualifications="None"))
+        self.assertEqual(detail["required_pre_qualifications"], "None")
+
+    def test_a_different_stated_value_is_also_captured_verbatim(self):
+        """Proves this module reads the page's own stated value rather
+        than defaulting every notice to 'None' regardless of content."""
+        detail = mouth_gets_nz.parse_tender_detail(_detail_page_html(
+            required_pre_qualifications="Panel of Approved Suppliers"))
+        self.assertEqual(detail["required_pre_qualifications"],
+                          "Panel of Approved Suppliers")
+
+    def test_a_field_absent_from_the_page_is_absent_from_the_dict(self):
+        """THE STRICTNESS RULE, tested directly: a page that never
+        carries the Required Pre-qualifications row at all must not
+        appear in the returned dict under any key -- absence must never
+        be silently upgraded into a stated 'None' or any other value."""
+        detail = mouth_gets_nz.parse_tender_detail(
+            _detail_page_html(include_pre_qual_row=False))
+        self.assertNotIn("required_pre_qualifications", detail)
+        self.assertIsNone(detail.get("required_pre_qualifications"))
+
+    def test_unrecognised_label_is_dropped_not_guessed_into_a_key(self):
+        raw = _detail_page_html().decode().replace(
+            "Department/Business Unit", "Some New Field GETS Has Never Shown")
+        detail = mouth_gets_nz.parse_tender_detail(raw.encode())
+        self.assertNotIn("department", detail)
+        self.assertNotIn("Some New Field GETS Has Never Shown", detail)
+
+    def test_no_table_raises_fetch_error_not_empty_dict(self):
+        with self.assertRaises(mouth_gets_nz.FetchError):
+            mouth_gets_nz.parse_tender_detail(b"<html><body>not a tender page</body></html>")
+
+    def test_non_utf8_bytes_raise_fetch_error(self):
+        with self.assertRaises(mouth_gets_nz.FetchError):
+            mouth_gets_nz.parse_tender_detail(b"\xff\xfe\x00bad")
+
+    def test_empty_stated_cell_is_present_as_empty_string(self):
+        """An empty but present cell (e.g. a blank fax number field) is
+        a FOUND field with value '' -- distinct from a field never found
+        at all, which is absent from the dict entirely."""
+        detail = mouth_gets_nz.parse_tender_detail(_detail_page_html())
+        # This module does not map "Alternate Physical Fax Number" (not
+        # in DETAIL_FIELDS), so assert the general contract instead: a
+        # recognised field with blank content still yields "".
+        raw = _detail_page_html(department="").decode().encode()
+        detail = mouth_gets_nz.parse_tender_detail(raw)
+        self.assertEqual(detail["department"], "")
+
+
+class FetchTenderDetailTests(unittest.TestCase):
+    def test_injected_fetch_fn_is_used_and_parsed(self):
+        detail = mouth_gets_nz.fetch_tender_detail(
+            "https://www.gets.govt.nz/UW/ExternalTenderDetails.htm?id=1",
+            fetch_fn=lambda: _detail_page_html(),
+        )
+        self.assertEqual(detail["rfx_id"], "34808478")
+
+    def test_default_path_goes_through_the_gated_fetcher(self):
+        """Same discipline as observe(): fetch_tender_detail() with no
+        fetch_fn goes through fetch_feed(), which runs the SSRF guard
+        and the discovery-authorization gate before any socket opens.
+        Proven here with an unresolvable host, which the SSRF guard
+        (`_reject_unsafe_url`) refuses with CommunicationDenied -- not a
+        silent success, and not a bypass of the gated path."""
+        with self.assertRaises(CommunicationDenied):
+            mouth_gets_nz.fetch_tender_detail(
+                "https://this-host-does-not-resolve.invalid/x.htm")
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -49,9 +49,16 @@ Finder's silently-ignored parameters)
     ignored filter parameter in this repository's sweep.
   - Pagination (`d-3680175-p=2&searchType=cftFTS&latest=true`, copied
     verbatim from the page's own "Next" link): identical 10
-    `resourceId`s as page 1 -- the paging widget is a server-side
-    Wicket component bound to a live session this stateless fetch does
-    not carry, so the GET parameter alone does nothing.
+    `resourceId`s as page 1 when appended to
+    `prepareCurrentOpportunities.do`. **This conclusion was wrong --
+    see the module docstring's CORRECTION section below, added later
+    the same day.** The parameter was appended to a page that always
+    redirects to page 1 regardless of query string; appended to the
+    page it actually redirects TO
+    (`quickSearchAction.do?searchType=cftFTS&latest=true`), it is
+    genuinely honoured. Left here, uncorrected in place, rather than
+    edited away, because the mistake and the fix are both real
+    provenance.
   - Sorting (`d-3680175-s=title.keyword&d-3680175-o=2`, copied verbatim
     from the page's own column-sort link): identical row order as the
     default fetch -- same cause as pagination.
@@ -81,19 +88,21 @@ Finder's silently-ignored parameters)
     the only match anywhere was the plain word "Export" as a UI label,
     not a link).
 
-CONSEQUENCE FOR THIS MODULE'S SHAPE
+CONSEQUENCE FOR THIS MODULE'S SHAPE (see CORRECTION below for the
+2026-09-02 update to this section)
 
 The only genuinely reachable, stateless, keyless, no-forged-identity
-GET is the unfiltered first page of 10 live open CFT notices, in
-whatever default order the server returns them (consistently the same
-order across independent fetches -- appears to be most-recently-
-published-first, not verified as a documented contract). This module
-therefore does exactly what `mouth_gets_nz.py` does for a query
-parameter that does not work: fetch the one full reachable page and
-filter client-side, by reading each item's OWN title/description text,
-never by trusting a server-side parameter this cycle proved does
-nothing. Coverage is real but narrow -- 10 of however many CFTs are
-open at fetch time, not all of them; see CANNOT.
+GET is the unfiltered results endpoint, in whatever default order the
+server returns them (consistently the same order across independent
+fetches -- appears to be most-recently-published-first, not verified
+as a documented contract), walked across `MAX_PAGES` pages of 10 rows
+each (see CORRECTION). Relevance is still judged entirely client-side,
+by reading each item's OWN title/description text, never by trusting a
+server-side filter parameter this cycle proved does nothing (`freeText`
+remains confirmed ignored -- only pagination's earlier "ignored"
+finding was wrong, see below). Coverage is real but bounded -- up to
+`MAX_PAGES` * 10 of however many CFTs are open at fetch time, not all
+of them; see CANNOT.
 
 WHAT THIS REUSES RATHER THAN DUPLICATES
 
@@ -155,18 +164,66 @@ to it on this page; the CSV export's own header literally reads
 through `describe()`, in `evidence["value_text_safe"]`, never promoted
 to a money figure this module did not itself verify structurally.
 
+CORRECTION -- 2026-09-02, LATER THE SAME DAY: PAGINATION DOES WORK
+
+The finding directly above ("pagination silently ignored") was tested
+against the wrong URL and the conclusion was wrong. `d-3680175-p=2` was
+appended to `prepareCurrentOpportunities.do` -- a page whose only real
+job is a 302 redirect to `quickSearchAction.do?searchType=cftFTS&
+latest=true` (confirmed live: `curl -sv` on the prepare URL returns
+`HTTP/1.1 302` with `Location: .../quickSearchAction.do?searchType=
+cftFTS&latest=true`, no query string carried through). The prepare
+endpoint ignores every parameter appended to it because it isn't the
+results endpoint at all -- it always redirects to page 1 of the real
+one. Re-run against `quickSearchAction.do` directly, `d-3680175-p=N`
+IS honoured, statelessly, with no cookie of any kind:
+
+  - `d-3680175-p=1` and `d-3680175-p=2` return disjoint `resourceId`
+    sets (confirmed live, zero overlap across two independent fetches).
+  - `d-3680175-p=3` returns a third disjoint set.
+  - A nonsense out-of-range value (`d-3680175-p=99999`, and the
+    genuinely-past-the-end `d-3680175-p=293` when the live total was
+    2,916 CFTs / 10 per page = 292 pages) returns an honest, distinct,
+    in-band "no more results" shape: no `<table id="T01">`, no
+    "results in total" marker, page text containing "No results" --
+    not a repeat of page 1, not an error. This is exactly the
+    fabrication-check this task brief demanded: a parameter that is
+    truly ignored returns IDENTICAL content regardless of value; this
+    one returns DIFFERENT, deterministic, disjoint content per value,
+    and a well-formed, distinguishable end-of-data signal past the
+    last real page.
+  - Fetched twice in a row with no cookies at all: byte-identical
+    `resourceId` sets per page -- confirmed still stateless, exactly
+    as page 1 always was.
+  - `d-3680175-c=100` (page-size) remains silently ignored on this
+    endpoint too -- confirmed unchanged, still exactly 10 rows
+    regardless of the value supplied. Only pagination was mis-tested
+    before; page-size genuinely is not honoured.
+
+This module now fetches multiple pages of `quickSearchAction.do` per
+sweep (bounded by `MAX_PAGES`, see below) rather than one fixed page of
+`prepareCurrentOpportunities.do`. The earlier "silently ignored"
+paragraph is left in place above, struck through in spirit rather than
+deleted, because this is exactly the kind of self-correction
+`docs/DECISIONS/D-013-etenders-depth.md` records in full -- a doctrine
+file that quietly edited away its own prior wrong conclusion would be
+worse than one that shows the mistake and the fix.
+
 CANNOT
 
-- Cannot see beyond the first 10 open CFT notices (whatever the server
-  returns by default) -- 2,916 open CFTs existed at time of writing;
-  pagination, sorting and every filter parameter tried are silently
-  ignored on a stateless fetch (see WHAT DOES NOT WORK above). A
-  relevant notice that is not in the current top 10 is invisible to
-  this module, honestly, not silently dropped as if it did not exist --
-  the same "page 1 only" shape `mouth_find_a_tender_uk.py`'s own CANNOT
-  section already names for a different reason (there, a session token
-  was unverified for page 2+; here, no parameter at all changes the
-  page).
+- Cannot see all 2,916 open CFTs in one sweep -- `MAX_PAGES` (currently
+  20, 200 potential open CFTs, wired into `DISCOVERY_POLICY.max_queries`
+  so the budget matches exactly what one full sweep can spend) bounds
+  how many pages one sweep fetches, a deliberate courtesy limit, not a
+  platform restriction -- the platform itself was proven above to honour
+  every page up to the real end of data. Raising `MAX_PAGES` costs
+  nothing structurally; it was kept modest so one cron tick does not
+  issue ~292 sequential requests against a public government server
+  every run. A relevant notice past page `MAX_PAGES` is invisible to a
+  given sweep, honestly, not silently dropped as if it did not exist.
+- Cannot pick a larger page size -- `d-3680175-c` is confirmed silently
+  ignored (see CORRECTION above); the only way to see more than 10 rows
+  in one request is to change `d-3680175-p`, which this module now does.
 - Cannot reach the full CSV-shaped export behind `viewCFTSAction.do` --
   see WHAT DOES NOT WORK above; blocked on `mouth_common.py` needing a
   form-urlencoded POST mode this module's file territory does not
@@ -210,34 +267,58 @@ from foundation.signal_spine import CanonicalSignal
 from foundation.untrusted_text import describe
 
 __all__ = [
-    "MOUTH_ID", "FEED_URL", "DISCOVERY_POLICY", "FetchError",
-    "MouthObservation", "parse_items", "observe", "is_security_relevant",
-    "etenders_ie_signal", "EtendersIeSweep", "sweep",
+    "MOUTH_ID", "FEED_URL", "RESULTS_URL", "MAX_PAGES", "DISCOVERY_POLICY",
+    "FetchError", "MouthObservation", "parse_items", "observe",
+    "is_security_relevant", "etenders_ie_signal", "EtendersIeSweep", "sweep",
 ]
 
 MOUTH_ID = "tender_radar_ie_etenders"
 
-# The one stateless endpoint this module ever calls -- see module
-# docstring's WHAT WAS ACTUALLY FOUND section. No query parameter is
-# appended beyond `currentType=cft` (the "currently open Call for
-# Tenders" view, as opposed to an award-only view) because every filter
-# parameter tried this cycle was confirmed live to be silently ignored.
-FEED_URL = (
-    "https://www.etenders.gov.ie/epps/prepareCurrentOpportunities.do"
-    "?currentType=cft"
+# The results endpoint -- see module docstring's CORRECTION section
+# (2026-09-02). `prepareCurrentOpportunities.do?currentType=cft` is NOT
+# the results page; it is a 302 redirect to this URL, always landing on
+# page 1. Fetching this URL directly, with an explicit `d-3680175-p=N`,
+# is what actually walks pages -- confirmed live, disjoint resourceId
+# sets per page, honest end-of-data signal past the real last page.
+RESULTS_URL = (
+    "https://www.etenders.gov.ie/epps/quickSearchAction.do"
+    "?searchType=cftFTS&latest=true"
 )
 
+# FEED_URL retained as the page-1 URL: the module's "primary" URL for
+# gate/policy tests that only need a single valid destination, and the
+# first page any sweep fetches.
+FEED_URL = f"{RESULTS_URL}&d-3680175-p=1"
+
+# Deliberate courtesy bound, not a platform limit (see CORRECTION /
+# CANNOT in the module docstring) -- one sweep fetches at most this many
+# pages (10 rows each) of a public government server rather than
+# walking the full ~292-page result set every cron tick.
+# `DISCOVERY_POLICY.max_queries` below is set to match exactly, so one
+# full sweep is the unit the budget bounds, not an arbitrary number.
+MAX_PAGES = 20
+
+# `d-3680175-p=N` is honoured; `d-3680175-c` (page size) is not (see
+# CORRECTION) -- so the only lever this module has to see more than 10
+# rows per request is walking `p`, which costs one HTTP request per
+# page. MAX_PAGES pages, each a distinct fetch_feed() call, is why the
+# budget below is MAX_PAGES rather than the single-digit default every
+# other one-page-per-sweep mouth in this repository uses.
 DISCOVERY_POLICY = DiscoveryPolicy(
     objective=(
         "observe Ireland's eTenders (etenders.gov.ie) currently-open "
-        "Call for Tenders listing page for live security/cyber/"
+        "Call for Tenders listing, walked across up to MAX_PAGES pages "
+        "of the real results endpoint, for live security/cyber/"
         "penetration-testing procurement opportunities -- one of four "
         "European Dynamics e-PPS platform sites left as 'reachable, "
         "recon incomplete' by docs/DECISIONS/D-010-english-markets.md, "
         "traced through this cycle for Ireland specifically, see "
-        "docs/DECISIONS/D-012-epps-platform.md"
+        "docs/DECISIONS/D-012-epps-platform.md and "
+        "docs/DECISIONS/D-013-etenders-depth.md"
     ),
     requested_scope="READ_URL",
+    max_queries=MAX_PAGES,
+    max_wall_clock_seconds=180,
 )
 
 # Column order confirmed live against the real page's own <thead>: #,
@@ -280,6 +361,67 @@ def _clean_text(cell_html: str) -> str:
     """Strip inner markup from one <td> cell and collapse whitespace --
     never a general HTML parser, never executed as markup."""
     return _WS_RE.sub(' ', _TAG_RE.sub('', cell_html)).strip()
+
+
+_MARKER_RE = re.compile(r'[\d,]+\s+results in total\.?', re.IGNORECASE)
+
+
+def _page_url(page: int) -> str:
+    """Build the URL for one results page. `page` is 1-indexed, matching
+    the site's own "Page" control (confirmed live)."""
+    return f"{RESULTS_URL}&d-3680175-p={page}"
+
+
+def _merge_pages_html(pages_raw: list[bytes]) -> bytes:
+    """Concatenate the `<tbody>` row content of each already-fetched page
+    into one synthetic document `parse_items()` can read unchanged --
+    keeps the parser single-page-shaped while the fetch side walks many
+    pages. Never fabricates a "results in total" marker: if none of the
+    fetched pages carried a recognisable marker, none is emitted here
+    either, so `parse_items()`'s own "no rows AND no marker -> FetchError"
+    rule still fires on a genuinely unrecognised page shape (a WAF
+    challenge, a redesign) rather than being silently swallowed as an
+    honest empty result.
+    """
+    rows_html: list[str] = []
+    marker = ""
+    for raw in pages_raw:
+        text = raw.decode("utf-8", errors="replace")
+        tbody_start = text.find("<tbody>")
+        tbody_end = text.find("</tbody>")
+        if tbody_start != -1 and tbody_end != -1:
+            rows_html.append(text[tbody_start + len("<tbody>"):tbody_end])
+        if not marker:
+            match = _MARKER_RE.search(text)
+            if match:
+                marker = match.group(0)
+    marker_html = f"<div>{marker}</div>" if marker else ""
+    body = "\n".join(rows_html)
+    return (
+        f"<html><body>{marker_html}"
+        f'<table id="T01"><thead></thead><tbody>{body}</tbody></table>'
+        "</body></html>"
+    ).encode("utf-8")
+
+
+def _fetch_pages(policy: DiscoveryPolicy, max_pages: int = MAX_PAGES) -> bytes:
+    """Walk up to `max_pages` pages of `RESULTS_URL`, one `fetch_feed()`
+    call per page (so authorization and budget are charged per page, not
+    once for the whole walk -- see `DISCOVERY_POLICY.max_queries`).
+    Stops early, honestly, the moment a fetched page carries no
+    `<tbody>` at all -- confirmed live (module docstring's CORRECTION
+    section) that a page past the real last page returns a distinct
+    "No results" shape with no results table, not a repeat of an
+    earlier page and not an error. Returns the merged synthetic
+    document; `parse_items()` does the real parsing, unchanged.
+    """
+    pages_raw: list[bytes] = []
+    for page in range(1, max_pages + 1):
+        raw = fetch_feed(_page_url(page), policy=policy)
+        pages_raw.append(raw)
+        if b"<tbody>" not in raw:
+            break
+    return _merge_pages_html(pages_raw)
 
 
 def parse_items(raw: bytes) -> tuple[dict, ...]:
@@ -381,9 +523,13 @@ def observe(
     """One observation cycle over the eTenders IE open-CFT page.
     `fetch_fn` is injected in every test in
     `foundation/tests/test_mouth_etenders_ie.py` -- no test touches the
-    real network. Default path goes through `mouth_common.fetch_feed()`
-    against `FEED_URL`, gated by `DISCOVERY_POLICY`."""
-    fetch = fetch_fn or (lambda: fetch_feed(FEED_URL, policy=DISCOVERY_POLICY))
+    real network. Default path walks up to `MAX_PAGES` pages of
+    `RESULTS_URL` via `_fetch_pages()`, each page its own
+    `mouth_common.fetch_feed()` call gated by `DISCOVERY_POLICY` (see
+    module docstring's CORRECTION section for why this is now
+    multi-page rather than the single fixed page this module used to
+    fetch)."""
+    fetch = fetch_fn or (lambda: _fetch_pages(DISCOVERY_POLICY))
     return _observe(MOUTH_ID, state_path, fetch, parse_items, now=now)
 
 
@@ -520,9 +666,9 @@ class EtendersIeSweep:
         if self.signals:
             lines.append(
                 "  every signal above is OBSERVED only -- none is "
-                "VERIFIED or REALIZED; only the first 10 open CFTs the "
-                "server returns are visible, see module docstring's "
-                "CANNOT section"
+                "VERIFIED or REALIZED; only up to MAX_PAGES pages of "
+                "open CFTs are visible per sweep, see module "
+                "docstring's CANNOT section"
             )
         return "\n".join(lines)
 

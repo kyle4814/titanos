@@ -166,6 +166,8 @@ __all__ = [
     "MOUTH_ID", "FEED_URL", "DISCOVERY_POLICY", "FetchError",
     "MouthObservation", "parse_items", "observe", "gets_signal",
     "GetsRadarSweep", "sweep",
+    "DETAIL_DISCOVERY_POLICY", "DETAIL_FIELDS", "parse_tender_detail",
+    "fetch_tender_detail",
 ]
 
 MOUTH_ID = "tender_radar_nz_gets"
@@ -188,6 +190,178 @@ DISCOVERY_POLICY = DiscoveryPolicy(
     ),
     requested_scope="READ_URL",
 )
+
+# ── DETAIL-PAGE EXTRACTION ──────────────────────────────────────────
+#
+# Added 2026-09-02, per a live check of `robots.txt`
+# (`https://www.gets.govt.nz/robots.txt` -- confirmed live, same file
+# `FEED_URL` above already documents: only SEMrushBot variants are
+# disallowed anywhere on the site; this fetcher's own honest User-Agent
+# is unrestricted, so fetching an individual
+# `ExternalTenderDetails.htm?id=NNNNN` page -- the page each RSS
+# `<item><link>` already points at -- is permitted).
+#
+# A small, polite sample (3 of the 36 security-relevant notices, several
+# seconds apart, single-fetch-per-notice, no crawl) was fetched and
+# inspected by hand. Every one of the three carries a real HTML table
+# (`<table class="tender-details-info-tbl">`, one `<tr><td class=
+# "label-cell">LABEL</td><td>VALUE</td></tr>` per field) with a fixed,
+# small field set: RFx ID, Tender Name, Reference #, Open Date, Close
+# Date, Department/Business Unit, Tender Type, Tender Coverage,
+# Categories, Regions, Exemption Reason, Required Pre-qualifications,
+# Contact, Alternate Physical Delivery Address, Alternate Physical Fax
+# Number. That is the ENTIRE field set observed -- no selection
+# criteria, no insurance requirement, no reference/track-record
+# requirement, no legal-form/consortium field, no financial-capacity
+# field appear anywhere on any of the three pages fetched. The RFx's own
+# stated response requirements, if any exist beyond this table, live in
+# a downloadable RFx document this page does not embed and this module
+# does not fetch (no link to one was observed on any of the three
+# samples; a locked/paywalled RFx document was not observed either --
+# the honest state is that this page simply does not carry one).
+#
+# THE ONE GENUINELY NEW, GENUINELY USEFUL FIELD: "Required
+# Pre-qualifications". Unlike the RSS feed's total silence on bidder
+# conditions (see module docstring's CRITICAL-HONESTY-adjacent
+# discussion in `foundation/sources.py`), this field is POSITIVELY
+# STATED on the detail page -- all three samples carried the literal
+# value "None" (`<span class="notice">None</span>`). A stated "None" is
+# real evidence a formal pre-qualification/panel-membership gate was not
+# imposed for that specific notice; it is NOT evidence about insurance,
+# certification, reference or financial-capacity requirements, which
+# never appear as a field on this page at all and stay strictly
+# UNKNOWN -- extracted as absent from the returned dict, never defaulted
+# to "None" or any other value. Absence of a FIELD ON THE PAGE and a
+# field's STATED VALUE of "None" are two different things and this
+# module never collapses them into one.
+#
+# WHAT THIS DOES NOT DO: does not claim the three-sample field set is
+# exhaustive across all 324 open NZ notices -- a future notice could use
+# a different template. Does not follow any link off this page (no RFx
+# document download, no login flow). Does not infer eligibility --
+# extraction only; `eligibility.py`/`sources.py` remain untouched and
+# this module supplies no `assess_eligibility()`-shaped mapping for
+# detail-page fields, deliberately, since that mapping is out of this
+# module's file territory.
+DETAIL_DISCOVERY_POLICY = DiscoveryPolicy(
+    objective=(
+        "fetch one GETS ExternalTenderDetails.htm notice detail page to "
+        "extract the genuinely-present bidder-condition fields it "
+        "carries (e.g. Required Pre-qualifications), never inferring an "
+        "absent field as a cleared requirement -- see "
+        "docs/DECISIONS and this module's DETAIL-PAGE EXTRACTION note"
+    ),
+    requested_scope="READ_URL",
+)
+
+# Label text (as it appears, tag-stripped, in the source table) -> the
+# key this module returns it under. Only labels actually observed on a
+# live page are listed -- a label never seen is simply never produced,
+# not guessed at.
+DETAIL_FIELDS = {
+    "RFx ID": "rfx_id",
+    "Tender Name": "tender_name",
+    "Reference #": "reference",
+    "Open Date": "open_date",
+    "Close Date": "close_date",
+    "Department/Business Unit": "department",
+    "Tender Type": "tender_type",
+    "Tender Coverage": "tender_coverage",
+    "Categories": "categories",
+    "Regions": "regions",
+    "Exemption Reason": "exemption_reason",
+    "Required Pre-qualifications": "required_pre_qualifications",
+    "Contact": "contact",
+}
+
+# Narrow, single-purpose: this table's own row shape only. Never a
+# general HTML parser; never executed as markup. `re.S` because a
+# value cell's content (a <ul> of categories/regions, or a multi-line
+# contact block) legitimately spans newlines in the source HTML.
+_DETAIL_TABLE_RE = re.compile(
+    r'<table class="tender-details-info-tbl">(.*?)</table>', re.S)
+_DETAIL_ROW_RE = re.compile(
+    r'<td class="label-cell">(.*?)</td>\s*<td>(.*?)</td>', re.S)
+_LI_RE = re.compile(r"<li>(.*?)</li>", re.S)
+_TAG_RE = re.compile(r"<[^>]+>")
+
+
+def _strip_tags(fragment: str) -> str:
+    """Tag-strip one already-isolated table-cell fragment, unescape
+    entities, collapse whitespace. Not a general HTML parser -- only
+    ever applied to a fragment already isolated by `_DETAIL_ROW_RE`."""
+    text = html.unescape(_TAG_RE.sub(" ", fragment))
+    return " ".join(text.split())
+
+
+def parse_tender_detail(raw: bytes) -> dict:
+    """Extract the genuinely-present fields from one GETS
+    ExternalTenderDetails.htm page.
+
+    Returns a dict keyed by `DETAIL_FIELDS`' values, containing ONLY the
+    labels actually found in the page's own details table -- a label
+    never observed on this particular page is simply absent from the
+    returned dict (`.get(key)` -> `None` at the Python level, which
+    callers must read as UNKNOWN, never as "no requirement"; see this
+    module's DETAIL-PAGE EXTRACTION note above). `categories` and
+    `regions` are returned as tuples of strings (their value cells are
+    `<li>` lists on every sample observed); every other present field is
+    a single cleaned string, even if empty ("" for a genuinely blank
+    cell, e.g. `Alternate Physical Fax Number` — an empty stated cell is
+    still a found field, distinct from a field never found at all).
+
+    No table found (`FetchError`) means the page did not match the one
+    shape this was built against -- callers must treat that as
+    UNAVAILABLE, the same discipline as `parse_items()`'s malformed-feed
+    path, never as "zero requirements"."""
+    try:
+        text = raw.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise FetchError(f"detail page did not decode as UTF-8: {exc}") from exc
+
+    table_match = _DETAIL_TABLE_RE.search(text)
+    if table_match is None:
+        raise FetchError(
+            "detail page has no tender-details-info-tbl table -- page "
+            "shape did not match what this extractor was built against"
+        )
+    table_html = table_match.group(1)
+
+    result: dict = {}
+    for label_html, value_html in _DETAIL_ROW_RE.findall(table_html):
+        label = _strip_tags(label_html).rstrip(": ").strip()
+        key = DETAIL_FIELDS.get(label)
+        if key is None:
+            # An unrecognised label -- some other field this module has
+            # never seen. Dropped rather than guessed into a key; see
+            # this function's own docstring on absence.
+            continue
+        if key in ("categories", "regions"):
+            items = tuple(
+                _strip_tags(li) for li in _LI_RE.findall(value_html)
+                if _strip_tags(li)
+            )
+            result[key] = items
+        else:
+            result[key] = _strip_tags(value_html)
+    return result
+
+
+def fetch_tender_detail(
+    url: str,
+    fetch_fn: Optional[Callable[[], bytes]] = None,
+) -> dict:
+    """Fetch and parse one GETS notice detail page. `fetch_fn` injected
+    in every test in `foundation/tests/test_mouth_gets_nz.py` -- no test
+    in this repository touches the real network, this function included.
+    When `fetch_fn` is None the default path goes through
+    `mouth_common.fetch_feed()` against `url` with
+    `DETAIL_DISCOVERY_POLICY`, which refuses without it -- there is no
+    second, ungated path here, same discipline as `observe()` above."""
+    fetch = fetch_fn or (lambda: fetch_feed(url, policy=DETAIL_DISCOVERY_POLICY))
+    raw = fetch()
+    return parse_tender_detail(raw)
+
 
 _RSS_NS = {"dc": "http://purl.org/dc/elements/1.1/"}
 

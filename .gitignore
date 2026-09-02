@@ -51,3 +51,12 @@ build/
 # Never tracked; operator_profile.example.json documents every field
 # and ships with the real current placeholder values.
 /operator_profile.json
+
+# Runtime state written by the hunt loop and the scheduled brief. Same
+# class as every other ledger above: machine-specific, regenerated on
+# demand, and a source of the exact "green on my machine, red in CI"
+# failure this repository spent eight commits diagnosing.
+foundation/hunt_loop_log.jsonl
+foundation/scheduled_brief_log.jsonl
+foundation/scheduled_brief_cron.log
+briefs/

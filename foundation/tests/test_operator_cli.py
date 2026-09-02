@@ -189,6 +189,59 @@ class TestHuntDryRunDefault(unittest.TestCase):
         self.assertIn("penetration testing", out)
 
 
+class TestIncomeCommand(unittest.TestCase):
+    """`income` follows the same dry-run-by-default, --live-required
+    pattern as `hunt`/`brief`/`loop`."""
+
+    def test_income_with_no_arguments_is_dry_run_and_succeeds(self):
+        code, out, err = _run(["income"])
+        self.assertEqual(code, 0)
+        self.assertIn("DRY RUN", out)
+        self.assertIn("Pass --live", out)
+        self.assertIn("mouth_bounty", out)
+        self.assertIn("mouth_gigs", out)
+
+    def test_income_dry_run_never_calls_watch(self):
+        with patch.object(operator_cli.income_watch, "watch") as mock_watch:
+            code, out, err = _run(["income"])
+        mock_watch.assert_not_called()
+        self.assertEqual(code, 0)
+
+    def test_income_live_calls_watch_and_renders_report(self):
+        from foundation import income_watch as iw
+
+        fake_report = iw.IncomeWatchReport(
+            observed_at="2026-09-02T00:00:00+00:00",
+            results=(),
+            signals=(),
+            new_signals=(),
+        )
+        with patch.object(operator_cli.income_watch, "watch",
+                           return_value=fake_report) as mock_watch:
+            code, out, err = _run(["income", "--live"])
+        mock_watch.assert_called_once()
+        self.assertEqual(code, 0)
+        self.assertIn("zero new programs/gigs observed this cycle", out)
+
+    def test_income_empty_result_exits_zero(self):
+        from foundation import income_watch as iw
+
+        fake_report = iw.IncomeWatchReport(
+            observed_at="2026-09-02T00:00:00+00:00",
+            results=(), signals=(), new_signals=(),
+        )
+        with patch.object(operator_cli.income_watch, "watch", return_value=fake_report):
+            code, out, err = _run(["income", "--live"])
+        self.assertEqual(code, 0)
+
+    def test_income_live_failure_from_watch_is_reported_not_a_traceback(self):
+        with patch.object(operator_cli.income_watch, "watch",
+                           side_effect=RuntimeError("boom")):
+            code, out, err = _run(["income", "--live"])
+        self.assertEqual(code, 1)
+        self.assertIn("INCOME WATCH FAILED", err)
+
+
 class TestHuntLiveUsesInjectedFetch(unittest.TestCase):
     """Proves the live path builds a real DiscoveryPolicy and calls
     `hunt_multi()` -- without ever letting a real socket open, by
@@ -272,7 +325,7 @@ class TestExitCodes(unittest.TestCase):
 
 
 class TestBuildParser(unittest.TestCase):
-    def test_all_five_subcommands_registered(self):
+    def test_all_six_subcommands_registered(self):
         parser = operator_cli.build_parser()
         # argparse exposes subparser choices via the subparsers action
         actions = [a for a in parser._subparsers._group_actions
@@ -280,7 +333,7 @@ class TestBuildParser(unittest.TestCase):
         self.assertTrue(actions)
         choices = set(actions[0].choices.keys())
         self.assertEqual(
-            choices, {"hunt", "brief", "loop", "dossier", "profile"})
+            choices, {"hunt", "brief", "loop", "income", "dossier", "profile"})
 
 
 if __name__ == "__main__":
