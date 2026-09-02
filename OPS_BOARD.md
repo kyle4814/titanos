@@ -557,14 +557,48 @@ which is exactly the shape the classifier reads as MARKET_ENGAGEMENT.
 `foundation/tender_radar.py::planning_feed_url()` now makes that a
 standing capability rather than a one-off query.
 
-**First live run found three security notices in planning stage — all
-physical security** (manned guarding for Waltham Forest at £5,798,058;
-MoD supply-chain notice WP073 for CCTV, access and intruder at
-£300,000). No cyber this pass.
+### The base rate, measured
 
-That is an honest empty result for one sweep, not a verdict on the
-route. The route is now permanent, runs on every cycle, and is the only
-stage where the barrier is genuinely zero rather than merely unstated.
+Eighteen 30-day windows walked back from 2026-09-03, throttled:
+
+```
+444  planning-stage releases scanned
+  3  unique cyber-relevant notices
+     = 0.7%
+```
+
+That is the honest yield of this route on this source. It is thin, and
+saying so is worth more than re-running it hoping otherwise. The route
+is permanent and costs one request per cycle; it is not a lane to sit
+and wait on.
+
+**What the 18 months actually contained:**
+
+| Notice | Buyer | Value | Published |
+|---|---|---|---|
+| Supply Chain Notice: WP078 Data | Ministry of Defence | **£600,000** | ~Jun 2026 |
+| **Cybersecurity Training 2025 to 2029** | Royal Borough of Kingston upon Thames | **£69,552** | ~Jun 2025 |
+| CCS Cyber Security Services 3 (DPS) Stage 1 | Metropolitan Police Service | — | ~Nov 2025 |
+
+The Kingston notice is the interesting shape: **£69,552** is small enough
+that a solo operator is a plausible supplier, and it is *training* rather
+than testing — deliverable by one person, with no SOC to staff round the
+clock. It is also from June 2025 and is therefore likely gone; it is
+listed as **evidence that councils buy cyber work at this size**, not as
+a live target.
+
+The first sweep's three hits were all physical security — Waltham Forest
+manned guarding at £5,798,058, MoD supply-chain notice WP073 for CCTV,
+access and intruder at £300,000.
+
+### Find a Tender rate-limits
+
+Probing find-tender.service.gov.uk's search for a notice-type filter
+returned **HTTP 429** after four requests spaced three seconds apart.
+Backed off rather than continuing — that host needs a slower cadence
+than Contracts Finder, and UKRI-6251 was reached through its OCDS API
+rather than its search page anyway. Recorded so the next sweep does not
+rediscover it.
 
 ---
 
