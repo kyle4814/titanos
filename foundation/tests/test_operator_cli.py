@@ -377,6 +377,96 @@ class TestHuntLiveUsesInjectedFetch(unittest.TestCase):
         self.assertIn("UnboundedDiscoveryObjective", out)
 
 
+class TestDocumentTextExtraction(unittest.TestCase):
+    """Both bugs below were found the same way on 2026-09-03: by trying
+    to read the selection criteria out of real Irish procurement
+    documents and getting markup instead of words. `assess_access()`
+    then scans that markup and reports on it."""
+
+    def _write(self, data: bytes, name="doc.bin"):
+        d = tempfile.mkdtemp()
+        p = Path(d) / name
+        p.write_bytes(data)
+        return p
+
+    def _docx(self, paragraphs):
+        import io
+        import zipfile
+        body = "".join(
+            f'<w:p w14:paraId="672A6659" w:rsidR="006D172B">'
+            f'<w:r><w:t>{p}</w:t></w:r></w:p>' for p in paragraphs)
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w") as z:
+            z.writestr("word/document.xml",
+                       f'<?xml version="1.0"?><w:document><w:body>{body}'
+                       f'</w:body></w:document>')
+        return buf.getvalue()
+
+    def test_docx_paragraph_attributes_do_not_leak_into_the_text(self):
+        """The old substitution ate `<w:p` and left `w14:paraId="..."`
+        behind as ordinary text, because the remainder no longer began
+        with `<` for the tag-strip to match. Measured on RTE's real
+        25P041 document: 191,868 characters of Word revision ids."""
+        path = self._write(self._docx(["Minimum turnover of EUR 350,000."]))
+        text = operator_cli._read_document_text(path)
+        self.assertIn("Minimum turnover of EUR 350,000.", text)
+        self.assertNotIn("paraId", text)
+        self.assertNotIn("rsidR", text)
+        self.assertNotIn("w:p", text)
+
+    def test_docx_paragraphs_are_separated(self):
+        path = self._write(self._docx(["First clause.", "Second clause."]))
+        text = operator_cli._read_document_text(path)
+        self.assertIn("First clause.", text)
+        self.assertIn("Second clause.", text)
+        self.assertNotIn("First clause.Second clause.", text)
+
+    def test_rtf_is_detected_by_magic_bytes_not_extension(self):
+        r"""`{\rtf` is FIVE bytes. The magic-byte read was four bytes
+        wide, so this detection silently never fired and RTF fell to
+        the plain-text branch -- 2.7 million characters of control
+        words, handed to the barrier scanner as document text."""
+        rtf = (rb"{\rtf1\ansi{\fonttbl{\f0 Times New Roman;}}"
+               rb"\f0 A minimum annual turnover of 250k per annum.\par}")
+        path = self._write(rtf, name="pqq.unknown")
+        text = operator_cli._read_document_text(path)
+        self.assertIn("A minimum annual turnover of 250k per annum.", text)
+        self.assertNotIn("rtf1", text)
+        self.assertNotIn(r"\ansi", text)
+
+    def test_rtf_font_and_style_tables_are_dropped_whole(self):
+        """Font and style NAMES are indistinguishable from prose once
+        the control words are stripped -- keeping them buries the
+        document under hundreds of typeface names."""
+        rtf = (rb"{\rtf1\ansi{\fonttbl{\f0 Wingdings;}{\f1 Courier New;}}"
+               rb"{\stylesheet{\s1 Heading Style Name;}}"
+               rb"\f0 Real clause text.\par}")
+        text = operator_cli._read_document_text(self._write(rtf))
+        self.assertIn("Real clause text.", text)
+        self.assertNotIn("Wingdings", text)
+        self.assertNotIn("Heading Style Name", text)
+
+    def test_rtf_paragraph_and_cell_breaks_become_whitespace(self):
+        rtf = rb"{\rtf1\ansi One\par Two\cell Three\par}"
+        text = operator_cli._read_document_text(self._write(rtf))
+        self.assertIn("One", text)
+        self.assertIn("Two", text)
+        self.assertIn("Three", text)
+        self.assertNotIn("OneTwo", text.replace(" ", ""))
+
+    def test_rtf_hex_escapes_decode_rather_than_showing_as_backslash_codes(self):
+        r"""`\'93` is a curly quote. Left raw it lands in the middle of
+        a quoted clause the operator is meant to read and check."""
+        rtf = rb"{\rtf1\ansi \'93Penetration Testing\'94 services.\par}"
+        text = operator_cli._read_document_text(self._write(rtf))
+        self.assertIn("Penetration Testing", text)
+        self.assertNotIn("'93", text)
+
+    def test_an_unreadable_file_is_empty_not_a_crash(self):
+        path = self._write(b"\x00\x01\x02\x03\x04\x05\x06\x07\x08")
+        self.assertIsInstance(operator_cli._read_document_text(path), str)
+
+
 class TestExitCodes(unittest.TestCase):
     def test_empty_hunt_report_is_success_not_failure(self):
         from foundation.hunt import HuntReport

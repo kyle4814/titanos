@@ -543,6 +543,95 @@ def cmd_deals(args) -> int:
     return 0
 
 
+def _rtf_to_text(raw: bytes) -> str:
+    """Minimal RTF-to-text. Not a general RTF renderer -- enough to read
+    a procurement document's words.
+
+    WHY THIS EXISTS. Ireland's eTenders serves Irish Rail's CIE 7289
+    penetration-testing qualification documents as RTF. Before this,
+    RTF fell through to the plain-text branch, which returned 2.7
+    MILLION characters of `\\rtlch\\fcs1\\af0\\afs20` control words and
+    handed them to `assess_access()` as document text. That is the same
+    failure as the .docx-named-.bin case this function's magic-byte
+    check already exists to stop -- confident output over markup -- and
+    it was sitting in front of the narrowest, most solo-operator-shaped
+    cyber instrument found anywhere in the Irish register.
+
+    Groups whose control word is in `_RTF_SKIP_GROUPS` are dropped
+    entirely, contents included: `\\fonttbl`, `\\stylesheet` and friends
+    hold hundreds of font and style NAMES which are otherwise
+    indistinguishable from prose and would flood the result.
+    """
+    text = raw.decode("cp1252", errors="ignore")
+    out: list[str] = []
+    skip_depth = 0          # brace depth at which a skipped group began
+    depth = 0
+    i = 0
+    n = len(text)
+    while i < n:
+        ch = text[i]
+        if ch == "{":
+            depth += 1
+            i += 1
+            continue
+        if ch == "}":
+            if skip_depth and depth <= skip_depth:
+                skip_depth = 0
+            depth -= 1
+            i += 1
+            continue
+        if ch == "\\":
+            m = _RTF_CONTROL.match(text, i)
+            if not m:
+                # An escaped literal: \{ \} \\
+                if i + 1 < n and text[i + 1] in "{}\\":
+                    if not skip_depth:
+                        out.append(text[i + 1])
+                    i += 2
+                    continue
+                i += 1
+                continue
+            word, arg = m.group(1), m.group(2)
+            i = m.end()
+            if i < n and text[i] == " ":
+                i += 1          # a single trailing space delimits, not text
+            if word == "'":
+                pass            # handled below via _RTF_HEX
+            if word in _RTF_SKIP_GROUPS and not skip_depth:
+                skip_depth = depth
+                continue
+            if skip_depth:
+                continue
+            if word in ("par", "line", "row", "sect"):
+                out.append("\n")
+            elif word in ("tab", "cell"):
+                out.append("\t")
+            continue
+        if not skip_depth:
+            out.append(ch)
+        i += 1
+    joined = "".join(out)
+    # \'xx is a single cp1252 byte written as hex -- decode it rather
+    # than leaving `\'93` visible in the middle of a quoted clause.
+    joined = _RTF_HEX.sub(
+        lambda m: bytes([int(m.group(1), 16)]).decode("cp1252", "ignore"),
+        joined)
+    return joined
+
+
+# Control-word groups whose CONTENTS are metadata, not prose. Dropped
+# whole; keeping them buries the document in font and style names.
+_RTF_SKIP_GROUPS = frozenset({
+    "fonttbl", "colortbl", "stylesheet", "info", "listtable",
+    "listoverridetable", "rsidtbl", "generator", "themedata",
+    "colorschememapping", "latentstyles", "datastore", "pict",
+    "xmlnstbl", "filetbl", "revtbl", "background", "shppict",
+    "nonshppict", "objdata", "fchars", "lchars", "upr",
+})
+_RTF_CONTROL = re.compile(r"\\([a-zA-Z]+|')(-?\d+)?")
+_RTF_HEX = re.compile(r"\\?'([0-9a-fA-F]{2})")
+
+
 def _read_document_text(path: Path) -> str:
     """Extract text from a tender document.
 
@@ -569,13 +658,17 @@ def _read_document_text(path: Path) -> str:
     # "%PDF" is a PDF.
     try:
         with path.open("rb") as fh:
-            head = fh.read(4)
+            # Eight, not four: `{\rtf` is five bytes and a four-byte
+            # read silently never matched it.
+            head = fh.read(8)
     except OSError:
         return ""
     if head[:4] == b"PK\x03\x04":
         suffix = ".docx"
     elif head[:4] == b"%PDF":
         suffix = ".pdf"
+    elif head[:5] == b"{\\rtf":
+        suffix = ".rtf"
     else:
         suffix = path.suffix.lower()
     if suffix == ".docx":
@@ -585,8 +678,24 @@ def _read_document_text(path: Path) -> str:
                 "utf-8", errors="ignore")
         except (KeyError, zipfile.BadZipFile):
             return ""
-        text = re.sub(r"<w:p[ >]", "\n", xml)
+        # PARAGRAPH BREAKS COME FROM THE CLOSING TAG, NOT THE OPENING
+        # ONE. This previously substituted `<w:p[ >]` -- which eats the
+        # `<` and the first character, leaving the REST of the opening
+        # tag (`w14:paraId="672A6659" w:rsidR="006D172B" ...>`) as
+        # ordinary text that the following tag-strip can no longer
+        # match, because it no longer begins with `<`.
+        #
+        # Measured on RTE's real 25P041 Cyber Security DPS document,
+        # 2026-09-03: 191,868 characters extracted, opening with
+        # `w14:paraId=` and carrying Word revision-id attributes
+        # throughout. `assess_access()` then scans that noise and counts
+        # it as document text -- a barrier assessment run over markup.
+        #
+        # `</w:p>` has no attributes, so replacing it is unambiguous.
+        text = xml.replace("</w:p>", "\n")
         return re.sub(r"<[^>]+>", "", text)
+    if suffix == ".rtf":
+        return _rtf_to_text(path.read_bytes())
     if suffix == ".pdf":
         try:
             import pypdf

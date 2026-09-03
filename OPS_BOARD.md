@@ -151,14 +151,91 @@ qualification.** The two Irish Rail penetration-testing entries are the
 most interesting: penetration testing is the narrowest, most
 individual-scale service on the list.
 
-**ACTION:** open `3243649` and `1749698` (Irish Rail, penetration
-testing) and `6565390` (RTÉ) and read the selection criteria. If any of
-them does not demand reference contracts or certifications, that is a
-standing, deadline-free route into Irish public work.
+#### Two of the nine have now been read in full. They do not agree.
 
-**⚠️ Kyle's real gate here is the same as everywhere else in Ireland: no
-insurance.** Four of the five dated Irish notices demanded professional
-indemnity cover. Expect these to as well. Read before hoping.
+**❌ RTÉ 25P041 — CANNOT APPLY.** The DPS document was downloaded through
+eTenders' own anonymous-download control and read. Admission is six
+Pass/Fail gates (P1 Eligibility, P2 Financial, P3 Insurance, P4 Staff,
+P5 Quality, P6 H&S). Two of them close it:
+
+> **P2 Financial and Economic Standing** — "Tenderers must have achieved
+> a minimum turnover level of **€350,000** in each of the three (3)
+> previous financial years."
+>
+> **P3 Minimum Insurance Requirements** — "Tenderers must maintain the
+> following minimum levels of insurance cover: Public Liability
+> **€6.5M**, Cyber Insurance **€1.0m**, Professional Liability **€1.0m**"
+
+Both are Pass/Fail **at admission**. No insurance means no admission.
+Deadline for requests to participate is 30/10/2030, so it will still be
+there if that ever changes.
+
+**✅ IRISH RAIL CIE 7289 — THE BEST LEAD THIS CAMPAIGN HAS FOUND.**
+Pre-Qualification Questionnaire (`PQQ/CIE/Version/2/18`), read in full.
+
+> **5.1 MINIMUM QUALIFICATION CRITERIA** — "(1) Minimum Financial
+> Qualification Criteria: (PASS/FAIL) **TURNOVER** (exclusive of VAT): A
+> minimum annual turnover of **250k** per annum for the last three
+> audited financial year ends."
+
+That is the lowest financial bar found anywhere in Ireland, and it is
+the **only** Pass/Fail criterion. Then, in the buyer's own words,
+immediately after it:
+
+> "**Reliance on resources to meet Turnover Requirement:** Where the
+> Applicant seeks to rely on the resources of any third party to meet
+> the above stated Minimum financial qualification criteria of Turnover
+> ... it must provide evidence of the turnover for such other
+> persons/entities for each of the financial years listed above and
+> prove to CIE that the necessary resources will be available to it when
+> required."
+
+Followed by named routes for **Reliance on a Consortium Member**,
+**Reliance on a Sub-Contractor**, and **Parent company**. This is the
+mechanism documented further down this board — here applied to a
+qualification system with **no closing date**, for **penetration testing
+specifically**, at the lowest turnover threshold on record.
+
+**And the sentence that separates this from every other Irish notice:**
+
+> "Applicants should note that those who have been **selected to
+> Call-Off stage**, will be required to comply with the insurance
+> requirements of the IE Standard Contract and will be required to be in
+> possession of and produce a **Tax Clearance Certificate from the
+> Revenue Commissioners of Ireland** at time of contract award."
+
+That is the **only** mention of insurance in the entire PQQ. Insurance
+here is a **call-off obligation, not an admission gate** — the exact
+opposite of RTÉ and of all five dated Irish tenders. It means Kyle can
+be admitted to the qualification system now, and only needs cover if and
+when actual work is on the table.
+
+Technical/Professional Ability is **scored, not Pass/Fail** — 40%
+minimum per criterion, weighted across Resources and Capacity (20%),
+Quality Management (10%) and others. Client references are sought as
+feedback, not required as a gate.
+
+**Still UNKNOWN, and both matter:**
+1. **The PQQ deadline.** The register shows this system as `Established`
+   with an empty deadline field, and the PQQ says submissions are due by
+   a date "stated on the front cover" — which sits in a document field
+   that did not extract. **Check the front cover before assuming it is
+   still open.**
+2. **The Tax Clearance Certificate.** Irish Revenue issues these to
+   non-resident suppliers, but whether an Australian sole trader can
+   obtain one, and how long it takes, has not been verified here.
+
+**ACTION, in this order:**
+1. Open `https://www.etenders.gov.ie/epps/dps/prepareViewCfTDPSWS.do?resourceId=3243649`
+   and check the PQQ front cover for a submission deadline.
+2. If open: the turnover gate is €250k × 3 years and the document itself
+   names four sanctioned ways to meet it with someone else's resources.
+   That is a conversation with an established firm, not a wall.
+3. Do **not** start with RTÉ. It is a definite no on quoted clauses.
+
+The other seven remain unread. HSE's three (€60M, €60M, €16M) and
+Asiera's €175M are large enough to expect RTÉ-shaped insurance gates;
+Gas Networks Ireland is unread and unguessed.
 
 ---
 
@@ -902,6 +979,32 @@ passed, and those rows are lost silently.
 `freeText` was re-tested against the correct endpoint as well and is
 **genuinely ignored** — a real query and a nonsense query return
 byte-identical rows. That one was right.
+
+### Two document readers were returning markup, not words
+
+Found by trying to read the Irish criteria above and getting rubbish.
+
+**`.docx`** — the paragraph split matched `<w:p[ >]`, which consumes the
+`<` and one character, leaving the rest of the opening tag
+(`w14:paraId="672A6659" w:rsidR="006D172B" ...>`) as ordinary text that
+the following tag-strip can no longer match. RTÉ's real DPS document
+came out as **191,868 characters** opening with `w14:paraId=`. Fixed by
+splitting on the closing tag, which has no attributes.
+
+**`.rtf`** — Irish Rail serves its qualification documents as RTF, a
+format the reader did not handle at all. It fell through to the
+plain-text branch and returned **2.7 million characters** of
+`\rtlch\fcs1\af0\afs20` control words. Now parsed properly: 129,204
+characters of readable English, which is how the criteria above were
+found. Font and style tables are dropped whole — their contents are
+typeface names indistinguishable from prose once the markup is gone.
+
+The magic-byte check that was supposed to catch this read **four** bytes.
+`{\rtf` is five. The detection could never have fired.
+
+Both are the same failure this project keeps meeting: **confident output
+computed over noise.** The access-barrier scanner was reading markup and
+reporting NONE_DETECTED on it.
 
 ### A defect that made every sweep look busier than it was
 
