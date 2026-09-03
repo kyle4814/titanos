@@ -70,6 +70,12 @@ from foundation.discovery_authorization import (
 )
 from foundation.access_barriers import assess_access, format_access
 from foundation.entry_gate import assess_entry, format_entry
+from foundation.spec_crossref import (
+    crossref,
+    format_crossref,
+    format_term_coverage,
+    trace_term,
+)
 from foundation.deal_pipeline import (
     DealBoard,
     DealError,
@@ -869,6 +875,66 @@ def cmd_gates(args) -> int:
     return 0
 
 
+# Tuned to Swiss Post's e-voting specifications, which is the only real
+# corpus this has been run against. Exposed as flags rather than frozen,
+# because a different specification numbers its algorithms differently
+# and a checker that silently finds nothing is worse than one that
+# refuses.
+_DEFAULT_DEFINITION_PATTERN = r"Algorithm\s+(\d+\.\d+)\s+([A-Z][A-Za-z0-9]{3,60})"
+_DEFAULT_REFERENCE_PATTERN = r"[Aa]lgorithm\s+(\d+\.\d+)"
+
+
+def cmd_spec(args) -> int:
+    """Cross-reference a specification, and optionally trace a term
+    across several of them.
+
+    WHY THIS COMMAND EXISTS. `spec_crossref.py` was built with 39 tests
+    and reachable only from a Python shell -- the third time in three
+    days a capability in this repository has been finished and left
+    unwired (the Denmark and Netherlands mouths sat outside the source
+    registry; `deep_sweep()` sat outside the CLI). A capability nobody
+    can invoke is not a capability.
+
+    It found the SGSP documentation candidate on Swiss Post's e-voting
+    corpus: 'SGSP' appears 43 times in the computational proof and zero
+    times in the two specifications that implement the control
+    protecting it.
+    """
+    docs: dict = {}
+    for raw_path in args.documents:
+        path = Path(raw_path)
+        if not path.exists():
+            print(f"REFUSED: no such document: {path}", file=sys.stderr)
+            return 1
+        text = _read_document_text(path)
+        if not text.strip():
+            # Never silently treat an unreadable file as an empty one --
+            # a scanned PDF and a clean one look identical from here.
+            print(f"NOTE: nothing extractable from {path.name} -- it is "
+                  f"counted as read with zero content, which is why the "
+                  f"renders below say so rather than implying absence.",
+                  file=sys.stderr)
+        docs[path.name] = text
+
+    if args.trace:
+        print(format_term_coverage(trace_term(
+            args.trace, docs,
+            aliases=tuple(args.alias) if args.alias else None)))
+        print()
+
+    for name, text in docs.items():
+        report = crossref(
+            text,
+            definition_pattern=args.definition_pattern,
+            reference_pattern=args.reference_pattern,
+            report_unreferenced=args.unreferenced,
+        )
+        print(f"--- {name} ({len(text):,} chars)")
+        print(format_crossref(report))
+        print()
+    return 0
+
+
 def cmd_profile(args) -> int:
     try:
         loaded = load_operator_profile()
@@ -1030,6 +1096,30 @@ def build_parser() -> "object":
     p_gates.add_argument("document",
                          help="path to a .pdf, .docx, .rtf or text document")
     p_gates.set_defaults(func=cmd_gates)
+
+    p_spec = sub.add_parser(
+        "spec",
+        help="cross-reference a technical specification against itself, and "
+             "trace whether a named assumption is mentioned in the documents "
+             "that implement it")
+    p_spec.add_argument("documents", nargs="+",
+                        help="one or more .pdf/.docx/.rtf/text specifications")
+    p_spec.add_argument("--trace", default=None, metavar="TERM",
+                        help="report which documents mention TERM and which "
+                             "do not (e.g. --trace SGSP)")
+    p_spec.add_argument("--alias", action="append", default=None,
+                        help="another spelling of --trace TERM; repeatable")
+    p_spec.add_argument("--definition-pattern",
+                        default=_DEFAULT_DEFINITION_PATTERN,
+                        help="regex capturing (identifier, name) at a "
+                             "definition site")
+    p_spec.add_argument("--reference-pattern",
+                        default=_DEFAULT_REFERENCE_PATTERN,
+                        help="regex capturing (identifier) at a citation")
+    p_spec.add_argument("--unreferenced", action="store_true",
+                        help="also report identifiers cited neither by "
+                             "number nor by name anywhere")
+    p_spec.set_defaults(func=cmd_spec)
 
     p_profile = sub.add_parser(
         "profile", help="show the currently configured operator profile")
