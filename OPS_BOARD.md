@@ -138,6 +138,58 @@ touching anything". Those are different bets. Both are on the board.
 account. One registration opens every program above and every program
 found in future sweeps. Nothing after it needs the operator again.
 
+#### ✅ THE CORPUS IS ON DISK — and the cheap surface is already clean
+
+**Kyle ran the clone 2026-09-04.** 485 MB at
+`~/titanos_launch/titanos-next/e-voting-documentation`, release 1.8.0.5:
+129 PDFs, 241 markdown files, the full Protocol, the Symbolic-models
+(ProVerif), every past examination report, and the Trusted-Build
+checksums.
+
+**First and most important thing read — the programme's own rules:**
+
+> "You can analyse our artefacts by completing: **a static test of
+> documentation and source code**"
+
+Documentation defects are explicitly in scope, and explicitly a Low
+severity category ("typos in the GitLab Markdowns or in documents").
+That is a real entry path requiring nothing but careful reading.
+
+**Then the systematic pass, and the honest result: nothing.**
+
+Cross-referenced the System Specification (v1.6.1, 166 pages, 78
+numbered algorithms) and the Verifier Specification (v1.7.1, 48 pages,
+44 numbered verifications) against themselves and each other. Five
+candidate defects were raised. **All five were disproven.**
+
+| Candidate | What it actually was |
+|---|---|
+| `Algorithm 6.7` referenced, never defined | **My own bug.** The PDF encodes "fi" as ligature U+FB01, so `ConﬁrmVoteAgreement` truncated to `Con` and the definition vanished |
+| `ExtractVeri` defined at two numbers | Same ligature — two different names truncated to a shared prefix |
+| Verification numbers 4.xx and 9.xx missing | The changelog records verifications **removed and merged** across versions without renumbering |
+| `Verification 0.01` in neither run | `ManualChecksByAuditors` — explicitly "the checks that the auditors must perform **manually**", deliberately outside both automated runs |
+| 27 algorithms never cited | All 27 cited **by name** rather than by number. `MixDecOnline` appears 26 times; its number never does |
+
+Final state: **78 definitions, 78 resolved, zero dangling references,
+zero duplicate numbers, zero duplicate names, zero orphans.**
+
+**This is worth more than it sounds.** A programme with 1,855 filed
+reports has been read very carefully by very good people. Confirming
+that the cheap structural checks are exhausted tells you where *not* to
+spend the next hundred hours. The remaining value is in depth — the
+cryptographic protocol, the ProVerif symbolic models, the implementation
+— not in document consistency.
+
+**And two of the five candidates were manufactured by my own text
+extraction**, which is the same failure this board has now recorded four
+times in two days: confident output computed over noise. Ligature
+normalisation is now enforced in code, not remembered.
+
+`foundation/spec_crossref.py` makes the whole pass repeatable, and it
+emits `CrossRefCandidate` — never `Finding`. A candidate cannot even be
+constructed without stating why it might be innocent, because all five
+were.
+
 #### ❌ Swiss Post's source cannot be fetched by an automated agent
 
 Attempted 2026-09-04. **This is a block, recorded as a finding, not
