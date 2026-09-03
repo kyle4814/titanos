@@ -186,6 +186,19 @@ class TestDigestCommand(unittest.TestCase):
             self.assertNotIn(bad, text)
 
 
+class TestClosePackCommand(unittest.TestCase):
+    def test_close_pack_prints_walls_facts_and_a_draft(self):
+        code, out, err = _run(["close-pack"])
+        self.assertEqual(code, 0, err)
+        self.assertIn("Close Pack", out)
+        self.assertIn("The 4 facts", out)
+        self.assertIn("Wall:", out)
+        self.assertIn("Ready to send", out)
+        # never emits a concrete 11-digit ABN
+        import re as _re
+        self.assertNotRegex(out, r"\b\d{11}\b")
+
+
 class TestHuntDryRunDefault(unittest.TestCase):
     """`--live` is never passed here -- these tests assert dry-run is the
     default and that no network call is attempted."""

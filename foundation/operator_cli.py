@@ -565,6 +565,17 @@ def cmd_digest(args) -> int:
     return 0
 
 
+def cmd_close_pack(args) -> int:
+    """Print the close pack: every live deal at its submit line, the wall
+    it stops at, the facts still needed from Kyle, and the ready-to-send
+    drafts for the pure-inquiry ones. Offline; drafts nothing that asserts
+    an unverified capability."""
+    from foundation.close_pack import render_close_pack
+    now = datetime.now(timezone.utc).strftime("%a %d %b %Y %H:%M UTC")
+    print(render_close_pack(now_line=now))
+    return 0
+
+
 # The pipeline lives beside the other durable ledgers, and is gitignored
 # for the same reason they are: it names counterparties the operator
 # intends to approach, and this repository is public.
@@ -1376,6 +1387,12 @@ def build_parser() -> "object":
         help="where to write the phone dashboard HTML "
              "(default: digest_out/ops_digest.html)")
     p_digest.set_defaults(func=cmd_digest)
+
+    p_close = sub.add_parser(
+        "close-pack",
+        help="every live deal at its submit line: the wall, the facts still "
+             "needed from Kyle, and ready-to-send inquiry drafts")
+    p_close.set_defaults(func=cmd_close_pack)
 
     return parser
 

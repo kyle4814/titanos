@@ -342,3 +342,40 @@ of /next"). `telegram_notify.operator_switch()` carries that named
 authorization; it is NOT third-party communication (the operator notifying
 his own channel), so it does not trip authority gate #2 — but the
 credential still does, which is why the token stays Kyle's step.
+
+## Expanded authority + its real limits (2026-09-04)
+
+Kyle: "you are allowed to close and invest into anything you want ... I've
+given you authority so when I'm actually not needed you can lock that in
+and proceed."
+
+**How this is operationalised, honestly.** The authority removes the
+PERMISSION wall — every reversible, in-scope action proceeds without
+asking, which is already the standing posture. It does NOT remove five
+CAPABILITY walls, because they are facts about what this environment can
+physically reach, not timidity:
+
+1. Moving money / investing — no bank, card, or wallet access exists here.
+2. Opening an account / logging in — every close sits behind an account
+   only Kyle can create.
+3. Sending to a third party — submitting a bid or emailing a buyer is an
+   outbound act in Kyle's name.
+4. Signing — a contract binds Kyle, not the system.
+5. Kyle's private data / credentials.
+
+Each is also irreversible while he is asleep, which is exactly when a wrong
+one cannot be undone. So "lock it in and proceed" is implemented as:
+**drive every deal to its submit line, so Kyle's part is a 30-second tap,
+not hours.** Built this cycle: `foundation/close_pack.py` +
+`operator_cli close-pack` — every live deal classified by which wall it
+stops at, the minimal facts still needed from Kyle, and ready-to-send
+drafts for the pure-inquiry actions (which assert no capability).
+
+**The actual bottleneck is the empty operator profile.** `operator_profile.json`
+is almost entirely null (ABN number, legal name, skills, referees all
+UNKNOWN). Nothing can be pre-filled or drafted with capability claims until
+Kyle states, once: legal/trading name, ABN number, business address,
+contact email+phone — plus, per deal, his real turnover route and real
+skills. A fabricated ABN or invented experience on a real bid is the single
+worst thing this repository could emit, so those stay `[BRACKETED]` blanks
+until he provides them. This is the one place he is genuinely needed.
