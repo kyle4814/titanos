@@ -1421,6 +1421,47 @@ passed, and those rows are lost silently.
 **genuinely ignored** — a real query and a nonsense query return
 byte-identical rows. That one was right.
 
+### A quarter of this system cannot be invoked
+
+**Measured 2026-09-04.** `foundation/` holds 97 modules, 91 with test
+files. **23 of those 91 — 25% — are imported by nothing and have no way
+to run themselves.** They exist, they are tested, and no production path
+reaches them.
+
+```
+python3 -m foundation.operator_cli reachability
+```
+
+This was found by asking why the same mistake had happened three times
+in three days: the Denmark and Netherlands mouths (60 tests, absent from
+the source registry), `deep_sweep()` (walked Ireland's whole register,
+invocable only from a Python shell), and `spec_crossref` (39 tests, no
+caller at all). Each was caught by accident, one cycle late. The
+question was how many more there were. Answer: 23.
+
+**Some are deliberate and the report says so.** `publication_gate` guards
+`git push`, a human action with no in-repo call path — `CLAUDE.md`
+already documents that. The report states plainly that unreachable is a
+*fact, not a verdict*, and refuses to guess which ones are intentional.
+
+**But one is not deliberate, and it matters.** `secret_scanner` is in the
+list. This repository is **public on GitHub**, and its own secret scanner
+has no automated caller — it runs when someone remembers to run it. Every
+"secrets: 0" line on this board came from me invoking it by hand each
+cycle. That is a safety control that depends on habit.
+
+Also unreachable, and each named in `CLAUDE.md` as a capability:
+`situation_analysis` (977 lines, the largest module here),
+`target_mapping`, `reality_yield_ledger`, `corpus_triage`, `admission`,
+`hells_gate`, `switch_hardener`.
+
+**Deliberately a report, not a gate.** 23 findings on every sweep is a
+check people learn to scroll past — the same call made last cycle when
+`spec_crossref`'s unreferenced check produced 27 candidates and all 27
+were innocent. It becomes a gate honestly once the number is near zero.
+Until then it is a number to drive down, and now it is a number rather
+than a memory.
+
 ### The green light itself was unreliable, and tonight's work caused it
 
 **Found 2026-09-04 by a regression run that failed and then passed on

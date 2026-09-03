@@ -682,6 +682,25 @@ class TestSpecCommand(unittest.TestCase):
         self.assertIn("definitions found : 1", out)
 
 
+class TestReachabilityCommand(unittest.TestCase):
+    def test_it_reports_against_the_real_repository(self):
+        code, out, err = _run(["reachability"])
+        self.assertEqual(code, 0)
+        self.assertIn("CAPABILITY REACHABILITY", out)
+        self.assertIn("UNREACHABLE", out)
+
+    def test_it_states_that_unreachable_is_not_a_verdict(self):
+        """Some modules are unreachable on purpose. A report that read
+        as an accusation would get argued with instead of worked down."""
+        code, out, err = _run(["reachability"])
+        self.assertIn("FACT, not a verdict", out)
+
+    def test_an_unknown_package_is_a_named_error_not_a_traceback(self):
+        with self.assertRaises(Exception) as ctx:
+            _run(["reachability", "--package", "nosuchpackage"])
+        self.assertIn("not a package directory", str(ctx.exception))
+
+
 class TestExitCodes(unittest.TestCase):
     def test_empty_hunt_report_is_success_not_failure(self):
         from foundation.hunt import HuntReport

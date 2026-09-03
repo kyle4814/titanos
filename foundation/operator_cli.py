@@ -70,6 +70,7 @@ from foundation.discovery_authorization import (
 )
 from foundation.access_barriers import assess_access, format_access
 from foundation.entry_gate import assess_entry, format_entry
+from foundation.reachability import format_reachability, scan_reachability
 from foundation.spec_crossref import (
     crossref,
     format_crossref,
@@ -935,6 +936,21 @@ def cmd_spec(args) -> int:
     return 0
 
 
+def cmd_reachability(args) -> int:
+    """Report which capabilities can actually be invoked.
+
+    Built after the third module in three days was finished, tested and
+    left unreachable. Deliberately a report and not a gate: 23 of 90
+    tested modules were unreachable when first measured, and a check
+    that fires 23 times on every sweep is one people learn to scroll
+    past.
+    """
+    print(format_reachability(
+        scan_reachability(REPO_ROOT, package=args.package),
+        verbose=args.verbose))
+    return 0
+
+
 def cmd_profile(args) -> int:
     try:
         loaded = load_operator_profile()
@@ -1120,6 +1136,16 @@ def build_parser() -> "object":
                         help="also report identifiers cited neither by "
                              "number nor by name anywhere")
     p_spec.set_defaults(func=cmd_spec)
+
+    p_reach = sub.add_parser(
+        "reachability",
+        help="report which tested modules can actually be invoked, and "
+             "which exist only in their own test file")
+    p_reach.add_argument("--package", default="foundation",
+                         help="package directory to scan (default: foundation)")
+    p_reach.add_argument("--verbose", action="store_true",
+                         help="also list the reached modules and their importers")
+    p_reach.set_defaults(func=cmd_reachability)
 
     p_profile = sub.add_parser(
         "profile", help="show the currently configured operator profile")
