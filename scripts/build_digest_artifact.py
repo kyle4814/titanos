@@ -8,7 +8,8 @@ import sys
 from datetime import datetime, timezone
 
 sys.path.insert(0, ".")
-from foundation.ops_digest import live_opportunities, STATUS_ORDER  # noqa: E402
+from foundation.ops_digest import (  # noqa: E402
+    live_opportunities, STATUS_ORDER, RULED_OUT, ruled_out_count)
 
 STATUS_META = {
     "ACTIONABLE_NOW": ("DO NOW", "go"),
@@ -70,6 +71,17 @@ def main(out_path: str) -> None:
         for s in STATUS_ORDER if counts.get(s))
     live_count = sum(1 for o in opps if not o.is_expired(now))
     cards = "\n".join(card(o, i, total, now) for i, o in enumerate(opps, 1))
+    ruled_rows = "\n".join(
+        f'    <li><b>{esc(r.title)}</b> <span class="rv">{esc(r.value)}</span>'
+        f'<br><span class="rw">{esc(r.wall)}</span></li>'
+        for r in RULED_OUT)
+    ruled_html = (
+        '  <details class="ruledout"><summary>❌ Ruled out '
+        f'({ruled_out_count()}) — shown so you can challenge them</summary>\n'
+        '    <p class="rhint">Each was eliminated on a quoted clause. If a wall '
+        'has changed (new insurance, a partner\'s turnover, a consortium), it '
+        'moves back into play — that\'s why they\'re here, not hidden.</p>\n'
+        f'    <ul>\n{ruled_rows}\n    </ul>\n  </details>')
     doc = f"""<title>Ops Money-Printer</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -168,12 +180,21 @@ ol li {{ font-size:.9rem; margin:0 0 6px; }}
   margin-top:10px; word-break:break-word; }}
 footer {{ text-align:center; color:var(--muted); font-size:.72rem;
   font-family:"IBM Plex Mono", monospace; margin-top:24px; }}
+.ruledout {{ background:var(--surface); border:1px solid var(--line);
+  border-radius:14px; padding:14px 16px; margin:0 0 14px; }}
+.ruledout summary {{ font-weight:600; cursor:pointer; color:var(--ink); }}
+.ruledout .rhint {{ font-size:.82rem; color:var(--muted); margin:10px 0 12px; }}
+.ruledout ul {{ list-style:none; padding:0; margin:0; }}
+.ruledout li {{ font-size:.86rem; padding:10px 0; border-top:1px solid var(--line); }}
+.ruledout .rv {{ font-family:"IBM Plex Mono", monospace; color:var(--muted);
+  font-size:.78rem; margin-left:6px; }}
+.ruledout .rw {{ color:var(--muted); }}
 </style>
 
 <header><div class="inner">
   <h1><span class="coin">💰</span> Ops Money-Printer</h1>
   <div class="stamp">{now.strftime('%a %d %b %Y · %H:%M UTC')}</div>
-  <p class="lead">{live_count} live opportunities you can move on. 8 ruled out (reference/insurance walls) — not shown. Most-winnable first.</p>
+  <p class="lead">{live_count} live opportunities you can move on. {ruled_out_count()} ruled out (shown at the bottom, with the clause that ruled each out). Most-winnable first.</p>
   <div class="pills">
 {pills}
   </div>
@@ -181,6 +202,7 @@ footer {{ text-align:center; color:var(--muted); font-size:.72rem;
 
 <div class="wrap">
 {cards}
+{ruled_html}
   <footer>TITANOS · generated from OPS_BOARD.md · figures traceable per card</footer>
 </div>
 """

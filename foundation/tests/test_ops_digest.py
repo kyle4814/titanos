@@ -11,14 +11,48 @@ from datetime import datetime, timezone
 
 from foundation.ops_digest import (
     OPPORTUNITIES,
+    RULED_OUT,
     STATUS_ORDER,
     Opportunity,
     OpsDigestError,
+    RuledOut,
     format_phone_markdown,
     live_opportunities,
     render_portfolio_header,
     render_telegram_html,
+    ruled_out_count,
 )
+
+
+class TestRuledOutIsRealNotAMagicNumber(unittest.TestCase):
+    """The digest's 'N ruled out' must be derived from the actual
+    eliminated set, not a hand-typed number (it was hardcoded 8 while the
+    real count was 12), and each ruled-out item must carry the clause that
+    ruled it out — shown, not hidden."""
+
+    def test_ruled_out_is_nonempty_and_counts_itself(self):
+        self.assertGreaterEqual(len(RULED_OUT), 10)
+        self.assertEqual(ruled_out_count(), len(RULED_OUT))
+
+    def test_every_ruled_out_names_its_wall(self):
+        for r in RULED_OUT:
+            self.assertTrue(r.wall.strip(), r.title)
+            self.assertTrue(r.source_ref.strip(), r.title)
+
+    def test_an_empty_wall_is_refused(self):
+        with self.assertRaises(OpsDigestError):
+            RuledOut("X", "£1", "  ", "src")
+
+    def test_header_count_is_the_derived_count(self):
+        header = render_portfolio_header(live_opportunities())
+        self.assertIn(f"{ruled_out_count()} already ruled out", header)
+
+    def test_markdown_shows_the_ruled_out_with_walls(self):
+        md = format_phone_markdown()
+        self.assertIn("Ruled out", md)
+        # a representative eliminated item and its wall appear
+        self.assertIn("RTÉ 25P041", md)
+        self.assertIn("geography wall", md)
 
 
 def _opp(**kw):

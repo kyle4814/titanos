@@ -49,6 +49,9 @@ from typing import Optional
 
 __all__ = [
     "Opportunity",
+    "RuledOut",
+    "RULED_OUT",
+    "ruled_out_count",
     "STATUS_ORDER",
     "OPPORTUNITIES",
     "live_opportunities",
@@ -556,6 +559,82 @@ def _parse_deadline_date(deadline: str) -> Optional[date]:
     return None
 
 
+@dataclass(frozen=True)
+class RuledOut:
+    """One opportunity eliminated with evidence — kept visible, not hidden.
+    'Do not hide uncertainty': Kyle should be able to see what was ruled
+    out and the exact clause that ruled it out, so he can challenge a wall
+    that may have changed. `wall` quotes or closely paraphrases the real
+    blocking clause; `source_ref` is where to check it."""
+    title: str
+    value: str
+    wall: str
+    source_ref: str
+
+    def __post_init__(self) -> None:
+        for name in ("title", "value", "wall", "source_ref"):
+            if not str(getattr(self, name)).strip():
+                raise OpsDigestError(f"RuledOut {self.title!r}: empty {name}")
+
+
+# The eliminated set, each with the clause that eliminated it. The digest's
+# "N ruled out" is len(this) — never a hand-typed magic number that drifts
+# from reality (it was hardcoded "8" while the real count was 12).
+RULED_OUT: tuple[RuledOut, ...] = (
+    RuledOut("Houses of the Oireachtas (IE)", "€2,600,000 contract",
+             "€2.6M turnover + €13M employer liability + €10M professional "
+             "indemnity + previous contracts — all Pass/Fail at admission",
+             "OPS_BOARD.md §7 Oireachtas"),
+    RuledOut("Health & Safety Authority (IE)", "€900,000",
+             "€1.8M turnover + €13M employer liability + €1M PI + 3 references "
+             "— Pass/Fail",
+             "OPS_BOARD.md §7 HSA"),
+    RuledOut("An Post SOC/SIEM (IE)", "€1,000,000",
+             "€1M turnover + €13M employer liability + 3 references — Pass/Fail",
+             "OPS_BOARD.md §7 An Post"),
+    RuledOut("Department of Justice — national PKI (IE)", "€800,000",
+             "€800k turnover + €12.7M insurance + €1M PI + 1 reference over €50k",
+             "OPS_BOARD.md §7 Dept of Justice"),
+    RuledOut("Fáilte Ireland (IE)", "€400,000",
+             "€400k turnover + €13M employer liability + €2M PI + 3 references",
+             "OPS_BOARD.md §7 Fáilte Ireland"),
+    RuledOut("RTÉ 25P041 Cyber Security DPS (IE)", "€7,500,000",
+             "Public Liability €6.5M / Cyber €1M / Professional €1M, HELD "
+             "(not just arrangeable), Pass/Fail at admission",
+             "OPS_BOARD.md §3 RTÉ"),
+    RuledOut("Asiera / HEAnet Managed ICT Security DPS (IE)", "€175,000,000",
+             "SOC + Incident Response on a 24×7×365 basis, three named "
+             "customer references, and evidence of an €80,000/yr order",
+             "OPS_BOARD.md §3 Asiera"),
+    RuledOut("HSE cyber DPS family (21236 / 22167) (IE)", "€16M – €60M",
+             "service delivered by staff BASED IN the Republic of Ireland + "
+             "Dublin-based on-site response within 24 hours — a geography wall "
+             "money cannot move for a Cairns solo operator",
+             "OPS_BOARD.md §3 HSE"),
+    RuledOut("PNG e-GP NPC/2026-26", "UNKNOWN",
+             "PGK 5,000 non-refundable document fee + paper-only submission "
+             "(no electronic route)",
+             "OPS_BOARD.md §PNG e-GP (CLOSED)"),
+    RuledOut("TED 578580-2026 degewo (DE)", "UNKNOWN",
+             "3 named testers + 2×€50k corporate references + €3M insurance + "
+             "CEFR C1 German",
+             "OPS_BOARD.md §CLOSED degewo"),
+    RuledOut("TED 244223-2024 ECHA (EU)", "UNKNOWN",
+             "€1,000,000 average turnover + 5×€100k references (a false "
+             "QUALIFIED earlier in the campaign — the turnover clause was "
+             "missed)",
+             "OPS_BOARD.md §CLOSED ECHA"),
+    RuledOut("NHS England Cyber (UK)", "£7,200,000",
+             "procurementMethod: selective via CCS RM3764 DPS — needs prior "
+             "DPS admission before you can even bid",
+             "OPS_BOARD.md §CLOSED NHS"),
+)
+
+
+def ruled_out_count() -> int:
+    return len(RULED_OUT)
+
+
 def live_opportunities(now: Optional[datetime] = None) -> tuple[Opportunity, ...]:
     """The roster, sorted by EFFECTIVE status (a passed deadline sinks a
     card to WATCH) then by whether a deadline presses. Deterministic for a
@@ -586,10 +665,12 @@ def _esc(text: str) -> str:
 
 
 def render_portfolio_header(opps: tuple[Opportunity, ...],
-                            ruled_out: int = 8,
+                            ruled_out: Optional[int] = None,
                             now: Optional[datetime] = None) -> str:
     """The first message: the whole portfolio at a glance, phone-first."""
     now = now or datetime.now(timezone.utc)
+    if ruled_out is None:
+        ruled_out = ruled_out_count()
     counts: dict[str, int] = {}
     expired = 0
     for o in opps:
@@ -709,4 +790,15 @@ def format_phone_markdown(opps: Optional[tuple[Opportunity, ...]] = None,
         if o.note:
             out += ["", f"> ⚠️ {o.note}"]
         out += ["", f"<sub>source: {o.source_ref}</sub>", "", "---", ""]
+    # Ruled out — shown, not hidden, so a wall that changed can be challenged.
+    out += [
+        f"## ❌ Ruled out ({ruled_out_count()}) — shown so you can challenge them",
+        "",
+        "Each was eliminated on a quoted clause. If a wall has changed "
+        "(new insurance, a partner's turnover, a consortium), it moves back "
+        "into play — that's why they're here, not hidden.",
+        "",
+    ]
+    for r in RULED_OUT:
+        out.append(f"- **{r.title}** ({r.value}) — {r.wall}")
     return "\n".join(out)

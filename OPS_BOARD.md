@@ -48,6 +48,19 @@ of every run. Built this cycle:
 paste the token per `HUMAN_DECISIONS.md`. Until then the phone dashboard
 covers it.
 
+**2026-09-03 — the "ruled out" count is now real, and the eliminated set is
+SHOWN not hidden.** The digest hardcoded "8 ruled out" in two places while
+the true count was **12**. Replaced the magic number with a `RULED_OUT`
+registry (`ops_digest.py`): each eliminated opportunity carries the exact
+clause that ruled it out (RTÉ's held €6.5M/€1M/€1M insurance, the HSE
+24×7-staff-in-Ireland geography wall, the five dated Irish notices'
+turnover+insurance+reference bars, PNG's PGK5,000 paper-only fee, TED
+degewo/ECHA, NHS's prior-DPS-admission gate). The count is derived, and the
+phone dashboard now has a "❌ Ruled out (12) — shown so you can challenge
+them" section at the bottom. **This is deliberate: a wall that changes (new
+insurance, a partner's turnover, a consortium) moves an item back into
+play, so the eliminated set must be visible, not buried.** 5 tests pin it.
+
 **2026-09-03 — the digest can no longer lie about a closed deadline.** The
 one way the money-printer could actively mislead you was showing an expired
 tender as 🟢 DO NOW after its date passed. Added deadline-parsing +
