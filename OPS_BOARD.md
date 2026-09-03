@@ -653,6 +653,44 @@ is another reason ZDI is item 1 on this board.
 
 ---
 
+### 11. Denmark + Netherlands — two new national boards, now swept automatically
+
+Both national below-threshold boards are reachable and wired into the
+hunt as of 2026-09-03. Neither publishes bidder criteria, so nothing
+from either can ever come back QUALIFIED — every notice is
+`INSUFFICIENT_DATA` until its documents are read. That is the honest
+answer, not a defect.
+
+**Denmark — `udbud.dk`.** One live security notice:
+
+| | |
+|---|---|
+| **Danmarks Nationalbank — cybersecurity advisory framework** | |
+| Value | **DKK 9,200,000** (≈ AUD 2.0M) |
+| Closes | **2 October 2026** |
+| Link | `https://udbud.dk/bekendtgoerelse/f104f4f6-8fc3-4624-b286-6968e40f18d1` |
+
+Also seen this sweep: Statens IT, Managed Detection and Response,
+**DKK 24,000,000**, closes **17 September 2026**.
+
+**Netherlands — TenderNed.** 8 live notices, one directly on point:
+*Informatiebeveiliging en cybersecurity* (publication 430417). Two SOC/
+SIEM tenders from regional safety authorities close 25 and 28 September.
+
+**The blunt caveat on both:** Danish notices are bilingual and the
+English half is real, so Denmark is readable. **TenderNed notices are
+Dutch-only and the API carries no contract value field at all** — value
+UNKNOWN, never zero. Submission language is not stated by either feed,
+which for an English-only operator is the whole question. Read one
+document before treating either as an opportunity.
+
+**Switzerland is out.** `simap.ch`'s search endpoint was located and
+every request is redirected by an anti-bot WAF. Getting in means
+defeating a control the operator installed on purpose — same refusal as
+AusTender. Recorded as a finding, not a target.
+
+---
+
 ## ❌ PNG e-GP (NPC/2026-26) — CLOSED, and worth reading why
 
 The Asia-Pacific sweep surfaced this as the only genuinely live cyber
