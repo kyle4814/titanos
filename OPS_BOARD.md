@@ -224,6 +224,23 @@ Added to the digest roster and close pack this cycle.
 
 ---
 
+#### Bounty-platform reachability mapped — 2026-09-03 (D-015)
+
+Checked whether the other major bounty platforms can be swept like
+YesWeHack and Immunefi. **They cannot, and it's recorded so no future
+cycle re-probes them.** HackerOne (`/directory/programs` → 1.8 KB JS
+shell), Bugcrowd (`/engagements` → marketing shell, no embedded records)
+and Intigriti (login-gated app SPA) all render their directories
+client-side. robots.txt permits all three — the block is architectural,
+not a robots wall, and their private GraphQL endpoints were **not**
+reverse-engineered (same discipline as udbud.dk / ADB). **Automatable
+bounty coverage = YesWeHack + Immunefi; the other three are a
+human-browser step, not a wall.** Bounty board re-swept same day: quiet,
+Ant Group still the top uncontested target; the one `new` signal was an
+HN full-time job, not a bounty. See `docs/DECISIONS/D-015`.
+
+---
+
 ### 2b. The two bounties whose target is PUBLISHED SOURCE CODE ⭐
 
 Swept live 2026-09-04: 64 opportunities across YesWeHack (60 programs)
