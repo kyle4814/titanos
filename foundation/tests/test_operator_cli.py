@@ -189,6 +189,81 @@ class TestHuntDryRunDefault(unittest.TestCase):
         self.assertIn("penetration testing", out)
 
 
+class TestTedQueryIsBoundedByPublicationDate(unittest.TestCase):
+    """A LIVE SWEEP ON 2026-09-03 ASSESSED 120 NOTICES AND 100 OF THEM
+    WERE PUBLISHED IN 2016 AND 2017.
+
+    Nothing raised, nothing looked broken -- the CLI just never bounded
+    TED by date, so every sweep spent its entire budget banding notices
+    that closed years ago and printing them as findings. These tests
+    exist so the bound cannot quietly go missing again."""
+
+    def test_the_default_query_carries_a_publication_date_bound(self):
+        code, out, err = _run(["hunt"])
+        self.assertEqual(code, 0)
+        self.assertIn("publication-date >= today(-365)", out)
+
+    def test_the_bound_is_a_publication_date_not_a_deadline(self):
+        """`deadline-receipt-request` is the filter that would actually
+        mean 'still open', and it measures ZERO results when combined
+        with an FT clause. Emitting it here would silently return
+        nothing -- a hunt that finds no notices at all, forever."""
+        code, out, err = _run(["hunt"])
+        self.assertNotIn("deadline-receipt-request", out)
+
+    def test_the_window_is_configurable(self):
+        code, out, err = _run(["hunt", "--published-within-days", "30"])
+        self.assertEqual(code, 0)
+        self.assertIn("today(-30)", out)
+
+    def test_zero_days_sweeps_the_whole_archive_deliberately(self):
+        code, out, err = _run(["hunt", "--published-within-days", "0"])
+        self.assertEqual(code, 0)
+        self.assertNotIn("publication-date", out)
+
+    def test_an_explicit_ted_query_is_passed_through_untouched(self):
+        """A caller who writes their own expert query is the authority
+        on it -- appending a date clause to someone else's query could
+        silently change what it matches."""
+        code, out, err = _run(
+            ["hunt", "--ted-query", 'classification-cpv IN (72000000)'])
+        self.assertEqual(code, 0)
+        self.assertIn("classification-cpv IN (72000000)", out)
+        self.assertNotIn("publication-date", out)
+
+    def test_brief_gets_the_same_bound_as_hunt(self):
+        """The bug was one line repeated in three subcommands. Fixing
+        only the one that was measured would have left the others
+        sweeping the archive."""
+        code, out, err = _run(["brief"])
+        self.assertEqual(code, 0)
+        self.assertIn("publication-date >= today(-365)", out)
+
+    def test_loop_gets_the_same_bound_as_hunt(self):
+        code, out, err = _run(["loop"])
+        self.assertEqual(code, 0)
+        self.assertIn("publication-date >= today(-365)", out)
+
+
+class TestSourceListIsReadFromTheRegistry(unittest.TestCase):
+    """This file printed a frozen `TED, NZ_GETS, UK_CONTRACTS_FINDER`
+    for several cycles after the registry grew past three -- telling
+    the operator which sources were swept, and being wrong."""
+
+    def test_dry_run_names_every_registered_source(self):
+        from foundation.sources import ALL_SOURCES
+        code, out, err = _run(["hunt"])
+        self.assertEqual(code, 0)
+        for source in ALL_SOURCES:
+            self.assertIn(source.source_id, out,
+                          f"{source.source_id} is registered but not named")
+
+    def test_no_hand_written_source_list_survives_in_the_source(self):
+        from pathlib import Path as _P
+        src = _P(operator_cli.__file__).read_text(encoding="utf-8")
+        self.assertNotIn('"  sources     : TED, NZ_GETS', src)
+
+
 class TestIncomeCommand(unittest.TestCase):
     """`income` follows the same dry-run-by-default, --live-required
     pattern as `hunt`/`brief`/`loop`."""

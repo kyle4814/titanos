@@ -378,5 +378,140 @@ class DiscoveryPolicyGateTests(unittest.TestCase):
         self.assertEqual({i["key"] for i in items}, {"1", "2"})
 
 
+class DeepSweepTests(unittest.TestCase):
+    """`sweep()` reaches 200 of ~2,900 open Irish CFTs. `deep_sweep()`
+    walks the register. Every test here injects `fetch_page_fn`; none
+    opens a socket, and none sleeps (`sleep_fn` is injected too)."""
+
+    def _pages(self, count, rows_per_page=2):
+        """A fake register of `count` full pages followed by an empty
+        one -- the honest end-of-data shape the real site returns past
+        the last page."""
+        def fetch(page):
+            if page > count:
+                return _empty_page()
+            rows = [
+                _row_html(resource_id=str(page * 100 + n), row_num=str(n))
+                for n in range(rows_per_page)
+            ]
+            return _page(*rows)
+        return fetch
+
+    def _walk(self, fetch, **kw):
+        return mouth_etenders_ie.deep_sweep(
+            fetch, sleep_fn=lambda _s: None, **kw)
+
+    def test_walks_past_the_twenty_page_routine_limit(self):
+        walk = self._walk(self._pages(40))
+        self.assertGreater(walk.pages_walked, mouth_etenders_ie.MAX_PAGES)
+        self.assertEqual(len(walk.items), 80)
+
+    def test_a_completed_walk_says_so(self):
+        walk = self._walk(self._pages(5))
+        self.assertTrue(walk.complete)
+        self.assertIn("end of register", walk.stopped_because)
+
+    def test_hitting_the_page_cap_is_never_reported_as_complete(self):
+        """The dangerous outcome. A truncated walk reporting itself as
+        whole turns 'no Irish security tender exists' into a conclusion
+        when it is only the part that was read."""
+        walk = self._walk(self._pages(100), max_pages=3)
+        self.assertFalse(walk.complete)
+        self.assertIn("max_pages=3", walk.stopped_because)
+
+    def test_a_fetch_failure_keeps_what_was_read_and_admits_the_stop(self):
+        def fetch(page):
+            if page == 3:
+                raise mouth_etenders_ie.FetchError("connection reset")
+            return _page(_row_html(resource_id=str(page), row_num="1"))
+        walk = self._walk(fetch)
+        self.assertEqual(len(walk.items), 2)
+        self.assertFalse(walk.complete)
+        self.assertIn("connection reset", walk.stopped_because)
+
+    def test_a_failure_on_the_first_page_is_not_an_exception(self):
+        def fetch(page):
+            raise mouth_etenders_ie.FetchError("blocked")
+        walk = self._walk(fetch)
+        self.assertEqual(walk.items, ())
+        self.assertEqual(walk.pages_walked, 0)
+        self.assertFalse(walk.complete)
+
+    def test_a_notice_repeated_across_pages_counts_once(self):
+        """A ten-minute walk runs against a register that keeps
+        publishing. Counting one notice twice because it slid across a
+        page boundary would inflate every total this produces."""
+        def fetch(page):
+            if page > 3:
+                return _empty_page()
+            # Numeric: the real page's resourceId is digits, and
+            # the parser's own pattern requires them.
+            return _page(_row_html(resource_id="777", row_num="1"))
+        walk = self._walk(fetch)
+        self.assertEqual(len(walk.items), 1)
+        # Four, not three: the terminating empty page was a real
+        # request against a real server. `pages_walked` counts what was
+        # actually fetched, so it can be checked against the budget.
+        self.assertEqual(walk.pages_walked, 4)
+
+    def test_security_relevant_is_a_filter_over_what_was_actually_read(self):
+        def fetch(page):
+            if page > 2:
+                return _empty_page()
+            return _page(
+                _row_html(resource_id=f"1{page}", row_num="1",
+                          title="Provision of Security Operations Centre (SOC)",
+                          description="cyber security monitoring"),
+                _row_html(resource_id=f"2{page}", row_num="2",
+                          title="Road resurfacing programme",
+                          description="asphalt works"),
+            )
+        walk = self._walk(fetch)
+        self.assertEqual(len(walk.items), 4)
+        self.assertEqual({i["key"] for i in walk.security_relevant},
+                         {"11", "12"})
+
+    def test_throttle_is_honoured_between_pages_not_after_the_last(self):
+        """Politeness against a public government server is the whole
+        reason this is not a cron job. A throttle that silently did
+        nothing would look identical from the outside."""
+        slept = []
+        mouth_etenders_ie.deep_sweep(
+            self._pages(3), sleep_fn=slept.append, throttle_seconds=2.0)
+        self.assertEqual(slept, [2.0, 2.0, 2.0])
+
+    def test_max_pages_below_one_is_refused(self):
+        with self.assertRaises(ValueError):
+            mouth_etenders_ie.deep_sweep(self._pages(1), max_pages=0)
+
+
+class StableOrderTests(unittest.TestCase):
+    """The title sort was recorded in this module's own docstring as
+    'silently ignored'. It was measured against the page that 302s to
+    page 1 -- the SAME error that produced the false 'pagination is
+    ignored' finding, in the same probe, with only one half caught."""
+
+    def test_page_url_can_request_the_stable_title_order(self):
+        url = mouth_etenders_ie._page_url(7, stable_order=True)
+        self.assertIn("d-3680175-p=7", url)
+        self.assertIn(mouth_etenders_ie.TITLE_SORT, url)
+
+    def test_the_routine_sweep_url_is_unchanged_by_default(self):
+        """`sweep()`'s existing 20-page behaviour must not silently
+        acquire a different ordering as a side effect of this build."""
+        self.assertNotIn("d-3680175-s=", mouth_etenders_ie._page_url(1))
+
+    def test_the_sort_targets_the_real_results_endpoint(self):
+        url = mouth_etenders_ie._page_url(1, stable_order=True)
+        self.assertTrue(url.startswith(mouth_etenders_ie.RESULTS_URL))
+        self.assertNotIn("prepareCurrentOpportunities", url)
+
+    def test_the_deep_policy_budget_covers_a_full_walk(self):
+        policy = mouth_etenders_ie.DEEP_DISCOVERY_POLICY
+        self.assertGreaterEqual(policy.max_queries,
+                                mouth_etenders_ie.DEEP_MAX_PAGES)
+        self.assertEqual(policy.requested_scope, "READ_URL")
+
+
 if __name__ == "__main__":
     unittest.main()

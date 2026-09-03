@@ -102,6 +102,85 @@ so read the brief first and stay inside it.
 
 ---
 
+### 3. Ireland — NINE cyber qualification systems with no closing date at all ⭐
+
+**Found 2026-09-03 by walking the entire Irish register — 293 pages,
+2,921 open notices — instead of the first 200 rows every previous sweep
+could reach.** Every one of these was sitting past page 20. None of them
+is new; they have been open for months or years, and this campaign could
+not see them.
+
+These are **Dynamic Purchasing Systems** and **Qualification Systems**,
+not tenders. The distinction is the entire point:
+
+- A tender closes. These have **no closing date** — the deadline field
+  is genuinely empty, not unread.
+- A tender is a competition you win or lose. A DPS is a **qualification
+  you either meet or do not**, and once admitted you are invited to the
+  mini-competitions run under it for its whole life.
+- Under EU Directive 2014/24/EU Article 34 a DPS must stay open to any
+  operator meeting its selection criteria for its entire period of
+  validity. **That is the law's definition of the instrument. Whether
+  each specific system below is still admitting is UNKNOWN until its own
+  documents are read** — `Established` is the platform's status word for
+  the system, not a statement about admission.
+
+| Resource ID | System | Contracting authority | Stated value |
+|---|---|---|---|
+| `7959367` | DPS for the provision of **Managed ICT Security Services** | Asiera CLG | **€175,000,000** |
+| `6565390` | 25P041 DPS for **Cyber Security Services** | RTÉ | **€7,500,000** |
+| `2485277` | DPS Qualification: **Managed Threat Detection and Response** | HSE | **€60,000,000** |
+| `3635831` | HSE 23097 DPS: **CISO Threat and Vulnerability Management** | HSE | **€60,000,000** |
+| `3234213` | DPS for **Unified Cyber Incident Response Service** | HSE | **€16,000,000** |
+| `1943031` | DPS for the Unified Cyber Incident Response Service | HSE | UNKNOWN |
+| `3243649` | CIE 7289 **Qualification System for Penetration Testing** | Iarnród Éireann | UNKNOWN |
+| `1749698` | CIE 7289 Qualification System for Penetration Testing | Iarnród Éireann | 0.0 (as published) |
+| `3009835` | 23/049 **Cyber Security Services** | Gas Networks Ireland | UNKNOWN |
+
+Each is at
+`https://www.etenders.gov.ie/epps/dps/prepareViewCfTDPSWS.do?resourceId=<ID>`
+
+**Why this outranks the five dated Irish tenders already on this board.**
+All five of those came back CANNOT APPLY, and every one of them failed on
+the same thing: corporate reference contracts you do not have. A dated
+tender asks "prove you have already done this at this scale, twice, in
+the last three years." Admission to a DPS asks whether you meet the
+selection criteria — which may ask the same thing, and may not. **The
+criteria have not been read. This is a promising unread lead, not a
+qualification.** The two Irish Rail penetration-testing entries are the
+most interesting: penetration testing is the narrowest, most
+individual-scale service on the list.
+
+**ACTION:** open `3243649` and `1749698` (Irish Rail, penetration
+testing) and `6565390` (RTÉ) and read the selection criteria. If any of
+them does not demand reference contracts or certifications, that is a
+standing, deadline-free route into Irish public work.
+
+**⚠️ Kyle's real gate here is the same as everywhere else in Ireland: no
+insurance.** Four of the five dated Irish notices demanded professional
+indemnity cover. Expect these to as well. Read before hoping.
+
+---
+
+### 4. Horse Racing Ireland — Network Security, €2,100,000 ⏰ CLOSES 8 SEPTEMBER
+
+| | |
+|---|---|
+| **Title** | Single Framework for the Provision of IT Support Services - Network Security |
+| **Contracting authority** | Horse Racing Ireland (HRI) |
+| **Value** | **€2,100,000** |
+| **Deadline** | **8 September 2026** — five days from this sweep |
+| **Resource ID** | `8781382` |
+| **Status** | Tender Submission |
+
+Also found only by the full-register walk. Criteria **NOT READ** — this
+is a title, a value and a date, nothing more. Given every other Irish
+notice this campaign has opened demanded reference contracts and
+insurance, the honest prior is that this one does too. It is listed
+because five days is not enough time to find it twice.
+
+---
+
 ### 2. ADB Consultant Management System — the modality built for people
 
 Every barrier on this board — €13,000,000 employer's liability,
@@ -787,6 +866,57 @@ Backed off rather than continuing — that host needs a slower cadence
 than Contracts Finder, and UKRI-6251 was reached through its OCDS API
 rather than its search page anyway. Recorded so the next sweep does not
 rediscover it.
+
+### The Irish register, walked end to end — and what 200 rows was hiding
+
+**2026-09-03.** Every previous Irish sweep read the first 20 pages: 200
+of 2,921 open notices, **7%**. Walking all 293 pages took ten minutes at
+a two-second courtesy pace and changed the picture completely.
+
+```
+2,921  open notices in the register (matches the site's own "2,916")
+   87  security-relevant by keyword
+   44  deadline already passed  (the register lists stale CFTs)
+   20  deadline still open
+   23  NO deadline at all -- every one an "Established" DPS or
+       Qualification System, the nine cyber ones now Tier 1 item 3
+```
+
+The 23 are the finding. A notice with an empty deadline field looked
+like missing data; it is the defining property of the one procurement
+instrument that never closes, and it was invisible for the whole
+campaign because it lives past page 20.
+
+**How the depth was reached — a mistake corrected twice.** eTenders'
+sort and pagination parameters were both recorded in this project's own
+code as "silently ignored", measured against
+`prepareCurrentOpportunities.do`. That page 302-redirects to page 1
+whatever you append to it, so both parameters *looked* dead. Pagination
+was re-tested against the real endpoint on 2026-09-02 and found to work.
+**Sorting was left uncorrected in the same probe** and re-tested only
+now — it works too, and works globally across the whole register, which
+is what makes a ten-minute walk safe: in the default recency order every
+notice published mid-walk shifts rows across a page boundary already
+passed, and those rows are lost silently.
+
+`freeText` was re-tested against the correct endpoint as well and is
+**genuinely ignored** — a real query and a nonsense query return
+byte-identical rows. That one was right.
+
+### A defect that made every sweep look busier than it was
+
+**Found 2026-09-03 in the live sweep run for this cycle.** The hunt
+assessed 120 notices; **100 of them were published in 2016 and 2017.**
+Nothing was broken and nothing raised — the CLI simply never bounded TED
+by date, so each sweep spent its whole budget re-reading and re-banding
+notices that closed years ago, and printed them as findings.
+
+Fixed: the TED query now carries `publication-date >= today(-365)` by
+default. The honest caveat, recorded in the code: publication date is a
+**proxy**. `deadline-receipt-request >= today()` is the filter that
+actually means "still accepting tenders", and it measures **zero
+results** when combined with the full-text clause a keyword hunt needs.
+A notice published inside the window may still have closed.
 
 ---
 

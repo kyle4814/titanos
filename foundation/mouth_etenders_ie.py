@@ -254,6 +254,7 @@ from __future__ import annotations
 
 import hashlib
 import re
+import time
 import unicodedata
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -268,6 +269,8 @@ from foundation.untrusted_text import describe
 
 __all__ = [
     "MOUTH_ID", "FEED_URL", "RESULTS_URL", "MAX_PAGES", "DISCOVERY_POLICY",
+    "TITLE_SORT", "DEEP_MAX_PAGES", "DEEP_THROTTLE_SECONDS",
+    "DEEP_DISCOVERY_POLICY", "deep_sweep", "DeepWalk",
     "FetchError", "MouthObservation", "parse_items", "observe",
     "is_security_relevant", "etenders_ie_signal", "EtendersIeSweep", "sweep",
 ]
@@ -297,6 +300,50 @@ FEED_URL = f"{RESULTS_URL}&d-3680175-p=1"
 # `DISCOVERY_POLICY.max_queries` below is set to match exactly, so one
 # full sweep is the unit the budget bounds, not an arbitrary number.
 MAX_PAGES = 20
+
+# SECOND CORRECTION, 2026-09-03. The module docstring above records
+# sorting as "silently ignored", measured with the column-sort link
+# copied verbatim from the page. That measurement was taken against
+# `prepareCurrentOpportunities.do` -- the page that 302s to page 1
+# regardless of query string. It is the SAME measurement error that
+# produced the false "pagination is ignored" finding, made twice, in
+# the same probe, and only one half of it was caught at the time.
+#
+# Re-measured against the real results endpoint: sorting is honoured,
+# and honoured GLOBALLY, not merely within a page. Live evidence,
+# `d-3680175-s=title.keyword&d-3680175-o=1`, first title per page:
+#
+#   p=1    'Works Contractor PSCS and PSDP ...'
+#   p=50   'Single Supplier Framework Agreement ...'
+#   p=150  'Maintenance Panel DPS BOCSI - Limerick Region'
+#   p=250  'ATU Multi Party Framework Agreement ...'
+#   p=292  '0055 - The Provision of Security Operations Centre (SOC) ...'
+#
+# Descending, monotonic, across the whole register. `freeText` remains
+# genuinely ignored -- re-tested on the correct endpoint this time, a
+# real query and a nonsense query returned byte-identical row sets.
+#
+# WHY THIS IS WORTH HAVING. Not for the sorting. `deep_sweep()` walks
+# ~292 pages and takes about ten minutes, and the DEFAULT order is
+# recency -- so every notice published during the walk shifts every
+# later row down, and rows slide across the page boundary the walk has
+# already passed. Those notices are never seen and nothing reports
+# them missing. A title order is not perturbed by a publication unless
+# the new title happens to fall in a region already walked, which is a
+# far smaller and far more visible failure than "silently loses rows
+# whenever the register is busy".
+TITLE_SORT = "&d-3680175-s=title.keyword&d-3680175-o=1"
+
+# The full register is ~292 pages of 10. Walked at the courtesy pace
+# below this is a ~10 minute operation against a public government
+# server -- a deliberate, occasional deep pass, NOT something to put on
+# a cron tick. `sweep()`'s 20-page default remains the routine unit.
+DEEP_MAX_PAGES = 320
+
+# Seconds between page fetches during a deep walk. `mouth_common.
+# fetch_feed()` has no throttle of its own, so this is enforced here by
+# the caller that actually needs it rather than imposed on every mouth.
+DEEP_THROTTLE_SECONDS = 2.0
 
 # `d-3680175-p=N` is honoured; `d-3680175-c` (page size) is not (see
 # CORRECTION) -- so the only lever this module has to see more than 10
@@ -366,10 +413,14 @@ def _clean_text(cell_html: str) -> str:
 _MARKER_RE = re.compile(r'[\d,]+\s+results in total\.?', re.IGNORECASE)
 
 
-def _page_url(page: int) -> str:
+def _page_url(page: int, *, stable_order: bool = False) -> str:
     """Build the URL for one results page. `page` is 1-indexed, matching
-    the site's own "Page" control (confirmed live)."""
-    return f"{RESULTS_URL}&d-3680175-p={page}"
+    the site's own "Page" control (confirmed live).
+
+    `stable_order` appends the title sort -- see `TITLE_SORT` and the
+    module docstring's SECOND CORRECTION."""
+    url = f"{RESULTS_URL}&d-3680175-p={page}"
+    return f"{url}{TITLE_SORT}" if stable_order else url
 
 
 def _merge_pages_html(pages_raw: list[bytes]) -> bytes:
@@ -422,6 +473,108 @@ def _fetch_pages(policy: DiscoveryPolicy, max_pages: int = MAX_PAGES) -> bytes:
         if b"<tbody>" not in raw:
             break
     return _merge_pages_html(pages_raw)
+
+
+DEEP_DISCOVERY_POLICY = DiscoveryPolicy(
+    objective=(
+        "walk Ireland's COMPLETE currently-open Call for Tenders "
+        "register -- roughly 2,900 notices across ~292 pages -- in the "
+        "stable title order, rather than the first MAX_PAGES*10 rows a "
+        "routine sweep reaches, so a security notice sitting anywhere "
+        "in the register is findable at all. Deliberate occasional deep "
+        "pass, never a cron tick; see mouth_etenders_ie.deep_sweep()"
+    ),
+    requested_scope="READ_URL",
+    max_queries=DEEP_MAX_PAGES,
+    max_wall_clock_seconds=1500,
+)
+
+
+@dataclass(frozen=True)
+class DeepWalk:
+    """The result of one full-register walk. `complete` is the field
+    that matters: False means the walk stopped on a budget, a page
+    limit, or a fetch failure, and the notices below are therefore a
+    PREFIX of the register, not the register. A partial walk that
+    reported itself as a whole one would turn 'no Irish security tender
+    exists' into a conclusion when it is only the part that was read."""
+
+    items: tuple[dict, ...]
+    # Pages actually FETCHED, including the terminating empty one --
+    # so it can be checked against the budget that was charged.
+    pages_walked: int
+    complete: bool
+    stopped_because: str
+
+    @property
+    def security_relevant(self) -> tuple[dict, ...]:
+        return tuple(
+            i for i in self.items
+            if is_security_relevant(i.get("title", ""), i.get("description", ""))
+        )
+
+
+def deep_sweep(
+    fetch_page_fn: Optional[Callable[[int], bytes]] = None,
+    *,
+    max_pages: int = DEEP_MAX_PAGES,
+    throttle_seconds: float = DEEP_THROTTLE_SECONDS,
+    sleep_fn: Callable[[float], None] = time.sleep,
+    policy: Optional[DiscoveryPolicy] = None,
+) -> DeepWalk:
+    """Walk the whole open-CFT register, page by page, in title order.
+
+    Deduplicates on `key` across pages -- a row that appears twice
+    because the register shifted underneath the walk is one notice, not
+    two, and silently double-counting it would inflate every total this
+    produces.
+
+    `fetch_page_fn(page) -> bytes` is the injection point; every test
+    for this function passes one, so no test opens a socket. The default
+    charges `policy` per page exactly as `_fetch_pages()` does.
+
+    Never raises on a fetch failure mid-walk: it stops, records why, and
+    returns `complete=False` with whatever was genuinely read. Partial
+    truth clearly labelled beats an exception that discards 200 real
+    notices because page 201 timed out.
+    """
+    if max_pages < 1:
+        raise ValueError("max_pages must be at least 1")
+    active_policy = policy or DEEP_DISCOVERY_POLICY
+    fetch = fetch_page_fn or (
+        lambda page: fetch_feed(_page_url(page, stable_order=True),
+                                policy=active_policy))
+
+    by_key: dict[str, dict] = {}
+    pages = 0
+    reason = f"reached max_pages={max_pages} without an empty page"
+    for page in range(1, max_pages + 1):
+        try:
+            raw = fetch(page)
+            items = parse_items(raw)
+        except Exception as exc:                      # noqa: BLE001
+            # Includes FetchError (the honest end-of-data shape past the
+            # last page raises it) and any budget refusal from the gate.
+            reason = f"stopped at page {page}: {type(exc).__name__}: {exc}"
+            break
+        pages += 1
+        if not items:
+            reason = f"page {page} carried no rows -- end of register"
+            break
+        for item in items:
+            key = item.get("key")
+            if isinstance(key, str) and key:
+                by_key[key] = item
+        if throttle_seconds > 0 and page < max_pages:
+            sleep_fn(throttle_seconds)
+
+    complete = "end of register" in reason
+    return DeepWalk(
+        items=tuple(by_key.values()),
+        pages_walked=pages,
+        complete=complete,
+        stopped_because=reason,
+    )
 
 
 def parse_items(raw: bytes) -> tuple[dict, ...]:

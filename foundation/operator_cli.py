@@ -15,8 +15,11 @@ WHAT THIS REUSES RATHER THAN DUPLICATES
 -----------------------------------------
   - `foundation.hunt.hunt_multi()` / `hunt()` -- the actual fetch/assess/
     band chain. Never re-implemented.
-  - `foundation.sources.sources_for_query()` -- the standard three-source
-    registry.
+  - `foundation.sources.sources_for_query()` -- the full source
+    registry. Never a hand-written subset: this file printed a frozen
+    three-name list for several cycles after the registry grew to
+    seven, telling the operator which sources were swept and being
+    wrong about it.
   - `foundation.hunt_loop.run_hunt_loop()` -- the unattended cycle, kill
     switch and receipt log included.
   - `foundation.brief.build_brief()` / `render_brief()` -- the morning
@@ -81,7 +84,13 @@ from foundation.dossier import (
     missing_facts_for_scheme,
     render_dossier,
 )
-from foundation.hunt import HuntReport, hunt_multi, render_hunt
+from foundation.hunt import (
+    HuntIntegrityError,
+    HuntReport,
+    hunt_multi,
+    render_hunt,
+    with_recency,
+)
 from foundation.hunt_loop import HUNT_STOP_FILENAME, render_hunt_cycle, run_hunt_loop
 from foundation import income_watch
 from foundation.qualification import OperatorProfile
@@ -101,6 +110,27 @@ PROFILE_PATH = REPO_ROOT / "operator_profile.json"
 PROFILE_EXAMPLE_PATH = REPO_ROOT / "operator_profile.example.json"
 
 _DEFAULT_KEYWORD = "cyber security"
+
+# A LIVE SWEEP ON 2026-09-03 ASSESSED 120 NOTICES AND 100 OF THEM WERE
+# PUBLISHED IN 2016 AND 2017.
+#
+# Nothing was broken. The CLI simply never bounded TED by date, so every
+# sweep spent its whole budget re-reading notices that closed years ago,
+# banded them, printed them, and looked exactly like a working hunt. A
+# closed notice is not an opportunity, and a report full of them is
+# worse than an empty one -- it costs the operator's attention to
+# discover that for himself, item by item.
+#
+# The honest bound is publication date, NOT deadline. `deadline-receipt-
+# request >= today()` is the filter that actually means "still accepting
+# tenders", and `hunt.with_open_deadline()` implements it -- but it is
+# measured to return ZERO results when combined with an `FT ~ (...)`
+# clause, which is what a keyword hunt is. So this is a proxy: recently
+# published, not provably open. A notice published inside this window
+# may still have closed. That is a weaker claim and it is the strongest
+# one available on a full-text query -- see `with_recency()`'s and
+# `with_open_deadline()`'s own docstrings for the measurements.
+_DEFAULT_PUBLISHED_WITHIN_DAYS = 365
 _DEFAULT_EXCLUSIONS = (
     "construction", "catering", "cleaning", "vehicles", "medical supplies",
 )
@@ -225,6 +255,42 @@ def _default_capability_profile(keyword: str, authorized_by: str) -> CapabilityP
     )
 
 
+def _registered_source_ids() -> str:
+    """Read the source ids out of the registry itself. Never a literal
+    list typed into this file -- see the module docstring."""
+    from foundation.sources import ALL_SOURCES
+    return ", ".join(s.source_id for s in ALL_SOURCES)
+
+
+def _derive_ted_query(args) -> str:
+    """The ONE place a TED query is built, for every subcommand.
+
+    It was three places, each repeating
+    `args.ted_query or f'FT ~ ("{keyword}")'` -- so a date bound added
+    to one of them would have silently left the other two sweeping the
+    entire archive. Same drift class as `sources_for_query()` naming
+    three of five sources.
+
+    An explicit `--ted-query` is passed through UNTOUCHED, including
+    its date handling or lack of one: a caller who writes their own
+    expert query is the authority on it. `--published-within-days 0`
+    disables the bound and sweeps the whole archive deliberately.
+    """
+    if args.ted_query:
+        return args.ted_query
+    query = f'FT ~ ("{args.keyword}")'
+    days = getattr(args, "published_within_days", _DEFAULT_PUBLISHED_WITHIN_DAYS)
+    if not days:
+        return query
+    try:
+        return with_recency(query, days)
+    except HuntIntegrityError:
+        # An out-of-range window is the caller's error, not a reason to
+        # silently fall back to an unbounded archive sweep -- the exact
+        # behaviour this function exists to stop.
+        raise
+
+
 def _build_policy(objective: str, max_queries: int, max_wall_clock_seconds: int,
                    max_results: int) -> DiscoveryPolicy:
     return DiscoveryPolicy(
@@ -242,10 +308,11 @@ def _run_hunt(args, loaded: LoadedProfile) -> Tuple[Optional[HuntReport], int]:
     multi-source hunt and returns the report. Returns (report, exit_code)
     -- `report` is `None` whenever no network call was made."""
     keyword = args.keyword
-    ted_query = args.ted_query or f'FT ~ ("{keyword}")'
+    ted_query = _derive_ted_query(args)
     objective = args.objective or (
         f"observe public procurement notices matching keyword "
-        f"{keyword!r} across TED, NZ GETS and UK Contracts Finder for "
+        f"{keyword!r} across every registered source "
+        f"({_registered_source_ids()}) for "
         f"operator {loaded.operator.name!r}")
 
     if not args.live:
@@ -253,7 +320,7 @@ def _run_hunt(args, loaded: LoadedProfile) -> Tuple[Optional[HuntReport], int]:
         print(f"  objective   : {objective}")
         print(f"  keyword     : {keyword}")
         print(f"  TED query   : {ted_query}")
-        print("  sources     : TED, NZ_GETS, UK_CONTRACTS_FINDER")
+        print(f"  sources     : {_registered_source_ids()}")
         print(
             f"  budget      : max_queries={args.max_queries} "
             f"max_wall_clock_seconds={args.max_wall_clock_seconds} "
@@ -312,7 +379,7 @@ def cmd_loop(args) -> int:
     loaded = load_operator_profile()
     _print_profile_notice(loaded)
     keyword = args.keyword
-    ted_query = args.ted_query or f'FT ~ ("{keyword}")'
+    ted_query = _derive_ted_query(args)
     objective = args.objective or (
         f"unattended repeated hunt for keyword {keyword!r} against TED "
         f"for operator {loaded.operator.name!r}")
@@ -614,6 +681,13 @@ def _add_hunt_style_args(sp, default_limit: int = 50) -> None:
                      help="who authorised this run (recorded, not enforced)")
     sp.add_argument("--limit", type=int, default=default_limit,
                      help="max notices to request from TED (default: 50)")
+    sp.add_argument("--published-within-days", type=int,
+                     default=_DEFAULT_PUBLISHED_WITHIN_DAYS,
+                     help="bound the TED query to notices published in the "
+                          f"last N days (default: {_DEFAULT_PUBLISHED_WITHIN_DAYS}). "
+                          "0 sweeps the entire archive, including notices "
+                          "that closed years ago. Ignored when --ted-query "
+                          "is given.")
     sp.add_argument("--max-queries", type=int, default=DEFAULT_MAX_QUERIES)
     sp.add_argument("--max-wall-clock-seconds", type=int,
                      default=DEFAULT_MAX_WALL_CLOCK_SECONDS)
