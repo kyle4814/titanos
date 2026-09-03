@@ -1722,11 +1722,35 @@ worth. None sorted by what it costs to begin — which is why a €175M DPS
 sat at the top of this board and the €250k penetration-testing
 qualification system that is actually reachable sat underneath it.
 
-`foundation/entry_gate.py` computes three columns per document:
+**UPGRADED 2026-09-05 — it now sees insurance SOFTNESS, the distinction
+that separated the one pursuable Irish lead from the noes.** The tool
+used to treat *"must maintain €6.5M cover held"* (RTÉ — a real wall)
+identically to *"provide a broker letter that cover can be arranged"*
+(GNI) and *"has in place or the ability to obtain"* (HSE) — soft
+requirements met by a statement, not by possessing the thing. It now
+distinguishes HELD from DECLARATION and ranks accordingly. Re-run on the
+five real docs, cheapest-to-start first, matching the hand-analysis:
+
+```
+cost  document              hard walls (need you)     satisfiable by a statement
+  8   Irish Rail 7289       none                       — (insurance deferred to call-off)
+ 11   GNI 23/049            tax clearance              INSURANCE (broker letter)
+ 14   RTÉ 25P041            INSURANCE (held €6.5M)     —
+ 19   Asiera                — (24×7 SOC is the wall)   tax clearance (has applied)
+ 21   HSE 22167             — (Ireland-based staff)    INSURANCE (ability to obtain)
+```
+
+The `gates` command now prints a distinct section:
+*"satisfiable by a STATEMENT, not by holding the thing — a broker
+letter, an ability-to-obtain, a willing-to-raise-if-awarded — Kyle can
+meet these now."* Verified against all five documents I read by hand;
+9 tests pin the HELD-vs-DECLARATION calls with verbatim phrasings.
+
+`foundation/entry_gate.py` computes these columns per document:
 
 - **needs you personally** — registration, legal entity, identity
-  verification, certification, insurance, entry fee. Nothing you build
-  closes these.
+  verification, certification, insurance HELD, entry fee. Nothing you
+  build closes these.
 - **closable by work or partnering** — turnover, references, local
   presence, round-the-clock staffing.
 - **deferred by the document itself** — requirements the buyer's own

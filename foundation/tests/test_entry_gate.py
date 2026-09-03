@@ -15,6 +15,7 @@ one of the defects that produced that inversion.
 import unittest
 
 from foundation.entry_gate import (
+    SATISFIABILITY,
     DISCHARGEABLE_BY_WORK,
     EntryAssessment,
     EntryGateError,
@@ -323,3 +324,85 @@ class TestIntegrity(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestInsuranceSoftnessSeparatesTheWallFromTheStatement(unittest.TestCase):
+    """The distinction that separated the campaign's one pursuable Irish
+    lead from the noes, verbatim from the real 2026-09 documents. The
+    first version of the module collapsed all three into one hard wall.
+
+      HELD (RTE)        must maintain EUR6.5M cover        -> real wall
+      DECLARATION (GNI) provide a letter cover can be
+                        arranged                           -> a statement
+      DECLARATION (HSE) has in place or ability to obtain  -> a statement
+    """
+
+    HELD = ("P3 Minimum Insurance Requirements Pass/Fail. Tenderers must "
+            "maintain the following minimum levels of insurance cover: "
+            "Public Liability EUR6.5M held at all times.")
+    DECLARATION_LETTER = (
+        "F1 Insurance requirements. The Applicant is to provide a letter "
+        "from their insurers or brokers stating that Public Liability "
+        "insurance cover can be arranged on the Applicant's behalf.")
+    DECLARATION_OBTAIN = (
+        "IV.3 Insurance. The Candidate confirms that it has in place (or "
+        "has the ability to obtain) Professional Indemnity insurance of "
+        "EUR6.5m.")
+
+    def test_held_insurance_is_a_hard_operator_wall(self):
+        a = assess_entry(self.HELD)
+        self.assertIn("INSURANCE", {g.kind for g in a.operator_gates})
+        self.assertEqual(a.gate("INSURANCE").satisfiability, "HELD")
+
+    def test_a_broker_letter_is_a_declaration_not_a_wall(self):
+        a = assess_entry(self.DECLARATION_LETTER)
+        self.assertIn("INSURANCE", {g.kind for g in a.declaration_gates})
+        self.assertNotIn("INSURANCE", {g.kind for g in a.operator_gates})
+
+    def test_ability_to_obtain_is_a_declaration(self):
+        a = assess_entry(self.DECLARATION_OBTAIN)
+        self.assertTrue(a.gate("INSURANCE").satisfiable_by_declaration)
+
+    def test_a_declaration_gate_ranks_far_cheaper_than_a_held_one(self):
+        held = assess_entry(self.HELD)
+        soft = assess_entry(self.DECLARATION_LETTER)
+        self.assertLess(soft.entry_cost, held.entry_cost)
+
+    def test_the_softener_is_found_even_a_paragraph_from_the_requirement(self):
+        """The kind-wide scan. GNI states 'Insurance requirements' in a
+        heading and the 'can be arranged' softener paragraphs later; a
+        window around only the first match misses it."""
+        text = ("Section F. Public Liability Insurance is required for "
+                "this qualification system. " + "Filler sentence. " * 30 +
+                "The Applicant is to provide a letter stating that the "
+                "Professional Indemnity insurance cover can be arranged.")
+        self.assertTrue(
+            assess_entry(text).gate("INSURANCE").satisfiable_by_declaration)
+
+    def test_a_softener_beats_a_held_marker_when_both_appear(self):
+        """A document that offers a soft route has offered it, whatever
+        else the clause says."""
+        text = ("The Contractor shall effect and maintain Public Liability "
+                "Insurance of EUR6.5m; alternatively the Applicant may "
+                "provide a letter confirming such cover can be arranged.")
+        self.assertEqual(assess_entry(text).gate("INSURANCE").satisfiability,
+                         "DECLARATION")
+
+    def test_insurance_with_no_satisfiability_language_is_unspecified(self):
+        a = assess_entry("Tenderers require professional indemnity insurance.")
+        self.assertEqual(a.gate("INSURANCE").satisfiability, "UNSPECIFIED")
+        # Unspecified is conservative: still a hard wall, not assumed soft.
+        self.assertIn("INSURANCE", {g.kind for g in a.operator_gates})
+
+    def test_an_unknown_satisfiability_value_is_refused(self):
+        with self.assertRaises(EntryGateError):
+            GateFinding(kind="INSURANCE", matched="x", quote="y",
+                        stage="ADMISSION", satisfiability="SORTOF")
+
+    def test_tax_clearance_satisfiable_by_having_applied_is_a_declaration(self):
+        """Asiera: 'confirm that the company has applied for a Tax
+        Clearance Certificate' -- satisfiable by having applied."""
+        text = ("Interested Parties must confirm that the company has "
+                "applied for a Tax Clearance Certificate.")
+        a = assess_entry(text)
+        self.assertTrue(a.gate("IDENTITY_VERIFICATION").satisfiable_by_declaration)

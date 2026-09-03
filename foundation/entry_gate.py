@@ -71,6 +71,7 @@ __all__ = [
     "REQUIRES_OPERATOR",
     "DISCHARGEABLE_BY_WORK",
     "STAGES",
+    "SATISFIABILITY",
     "GateFinding",
     "EntryAssessment",
     "assess_entry",
@@ -182,6 +183,58 @@ SHORT_DOCUMENT_CHARS = 20_000
 # When the requirement bites. UNKNOWN is the default and by far the most
 # common: most documents state a requirement without saying when.
 STAGES = ("ADMISSION", "POST_ADMISSION", "UNKNOWN")
+
+# HOW an admission requirement can be met. The distinction that separated
+# the campaign's one pursuable Irish lead from the noes, and which the
+# first version of this module collapsed:
+#   HELD         -- you must POSSESS the thing now. A real wall.
+#                   RTE: "must maintain the following minimum levels of
+#                   insurance cover: Public Liability EUR6.5M ..."
+#   DECLARATION  -- satisfiable by a STATEMENT, not possession. Soft.
+#                   GNI: "provide a letter ... stating cover can be
+#                   arranged"; HSE: "has in place (or the ability to
+#                   obtain)"; Asiera: "willing and able to raise ... if
+#                   awarded".
+#   UNSPECIFIED  -- the document did not say. UNKNOWN, not soft.
+SATISFIABILITY = ("HELD", "DECLARATION", "UNSPECIFIED")
+
+# Verbatim softeners from the real Irish documents (2026-09). A
+# DECLARATION marker near a requirement means it is met by a statement of
+# intent or arrangeability, not by holding the thing.
+_DECLARATION_MARKERS = (
+    "ability to obtain",
+    "can be arranged",
+    "willing and able to raise",
+    "willing to raise",
+    "should the company be awarded",
+    "if awarded",
+    "provide a letter",
+    "letter from their insurers",
+    "statement confirming",
+    "confirm that the company",
+    "has applied for",
+    "will be made available on request",
+)
+
+# Verbatim "you must possess it" language. Only consulted when no
+# DECLARATION marker is present, and only to promote UNSPECIFIED -> HELD;
+# a softener always wins, because a document that offers a soft route has
+# offered it.
+_HELD_MARKERS = (
+    "must maintain",
+    "shall maintain",
+    "effect and maintain",
+    "must have in place",
+    "must hold",
+    "must possess",
+    "must be in possession of",
+    "currently hold",
+)
+
+# How wide to read around a requirement for satisfiability language. Same
+# order of magnitude as _STAGE_WINDOW; the softener usually sits in the
+# same clause as the requirement.
+_SATISFIABILITY_WINDOW = 220
 
 # Phrases that place a nearby requirement AFTER admission. Taken verbatim
 # from real documents read 2026-09-03/04 -- Iarnrod Eireann 7289/7162/
@@ -335,6 +388,7 @@ class GateFinding:
     matched: str
     quote: str
     stage: str
+    satisfiability: str = "UNSPECIFIED"
 
     def __post_init__(self) -> None:
         if self.kind not in GATE_KINDS:
@@ -343,10 +397,20 @@ class GateFinding:
         if self.stage not in STAGES:
             raise EntryGateError(
                 f"unknown stage {self.stage!r} -- must be one of {STAGES}")
+        if self.satisfiability not in SATISFIABILITY:
+            raise EntryGateError(
+                f"unknown satisfiability {self.satisfiability!r} -- must be "
+                f"one of {SATISFIABILITY}")
         if not self.quote.strip():
             raise EntryGateError(
                 f"a {self.kind} finding with no quotable evidence is an "
                 "assertion, not a finding")
+
+    @property
+    def satisfiable_by_declaration(self) -> bool:
+        """Met by a statement of intent or arrangeability, not by holding
+        the thing. Soft even at admission -- see SATISFIABILITY."""
+        return self.satisfiability == "DECLARATION"
 
     @property
     def requires_operator(self) -> bool:
@@ -398,10 +462,26 @@ class EntryAssessment:
 
     @property
     def operator_gates(self) -> Tuple[GateFinding, ...]:
-        """Gates that need the operator personally AND bite at the point
-        of entry -- the ones that make this opportunity need him."""
+        """Gates that need the operator personally, bite at the point of
+        entry, AND require holding the thing -- the hard walls.
+
+        A declaration-satisfiable gate is excluded here: 'provide a
+        letter that cover can be arranged' does not require possessing
+        EUR6.5M of insurance, so it is not the wall that 'must maintain
+        EUR6.5M' is. Those are surfaced by `declaration_gates`."""
         return tuple(g for g in self.gates
-                     if g.requires_operator and g.blocks_starting)
+                     if g.requires_operator and g.blocks_starting
+                     and not g.satisfiable_by_declaration)
+
+    @property
+    def declaration_gates(self) -> Tuple[GateFinding, ...]:
+        """Operator-class admission requirements the document says are
+        met by a STATEMENT -- a broker letter, an ability-to-obtain, a
+        willing-to-raise-if-awarded. Real, but not a wall: Kyle can
+        satisfy them now without possessing the thing."""
+        return tuple(g for g in self.gates
+                     if g.requires_operator and g.blocks_starting
+                     and g.satisfiable_by_declaration)
 
     @property
     def deferred_gates(self) -> Tuple[GateFinding, ...]:
@@ -428,7 +508,12 @@ class EntryAssessment:
         documents of comparable completeness -- see `chars_read`.
         """
         gates = self.operator_gates + self.work_gates
+        # A declaration-satisfiable gate is a statement Kyle writes now,
+        # not a thing he must possess -- weight 1 each, far below a held
+        # requirement's _GATE_WEIGHT, so an opportunity gated only by
+        # declarations ranks near an ungated one.
         return (sum(_GATE_WEIGHT[g.kind] for g in gates)
+                + len(self.declaration_gates)
                 + 2 * len(self.access.barriers))
 
     def gate(self, kind: str) -> Optional[GateFinding]:
@@ -464,6 +549,34 @@ def _stage_for(text: str, start: int, end: int) -> str:
     return "UNKNOWN"
 
 
+def _satisfiability_for(text: str, kind: str) -> str:
+    """Is this requirement met by holding the thing, or by a statement?
+
+    Scans EVERY occurrence of `kind`'s own patterns, not just the first
+    match reported. A document states a requirement once and its
+    satisfiability elsewhere: GNI names "Insurance requirements" in a
+    heading and "provide a letter ... can be arranged" a paragraph later;
+    Asiera's tax-clearance softener "has applied for" sits well away from
+    the first tax mention. A window around only the first match misses
+    both.
+
+    A DECLARATION softener anywhere near any occurrence wins over HELD: a
+    document that offers a soft route has offered it.
+    """
+    lowered = text.lower()
+    saw_held = False
+    for pattern in _COMPILED[kind]:
+        for m in pattern.finditer(text):
+            window = lowered[max(0, m.start() - _SATISFIABILITY_WINDOW):
+                             m.end() + _SATISFIABILITY_WINDOW]
+            for marker in _DECLARATION_MARKERS:
+                if marker in window:
+                    return "DECLARATION"
+            if not saw_held:
+                saw_held = any(hm in window for hm in _HELD_MARKERS)
+    return "HELD" if saw_held else "UNSPECIFIED"
+
+
 def assess_entry(text: str) -> EntryAssessment:
     """Read one tender/programme document for what it costs to begin.
 
@@ -492,6 +605,7 @@ def assess_entry(text: str) -> EntryAssessment:
                 matched=m.group(0),
                 quote=_context(text, m.start(), m.end()),
                 stage=_stage_for(text, m.start(), m.end()),
+                satisfiability=_satisfiability_for(text, kind),
             ))
             break
     return EntryAssessment(gates=tuple(found), access=access,
@@ -554,6 +668,17 @@ def format_entry(assessment: EntryAssessment) -> str:
     for g in ops:
         lines.append(f"  [{g.kind}] {g.matched!r}")
         lines.append(f"      {g.quote}")
+
+    declarations = assessment.declaration_gates
+    if declarations:
+        lines.append("")
+        lines.append(
+            f"satisfiable by a STATEMENT, not by holding the thing : "
+            f"{len(declarations)}   (a broker letter, an ability-to-obtain, "
+            f"a willing-to-raise-if-awarded -- Kyle can meet these now)")
+        for g in declarations:
+            lines.append(f"  [{g.kind}] {g.matched!r}")
+            lines.append(f"      {g.quote}")
 
     work = assessment.work_gates
     if work:
