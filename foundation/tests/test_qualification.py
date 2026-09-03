@@ -405,3 +405,63 @@ class AssessTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestMultiLanguageSubmissionNeverFalselyDisqualifies(unittest.TestCase):
+    """A false DISQUALIFIED is the worst bug this bander can have -- it
+    silently discards a notice the operator could actually bid on. EU
+    notices frequently permit submission in MORE THAN ONE language. The
+    live sweep on 2026-09-05 showed only single-language non-English
+    disqualifications; these pin the multi-language behaviour so that
+    correctness cannot silently regress (e.g. someone changing `any` to
+    `all`, or reading `langs[0]`)."""
+
+    def _notice(self, languages):
+        # A criteria-less English-friendly notice, varying only the
+        # submission-language field, so the ONLY thing under test is the
+        # language decision.
+        return {
+            "publication-number": "TEST-LANG",
+            "notice-title": {"eng": "Cyber security services"},
+            "submission-language": list(languages),
+        }
+
+    def test_a_notice_permitting_english_among_others_is_not_a_barrier(self):
+        """['ITA', 'ENG'] -- English overlaps, so it must NOT disqualify.
+        This is the exact false-DISQUALIFIED case."""
+        elig = assess_eligibility(self._notice(["ITA", "ENG"]))
+        result = assess(elig, _real_operator_profile())
+        lang = [f for f in result.factors if f.dimension == "submission_language"][0]
+        self.assertEqual(lang.verdict, "NOT_BARRIER")
+        self.assertNotEqual(result.band, "DISQUALIFIED")
+
+    def test_overlap_is_case_insensitive(self):
+        """The field arrives in varied case; the operator declares 'ENG'.
+        'eng' must still match."""
+        elig = assess_eligibility(self._notice(["eng"]))
+        lang = [f for f in assess(elig, _real_operator_profile()).factors
+                if f.dimension == "submission_language"][0]
+        self.assertEqual(lang.verdict, "NOT_BARRIER")
+
+    def test_multiple_foreign_languages_with_no_english_is_a_barrier(self):
+        """['ITA', 'DEU'] -- no English anywhere, correctly a barrier."""
+        elig = assess_eligibility(self._notice(["ITA", "DEU"]))
+        lang = [f for f in assess(elig, _real_operator_profile()).factors
+                if f.dimension == "submission_language"][0]
+        self.assertEqual(lang.verdict, "BARRIER")
+
+    def test_a_single_english_notice_is_not_a_barrier(self):
+        elig = assess_eligibility(self._notice(["ENG"]))
+        lang = [f for f in assess(elig, _real_operator_profile()).factors
+                if f.dimension == "submission_language"][0]
+        self.assertEqual(lang.verdict, "NOT_BARRIER")
+
+    def test_an_absent_language_field_is_unknown_not_a_barrier(self):
+        """Absence is UNKNOWN, never 'no requirement' and never a
+        barrier -- the repo's standing discipline."""
+        notice = {"publication-number": "T", "notice-title": {"eng": "x"}}
+        lang = [f for f in assess(assess_eligibility(notice),
+                                  _real_operator_profile()).factors
+                if f.dimension == "submission_language"][0]
+        self.assertEqual(lang.status, "UNKNOWN")
+        self.assertEqual(lang.verdict, "INFO")

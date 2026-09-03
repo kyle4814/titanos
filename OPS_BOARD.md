@@ -1570,6 +1570,21 @@ which is exactly the shape the classifier reads as MARKET_ENGAGEMENT.
 `foundation/tender_radar.py::planning_feed_url()` now makes that a
 standing capability rather than a one-off query.
 
+### ✅ The qualification bander audited for FALSE disqualifications — 2026-09-05
+
+A false DISQUALIFIED is the worst bug this system can have: it silently
+discards a notice Kyle could bid on. Live sweep produced 21
+DISQUALIFIED; scrutinised every blocking clause. All correct — non-English
+submission (ITA/DEU/FRA/NLD/RON/NOR/DAN), or references/certs/insurance
+the operator genuinely lacks. **No false disqualification.** The language
+rule computes set-overlap between the notice's `submission-language`
+tuple and the operator's languages and disqualifies only on *no overlap*
+— so a notice permitting `('ITA','ENG')` correctly passes. Verified the
+logic and pinned it: 5 regression tests now guard the multi-language case
+(the exact failure mode where a future `any`→`all` change would start
+hiding English-biddable notices). The bander is not costing us
+opportunities.
+
 ### The base rate, measured
 
 Eighteen 30-day windows walked back from 2026-09-03, throttled:
