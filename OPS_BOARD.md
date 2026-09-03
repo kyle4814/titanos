@@ -5,6 +5,18 @@ read off a primary source during this campaign, not recalled. Where
 something is unknown it says UNKNOWN — that is a real state, not a gap
 someone forgot to fill.
 
+**Roster freshness re-verification, 2026-09-03.** The two time-critical
+digest cards were re-fetched live to be sure the money-printer isn't
+showing a stale deadline: **Bradford £300,327** — still `active`, closes
+**2026-09-14T16:00Z** unchanged, OCDS release states no entry gate
+(re-read via the fat-notice OCDS path). **NLnet NGI Zero** — call page
+live, **deadline November 3, 2026** confirmed, "available to individuals"
+present. Both accurate; no change needed. Also checked **Pulse Security**
+(§13 associate-tester lead): reachable (robots `Disallow:` empty) but its
+careers page shows **no active opening** — so per "absence is UNKNOWN" it
+stays a lead, not promoted to the roster (cold-approaching a firm with no
+posted role is speculative, not a verified opportunity).
+
 **Operator profile this board is scored against:** solo trader, Cairns
 QLD, has an ABN, **no certifications** (no OSCP/CREST/GIAC/CISSP), **no
 professional indemnity or public liability insurance**, **no corporate
@@ -487,6 +499,16 @@ four reports") and return all-UNKNOWN rather than wrong numbers — the
 correct failure direction.
 
 #### 📝 ONE SUBMITTABLE CANDIDATE — Low severity, documentation
+
+**✅ NOW WRITTEN UP AS A READY-TO-FILE REPORT — 2026-09-03.** The campaign's
+one real finding was documented here but never turned into a report Kyle
+could actually submit — a finish-the-door gap. `SGSP_SUBMISSION_DRAFT.md`
+is that report: title, severity, summary, the three-source evidence table,
+suggested one-line remediation, reproduction command, and an explicit
+disclaimer that it is a documentation finding and must be filed as Low, not
+as a vulnerability. The moment Kyle registers on YesWeHack (a DO-NOW card),
+he can review and file it. Drawn strictly from the verified evidence below;
+nothing added.
 
 **Read `Protocol/sgsp.pdf` (Pierrick Gaudry, CNRS/LORIA, May 2022).**
 It is 10,000 characters and it contains one claim about the *system*
