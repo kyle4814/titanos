@@ -1002,6 +1002,48 @@ read. All four are reachable and unblocked — none is confirmed.
 
 ---
 
+#### ✅ NZ GETS PRE-QUALIFICATION SWEEP — RESOLVED 2026-09-03 (was 3/36)
+
+Priority 1 asked whether the remaining GETS security notices each state
+"Required Pre-qualifications: None". **They do — uniformly.** This cycle
+walked the live GETS feed (323 open notices), filtered to the 23
+genuinely IT/software/cyber notices (dropping physical security —
+guards, CCTV, fire alarms, HVAC — that the keyword net catches), and
+read each one's own detail-page `Required Pre-qualifications` field
+through the already-wired `mouth_gets_nz.fetch_tender_detail` (gated,
+6–13s between fetches, honest User-Agent, robots.txt permits all but
+SemrushBot).
+
+**Result: 22 of 22 read = `Required Pre-qualifications: None`.** Every
+IT notice, including Identity Management Services, Enterprise
+Observability, Technical Support Services (TSS) Panel Reset, Medical
+System Project, Datacentre Co-location, Regional Internet, Network
+Service Provider, Data Science & Analytics. Not one carried a
+platform-level pre-qualification gate. (One notice, Data Science &
+Analytics Platform, dropped off the feed between two fetch passes — a
+live feed rotating, recorded as such, not as a block.)
+
+**What "None" means, stated honestly — this is the trap.** GETS's
+`Required Pre-qualifications: None` means only that no GETS-platform
+prequalification questionnaire blocks viewing or downloading the RFP.
+It is **not** a statement that the tender has no bidder requirements —
+the real financial/insurance/experience criteria live inside each RFP's
+own attached documents, which sit behind the free GETS supplier login
+(the same wall documented below for the Marketplace SOI: "appropriate
+insurance provisions", "demonstrate relevant experience", no figures on
+the public notice). So the finding is precise: **nothing on the GETS
+platform stops Kyle registering and reading any of these — the gate, if
+any, is inside the documents, and those are UNKNOWN until a logged-in
+human opens them.** Absence of a stated pre-qual is not absence of a
+requirement.
+
+This closes priority 1: the sweep is complete for the IT-relevant slice,
+the field is uniform, and the real question has moved from "is there a
+prequalification wall" (answer: no, at platform level) to "what do the
+login-gated RFP documents require" (answer: a human step, below).
+
+---
+
 ### 2. NZ Government Marketplace — all-of-government IT, open to 2029, international
 
 Found 2026-09-03 by the new notice classifier, which is the only reason
