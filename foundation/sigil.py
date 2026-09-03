@@ -60,6 +60,7 @@ __all__ = [
     "Sigil", "SigilReconciliation", "compute_sigil", "reconcile_sigil", "format_sigil",
     "RecordedSigil", "parse_sigil", "read_recorded_sigil", "RECORDED_SIGIL_PATTERN",
     "PROOF_OPERATION",
+    "PROOF_SUBSYSTEM_TIMEOUT_SECONDS",
 ]
 
 # `_dimension_proof` shells out to `python3 -m unittest discover -s
@@ -180,6 +181,29 @@ def _dimension_lattice(repo_root: Path) -> tuple[int, str]:
 _TESTS_RUN_PATTERN = re.compile(r"Ran (\d+) tests?")
 
 
+# HOW LONG A SUBSYSTEM'S SUITE MAY TAKE BEFORE THIS GIVES UP ON IT.
+#
+# This was 120 seconds, and on 2026-09-04 the `foundation` child suite
+# measured 128.8 SECONDS -- seven percent over the limit. The suite had
+# grown past it during the session that measured it.
+#
+# The consequence was not a clean failure. A TimeoutExpired sets
+# all_green=False, which caps PROOF at `min(4, total // 200)` instead of
+# the green formula, which fails `run_all_tests.sh`'s foundation suite.
+# So the whole-repository gate passed or failed according to how loaded
+# the machine happened to be. It failed twice and passed four times in
+# one evening on identical code, which reads as flakiness rather than as
+# the deterministic cliff it actually is.
+#
+# 600 is not a guess at a safe margin: it is roughly 4.5x the measured
+# duration, chosen so ordinary growth does not silently re-cross the
+# line. Raising it is safe because the timeout is the SECOND safety net
+# here, not the first -- `recursion_guard.check()` structurally prevents
+# the unbounded forking this timeout was originally added to backstop
+# (see TITANOS_RECURSION_GUARD_001.md). A timeout is a blunt instrument
+# against a bug that now has a precise control.
+PROOF_SUBSYSTEM_TIMEOUT_SECONDS = 600
+
 def _dimension_proof(repo_root: Path) -> tuple[int, str, bool, int]:
     """Test coverage: actually runs every subsystem's suite via a fresh
     subprocess per subsystem — the exact invocation this repository's
@@ -218,6 +242,7 @@ def _dimension_proof(repo_root: Path) -> tuple[int, str, bool, int]:
     subsystems = SUBSYSTEMS_REQUIRING_BUILD_REPORT
     total = 0
     all_green = True
+    timed_out: list[str] = []
     spawn_env = guard_child_env(PROOF_OPERATION)
     for name in subsystems:
         subsystem_dir = repo_root / name
@@ -228,9 +253,16 @@ def _dimension_proof(repo_root: Path) -> tuple[int, str, bool, int]:
             proc = subprocess.run(
                 [sys.executable, "-m", "unittest", "discover", "-s", name, "-p", "test_*.py"],
                 cwd=str(repo_root), capture_output=True, text=True,
-                env=spawn_env, timeout=120,
+                env=spawn_env, timeout=PROOF_SUBSYSTEM_TIMEOUT_SECONDS,
             )
         except subprocess.TimeoutExpired:
+            # A TIMEOUT IS NOT A TEST FAILURE, and collapsing the two
+            # was the deeper defect. Both produced all_green=False and
+            # an identically degraded score, so a suite that was merely
+            # slow reported as a suite that was broken -- a confident
+            # verdict computed over a machine-load artefact. Recorded
+            # separately so the justification can say which happened.
+            timed_out.append(name)
             all_green = False
             continue
         match = _TESTS_RUN_PATTERN.search(proc.stderr)
@@ -243,7 +275,17 @@ def _dimension_proof(repo_root: Path) -> tuple[int, str, bool, int]:
         score = min(4, total // 200)  # capped low: a failing suite is never high proof
     else:
         score = min(10, 2 + total // 150)
-    justification = f"{total} tests, {'all green' if all_green else 'FAILURES PRESENT'}"
+    if all_green:
+        state = "all green"
+    elif timed_out:
+        # Names the timed-out subsystems explicitly. "FAILURES PRESENT"
+        # on a suite that merely ran long sends the next reader hunting
+        # for a broken test that does not exist.
+        state = (f"TIMED OUT after {PROOF_SUBSYSTEM_TIMEOUT_SECONDS}s: "
+                 f"{', '.join(timed_out)} (not a test failure)")
+    else:
+        state = "FAILURES PRESENT"
+    justification = f"{total} tests, {state}"
     return score, justification, all_green, total
 
 

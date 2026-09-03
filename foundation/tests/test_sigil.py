@@ -654,3 +654,42 @@ class TestGuardRejectsBeforeAnySubprocessSpawns(unittest.TestCase):
             f"early-return at line {guard_return_line} -- a repeat entry could "
             f"reach process creation before rejection",
         )
+
+
+class ProofTimeoutTests(unittest.TestCase):
+    """MEASURED 2026-09-04: the `foundation` child suite takes 128.8
+    seconds. The limit was 120.
+
+    A TimeoutExpired sets all_green=False, which caps PROOF at
+    `min(4, total // 200)` instead of the green formula, which fails
+    run_all_tests.sh's foundation suite. So the whole-repository gate
+    passed or failed according to machine load -- twice failing and four
+    times passing in one evening on identical code. It read as flakiness
+    and was a deterministic cliff the suite had grown across.
+    """
+
+    def test_the_limit_clears_the_measured_duration_with_room(self):
+        from foundation.sigil import PROOF_SUBSYSTEM_TIMEOUT_SECONDS
+        self.assertGreater(PROOF_SUBSYSTEM_TIMEOUT_SECONDS, 128.8)
+        # Not a bare "greater than the measurement" -- that would put us
+        # back on the cliff after ordinary growth.
+        self.assertGreaterEqual(PROOF_SUBSYSTEM_TIMEOUT_SECONDS, 400)
+
+    def test_the_timeout_is_named_not_inlined(self):
+        """It was the literal `timeout=120` buried in a subprocess call,
+        which is why nobody noticed the suite growing past it."""
+        from pathlib import Path
+        from foundation import sigil
+        src = Path(sigil.__file__).read_text(encoding="utf-8")
+        self.assertIn("timeout=PROOF_SUBSYSTEM_TIMEOUT_SECONDS", src)
+        self.assertNotIn("timeout=120", src)
+
+    def test_a_timeout_is_reported_differently_from_a_failure(self):
+        """The deeper defect: both produced all_green=False and an
+        identically degraded score, so a slow suite reported as a broken
+        one and sent the reader hunting a test that does not exist."""
+        from pathlib import Path
+        from foundation import sigil
+        src = Path(sigil.__file__).read_text(encoding="utf-8")
+        self.assertIn("TIMED OUT after", src)
+        self.assertIn("not a test failure", src)

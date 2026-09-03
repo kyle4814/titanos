@@ -270,6 +270,29 @@ Zero in both documents that define and enforce the control. The only
 rationale §3.2 gives for the format is modulo-overflow prevention, which
 is about the *size* of the primes, not the *unpredictability* of p.
 
+**And SGSP is the outlier, not the pattern.** Traced every named
+assumption from the protocol's own Limitations section across the same
+four documents:
+
+| term | sysspec 1.6.1 | verifier 1.7.1 | comp. proof | Gaudry note |
+|---|---:|---:|---:|---:|
+| **SGSP** | **0** | **0** | 43 | 20 |
+| quantum | 3 | 0 | 1 | 0 |
+| malicious client | 2 | 0 | 0 | 0 |
+| trustworthy setup | 1 | 0 | 3 | 0 |
+| vote secrecy / privacy | 10 | 2 | 29 | 0 |
+| trust assumption | 7 | 0 | 49 | 0 |
+
+The System Specification discusses **every** other named assumption —
+quantum adversaries, malicious clients, the trustworthy setup component,
+trust assumptions generally. It is not a document that omits proof-level
+concerns. SGSP is the single one it never names, and it is also the one
+Swiss Post itself flags as least studied, *and* the one whose protection
+is a restriction written into that very document.
+
+That comparison is what makes this worth submitting rather than
+shrugging at.
+
 **Why it is worth submitting anyway, at Low.** It is not a
 vulnerability and must not be presented as one. It is a load-bearing
 security property presented as a formatting rule — precisely the shape
@@ -1397,6 +1420,52 @@ passed, and those rows are lost silently.
 `freeText` was re-tested against the correct endpoint as well and is
 **genuinely ignored** — a real query and a nonsense query return
 byte-identical rows. That one was right.
+
+### The green light itself was unreliable, and tonight's work caused it
+
+**Found 2026-09-04 by a regression run that failed and then passed on
+identical code.** That had happened twice this evening and been written
+off as noise both times. It was not noise.
+
+`foundation/sigil.py::_dimension_proof()` shells out to run each
+subsystem's test suite with `timeout=120`. Measured:
+
+```
+foundation   128.8s  rc=0  OK (skipped=1)   *** EXCEEDS THE 120s TIMEOUT ***
+taal           1.4s  rc=0  OK
+rpa            1.4s  rc=0  OK
+```
+
+**Seven percent over the limit.** A `TimeoutExpired` sets
+`all_green=False`, which caps the PROOF score at `min(4, total // 200)`
+instead of the green formula, which fails the `foundation` suite, which
+fails `./run_all_tests.sh` — the gate every commit in this session was
+checked against. Whether the repository looked green depended on how
+loaded the machine was at that instant.
+
+**And this session caused it.** ~200 tests were added tonight across
+`entry_gate`, `spec_crossref`, `deep-ireland`, the document readers and
+the income fixes. The suite grew across a cliff nobody was watching,
+because the limit was the bare literal `timeout=120` inside a
+`subprocess.run(...)` call.
+
+Two fixes, and the second matters more:
+
+1. `PROOF_SUBSYSTEM_TIMEOUT_SECONDS = 600` — a named constant at ~4.5×
+   the measured duration, so ordinary growth does not re-cross it. Safe
+   to raise because the timeout is the *second* net here:
+   `recursion_guard.check()` structurally prevents the unbounded forking
+   it was originally added to backstop.
+2. **A timeout is no longer indistinguishable from a test failure.**
+   Both previously produced `all_green=False` and the same degraded
+   score, so a suite that was merely slow reported as `FAILURES
+   PRESENT` — sending the next reader hunting for a broken test that
+   does not exist. It now names the timed-out subsystems and says
+   plainly `(not a test failure)`.
+
+Same failure family as everything else this board has recorded in two
+days: **a confident verdict computed over an artefact.** This one was
+the verdict on all the others.
 
 ### Every opportunity now carries what it costs YOU to start
 
