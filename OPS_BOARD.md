@@ -2427,6 +2427,17 @@ disclosure, no money. A long program list is not a long paying list.
 **Synack vetting takes ~6 months.** Start it now so it is running in the
 background while other lanes produce.
 
+**✅ NOW IN THE DIGEST ROSTER — 2026-09-03.** Synack was researched here
+but never surfaced in the phone digest Kyle actually uses — a real
+finish-the-door gap. Re-verified live (synack.com/red-team reachable,
+robots permits it, "skills assessment" throughout, certifications count 0)
+and added as a PURSUE card (Cobalt named as the parallel apply). **This is
+the single best profile fit on the board:** paid pentest work gated on a
+skills test in Kyle's own stated domain, with no certs / insurance /
+references / turnover — the exact walls that killed every tender. The
+honest caveat carried on the card: the assessment is real skill, not
+form-filling.
+
 ---
 
 ### 13. Subcontracting — firms that win this work and take individuals

@@ -188,6 +188,12 @@ CLOSE_PLANS: dict[str, ClosePlan] = {
         "ADB_CMS", "ACCOUNT",
         human_action="Open cms.adb.org, click Register — the form itself states "
                      "eligibility (still UNVERIFIED until you see it)."),
+    "SYNACK": ClosePlan(
+        "SYNACK", "ACCOUNT",
+        needs=("nothing from me to START — the skills assessment is yours to "
+               "sit; certs/insurance/refs are NOT required",),
+        human_action="Apply at synack.com/red-team (and cobalt.io in parallel) "
+                     "and begin the skills assessment — start now, ~6mo vetting."),
     "IMMUNEFI": ClosePlan(
         "IMMUNEFI", "FACT",
         needs=("an honest read on your smart-contract / Solidity / DeFi audit "

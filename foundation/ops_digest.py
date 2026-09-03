@@ -452,6 +452,33 @@ OPPORTUNITIES: tuple[Opportunity, ...] = (
              "the error that produced a false QUALIFIED earlier in the campaign.",
     ),
     Opportunity(
+        opp_id="SYNACK",
+        title="Synack Red Team — paid pentest work, vetted by SKILLS not certs",
+        what="The best profile fit on this board: get paid vulnerability work by "
+             "passing a skills assessment (a private CTF), with certifications "
+             "explicitly optional. No insurance, references, turnover or company "
+             "— the exact walls that killed the tenders are simply absent, and "
+             "it is your stated domain (pen testing), not a new skill like crypto.",
+        value="Paid pentest engagements + per-vulnerability pay once vetted",
+        gate="Pass the Synack Red Team skills assessment — vetting takes ~6 months, "
+             "so the move is to START it now while other lanes produce",
+        status="PURSUE",
+        deadline="None (standing) — but start now, the ~6-month vetting is the clock",
+        link="https://www.synack.com/red-team/",
+        actions=(
+            "Apply to Synack Red Team and begin the skills assessment "
+            "(HackTheBox-style CTF — capability, not paperwork).",
+            "Apply to Cobalt Core (cobalt.io) in parallel — same skills-test "
+            "model, the second-best fit.",
+            "Let the ~6-month vetting run in the background; it needs no "
+            "certs, insurance or references from you.",
+        ),
+        source_ref="OPS_BOARD.md §12 Pentest-as-a-service (verified live 2026-09-03)",
+        note="Certifications explicitly optional — this is the route built for a "
+             "skilled operator WITHOUT the paperwork. It does require demonstrable "
+             "pentest skill (the assessment is real); it is not a form-filling win.",
+    ),
+    Opportunity(
         opp_id="IMMUNEFI",
         title="Immunefi — crypto bug bounties, no credentials, 76 need no KYC",
         what="The most structurally open income on this board: no company, no "
