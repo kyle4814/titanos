@@ -111,6 +111,8 @@ from urllib.parse import quote
 
 from foundation import mouth_etenders_ie
 from foundation import mouth_find_a_tender_uk
+from foundation import mouth_tenderned_nl
+from foundation import mouth_udbud_dk
 from foundation import mouth_gets_nz, mouth_ted, tender_radar
 from foundation.discovery_authorization import DiscoveryPolicy
 from foundation.mouth_common import fetch_feed
@@ -122,8 +124,12 @@ __all__ = [
     "normalise_gets_nz",
     "normalise_find_a_tender_uk",
     "normalise_etenders_ie",
+    "normalise_udbud_dk",
+    "normalise_tenderned_nl",
     "UK_FIND_A_TENDER",
     "ETENDERS_IE",
+    "DK_UDBUD",
+    "NL_TENDERNED",
     "normalise_uk_contracts_finder",
     "TED",
     "NZ_GETS",
@@ -454,6 +460,8 @@ def sources_for_query(
         "UK_CONTRACTS_FINDER": lambda: UK_CONTRACTS_FINDER,
         "UK_FIND_A_TENDER": lambda: UK_FIND_A_TENDER,
         "ETENDERS_IE": lambda: ETENDERS_IE,
+        "DK_UDBUD": lambda: DK_UDBUD,
+        "NL_TENDERNED": lambda: NL_TENDERNED,
     }
     ids = include if include is not None else tuple(all_by_id)
     unknown = [i for i in ids if i not in all_by_id]
@@ -553,9 +561,96 @@ ETENDERS_IE = Source(
 )
 
 
+# ── Denmark udbud.dk / Netherlands TenderNed ─────────────────────────
+# Both mouths emit their own flat item shape (`key`/`title`/`buyer`/
+# `deadline`), not the `organisation`/`link` shape
+# `_normalise_criteria_less()` reads, so each item is re-keyed here
+# rather than that helper being loosened -- the helper is shared by
+# three other sources and widening it to accept two spellings of
+# "buyer" would make the next source's typo silent.
+def _criteria_less_from_flat_item(item: dict, *, url: str) -> Optional[dict]:
+    return _normalise_criteria_less(
+        {
+            "key": item.get("key"),
+            "title": item.get("title"),
+            "organisation": item.get("buyer"),
+            "link": url,
+        }
+    )
+
+
+def normalise_udbud_dk(item: dict) -> Optional[dict]:
+    """Denmark's national board. Publishes no bidder criteria at all --
+    see this module's CRITICAL HONESTY RULE. The public notice URL is
+    derived from the notice id (confirmed live, see
+    `mouth_udbud_dk`'s module docstring); the feed carries no href."""
+    key = item.get("key")
+    if not isinstance(key, str) or not key.strip():
+        return None
+    return _criteria_less_from_flat_item(
+        item, url=f"https://udbud.dk/bekendtgoerelse/{key.strip()}")
+
+
+def normalise_tenderned_nl(item: dict) -> Optional[dict]:
+    """Netherlands TenderNed. Publishes no bidder criteria, and no
+    value field of any kind -- an empty `link` is passed through as
+    empty rather than guessed at."""
+    link = item.get("link")
+    return _criteria_less_from_flat_item(
+        item, url=link if isinstance(link, str) else "")
+
+
+def _default_udbud_dk_fetch(policy: DiscoveryPolicy) -> Tuple[dict, ...]:
+    raw = mouth_udbud_dk._fetch(policy)
+    return mouth_udbud_dk.parse_items(raw)
+
+
+def _default_tenderned_nl_fetch(policy: DiscoveryPolicy) -> Tuple[dict, ...]:
+    raw = mouth_tenderned_nl._fetch_pages(policy)
+    return mouth_tenderned_nl.parse_items(raw)
+
+
+DK_UDBUD = Source(
+    source_id="DK_UDBUD",
+    fetch_items=lambda: _default_udbud_dk_fetch(mouth_udbud_dk.DISCOVERY_POLICY),
+    normalise=normalise_udbud_dk,
+    # DELIBERATELY FALSE even though this endpoint's `fritekstQuery` IS
+    # honoured server-side (proven live: "cyber" -> 5, nonsense -> 0,
+    # empty -> 2424). The mouth sends its own fixed security query, NOT
+    # the caller's `hunt_multi()` query -- so declaring True here would
+    # tell hunt_multi "already narrowed to what you asked for" when it
+    # has been narrowed to something else entirely, and every hunt for
+    # any keyword would return the same cybersecurity page unfiltered.
+    # server_side_filterable describes whether the CALLER's query was
+    # applied, not whether the endpoint has a working filter.
+    server_side_filterable=False,
+    keyword_fields=("title", "description"),
+    signal_fn=lambda item, now: mouth_udbud_dk.udbud_dk_signal(item, now=now),
+    notes=("Denmark udbud.dk national board, POST JSON search traced "
+           "from the site's own SPA bundle. Bilingual per notice; the "
+           "English half is used. No bidder criteria published."),
+)
+
+NL_TENDERNED = Source(
+    source_id="NL_TENDERNED",
+    fetch_items=lambda: _default_tenderned_nl_fetch(
+        mouth_tenderned_nl.DISCOVERY_POLICY),
+    normalise=normalise_tenderned_nl,
+    # Same reasoning as DK_UDBUD above: `search` works server-side, but
+    # the mouth chooses the term, not the hunt.
+    server_side_filterable=False,
+    keyword_fields=("title", "description"),
+    signal_fn=lambda item, now: mouth_tenderned_nl.tenderned_nl_signal(
+        item, now=now),
+    notes=("Netherlands TenderNed. Notices are Dutch-only and the API "
+           "carries no contract-value field at all, so value is UNKNOWN "
+           "for every item from this source -- never zero."),
+)
+
+
 # The full, static registry -- every source this module knows about,
 # for a caller that just wants "everything reachable" without building
 # a query-bound TED source (e.g. inspecting `notes`/`throttle_seconds`
 # without fetching anything).
 ALL_SOURCES = (TED, NZ_GETS, UK_CONTRACTS_FINDER,
-               UK_FIND_A_TENDER, ETENDERS_IE)
+               UK_FIND_A_TENDER, ETENDERS_IE, DK_UDBUD, NL_TENDERNED)

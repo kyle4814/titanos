@@ -18,6 +18,8 @@ from foundation.sources import (
     UK_CONTRACTS_FINDER,
     normalise_gets_nz,
     normalise_ted,
+    normalise_tenderned_nl,
+    normalise_udbud_dk,
     normalise_uk_contracts_finder,
     sources_for_query,
     _ted_signal_from_raw,
@@ -140,6 +142,143 @@ class TestNormaliseUkContractsFinder(unittest.TestCase):
         )
         for field in forbidden:
             self.assertNotIn(field, n, f"{field} must never be fabricated")
+
+
+CRITERIA_FIELDS = (
+    "selection-criterion-lot", "selection-criterion-description-lot",
+    "selection-criteria-source", "exclusion-grounds",
+    "exclusion-grounds-description", "exclusion-grounds-source-proc",
+    "tenderer-legal-form-lot", "tenderer-legal-form-description-lot",
+    "subcontracting-allowed-lot", "subcontracting-obligation-lot",
+    "subcontracting-percentage", "subcontracting-description",
+    "variant-allowed-lot", "tender-variant", "submission-language",
+)
+
+
+def dk_item(key="dk-1", title="Cybersecurity advisory framework",
+            description="Rammeaftale om cybersikkerhed.",
+            buyer="Danmarks Nationalbank"):
+    """`mouth_udbud_dk.parse_items()`'s own output shape -- `buyer`,
+    not `organisation`, and NO link field at all."""
+    return {
+        "key": key, "notice_id": key, "notice_publication_number": "2026/S 1",
+        "title": title, "description": description, "buyer": buyer,
+        "cpv_title": "IT services", "published": "2026-09-01",
+        "deadline": "2026-10-02T12:00:00", "value": "9200000",
+        "value_currency": "DKK", "notice_type": "cn-standard",
+    }
+
+
+def nl_item(key="nl-1", title="SIEM en SOC dienstverlening",
+            description="Aanbesteding cyber security.",
+            buyer="Veiligheidsregio Haaglanden",
+            link="https://www.tenderned.nl/aankondigingen/overzicht/1"):
+    return {
+        "key": key, "publication_id": key, "title": title,
+        "description": description, "buyer": buyer,
+        "published": "2026-09-01", "deadline": "2026-09-28T12:00:00+02:00",
+        "procedure": "Openbare procedure", "notice_type": "Aankondiging",
+        "link": link,
+    }
+
+
+class TestNormaliseUdbudDk(unittest.TestCase):
+    """Denmark's feed names the buyer `buyer` and carries no href --
+    two shape differences from every source registered before it, and
+    both are places a shared normaliser would have silently produced a
+    notice with no buyer and no link rather than failing."""
+
+    def test_builds_a_ted_shaped_dict(self):
+        n = normalise_udbud_dk(dk_item())
+        self.assertEqual(n["publication-number"], "dk-1")
+        self.assertEqual(n["buyer-name"], {"eng": ("Danmarks Nationalbank",)})
+
+    def test_the_notice_url_is_derived_from_the_notice_id(self):
+        n = normalise_udbud_dk(dk_item(key="f104f4f6"))
+        self.assertEqual(n["links"]["html"]["eng"],
+                         "https://udbud.dk/bekendtgoerelse/f104f4f6")
+
+    def test_declines_an_item_with_no_identity(self):
+        self.assertIsNone(normalise_udbud_dk({"title": "x"}))
+
+    def test_declines_rather_than_building_a_url_from_a_blank_key(self):
+        """Without this guard the derived href would be the bare
+        `/bekendtgoerelse/` prefix -- a link to nothing, presented as a
+        link to the notice."""
+        self.assertIsNone(normalise_udbud_dk(dk_item(key="   ")))
+
+    def test_never_sets_any_criteria_field(self):
+        n = normalise_udbud_dk(dk_item())
+        for field in CRITERIA_FIELDS:
+            self.assertNotIn(field, n, f"{field} must never be fabricated")
+
+
+class TestNormaliseTenderNedNl(unittest.TestCase):
+    def test_builds_a_ted_shaped_dict(self):
+        n = normalise_tenderned_nl(nl_item())
+        self.assertEqual(n["publication-number"], "nl-1")
+        self.assertEqual(n["buyer-name"],
+                         {"eng": ("Veiligheidsregio Haaglanden",)})
+        self.assertIn("links", n)
+
+    def test_a_missing_link_is_omitted_not_invented(self):
+        n = normalise_tenderned_nl(nl_item(link=""))
+        self.assertNotIn("links", n)
+
+    def test_declines_an_item_with_no_identity(self):
+        self.assertIsNone(normalise_tenderned_nl({"title": "x"}))
+
+    def test_never_sets_any_criteria_field(self):
+        n = normalise_tenderned_nl(nl_item())
+        for field in CRITERIA_FIELDS:
+            self.assertNotIn(field, n, f"{field} must never be fabricated")
+
+
+class TestNordicBeneluxSourcesAreHonestlyDeclared(unittest.TestCase):
+    """Both endpoints DO filter server-side -- proven live. Both are
+    registered `server_side_filterable=False` anyway, because the mouth
+    picks the search term, not the caller. Declaring True would tell
+    `hunt_multi()` the results were already narrowed to ITS query and
+    suppress the client-side pass, so a hunt for any keyword would
+    return the same fixed cybersecurity page unfiltered."""
+
+    def test_dk_is_client_side_filtered(self):
+        from foundation.sources import DK_UDBUD
+        self.assertFalse(DK_UDBUD.server_side_filterable)
+        self.assertEqual(DK_UDBUD.keyword_fields, ("title", "description"))
+
+    def test_nl_is_client_side_filtered(self):
+        from foundation.sources import NL_TENDERNED
+        self.assertFalse(NL_TENDERNED.server_side_filterable)
+        self.assertEqual(NL_TENDERNED.keyword_fields, ("title", "description"))
+
+    def test_neither_can_ever_produce_qualified(self):
+        sources = [
+            Source(source_id="DK_UDBUD", fetch_items=lambda: [dk_item()],
+                   normalise=normalise_udbud_dk, server_side_filterable=False,
+                   keyword_fields=("title", "description")),
+            Source(source_id="NL_TENDERNED", fetch_items=lambda: [nl_item()],
+                   normalise=normalise_tenderned_nl,
+                   server_side_filterable=False,
+                   keyword_fields=("title", "description")),
+        ]
+        r = hunt_multi("cyber", SOLO, sources)
+        self.assertEqual(r.assessed, 2)
+        self.assertEqual({e.band for e in r.entries}, {"INSUFFICIENT_DATA"})
+        for entry in r.entries:
+            self.assertEqual(entry.blocking_clauses, ())
+
+    def test_a_non_matching_keyword_is_filtered_out_client_side(self):
+        """The direct consequence of the False above: the fixture is a
+        real security notice, and a hunt for something else must not
+        return it."""
+        sources = [
+            Source(source_id="DK_UDBUD", fetch_items=lambda: [dk_item()],
+                   normalise=normalise_udbud_dk, server_side_filterable=False,
+                   keyword_fields=("title", "description")),
+        ]
+        r = hunt_multi("bridge maintenance", SOLO, sources)
+        self.assertEqual(r.assessed, 0)
 
 
 class TestSourceConstruction(unittest.TestCase):
