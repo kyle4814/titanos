@@ -799,3 +799,72 @@ class TestPlanningStageSweep(unittest.TestCase):
         from foundation.tender_radar import planning_feed_url
         now = datetime(2026, 9, 3, tzinfo=timezone.utc)
         self.assertEqual(planning_feed_url(now), planning_feed_url(now))
+
+
+class TestPlanningReleasesSurviveParsing(unittest.TestCase):
+    """TWO FILTERS, THE SAME CONFLATION, AND FIXING ONLY THE FIRST STILL
+    YIELDED SILENCE.
+
+    `planning_feed_url()` was added to reach pre-tender notices — the one
+    stage where no selection criteria exist, because nothing is being
+    awarded yet. It fetched them correctly. Then `parse_items()` threw
+    every single one away, twice over:
+
+      1. the tag set held only "tender", and a pre-tender release is
+         tagged "planning"
+      2. OPEN_TENDER_STATUSES held "planning", but OCDS puts "planning"
+         on the TAG and "planned" on `tender.status` — two different
+         vocabularies, and this set had the wrong one
+
+    Measured live 2026-09-03: the feed returned 27 releases, all
+    `tag: ["planning"]`, all `tender.status: "planned"`, and
+    `parse_items()` returned 0. The sweep reported "0 pre-tender notices"
+    as though the market were empty. It was the filter, not the market —
+    and after fixing only the tag it STILL returned 0, which looked
+    exactly like confirmation that the market was empty."""
+
+    def _release(self, tag, status, pn="p-1"):
+        return {
+            "releases": [{
+                "ocid": pn,
+                "tag": [tag],
+                "tender": {
+                    "id": pn,
+                    "title": "Pre-tender market engagement",
+                    "status": status,
+                    "tenderPeriod": {"endDate": "2026-12-01T00:00:00Z"},
+                },
+                "buyer": {"name": "Some Buyer"},
+            }]
+        }
+
+    def _parse(self, payload):
+        import json
+        from foundation.tender_radar import parse_items
+        return parse_items(json.dumps(payload).encode())
+
+    def test_a_planning_tagged_planned_release_survives(self):
+        """The exact shape the live feed returns."""
+        self.assertEqual(len(self._parse(self._release("planning", "planned"))), 1)
+
+    def test_an_active_tender_release_still_survives(self):
+        self.assertEqual(len(self._parse(self._release("tender", "active"))), 1)
+
+    def test_an_award_release_is_still_discarded(self):
+        """Reporting a decided contract as an opportunity would be a
+        fabrication. That filter must survive the widening."""
+        self.assertEqual(len(self._parse(self._release("award", "complete"))), 0)
+
+    def test_a_complete_tender_is_still_discarded(self):
+        self.assertEqual(len(self._parse(self._release("tender", "complete"))), 0)
+
+    def test_the_status_set_carries_the_status_word_not_the_tag_word(self):
+        from foundation.tender_radar import OPEN_TENDER_STATUSES
+        self.assertIn("planned", OPEN_TENDER_STATUSES,
+                      "OCDS tender.status is 'planned'; 'planning' is the tag")
+
+    def test_the_tag_set_carries_the_tag_word(self):
+        from foundation.tender_radar import _OPEN_TAGS
+        self.assertIn("planning", _OPEN_TAGS)
+        self.assertIn("tender", _OPEN_TAGS)
+        self.assertNotIn("award", _OPEN_TAGS)

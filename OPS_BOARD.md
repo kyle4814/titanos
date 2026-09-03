@@ -43,6 +43,65 @@ below, which requires $15,000 already earned through ZDI.
 
 ---
 
+### 2. Ant Group — zero reports, three wildcard domains
+
+Swept YesWeHack's **entire public board** — all 60 active programs —
+sorted by report count ascending, 2026-09-03. The distribution is not
+close:
+
+```
+reports  min   max    program
+      0   $10  $2500  Ant Group Security Response Center
+     15    $8  $5000  Tencent
+    106  $200  $1000  DataDome        <- the cliff
+    118   $50  $2000  Dossier Medical Partage
+    ... 56 more, all 106+
+```
+
+**Two programs out of sixty are under-contested.** Everything else has
+been picked over by 106 to 900+ reports.
+
+**Ant Group's scope, read from the program's own record:**
+
+```
+[wildcard]        *.alipayplus.com
+[wildcard]        *.antom.com
+[wildcard]        *.worldfirst.com
+[web-application] bettrfinancing.com
+[web-application] anext.com.sg
+[web-application] alipayhk.com
+[web-application] antbank.hk
+[other]           any other application listed at security-en.alipay.com
+```
+
+**Three wildcards means every subdomain is in play — and nobody has
+filed a single report against any of it.** Eight scopes, zero reports.
+
+| | |
+|---|---|
+| Minimum bounty | **$10** — so it pays for a Low, which is the finding a newcomer actually gets first |
+| Maximum | $2,500 |
+| Report submission cost | 0 |
+| Sector | Finance / Assurance |
+| Average first response | 0 (no reports yet to respond to) |
+
+**Tencent** is the only other one: 15 reports, minimum **$8**, maximum
+$5,000, scope split into Core and Non-Core product lists published at
+`en.security.tencent.com`.
+
+**Why report count beats payout size here.** A program with a $15,000
+ceiling and 900 reports has had every accessible finding taken. A $2,500
+ceiling with zero reports has not been looked at. For someone with no
+reputation, the odds of *any* payout dominate the size of it — and this
+is the only place on that board where the odds are good.
+
+**ACTION:** register on YesWeHack, read Ant Group's full brief and scope
+rules, and work the wildcards. Nothing has been tested and nothing will
+be — testing outside an authorised scope is illegal regardless of intent,
+so read the brief first and stay inside it.
+
+---
+
 ### 2. ADB Consultant Management System — the modality built for people
 
 Every barrier on this board — €13,000,000 employer's liability,

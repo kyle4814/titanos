@@ -537,18 +537,52 @@ DISCOVERY_POLICY = DiscoveryPolicy(
     requested_scope="READ_API",
 )
 
-# OCDS release tags: 'tender' (a notice is open for bids), 'award' /
-# 'awardUpdate' (the contract has already been decided -- not an open
-# opportunity, and reporting it as one would be a fabrication). Only
-# 'tender'-tagged releases are ever candidates here.
+# OCDS release tags. 'tender' means a notice is open for bids; 'award'
+# and 'awardUpdate' mean the contract is already decided, and reporting
+# one as an opportunity would be a fabrication.
+#
+# 'planning' IS THE THIRD ONE, AND LEAVING IT OUT BROKE A CAPABILITY.
+#
+# `planning_feed_url()` was added to reach pre-tender notices -- the only
+# stage where no selection criteria exist yet, because nothing is being
+# awarded. It fetched them correctly. Then `parse_items()` threw every
+# single one away, because this set held only "tender" and a
+# planning-stage release is tagged "planning".
+#
+# The failure was silent and total: the feed returned real data, the
+# parser returned an empty tuple, and the sweep reported "0 pre-tender
+# notices" as though the market were empty. Two cycles of planning-stage
+# results were discarded by the filter rather than absent from the
+# source. Found by an agent classifying the raw OCDS releases directly
+# and noticing they never reached the parser.
+_OPEN_TAGS = frozenset({"tender", "planning"})
+
+# Kept as the single-value alias earlier code and tests refer to.
 _OPEN_TAG = "tender"
 
-# tender.status values that mean "you can still respond": 'active' is
-# a live competition; 'planning' is a request-for-information / market-
-# engagement notice, genuinely pre-competitive but still a real signal
-# that a buyer is about to spend money. 'complete', 'cancelled',
-# 'unsuccessful', 'withdrawn' are deliberately excluded.
-OPEN_TENDER_STATUSES = ("active", "planning")
+# tender.status values that mean "you can still respond": 'active' is a
+# live competition; 'planned' is a pre-tender / market-engagement notice,
+# genuinely pre-competitive but a real signal that a buyer is about to
+# spend money. 'complete', 'cancelled', 'unsuccessful' and 'withdrawn'
+# are deliberately excluded.
+#
+# 'planned' -- NOT 'planning'. THE TAG AND THE STATUS ARE DIFFERENT
+# VOCABULARIES AND THIS SET HAD THE WRONG ONE.
+#
+# OCDS uses `tag: "planning"` on the release and `tender.status:
+# "planned"` inside it. This set held "planning", which no
+# tender.status ever takes, so every pre-tender release failed the
+# status check even after the tag check was fixed to admit them.
+#
+# Measured live 2026-09-03 against the planning feed: 27 releases
+# returned, tag combos {('planning',): 27}, statuses {'planned': 27},
+# and parse_items() returned 0. Two filters, the same conflation, and
+# fixing only the first still yielded silence -- which is why the first
+# fix looked like "the market is simply empty".
+#
+# 'planning' is retained as well: harmless, and it costs nothing to
+# accept a value a future publisher might genuinely emit.
+OPEN_TENDER_STATUSES = ("active", "planned", "planning")
 
 
 def _clean_str(value: object) -> str:
@@ -690,7 +724,7 @@ def parse_items(raw: bytes) -> tuple[dict, ...]:
         if not isinstance(rel, dict):
             continue
         tags = rel.get("tag")
-        if not isinstance(tags, list) or _OPEN_TAG not in tags:
+        if not isinstance(tags, list) or not (_OPEN_TAGS & set(tags)):
             continue  # award / awardUpdate: already decided, not an opportunity
         tender = rel.get("tender")
         if not isinstance(tender, dict):
