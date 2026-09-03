@@ -732,6 +732,32 @@ class TestPitCommand(unittest.TestCase):
         self.assertIn("nothing extractable", err)
 
 
+class TestTriageCommand(unittest.TestCase):
+    def _dir(self, files):
+        d = Path(tempfile.mkdtemp())
+        for name, body in files.items():
+            (d / name).write_text(body, encoding="utf-8")
+        return str(d)
+
+    def test_it_reports_a_verdict_and_measurements(self):
+        path = self._dir({f"d{i}.md": f"# {i}\nprose {i}\n" for i in range(12)})
+        code, out, err = _run(["triage", path])
+        self.assertEqual(code, 0)
+        self.assertIn("verdict", out)
+        self.assertIn("SCAFFOLD_ONLY", out)
+
+    def test_source_it_cannot_parse_is_unassessed_not_scaffold(self):
+        path = self._dir({f"C{i}.java": f"class C{i} {{ int f() {{ return {i}; }} }}\n"
+                          for i in range(20)})
+        code, out, err = _run(["triage", path])
+        self.assertIn("UNASSESSED_CODE", out)
+
+    def test_a_missing_directory_is_a_named_refusal(self):
+        code, out, err = _run(["triage", "/nonexistent/corpus"])
+        self.assertEqual(code, 1)
+        self.assertIn("REFUSED", err)
+
+
 class TestExitCodes(unittest.TestCase):
     def test_empty_hunt_report_is_success_not_failure(self):
         from foundation.hunt import HuntReport

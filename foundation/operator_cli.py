@@ -72,6 +72,7 @@ from foundation.access_barriers import assess_access, format_access
 from foundation.entry_gate import assess_entry, format_entry
 from foundation.reachability import format_reachability, scan_reachability
 from foundation.pit_report import format_pit_summary, summarise_pit_report
+from foundation.corpus_triage import triage as triage_corpus
 from foundation.spec_crossref import (
     crossref,
     format_crossref,
@@ -937,6 +938,29 @@ def cmd_spec(args) -> int:
     return 0
 
 
+def cmd_triage(args) -> int:
+    """Measure whether a delivered corpus contains buildable substance or
+    is descriptive scaffolding.
+
+    The question performed by hand on every corpus delivered this session
+    (the Swiss Post e-voting docs, the specs). It reports measured facts
+    and one routing verdict -- IMPLEMENTABLE / MIXED / SCAFFOLD_ONLY /
+    UNASSESSED_CODE / EMPTY -- and never decides worth: a human decides
+    what to do with the verdict.
+
+    UNASSESSED_CODE is the honest answer for source in a language the
+    triage cannot parse (Java, Rust, Go...): it will not call code it
+    cannot read scaffolding.
+    """
+    root = Path(args.directory)
+    if not root.is_dir():
+        print(f"REFUSED: not a directory: {root}", file=sys.stderr)
+        return 1
+    report = triage_corpus(root)
+    print(report.show_the_measurements())
+    return 0
+
+
 def cmd_pit(args) -> int:
     """Read a Public Intrusion Test / bounty final report for how
     contested its target already is: acceptance rate, duplicate rate,
@@ -1161,6 +1185,14 @@ def build_parser() -> "object":
                         help="also report identifiers cited neither by "
                              "number nor by name anywhere")
     p_spec.set_defaults(func=cmd_spec)
+
+    p_triage = sub.add_parser(
+        "triage",
+        help="measure whether a delivered corpus is buildable substance or "
+             "descriptive scaffolding (structural template ratio, real vs "
+             "constant-return code, unparsed-language honesty)")
+    p_triage.add_argument("directory", help="path to the corpus directory")
+    p_triage.set_defaults(func=cmd_triage)
 
     p_pit = sub.add_parser(
         "pit",

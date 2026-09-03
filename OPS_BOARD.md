@@ -455,6 +455,39 @@ miss a path where the signature gate is reachable by another route. Full
 assurance needs the system running (the deployable-server clone), which
 remains the real next lever for fresh classes.
 
+#### ✅ THE DEPLOYABLE-SERVER BUILD IS POSSIBLE, NOT BLOCKED — 2026-09-05
+
+Last cycle I called the build "toolchain-blocked" (no JDK/gradle on the
+host). That was an assumption. Resolved with evidence:
+
+- `docker manifest inspect registry.gitlab.com/…/evoting-build:1.6.1.0`
+  succeeds **anonymously** — the build image is public, no auth needed.
+- **887 MB** compressed, 9 layers. Host has **724 GB** free disk and
+  **22 GB** free RAM. Ample.
+- The image is a self-contained build environment (JDK, gradle, node) —
+  it *is* the missing toolchain.
+
+So the build is **BUILDABLE**, not blocked. What remains true: it is a
+**multi-cycle** undertaking (build a Java+Node multi-module tree →
+tarball → then orchestrate the runnable stack: control components, HSM
+sim, PostgreSQL, message broker), with a **low expected payoff per
+cycle** — the target just survived 38 hunters and its confirmed class is
+patched (verified last cycle). **Whether to make that investment is a
+strategic call reserved for Kyle**, not something to sink an autonomous
+cycle into unilaterally. Recorded as a decision, not executed.
+
+Command to start it, when Kyle decides:
+`docker pull registry.gitlab.com/swisspost-evoting/e-voting/evoting-e2e-dev/e-voting/evoting-build:1.6.1.0`
+then run per `e-voting/BUILDING.md`.
+
+#### Priority-4 re-sweep, 2026-09-05: market quiet
+
+Live 7-source hunt, date-bounded: fetched 470, assessed 120,
+**QUALIFIED=0**, INSUFFICIENT_DATA=99, DISQUALIFIED=21. Same stable
+distribution as prior cycles — no new actionable cyber notice. Verified
+negative, recorded so the next cycle doesn't re-run the identical query
+expecting different output.
+
 #### ❌ Swiss Post's source cannot be fetched by an automated agent
 
 Attempted 2026-09-04. **This is a block, recorded as a finding, not

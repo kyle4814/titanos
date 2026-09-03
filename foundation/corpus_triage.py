@@ -43,6 +43,7 @@ from typing import Iterable, Optional
 __all__ = [
     "CorpusTriageError",
     "VERDICTS",
+    "UNASSESSED_CODE_SHARE",
     "FileFact",
     "CorpusReport",
     "structural_key",
@@ -55,11 +56,42 @@ class CorpusTriageError(ValueError):
 
 
 VERDICTS = (
-    "IMPLEMENTABLE",    # real code that parses and does something
-    "MIXED",            # some real implementation among the scaffolding
-    "SCAFFOLD_ONLY",    # describes capability, does not implement it
-    "EMPTY",            # nothing to triage
+    "IMPLEMENTABLE",       # real code that parses and does something
+    "MIXED",               # some real implementation among the scaffolding
+    "SCAFFOLD_ONLY",       # describes capability, does not implement it
+    "UNASSESSED_CODE",     # substantial source in a language this cannot parse
+    "EMPTY",               # nothing to triage
 )
+
+# THE FALSE-VERDICT BUG THIS CLOSES (measured 2026-09-05).
+#
+# `SCAFFOLD_ONLY` fired whenever `py_real == 0` -- but `py_real` counts
+# PYTHON implementations only. Pointed at crypto-primitives (170 files of
+# dense, genuine cryptographic Java), triage returned SCAFFOLD_ONLY: it
+# saw zero Python, so it concluded "no implementation," so it called real
+# code scaffolding. That is a confident verdict computed over input the
+# tool structurally cannot read -- the same failure family as the .rtf
+# and ligature bugs elsewhere in this repo.
+#
+# The honest fix: "no Python implementation found" is not "no
+# implementation exists." When a corpus is substantially source code in a
+# language this tool does not parse, the verdict is UNASSESSED_CODE --
+# "cannot conclude scaffold-vs-implementation" -- never SCAFFOLD_ONLY. A
+# document corpus (PDF/markdown) with no such code is still honestly
+# SCAFFOLD_ONLY: it genuinely describes rather than implements.
+_UNPARSED_CODE_EXTS = frozenset({
+    ".java", ".kt", ".kts", ".scala", ".groovy",
+    ".c", ".h", ".cpp", ".cc", ".cxx", ".hpp", ".hh",
+    ".rs", ".go", ".swift", ".m", ".mm",
+    ".ts", ".tsx", ".js", ".jsx", ".mjs",
+    ".rb", ".php", ".cs", ".fs", ".ml", ".ex", ".exs", ".erl", ".clj",
+})
+
+# At or above this share of files being unparseable source code, with no
+# Python implementation to go on, the tool has no basis to judge
+# scaffold-vs-implementation and must say so. 0.15 keeps a single stray
+# .js in a genuine document corpus from flipping the verdict.
+UNASSESSED_CODE_SHARE = 0.15
 
 # Below this share of unique templates, the corpus is repetition rather
 # than content. Derived from three measured corpora, not chosen: they
@@ -303,11 +335,17 @@ def triage(root: Path, resolvable: Optional[Iterable[str]] = None
             claims.append(f"{mf.name} lists no file entries and no hashes")
 
     py_total = sum(1 for p in files if p.suffix == ".py")
+    unparsed_code = sum(1 for p in files if p.suffix.lower() in _UNPARSED_CODE_EXTS)
     ratio = len(structural) / len(files)
     if py_real and ratio > TEMPLATE_RATIO_SCAFFOLD:
         verdict = "IMPLEMENTABLE"
     elif py_real:
         verdict = "MIXED"
+    elif unparsed_code / len(files) >= UNASSESSED_CODE_SHARE:
+        # Substantial source in a language this tool cannot parse. It has
+        # no implementation-detection capability here, so it cannot call
+        # the corpus scaffolding -- see _UNPARSED_CODE_EXTS.
+        verdict = "UNASSESSED_CODE"
     else:
         verdict = "SCAFFOLD_ONLY"
 

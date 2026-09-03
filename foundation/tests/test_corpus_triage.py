@@ -298,3 +298,51 @@ class TestConstantContainersAreStillConstant(unittest.TestCase):
             'def f(payload):\n    return {"n": len(payload), "k": sorted(payload)}\n'}))
         self.assertEqual(r.py_real_implementations, 1)
         self.assertEqual(r.py_constant_return_scaffolds, 0)
+
+
+class TestSourceInAnUnparsedLanguageIsNotCalledScaffolding(unittest.TestCase):
+    """THE FALSE VERDICT, MEASURED 2026-09-05.
+
+    Pointed at crypto-primitives -- 170 files of dense, genuine
+    cryptographic Java -- triage returned SCAFFOLD_ONLY. It counts only
+    PYTHON implementations, saw zero, and concluded "no implementation."
+    A confident verdict computed over input it cannot parse.
+    """
+
+    def _java(self, n):
+        body = ("package ch.x;\n\npublic final class C%d {\n"
+                "  public int f(int a, int b) { return a * b + %d; }\n}\n")
+        return {f"src/C{i}.java": body % (i, i) for i in range(n)}
+
+    def test_a_java_corpus_is_unassessed_not_scaffold(self):
+        r = triage(_tree(self._java(20)))
+        self.assertEqual(r.verdict, "UNASSESSED_CODE")
+        self.assertNotEqual(r.verdict, "SCAFFOLD_ONLY")
+
+    def test_a_document_corpus_with_no_code_is_still_honestly_scaffold(self):
+        """A PDF/markdown corpus genuinely describes rather than
+        implements -- SCAFFOLD_ONLY stays correct for it. The fix must
+        not blanket-relabel everything."""
+        docs = {f"doc{i}.md": f"# Heading {i}\n\nProse about topic {i}.\n"
+                for i in range(20)}
+        self.assertEqual(triage(_tree(docs)).verdict, "SCAFFOLD_ONLY")
+
+    def test_one_stray_js_does_not_flip_a_document_corpus(self):
+        """0.15 share threshold: a single script among many docs is not
+        'substantially source code'."""
+        files = {f"doc{i}.md": f"# {i}\nprose {i}\n" for i in range(30)}
+        files["helper.js"] = "console.log(1);\n"
+        self.assertEqual(triage(_tree(files)).verdict, "SCAFFOLD_ONLY")
+
+    def test_real_python_implementation_still_wins_over_unparsed_code(self):
+        """A corpus with genuine Python bodies AND some Java is judged on
+        the Python it can actually read -- IMPLEMENTABLE/MIXED, not
+        downgraded to UNASSESSED."""
+        files = {f"m{i}.py": (f"def f{i}(a, b):\n    total = 0\n"
+                              f"    for x in range(a):\n        total += x * b\n"
+                              f"    return total\n") for i in range(12)}
+        files.update({f"Native{i}.java": "class N{}\n" for i in range(3)})
+        self.assertIn(triage(_tree(files)).verdict, ("IMPLEMENTABLE", "MIXED"))
+
+    def test_unassessed_code_is_a_declared_verdict(self):
+        self.assertIn("UNASSESSED_CODE", VERDICTS)
