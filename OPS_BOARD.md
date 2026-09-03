@@ -228,6 +228,95 @@ DDH". They commissioned a CNRS/LORIA expert to write on it —
 are where a genuine finding would have to live, because everything
 inside the model is already proven.
 
+#### 🔴 STRATEGY CORRECTION — reading the specs was the wrong plan
+
+**Read the 2026 Public Intrusion Test final report, on disk, added to
+the repo 2026-08-26.** It is the record of what everyone else found, and
+it says the money is not where I have been looking.
+
+**The 2026 PIT, in numbers:**
+
+| | |
+|---|---|
+| Window | **6–24 July 2026** — three weeks, once a year |
+| Participants | 38 hunters submitted; 5,479 distinct IPs from 107 countries; 403,000+ requests |
+| Reports | **85** |
+| Confirmed | **6** — 1 High, 1 Medium, 4 Low |
+| Rejected | 46 Informative, 23 duplicates, 10 out of scope |
+| Acceptance rate | **7%** · duplicate rate **27%** |
+
+**What the confirmed High actually was, and what it paid:**
+
+> "Cache Poisoning in Encryption Group Handling Causes Voting Server
+> Availability Impact" — requests to `sendVote`/`confirmVote` instantiate
+> new encryption-group cache entries **before authentication completes**;
+> the cache is keyed only by `p`, so an attacker can poison it with a
+> different generator `g`. **Reward 19,000 €.**
+
+The Medium was a missing context validation in `sendVote` letting a
+voter specify another voter's `verificationCardId`.
+
+**Both are implementation bugs in the voting server. Neither is a
+cryptographic or specification flaw.** That is the whole correction.
+Every hour I spent cross-referencing the System Specification confirmed
+what this report already implies: the spec surface is clean, and the
+findings that pay come from *running the software*.
+
+Note also: the High paid **€19,000**, not the €50,000 ceiling. And
+`Release 1.6.1` — the exact System Specification version I analysed —
+**is the release that fixed it.** I was reading the post-fix document.
+
+**Two reward schemes, not one, and the board previously conflated them:**
+YesWeHack lists the year-round programme at **€100–230,000**. The PIT
+report states **"rewards of up to 50,000 € per confirmed finding"** plus
+**"an extra bounty of 3,000 € for each of the first three confirmed
+findings"**. Whether the €230,000 is a distinct year-round ceiling or the
+same scheme described differently is **UNKNOWN** — both figures are
+quoted here with their sources rather than reconciled by guess.
+
+**The access structure is the real finding.**
+
+- **Standard PIT: no registration required to test.** Registration is
+  needed only to submit for a reward. Genuinely open.
+- **PIT+ is invitation-only.** 2026 was its first edition: **100+ applied,
+  20 selected.**
+- **Both the High and the Medium originated in PIT+**, where perimeter
+  protections were deliberately relaxed for deeper analysis — then
+  reproduced in the standard PIT as the rules require.
+
+So the valuable findings came from the restricted tier of 20, not the
+open tier of 5,479 IPs.
+
+**And the genuinely ungated route, from `REPORTING.md`:**
+
+> "You can analyse our artefacts by completing: … **dynamically testing a
+> self-deployed and running instance of our system**"
+
+The source is published and self-deployment is explicitly in scope. That
+means the implementation — where both 2026 findings actually were — can
+be tested **on Kyle's own machine, year-round, touching nobody's
+infrastructure, needing no permission and no invitation.** That is the
+first route on this board that is both where the money is and free of
+any gate.
+
+**Revised plan for this target:**
+1. Stop reading specifications. Proven exhausted over two cycles.
+2. Clone `e-voting/e-voting`, follow `BUILDING.md`, run it locally.
+3. Hunt implementation bugs of the 2026 shape — pre-authentication
+   resource allocation, cache keying, missing cross-entity validation.
+4. Register interest in **PIT+ 2027** when it opens. 20 places, 100+
+   applicants, and it is where the paying findings came from.
+
+This intelligence is now a computed capability, not a one-off read:
+`python3 -m foundation.operator_cli pit <report.pdf>` reads any PIT
+final report for acceptance rate, duplicate rate and what each confirmed
+finding paid. Built because `mouth_bounty`/`income_watch` answer "does
+this programme exist" but never "is there anything left in it". Honest
+limitation stated in the module: the extraction is tuned to the 2026
+report's phrasing; the 2022–2025 reports use different prose ("received
+four reports") and return all-UNKNOWN rather than wrong numbers — the
+correct failure direction.
+
 #### 📝 ONE SUBMITTABLE CANDIDATE — Low severity, documentation
 
 **Read `Protocol/sgsp.pdf` (Pierrick Gaudry, CNRS/LORIA, May 2022).**

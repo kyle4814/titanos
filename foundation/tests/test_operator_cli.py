@@ -701,6 +701,37 @@ class TestReachabilityCommand(unittest.TestCase):
         self.assertIn("not a package directory", str(ctx.exception))
 
 
+class TestPitCommand(unittest.TestCase):
+    def _report(self, text):
+        d = tempfile.mkdtemp()
+        p = Path(d) / "pit.txt"
+        p.write_text(text, encoding="utf-8")
+        return str(p)
+
+    def test_it_reports_the_contest_statistics(self):
+        path = self._report(
+            "Swiss Post received a total of 85 reports. 1 High severity "
+            "finding and 4 Low severity findings were confirmed. 23 as "
+            "duplicates, and 10 as out of scope.")
+        code, out, err = _run(["pit", path])
+        self.assertEqual(code, 0)
+        self.assertIn("acceptance rate", out)
+        self.assertIn("85", out)
+
+    def test_a_missing_report_is_a_named_refusal(self):
+        code, out, err = _run(["pit", "/nonexistent/pit.pdf"])
+        self.assertEqual(code, 1)
+        self.assertIn("REFUSED", err)
+
+    def test_an_unreadable_report_says_so(self):
+        d = tempfile.mkdtemp()
+        p = Path(d) / "scan.bin"
+        p.write_bytes(b"\x00\x01\x02\x03\x04\x05\x06\x07")
+        code, out, err = _run(["pit", str(p)])
+        self.assertEqual(code, 0)
+        self.assertIn("nothing extractable", err)
+
+
 class TestExitCodes(unittest.TestCase):
     def test_empty_hunt_report_is_success_not_failure(self):
         from foundation.hunt import HuntReport

@@ -71,6 +71,7 @@ from foundation.discovery_authorization import (
 from foundation.access_barriers import assess_access, format_access
 from foundation.entry_gate import assess_entry, format_entry
 from foundation.reachability import format_reachability, scan_reachability
+from foundation.pit_report import format_pit_summary, summarise_pit_report
 from foundation.spec_crossref import (
     crossref,
     format_crossref,
@@ -936,6 +937,30 @@ def cmd_spec(args) -> int:
     return 0
 
 
+def cmd_pit(args) -> int:
+    """Read a Public Intrusion Test / bounty final report for how
+    contested its target already is: acceptance rate, duplicate rate,
+    and the confirmed findings that actually paid.
+
+    Answers the question mouth_bounty and income_watch cannot: not "does
+    this programme exist" but "is there anything left in it". The 2026
+    Swiss Post report reads 85 submitted, 6 confirmed (7%), 23
+    duplicates (27%) -- the obvious findings are gone, and both paying
+    ones came from the invitation-only tier.
+    """
+    path = Path(args.report)
+    if not path.exists():
+        print(f"REFUSED: no such report: {path}", file=sys.stderr)
+        return 1
+    text = _read_document_text(path)
+    if not text.strip():
+        print(f"NOTE: nothing extractable from {path.name}.", file=sys.stderr)
+    print(f"report: {path.name}")
+    print()
+    print(format_pit_summary(summarise_pit_report(text)))
+    return 0
+
+
 def cmd_reachability(args) -> int:
     """Report which capabilities can actually be invoked.
 
@@ -1136,6 +1161,14 @@ def build_parser() -> "object":
                         help="also report identifiers cited neither by "
                              "number nor by name anywhere")
     p_spec.set_defaults(func=cmd_spec)
+
+    p_pit = sub.add_parser(
+        "pit",
+        help="read a public-intrusion-test / bounty final report for how "
+             "contested a target already is (acceptance rate, duplicates, "
+             "what paid)")
+    p_pit.add_argument("report", help="path to a PIT final report (.pdf/.txt)")
+    p_pit.set_defaults(func=cmd_pit)
 
     p_reach = sub.add_parser(
         "reachability",
