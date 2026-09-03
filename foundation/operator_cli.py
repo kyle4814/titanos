@@ -69,6 +69,7 @@ from foundation.discovery_authorization import (
     DiscoveryPolicy,
 )
 from foundation.access_barriers import assess_access, format_access
+from foundation.entry_gate import assess_entry, format_entry
 from foundation.deal_pipeline import (
     DealBoard,
     DealError,
@@ -544,6 +545,19 @@ def cmd_deals(args) -> int:
     return 0
 
 
+def _looks_like_text(candidate: str) -> bool:
+    """Is this actually readable text, or bytes that happened to decode?
+
+    Judged on the share of printable characters, not on length: a caller
+    may legitimately pass one real sentence, and refusing that would
+    break the honest short-snippet case to catch the binary one.
+    """
+    if not candidate.strip():
+        return False
+    printable = sum(1 for ch in candidate if ch.isprintable() or ch.isspace())
+    return printable / len(candidate) >= 0.85
+
+
 def _rtf_to_text(raw: bytes) -> str:
     """Minimal RTF-to-text. Not a general RTF renderer -- enough to read
     a procurement document's words.
@@ -710,9 +724,25 @@ def _read_document_text(path: Path) -> str:
             return ""
         return "\n".join((page.extract_text() or "") for page in reader.pages)
     try:
-        return path.read_text(encoding="utf-8", errors="ignore")
+        raw_text = path.read_text(encoding="utf-8", errors="ignore")
     except OSError:
         return ""
+    # A FILE THAT IS NOT TEXT MUST READ AS UNREADABLE, NOT AS PERMISSIVE.
+    #
+    # Eight bytes of binary decode under errors="ignore" to a short
+    # non-empty string, which is truthy, which made `assess_entry()`
+    # report NO_GATE_STATED -- a confident "this document states no
+    # entry requirement" computed over noise. `assess_access()` had the
+    # identical hole. Both callers already handle "" correctly as
+    # NOT_ASSESSED; the fix belongs here, once, rather than as a length
+    # check in each of them.
+    #
+    # Same failure family as the .docx attribute leak and the unparsed
+    # .rtf above: output that looks like a verdict, computed over
+    # something that was never read.
+    if not _looks_like_text(raw_text):
+        return ""
+    return raw_text
 
 
 def cmd_access(args) -> int:
@@ -805,6 +835,37 @@ def cmd_deep_ireland(args) -> int:
         print(f"    {item.get('organisation', '')[:70]}  "
               f"value={item.get('value_text', '') or 'UNKNOWN'}")
         print(f"    {item.get('link', '')}")
+    return 0
+
+
+def cmd_gates(args) -> int:
+    """Read a tender document for what it costs the OPERATOR to start.
+
+    Separate from `access` on purpose. `access` answers "can this notice
+    be reached at all" -- fees, paper-only submission, site visits.
+    This answers a different question that no other surface in this
+    repository answers: which requirements need Kyle personally, which
+    close by doing work or partnering, and which the document itself
+    defers until after admission.
+
+    That last column is the one worth having. Iarnrod Eireann and RTE
+    make the identical insurance demand; one is a Pass/Fail gate at
+    admission and the other applies only once you have been selected to
+    call-off. A tool that reports both as "insurance required" throws
+    away the difference between a wall and a later errand.
+    """
+    path = Path(args.document)
+    if not path.exists():
+        print(f"REFUSED: no such document: {path}", file=sys.stderr)
+        return 1
+    text = _read_document_text(path)
+    print(f"document : {path.name}")
+    print(f"extracted: {len(text)} characters")
+    if not text.strip():
+        print("NOTE     : nothing extractable. A scanned image reads the "
+              "same as a permissive document from here -- open it yourself.")
+    print()
+    print(format_entry(assess_entry(text)))
     return 0
 
 
@@ -960,6 +1021,15 @@ def build_parser() -> "object":
                         help="print every notice, not only the "
                              "security-relevant ones")
     p_deep.set_defaults(func=cmd_deep_ireland)
+
+    p_gates = sub.add_parser(
+        "gates",
+        help="read a tender document for what it costs YOU to start: which "
+             "requirements need you personally, which close by doing the "
+             "work, and which the document defers until after admission")
+    p_gates.add_argument("document",
+                         help="path to a .pdf, .docx, .rtf or text document")
+    p_gates.set_defaults(func=cmd_gates)
 
     p_profile = sub.add_parser(
         "profile", help="show the currently configured operator profile")

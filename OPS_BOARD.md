@@ -379,10 +379,28 @@ triples their own bar.
 One buyer. One document shape. Four ways in. If a conversation with CIE
 works once, the template is already understood for the rest.
 
-**Still UNKNOWN and it applies to every one of them:** the PQQ
-submission deadline sits on a front cover that does not extract, and
-whether an Australian sole trader can obtain the Irish Tax Clearance
-Certificate has not been verified.
+#### ✅ THE DEADLINES — RESOLVED 2026-09-04, AND THEY ARE YEARS AWAY
+
+Two cycles of this board recorded the PQQ deadline as UNKNOWN because
+"the front cover did not extract". **That was wrong.** The text was in
+the document the whole time; I searched the wrong offset — the cover
+page sits past the header block, not at character zero. Quoted from the
+documents themselves:
+
+| System | CLOSING DATE FOR RETURN OF COMPLETED QUESTIONNAIRE |
+|---|---|
+| **7289 Penetration Testing** | "**Before Jan 2029**" |
+| **7162 ICT Consultancy** | "**Open for application till Feb 2029**" |
+| **7764 ICT Professional Services** | "**6th April 2029**" |
+
+All three are open for years, not weeks. There is no deadline pressure
+on the best lead this campaign has found — which changes the sequencing:
+this is a thing to do properly, not quickly.
+
+**One UNKNOWN genuinely remains:** whether an Australian sole trader can
+obtain the Irish Tax Clearance Certificate the documents require at
+contract award. Note where that requirement sits — Irish Rail defers it
+to *contract award*, not admission, so it does not block applying.
 
 **And the real gate is not insurance.** It is the 24×7 staffed service
 and the named-reference requirement — three of the nine demand a
@@ -1135,6 +1153,81 @@ passed, and those rows are lost silently.
 `freeText` was re-tested against the correct endpoint as well and is
 **genuinely ignored** — a real query and a nonsense query return
 byte-identical rows. That one was right.
+
+### Every opportunity now carries what it costs YOU to start
+
+`python3 -m foundation.operator_cli gates <document>`
+
+Every ranking surface in this project sorted by what an opportunity is
+worth. None sorted by what it costs to begin — which is why a €175M DPS
+sat at the top of this board and the €250k penetration-testing
+qualification system that is actually reachable sat underneath it.
+
+`foundation/entry_gate.py` computes three columns per document:
+
+- **needs you personally** — registration, legal entity, identity
+  verification, certification, insurance, entry fee. Nothing you build
+  closes these.
+- **closable by work or partnering** — turnover, references, local
+  presence, round-the-clock staffing.
+- **deferred by the document itself** — requirements the buyer's own
+  words push past admission.
+
+That third column is the one worth having, and it is exactly the
+distinction two cycles of hand-reading produced: RTÉ and Irish Rail make
+the **identical** insurance demand, and one is a Pass/Fail gate at
+admission while the other applies only once you have been selected to
+call-off. A tool reporting both as "insurance required" throws away the
+difference between a wall and a later errand.
+
+**Run across all six Irish documents, cheapest-to-start first:**
+
+```
+cost   chars     document                        needs you to start
+  8   136,017   Irish Rail 7162 ICT consultancy   NONE
+  8   129,864   Irish Rail 7289 penetration test  NONE
+ 14    68,315   RTÉ 25P041 cyber DPS              INSURANCE
+ 15     7,569   Asiera Part B  (FRAGMENT)         NONE — see caution
+ 16    80,458   Gas Networks Ireland 23/049       INSURANCE, TAX CLEARANCE
+ 26    70,187   HSE 22167 unified cyber IR        INSURANCE
+```
+
+That order is the one this board reached by hand over two cycles. It is
+now computed, so the next sweep cannot quietly revert to sorting by
+contract value.
+
+**It got the answer backwards first, and that is recorded on purpose.**
+The first version weighted by *who must act* alone and put Asiera at the
+top as the cheapest thing on the board — Asiera, which demands a
+**24×7×365 staffed Security Operations Centre**. Weighting a
+round-the-clock service the same as a turnover figure, because neither
+needs a signature, is how the least reachable opportunity in Ireland
+became the recommendation. Four more defects came out of testing against
+documents whose verdicts were already known by hand:
+
+- `company registration number` matched the **applicant-details form
+  field** every PQQ carries — a question asking who you are, read as a
+  requirement to be a company.
+- `ISO 27001` matched RTÉ **describing the services it wants to buy**,
+  and `ISO 9001` matched a scored question you may answer "no" to. Same
+  class as the TED sweep matching "Market research services" as market
+  engagement when it was the service being procured.
+- RTÉ's Pass/Fail insurance table was read as **deferred**, because an
+  unrelated tax-clearance sentence sat inside the staging window —
+  inverting the one distinction the module exists to make. Admission
+  evidence now beats deferral evidence.
+- Irish Rail's insurance clause was **not detected at all**: its PQQs
+  name no policy type, only "the insurance requirements of the
+  Contract". A gate the tool cannot see cannot be reported as deferred,
+  and being deferred is the entire finding for those three documents.
+
+**And the fragment problem, which is not fixed and is instead labelled.**
+Asiera's Part B is 7,569 characters of a multi-file pack. It scored
+cheap because most of its requirements live in files the assessment
+never saw. Entry cost is comparable only between comparably complete
+reads, so every assessment carries `chars_read` and anything under
+20,000 characters prints a CAUTION. A low score on a fragment means an
+unread pack, not an open door.
 
 ### The full-register walk is now a command, not a script
 

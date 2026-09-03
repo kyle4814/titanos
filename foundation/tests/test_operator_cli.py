@@ -564,6 +564,55 @@ class TestDeepIrelandCommand(unittest.TestCase):
         m.assert_called_once_with(max_pages=5, throttle_seconds=0.5)
 
 
+class TestGatesCommand(unittest.TestCase):
+    """`gates` answers a question no other surface here answers: what
+    does starting cost the operator personally. It is deliberately not
+    folded into `access`, which answers whether the notice can be
+    reached at all."""
+
+    def _doc(self, text):
+        d = tempfile.mkdtemp()
+        p = Path(d) / "notice.txt"
+        p.write_text(text, encoding="utf-8")
+        return str(p)
+
+    def test_a_deferred_requirement_is_reported_as_not_needed_to_start(self):
+        path = self._doc(
+            "Applicants should note that those who have been selected to "
+            "Call-Off stage, will be required to comply with the insurance "
+            "requirements of the IE Standard Contract.")
+        code, out, err = _run(["gates", path])
+        self.assertEqual(code, 0)
+        self.assertIn("NOT required to start", out)
+
+    def test_an_admission_requirement_is_reported_against_the_operator(self):
+        path = self._doc(
+            "P3 Minimum Insurance Requirements Pass/Fail. Tenderers must "
+            "maintain the following minimum levels of insurance cover: "
+            "Public Liability EUR6.5M.")
+        code, out, err = _run(["gates", path])
+        self.assertIn("needs the operator personally : 1", out)
+
+    def test_a_missing_document_is_a_named_refusal_not_a_traceback(self):
+        code, out, err = _run(["gates", "/nonexistent/notice.pdf"])
+        self.assertEqual(code, 1)
+        self.assertIn("REFUSED", err)
+
+    def test_an_unreadable_document_is_never_reported_as_permissive(self):
+        d = tempfile.mkdtemp()
+        p = Path(d) / "scan.bin"
+        p.write_bytes(b"\x00\x01\x02\x03\x04\x05\x06\x07")
+        code, out, err = _run(["gates", str(p)])
+        self.assertEqual(code, 0)
+        self.assertIn("NOT_ASSESSED", out)
+
+    def test_it_never_calls_a_clean_read_ungated(self):
+        path = self._doc("The authority seeks a supplier of advisory services.")
+        code, out, err = _run(["gates", path])
+        self.assertIn("NO_GATE_STATED", out)
+        self.assertNotIn("UNGATED", out)
+
+
 class TestExitCodes(unittest.TestCase):
     def test_empty_hunt_report_is_success_not_failure(self):
         from foundation.hunt import HuntReport
