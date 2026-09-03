@@ -199,6 +199,15 @@ class TestClosePackCommand(unittest.TestCase):
         self.assertNotRegex(out, r"\b\d{11}\b")
 
 
+class TestSituationCommand(unittest.TestCase):
+    def test_situation_prints_a_computed_bottleneck(self):
+        code, out, err = _run(["situation"])
+        self.assertEqual(code, 0, err)
+        self.assertIn("BOTTLENECK", out)
+        self.assertIn("identity", out.lower())
+        self.assertIn("not authority to act", out)
+
+
 class TestHuntDryRunDefault(unittest.TestCase):
     """`--live` is never passed here -- these tests assert dry-run is the
     default and that no network call is attempted."""

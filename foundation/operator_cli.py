@@ -565,6 +565,16 @@ def cmd_digest(args) -> int:
     return 0
 
 
+def cmd_situation(args) -> int:
+    """Print the ops bottleneck analysis, computed by situation_analysis
+    (the repo's largest capability, previously reachable from nothing) over
+    the real income situation. The engine derives the bottleneck from
+    dependency structure — it is not told the answer."""
+    from foundation.ops_situation import analyse_ops_bottleneck, render_bottleneck
+    print(render_bottleneck(analyse_ops_bottleneck()))
+    return 0
+
+
 def cmd_close_pack(args) -> int:
     """Print the close pack: every live deal at its submit line, the wall
     it stops at, the facts still needed from Kyle, and the ready-to-send
@@ -1393,6 +1403,12 @@ def build_parser() -> "object":
         help="every live deal at its submit line: the wall, the facts still "
              "needed from Kyle, and ready-to-send inquiry drafts")
     p_close.set_defaults(func=cmd_close_pack)
+
+    p_situation = sub.add_parser(
+        "situation",
+        help="bottleneck analysis over the real income situation, computed by "
+             "situation_analysis (not asserted)")
+    p_situation.set_defaults(func=cmd_situation)
 
     return parser
 

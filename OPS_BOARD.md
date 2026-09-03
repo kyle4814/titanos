@@ -1855,6 +1855,18 @@ scanner had no automated caller — it ran when someone remembered. Every
 "secrets: 0" line on this board came from me invoking it by hand each
 cycle. That is a safety control resting on habit.
 
+**FIXED 2026-09-04. 21 → 20 — `situation_analysis` wired.** The largest
+capability in the repository (977 lines: bottleneck / tension / off-ramp
+analysis) was reachable from nothing. Wired via `foundation/ops_situation.py`
+→ `operator_cli situation`: it builds a real `SituationAnalysis` from the
+verified operator facts (profile empty) and the live deals, then lets the
+engine COMPUTE the bottleneck from dependency structure. It independently
+derives what the close pack asserts by hand — **identity credentials (name/
+ABN/address/contact) block all 15 live deals; declared experience blocks 4**
+— the engine is never told the answer. 6 tests, honest AMBIGUOUS_MULTIPLE
+(the engine refuses to force a single winner when two constraints both score
+HIGH, and the rationale shows 15 vs 4 so the reader sees which dominates).
+
 **FIXED 2026-09-04, same night. 23 → 22.** `sentinel.check_high_
 confidence_secrets()` now runs on every pulse sweep, which is part of
 the standing cycle protocol. It is deliberately **HIGH and MEDIUM only**:
