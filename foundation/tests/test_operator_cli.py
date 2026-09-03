@@ -467,6 +467,103 @@ class TestDocumentTextExtraction(unittest.TestCase):
         self.assertIsInstance(operator_cli._read_document_text(path), str)
 
 
+class TestDeepIrelandCommand(unittest.TestCase):
+    """`deep_sweep()` was built, tested and then reachable only from a
+    Python shell -- the same unwired-capability shape as the mouths that
+    sat outside `sources_for_query()` for a cycle. These tests pin the
+    command AND the honesty rule it exists to carry."""
+
+    def test_dry_run_is_the_default_and_touches_nothing(self):
+        with patch.object(operator_cli.mouth_etenders_ie, "deep_sweep") as m:
+            code, out, err = _run(["deep-ireland"])
+        m.assert_not_called()
+        self.assertEqual(code, 0)
+        self.assertIn("DRY RUN", out)
+
+    def test_dry_run_states_the_time_cost_before_the_operator_commits(self):
+        """~293 sequential requests against one public government server
+        is not something to discover halfway through."""
+        code, out, err = _run(["deep-ireland"])
+        self.assertIn("minutes", out)
+        self.assertIn("throttle", out)
+
+    def test_live_walk_prints_the_security_relevant_notices(self):
+        walk = operator_cli.mouth_etenders_ie.DeepWalk(
+            items=({"key": "1", "title": "Penetration Testing Framework",
+                    "organisation": "Irish Rail", "deadline": "",
+                    "value_text": "", "description": "cyber security"},
+                   {"key": "2", "title": "Road resurfacing",
+                    "organisation": "Council", "deadline": "Fri Oct 02 2026",
+                    "value_text": "100", "description": "asphalt"}),
+            pages_walked=293, complete=True,
+            stopped_because="page 294 carried no rows -- end of register")
+        with patch.object(operator_cli.mouth_etenders_ie, "deep_sweep",
+                          return_value=walk):
+            code, out, err = _run(["deep-ireland", "--live"])
+        self.assertEqual(code, 0)
+        self.assertIn("Penetration Testing Framework", out)
+        self.assertNotIn("Road resurfacing", out)
+
+    def test_all_flag_shows_everything(self):
+        walk = operator_cli.mouth_etenders_ie.DeepWalk(
+            items=({"key": "2", "title": "Road resurfacing",
+                    "organisation": "Council", "deadline": "x",
+                    "value_text": "", "description": "asphalt"},),
+            pages_walked=293, complete=True,
+            stopped_because="end of register")
+        with patch.object(operator_cli.mouth_etenders_ie, "deep_sweep",
+                          return_value=walk):
+            code, out, err = _run(["deep-ireland", "--live", "--all"])
+        self.assertIn("Road resurfacing", out)
+
+    def test_an_empty_deadline_is_labelled_not_left_blank(self):
+        """On this source an empty deadline is not missing data -- it is
+        the defining property of a Dynamic Purchasing System, which is
+        the whole finding of 2026-09-03. Printing a gap there buries it."""
+        walk = operator_cli.mouth_etenders_ie.DeepWalk(
+            items=({"key": "1", "title": "Cyber Security Services DPS",
+                    "organisation": "RTE", "deadline": "  ",
+                    "value_text": "", "description": "cyber"},),
+            pages_walked=293, complete=True, stopped_because="end of register")
+        with patch.object(operator_cli.mouth_etenders_ie, "deep_sweep",
+                          return_value=walk):
+            code, out, err = _run(["deep-ireland", "--live"])
+        self.assertIn("NO CLOSING DATE", out)
+
+    def test_an_incomplete_walk_is_warned_about_loudly(self):
+        """The load-bearing case. A truncated walk that reads as a whole
+        one turns 'Ireland has no security tender' into a conclusion
+        drawn from the part that happened to be read."""
+        walk = operator_cli.mouth_etenders_ie.DeepWalk(
+            items=(), pages_walked=3, complete=False,
+            stopped_because="stopped at page 4: FetchError: connection reset")
+        with patch.object(operator_cli.mouth_etenders_ie, "deep_sweep",
+                          return_value=walk):
+            code, out, err = _run(["deep-ireland", "--live"])
+        self.assertIn("WARNING", out)
+        self.assertIn("PREFIX", out)
+        self.assertIn("connection reset", out)
+
+    def test_a_complete_walk_carries_no_warning(self):
+        walk = operator_cli.mouth_etenders_ie.DeepWalk(
+            items=(), pages_walked=293, complete=True,
+            stopped_because="page 294 carried no rows -- end of register")
+        with patch.object(operator_cli.mouth_etenders_ie, "deep_sweep",
+                          return_value=walk):
+            code, out, err = _run(["deep-ireland", "--live"])
+        self.assertNotIn("WARNING", out)
+
+    def test_page_and_throttle_limits_are_passed_through(self):
+        walk = operator_cli.mouth_etenders_ie.DeepWalk(
+            items=(), pages_walked=1, complete=True,
+            stopped_because="end of register")
+        with patch.object(operator_cli.mouth_etenders_ie, "deep_sweep",
+                          return_value=walk) as m:
+            _run(["deep-ireland", "--live", "--max-pages", "5",
+                  "--throttle-seconds", "0.5"])
+        m.assert_called_once_with(max_pages=5, throttle_seconds=0.5)
+
+
 class TestExitCodes(unittest.TestCase):
     def test_empty_hunt_report_is_success_not_failure(self):
         from foundation.hunt import HuntReport

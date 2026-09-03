@@ -92,6 +92,7 @@ from foundation.hunt import (
     with_recency,
 )
 from foundation.hunt_loop import HUNT_STOP_FILENAME, render_hunt_cycle, run_hunt_loop
+from foundation import mouth_etenders_ie
 from foundation import income_watch
 from foundation.qualification import OperatorProfile
 from foundation.relevance import CapabilityProfile
@@ -744,6 +745,69 @@ def cmd_access(args) -> int:
     return 0
 
 
+def cmd_deep_ireland(args) -> int:
+    """Walk Ireland's whole open register rather than its first 200 rows.
+
+    WHY THIS IS A SEPARATE COMMAND AND NOT A `hunt` FLAG. A routine hunt
+    is seven sources and finishes in seconds. This is ~293 sequential
+    requests against one public government server and takes ten minutes.
+    Folding it into `hunt` would put that load on every sweep, including
+    every cron tick -- so it is deliberately a thing the operator asks
+    for.
+
+    It exists because the 20-page routine sweep reaches 7% of the
+    register, and on 2026-09-03 the other 93% held nine cyber
+    qualification systems with no closing date, every one of them
+    invisible to this project for its whole campaign.
+    """
+    if not args.live:
+        print("DRY RUN (default) -- no network request will be made.")
+        print(f"  target      : {mouth_etenders_ie.RESULTS_URL}")
+        print(f"  order       : stable title sort (not recency -- a "
+              f"ten-minute walk in recency order loses rows across page "
+              f"boundaries it has already passed)")
+        print(f"  max pages   : {args.max_pages}  "
+              f"({args.max_pages * 10} notices at 10 rows/page)")
+        print(f"  throttle    : {args.throttle_seconds}s between pages")
+        print(f"  estimated   : ~{int(args.max_pages * (args.throttle_seconds + 1) / 60)} minutes")
+        print("Pass --live to actually fetch.")
+        return 0
+
+    walk = mouth_etenders_ie.deep_sweep(
+        max_pages=args.max_pages, throttle_seconds=args.throttle_seconds)
+
+    print(f"pages fetched : {walk.pages_walked}")
+    print(f"notices       : {len(walk.items)}")
+    print(f"complete      : {walk.complete}")
+    print(f"stopped       : {walk.stopped_because}")
+    if not walk.complete:
+        # The load-bearing line. A truncated walk that reads as a whole
+        # one turns "Ireland has no security tender" into a conclusion
+        # drawn from the part that happened to be read.
+        print()
+        print("WARNING: this walk did NOT reach the end of the register. "
+              "The notices below are a PREFIX of it, not the whole thing "
+              "-- do not read an absence here as an absence in Ireland.")
+
+    shown = walk.items if args.all else walk.security_relevant
+    print()
+    print(f"showing {len(shown)} "
+          f"{'notices' if args.all else 'security-relevant notices'}")
+    print()
+    for item in sorted(shown, key=lambda i: i.get("deadline", "") or "zzz"):
+        deadline = item.get("deadline", "").strip()
+        # An empty deadline is not missing data on this source: it is
+        # the defining property of a Dynamic Purchasing / Qualification
+        # System, which never closes. Say so rather than printing a gap.
+        marker = deadline if deadline else "NO CLOSING DATE (rolling admission)"
+        print(f"  {marker}")
+        print(f"    {item.get('title', '')[:100]}")
+        print(f"    {item.get('organisation', '')[:70]}  "
+              f"value={item.get('value_text', '') or 'UNKNOWN'}")
+        print(f"    {item.get('link', '')}")
+    return 0
+
+
 def cmd_profile(args) -> int:
     try:
         loaded = load_operator_profile()
@@ -874,6 +938,28 @@ def build_parser() -> "object":
     p_access.add_argument("document",
                           help="path to a .pdf, .docx or text tender document")
     p_access.set_defaults(func=cmd_access)
+
+    p_deep = sub.add_parser(
+        "deep-ireland",
+        help="walk Ireland's ENTIRE open tender register (~2,900 notices, "
+             "~293 pages, ~10 minutes) instead of the 200 rows a routine "
+             "hunt reaches")
+    p_deep.add_argument("--live", action="store_true",
+                        help="actually fetch over the network. Default is dry-run.")
+    p_deep.add_argument("--max-pages", type=int,
+                        default=mouth_etenders_ie.DEEP_MAX_PAGES,
+                        help="stop after N pages (default: "
+                             f"{mouth_etenders_ie.DEEP_MAX_PAGES}). A walk that "
+                             "stops here is reported as INCOMPLETE.")
+    p_deep.add_argument("--throttle-seconds", type=float,
+                        default=mouth_etenders_ie.DEEP_THROTTLE_SECONDS,
+                        help="courtesy pause between page fetches against a "
+                             "public government server (default: "
+                             f"{mouth_etenders_ie.DEEP_THROTTLE_SECONDS})")
+    p_deep.add_argument("--all", action="store_true",
+                        help="print every notice, not only the "
+                             "security-relevant ones")
+    p_deep.set_defaults(func=cmd_deep_ireland)
 
     p_profile = sub.add_parser(
         "profile", help="show the currently configured operator profile")

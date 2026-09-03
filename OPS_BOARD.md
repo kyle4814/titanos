@@ -270,16 +270,82 @@ Round 1 queries closed 13 February 2024. A qualification system admits
 continuously, so later rounds should exist — **UNKNOWN, and worth one
 message through the eTenders facility before doing any work.**
 
-The other six remain unread. HSE's three (€60M, €60M, €16M) and Asiera's
-€175M are large enough to expect RTÉ-shaped insurance gates.
+#### ALL NINE ARE NOW RESOLVED — 2026-09-04
 
-**What three readings establish, and it is worth stating plainly: the
-nine are not one thing.** RTÉ demands held insurance at admission and is
-a definite no. Irish Rail defers insurance to call-off entirely. Gas
-Networks Ireland wants only a broker's letter of arrangeability. The
-same instrument, the same country, three different answers — so "DPS"
-is not a shortcut, and no conclusion about the remaining six should be
-drawn from these three.
+Every remaining document was downloaded and read. The result is one live
+lead, one maybe, five hard noes and two unread-for-a-stated-reason.
+
+| System | Verdict | The clause that decides it |
+|---|---|---|
+| **Irish Rail CIE 7289** (×2, same PQQ) | ✅ **PURSUE** | €250k turnover, four written routes to meet it with a third party, insurance deferred to call-off |
+| **Gas Networks Ireland 23/049** | ⚠️ **MAYBE** | €175k pro-rata, insurance only "can be arranged" — but personal employment experience explicitly excluded |
+| **Asiera / HEAnet €175M** | ❌ | "must provide their SOC and Incident Response Services on a **24 hour a day, 7 days a week, 365 days a year**" basis |
+| **RTÉ 25P041 €7.5M** | ❌ | Public Liability €6.5M / Cyber €1.0M / Professional €1.0M, **held**, Pass/Fail at admission |
+| **HSE 21236 Managed Threat Detection €60M** | ❌ | staff-in-Ireland + Dublin on-site (below) |
+| **HSE 22167 Unified Cyber IR €16M** | ❌ | same clause, same document family |
+| **HSE 22167 (second entry)** | ❌ (inferred) | same HSE ref 22167 — **inferred, not separately read** |
+| **HSE 23097 CISO Threat & Vuln €60M** | **UNREAD** | its document exceeds the fetcher's 5 MB cap — see below |
+
+**The HSE clause, quoted, and it is not about money at all:**
+
+> **IV.5 Service Provision** — the service "can be provided
+> **24/7/365** for the lifetime of the contract", "is **delivered by
+> staff based within Republic of Ireland**", "Cyber IR **onsite within
+> 24hrs**", "Service provider must be able to provide **Dublin based
+> non-contract resources** to support on-site".
+>
+> **IV.4 Relevant Experience** — "supplied on at least **three (3)
+> occasions**' products or services similar in scope ... in the last
+> three (3) years", with contract values and references. 200 of 400
+> marks to pass.
+
+HSE's insurance clause is actually soft — "has in place (**or has the
+ability to obtain**)" — and its financial test is about outstanding
+claims and audit opinion, not a turnover number. It doesn't matter. A
+Cairns sole trader cannot base staff in the Republic of Ireland or put
+someone in Dublin within 24 hours. That is a geography wall, and it is
+the first one this campaign has hit that money cannot move.
+
+**Asiera is the same story from the other direction.** Its admission
+document was the softest found anywhere — turnover "exceeded €500,000 in
+**any** of the last three financial years, **or pro-rata if more
+recently established**", insurance satisfiable by "a statement
+confirming that should the company be **awarded the contract**, it is
+willing and able to raise its insurance cover to these levels", tax
+clearance satisfiable by confirming you have *applied*. Then Part B, the
+per-lot half, asks for a 24×7×365 SOC, **three named customer
+references** with addresses and phone numbers, and evidence of a single
+order worth **€80,000/year**. Soft front door, locked back door.
+
+**One is genuinely unread, and the reason is a limit in our own code.**
+HSE 23097's document set is served as `T4 for etenders.zip`, which
+`mouth_common.fetch_feed()` refused:
+
+```
+exceeds MAX_FEED_BYTES (5242880) — refusing to buffer an unbounded
+remote response; treated as UNAVAILABLE
+```
+
+That cap is correct and should not be raised to read one file. Recorded
+as UNREAD rather than guessed at from its siblings — HSE's other two are
+noes, but "probably the same" is not a reading.
+
+**What nine readings establish: the instrument tells you nothing.**
+Five different admission shapes appeared under the same three letters —
+insurance held at admission (RTÉ), insurance deferred to call-off (Irish
+Rail), insurance as a broker's arrangeability letter (GNI), insurance as
+a promise to raise cover if awarded (Asiera), and insurance as a
+self-declared ability to obtain (HSE). "It's a DPS" predicts nothing.
+Each one had to be opened.
+
+**And the real gate is not insurance.** It is the 24×7 staffed service
+and the named-reference requirement — three of the nine demand a
+round-the-clock operation, which no amount of insurance, turnover or
+subcontracting rhetoric gets a solo operator past. Irish Rail is the
+exception because **penetration testing is project work, not a
+staffed service.** That is the actual selection rule, and it is worth
+carrying to every future sweep: *look for the engagement-shaped
+services, not the operations-shaped ones.*
 
 ---
 
@@ -1023,6 +1089,22 @@ passed, and those rows are lost silently.
 `freeText` was re-tested against the correct endpoint as well and is
 **genuinely ignored** — a real query and a nonsense query return
 byte-identical rows. That one was right.
+
+### The full-register walk is now a command, not a script
+
+`python3 -m foundation.operator_cli deep-ireland` — dry-run by default,
+`--live` to walk. It states the time cost before you commit (~293
+requests, ~10 minutes), labels an empty deadline as
+`NO CLOSING DATE (rolling admission)` rather than printing a gap, and
+**refuses to present a truncated walk as a whole one**: a walk stopped
+by budget, page cap or a dropped connection prints a warning that the
+results are a prefix of the register, so an absence in them is never
+read as an absence in Ireland.
+
+It was built last cycle and reachable only from a Python shell — the
+same unwired shape as the Denmark and Netherlands mouths that sat
+outside the source registry for a cycle. A capability nobody can invoke
+is not a capability.
 
 ### Two document readers were returning markup, not words
 
