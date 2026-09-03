@@ -121,9 +121,31 @@ class Opportunity:
                 f"opportunity {self.opp_id!r} has no actions — a card with "
                 f"no next step is not actionable")
 
-    @property
-    def badge(self) -> str:
-        return _STATUS_BADGE[self.status]
+    def deadline_date(self) -> Optional[date]:
+        """The parsed closing date, or None if the deadline is standing
+        or unparseable. Only a confidently-parsed date can ever expire a
+        card — the fail-safe direction is 'never hide a live opportunity'."""
+        return _parse_deadline_date(self.deadline)
+
+    def is_expired(self, now: Optional[datetime] = None) -> bool:
+        """True only when a parseable closing date is strictly in the
+        past. An unparseable or standing deadline is never expired."""
+        d = self.deadline_date()
+        if d is None:
+            return False
+        today = (now or datetime.now(timezone.utc)).date()
+        return d < today
+
+    def effective_status(self, now: Optional[datetime] = None) -> str:
+        """The status to render TODAY. A passed deadline drops the card to
+        WATCH regardless of its stored status — so an expired tender can
+        never keep showing as DO NOW / ACT SOON and mislead the operator."""
+        return "WATCH" if self.is_expired(now) else self.status
+
+    def badge(self, now: Optional[datetime] = None) -> str:
+        if self.is_expired(now):
+            return "⏱ CLOSED"
+        return _STATUS_BADGE[self.effective_status(now)]
 
 
 # ---------------------------------------------------------------------------
@@ -432,11 +454,62 @@ OPPORTUNITIES: tuple[Opportunity, ...] = (
 )
 
 
-def live_opportunities() -> tuple[Opportunity, ...]:
-    """The roster, sorted by actionability then by whether a deadline
-    presses. Deterministic — same order every run."""
+_MONTHS = {m.lower(): i for i, m in enumerate(
+    ["January", "February", "March", "April", "May", "June", "July",
+     "August", "September", "October", "November", "December"], 1)}
+
+
+def _parse_deadline_date(deadline: str) -> Optional[date]:
+    """Best-effort parse of a closing date from a free-form deadline
+    string. Handles ISO (2026-09-14), 'D Month YYYY' (6 April 2029),
+    'Month YYYY' (Feb 2029 -> the 1st, deliberately conservative so a
+    whole-month window is not called closed early), and DD/MM/YYYY.
+    Returns None when nothing parses — and None NEVER expires a card, so
+    an unrecognised phrasing can only fail safe (stay visible)."""
+    text = deadline.replace(",", " ")
+    tokens = text.split()
+    # ISO or DD/MM/YYYY tokens first.
+    for tok in tokens:
+        for fmt in ("%Y-%m-%d", "%d/%m/%Y"):
+            try:
+                return datetime.strptime(tok, fmt).date()
+            except ValueError:
+                continue
+    # 'D Month YYYY' or abbreviated month.
+    low = [t.lower().rstrip(".") for t in tokens]
+    for i, tok in enumerate(low):
+        month = None
+        for name, num in _MONTHS.items():
+            if tok == name or (len(tok) >= 3 and name.startswith(tok)):
+                month = num
+                break
+        if month is None:
+            continue
+        year = None
+        day = 1
+        # year: any 4-digit token nearby
+        for t in tokens:
+            if len(t) == 4 and t.isdigit():
+                year = int(t)
+                break
+        # day: a 1-2 digit token immediately before the month
+        if i >= 1 and low[i - 1].isdigit() and len(low[i - 1]) <= 2:
+            day = int(low[i - 1])
+        if year is not None:
+            try:
+                return date(year, month, day)
+            except ValueError:
+                return None
+    return None
+
+
+def live_opportunities(now: Optional[datetime] = None) -> tuple[Opportunity, ...]:
+    """The roster, sorted by EFFECTIVE status (a passed deadline sinks a
+    card to WATCH) then by whether a deadline presses. Deterministic for a
+    fixed `now`."""
     def _key(o: Opportunity) -> tuple:
-        return (STATUS_ORDER.index(o.status), _deadline_sort_key(o.deadline))
+        return (STATUS_ORDER.index(o.effective_status(now)),
+                _deadline_sort_key(o.deadline))
     return tuple(sorted(OPPORTUNITIES, key=_key))
 
 
@@ -444,11 +517,9 @@ def _deadline_sort_key(deadline: str) -> tuple:
     """Sort a soonest-first date ahead of a standing/none item. Non-date
     strings sort last (large sentinel), so a real 2026-09-14 beats
     'None (standing)' without needing to parse every phrasing."""
-    for token in deadline.replace(",", " ").split():
-        try:
-            return (0, datetime.strptime(token, "%Y-%m-%d").date().toordinal())
-        except ValueError:
-            continue
+    d = _parse_deadline_date(deadline)
+    if d is not None:
+        return (0, d.toordinal())
     return (1, 0)
 
 
@@ -467,16 +538,23 @@ def render_portfolio_header(opps: tuple[Opportunity, ...],
     """The first message: the whole portfolio at a glance, phone-first."""
     now = now or datetime.now(timezone.utc)
     counts: dict[str, int] = {}
+    expired = 0
     for o in opps:
-        counts[o.status] = counts.get(o.status, 0) + 1
+        if o.is_expired(now):
+            expired += 1
+        counts[o.effective_status(now)] = counts.get(o.effective_status(now), 0) + 1
+    live_count = len(opps) - expired
     lines = [
         "💰 <b>TITANOS MONEY-PRINTER — OPS DIGEST</b>",
         f"<i>{now.strftime('%a %d %b %Y %H:%M UTC')}</i>",
         "",
-        f"<b>{len(opps)}</b> live opportunities you CAN move on. "
+        f"<b>{live_count}</b> live opportunities you CAN move on. "
         f"{ruled_out} already ruled out (references/insurance walls) — not shown.",
         "",
     ]
+    if expired:
+        lines.append(f"⏱ {expired} closed since last run — shown at the bottom, marked.")
+        lines.append("")
     for status in STATUS_ORDER:
         if counts.get(status):
             lines.append(f"{_STATUS_BADGE[status]} — {counts[status]}")
@@ -488,9 +566,11 @@ def render_portfolio_header(opps: tuple[Opportunity, ...],
     return "\n".join(lines)
 
 
-def _render_one_html(o: Opportunity, index: int, total: int) -> str:
+def _render_one_html(o: Opportunity, index: int, total: int,
+                     now: Optional[datetime] = None) -> str:
+    expired = o.is_expired(now)
     lines = [
-        f"{o.badge}  <b>{_esc(o.title)}</b>  <i>({index}/{total})</i>",
+        f"{o.badge(now)}  <b>{_esc(o.title)}</b>  <i>({index}/{total})</i>",
         "",
         _esc(o.what),
         "",
@@ -498,10 +578,15 @@ def _render_one_html(o: Opportunity, index: int, total: int) -> str:
         f"🔒 <b>Gate:</b> {_esc(o.gate)}",
         f"⏰ <b>Deadline:</b> {_esc(o.deadline)}",
         "",
-        "<b>Do this:</b>",
     ]
-    for i, act in enumerate(o.actions, 1):
-        lines.append(f"  {i}. {_esc(act)}")
+    if expired:
+        d = o.deadline_date()
+        lines += [f"⏱ <b>CLOSED {d.isoformat() if d else ''}</b> — the window "
+                  "has passed; here for the record, not to act on.", ""]
+    else:
+        lines.append("<b>Do this:</b>")
+        for i, act in enumerate(o.actions, 1):
+            lines.append(f"  {i}. {_esc(act)}")
     lines += ["", f'🔗 <a href="{_esc(o.link)}">{_esc(o.link)}</a>']
     if o.note:
         lines += ["", f"⚠️ <i>{_esc(o.note)}</i>"]
@@ -523,11 +608,11 @@ def render_telegram_html(opps: Optional[tuple[Opportunity, ...]] = None,
     """The full Telegram payload: header first, then one message per
     opportunity. Returned as a tuple of strings — the caller (telegram_
     notify.send_digest) sends them in order with a pause between."""
-    opps = opps if opps is not None else live_opportunities()
+    opps = opps if opps is not None else live_opportunities(now)
     messages = [render_portfolio_header(opps, now=now)]
     total = len(opps)
     for i, o in enumerate(opps, 1):
-        messages.append(_render_one_html(o, i, total))
+        messages.append(_render_one_html(o, i, total, now=now))
     return tuple(messages)
 
 
@@ -535,20 +620,22 @@ def format_phone_markdown(opps: Optional[tuple[Opportunity, ...]] = None,
                           now: Optional[datetime] = None) -> str:
     """One Markdown document for the artifact dashboard / SendUserFile —
     the same roster, formatted for a scrollable phone page."""
-    opps = opps if opps is not None else live_opportunities()
     now = now or datetime.now(timezone.utc)
+    opps = opps if opps is not None else live_opportunities(now)
+    live_count = sum(1 for o in opps if not o.is_expired(now))
     out = [
         "# 💰 TITANOS Money-Printer — Ops Digest",
         f"_{now.strftime('%A %d %B %Y, %H:%M UTC')}_",
         "",
-        f"**{len(opps)} live opportunities you can move on.** "
+        f"**{live_count} live opportunities you can move on.** "
         "Most-winnable first. Each card has the link and the exact steps.",
         "",
     ]
     total = len(opps)
     for i, o in enumerate(opps, 1):
+        expired = o.is_expired(now)
         out += [
-            f"## {o.badge} — {o.title} ({i}/{total})",
+            f"## {o.badge(now)} — {o.title} ({i}/{total})",
             "",
             o.what,
             "",
@@ -557,11 +644,15 @@ def format_phone_markdown(opps: Optional[tuple[Opportunity, ...]] = None,
             f"- **Deadline:** {o.deadline}",
             f"- **Link:** {o.link}",
             "",
-            "**Do this:**",
-            "",
         ]
-        for j, act in enumerate(o.actions, 1):
-            out.append(f"{j}. {act}")
+        if expired:
+            d = o.deadline_date()
+            out += [f"> ⏱ **CLOSED {d.isoformat() if d else ''}** — window "
+                    "passed; here for the record, not to act on.", ""]
+        else:
+            out += ["**Do this:**", ""]
+            for j, act in enumerate(o.actions, 1):
+                out.append(f"{j}. {act}")
         if o.note:
             out += ["", f"> ⚠️ {o.note}"]
         out += ["", f"<sub>source: {o.source_ref}</sub>", "", "---", ""]

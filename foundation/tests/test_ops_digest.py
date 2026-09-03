@@ -115,6 +115,64 @@ class TestTelegramRender(unittest.TestCase):
         self.assertIn("live opportunities", header)
 
 
+class TestDeadlineExpiry(unittest.TestCase):
+    """A passed deadline must never keep showing as DO NOW / ACT SOON —
+    the one way the digest could actively mislead Kyle."""
+
+    PAST = datetime(2027, 1, 1, tzinfo=timezone.utc)   # after every dated item
+    BEFORE_BRADFORD = datetime(2026, 9, 4, tzinfo=timezone.utc)
+
+    def test_iso_deadline_parses(self):
+        from foundation.ops_digest import _parse_deadline_date
+        self.assertEqual(_parse_deadline_date("2026-09-14 16:00 UTC"),
+                         __import__("datetime").date(2026, 9, 14))
+
+    def test_day_month_year_parses(self):
+        from foundation.ops_digest import _parse_deadline_date
+        import datetime as dt
+        self.assertEqual(_parse_deadline_date("6 April 2029"),
+                         dt.date(2029, 4, 6))
+
+    def test_month_year_parses_conservatively_to_first(self):
+        from foundation.ops_digest import _parse_deadline_date
+        import datetime as dt
+        self.assertEqual(_parse_deadline_date("Open for application till Feb 2029"),
+                         dt.date(2029, 2, 1))
+
+    def test_standing_and_unparseable_never_expire(self):
+        o = _opp(deadline="None (standing)")
+        self.assertFalse(o.is_expired(self.PAST))
+        o2 = _opp(deadline="PQQ closes 'Before Jan 2029'")
+        # 'Before Jan 2029' -> parses to Jan 2029; not yet past at BEFORE_BRADFORD
+        self.assertFalse(o2.is_expired(self.BEFORE_BRADFORD))
+
+    def test_a_passed_iso_deadline_expires(self):
+        o = _opp(status="ACT_SOON", deadline="2026-09-14 16:00 UTC")
+        self.assertFalse(o.is_expired(self.BEFORE_BRADFORD))
+        self.assertTrue(o.is_expired(self.PAST))
+
+    def test_expired_card_downgrades_to_watch(self):
+        o = _opp(status="ACTIONABLE_NOW", deadline="2026-09-14")
+        self.assertEqual(o.effective_status(self.PAST), "WATCH")
+        self.assertEqual(o.badge(self.PAST), "⏱ CLOSED")
+
+    def test_expired_card_hides_its_action_steps(self):
+        # An expired card must not present "Do this" steps as if live.
+        from foundation.ops_digest import _render_one_html
+        o = _opp(status="ACT_SOON", deadline="2026-09-14", actions=("bid now",))
+        html = _render_one_html(o, 1, 1, now=self.PAST)
+        self.assertIn("CLOSED", html)
+        self.assertNotIn("Do this", html)
+        self.assertNotIn("bid now", html)
+
+    def test_real_roster_has_no_expired_item_today(self):
+        # Sanity: as written, nothing in the shipped roster is already
+        # past — if this fails, an opportunity closed and the roster needs
+        # updating (which is exactly the signal we want).
+        now = datetime(2026, 9, 3, tzinfo=timezone.utc)
+        self.assertEqual([o.opp_id for o in OPPORTUNITIES if o.is_expired(now)], [])
+
+
 class TestPhoneMarkdown(unittest.TestCase):
     def test_markdown_lists_every_opportunity_with_links(self):
         md = format_phone_markdown(now=datetime(2026, 9, 4, tzinfo=timezone.utc))

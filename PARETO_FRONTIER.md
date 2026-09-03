@@ -57,6 +57,11 @@ answer these yet, it stays in `INTUITION.md`, not here.
      roster is hand-updated when an opportunity opens/closes. A cycle that
      discovers a QUALIFIED signal should append it to the roster as part of
      the same motion, so the digest can never lag the board.
+- **UPDATE 2026-09-03:** the deadline-expiry half of the drift problem is
+  now CLOSED — `ops_digest.py` auto-marks any past-deadline card ⏱ CLOSED and
+  removes its action steps (8 tests). The remaining #4 work is the *additive*
+  side: appending a newly-discovered QUALIFIED signal to the roster
+  automatically. Expiry (removal) was the higher-risk half and is done.
 - **LEVER:** #4 is the highest of the four — it closes the one honesty gap in
   the digest (roster drift), reuses the existing outcome-ledger/signal spine,
   needs no new external access, and makes every future cycle's digest

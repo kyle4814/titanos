@@ -36,6 +36,21 @@ of every run. Built this cycle:
 paste the token per `HUMAN_DECISIONS.md`. Until then the phone dashboard
 covers it.
 
+**2026-09-03 — the digest can no longer lie about a closed deadline.** The
+one way the money-printer could actively mislead you was showing an expired
+tender as 🟢 DO NOW after its date passed. Added deadline-parsing +
+auto-expiry to `ops_digest.py`: any card whose closing date is in the past
+is downgraded to ⏱ CLOSED, drops its action steps, and sinks to the bottom
+— computed against the run date, fail-safe (an unparseable/standing
+deadline never expires, so a live item can never be hidden by mistake).
+Verified: at a 2027 date Bradford + NLnet correctly flip to CLOSED and the
+live count drops from 15 to 13. 8 new tests.
+
+**Priority-4 re-sweep 2026-09-03: still quiet.** Live YesWeHack + HN board,
+63 programs, **0 new**. Ant Group still UNCONTESTED (0 reports), same
+distribution as prior cycles. Roster unchanged, verified accurate — no new
+opportunity to add.
+
 ---
 
 ## TIER 1 — open today, no credential gate, no deadline

@@ -23,10 +23,15 @@ def esc(s: str) -> str:
     return html.escape(str(s), quote=True)
 
 
-def card(o, i, total) -> str:
-    label, cls = STATUS_META[o.status]
-    steps = "\n".join(
-        f"      <li>{esc(a)}</li>" for a in o.actions)
+def card(o, i, total, now) -> str:
+    if o.is_expired(now):
+        d = o.deadline_date()
+        label, cls = f"CLOSED {d.isoformat() if d else ''}".strip(), "watch"
+        steps = (f'      <li>This closed on {d.isoformat() if d else "the stated date"}'
+                 " — here for the record, not to act on.</li>")
+    else:
+        label, cls = STATUS_META[o.status]
+        steps = "\n".join(f"      <li>{esc(a)}</li>" for a in o.actions)
     note = (f'\n    <p class="note">⚠️ {esc(o.note)}</p>' if o.note else "")
     return f"""  <article class="card {cls}" id="{esc(o.opp_id)}">
     <div class="stripe"></div>
@@ -54,16 +59,17 @@ def card(o, i, total) -> str:
 
 def main(out_path: str) -> None:
     now = datetime.now(timezone.utc)
-    opps = live_opportunities()
+    opps = live_opportunities(now)
     total = len(opps)
     counts = {}
     for o in opps:
-        counts[o.status] = counts.get(o.status, 0) + 1
+        counts[o.effective_status(now)] = counts.get(o.effective_status(now), 0) + 1
     pills = "\n".join(
         f'      <span class="pill {STATUS_META[s][1]}">{counts[s]} '
         f'{esc(STATUS_META[s][0])}</span>'
         for s in STATUS_ORDER if counts.get(s))
-    cards = "\n".join(card(o, i, total) for i, o in enumerate(opps, 1))
+    live_count = sum(1 for o in opps if not o.is_expired(now))
+    cards = "\n".join(card(o, i, total, now) for i, o in enumerate(opps, 1))
     doc = f"""<title>Ops Money-Printer</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -167,7 +173,7 @@ footer {{ text-align:center; color:var(--muted); font-size:.72rem;
 <header><div class="inner">
   <h1><span class="coin">💰</span> Ops Money-Printer</h1>
   <div class="stamp">{now.strftime('%a %d %b %Y · %H:%M UTC')}</div>
-  <p class="lead">{total} live opportunities you can move on. 8 ruled out (reference/insurance walls) — not shown. Most-winnable first.</p>
+  <p class="lead">{live_count} live opportunities you can move on. 8 ruled out (reference/insurance walls) — not shown. Most-winnable first.</p>
   <div class="pills">
 {pills}
   </div>
