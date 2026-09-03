@@ -1778,6 +1778,91 @@ _PROTOCOL_DOTTED_REF = re.compile(r"\bfoundation\.((?:\w+\.)*)(\w+)\(")
 _PROTOCOL_PATH_REF = re.compile(r"\bfoundation/([\w/]+)\.py::(\w+)\(")
 
 
+def check_high_confidence_secrets(repo_root: Path) -> list[Finding]:
+    """Report HIGH- and MEDIUM-confidence secret matches anywhere in the
+    repository.
+
+    THE GAP THIS CLOSES (measured 2026-09-04): `foundation/
+    secret_scanner.py` had NO production caller. It ran when a human
+    remembered to run it. Every "secrets: 0" line reported during the
+    2026-09-02/04 sessions came from invoking it by hand, in a
+    repository that is public on GitHub. A safety control that depends
+    on habit is not a control.
+
+    WHY HIGH AND MEDIUM ONLY, AND NOT LOW. Measured across this
+    repository: 6,476 LOW matches (email addresses, `/home/<user>/`
+    paths) against 9 HIGH/MEDIUM. A check that fires 6,476 times is one
+    people learn to scroll past, which returns the scanner to being
+    ignored — the exact state this fixes. LOW matches remain available
+    through `secret_scanner.scan()` directly and are the right thing to
+    review before a publication, deliberately, by a human. HIGH is real
+    key material (AWS access key ids, PEM private key headers); MEDIUM
+    is a secret/token/password assignment.
+
+    WHY THE SCANNER'S OWN TEST FILE IS EXCLUDED. A test for a secret
+    scanner must contain secret-shaped strings or it tests nothing. All
+    9 current HIGH/MEDIUM matches are its fixtures. The exclusion is one
+    named file, not a pattern that could quietly grow to cover a real
+    leak.
+
+    LIMITATION, STATED RATHER THAN WORKED AROUND: this does not
+    distinguish git-tracked from untracked files, because `sentinel.py`
+    makes no subprocess and no git calls by design and that invariant is
+    worth more than the precision. A HIGH match in an untracked runtime
+    log is still worth surfacing — it is on a machine that pushes."""
+    from foundation.secret_scanner import scan as _scan
+
+    # The scanner's own fixtures. One named path, deliberately not a
+    # glob: a pattern here could silently grow to cover a real leak.
+    allowed = {"foundation/tests/test_secret_scanner.py"}
+
+    try:
+        report = _scan(repo_root)
+    except Exception as exc:  # noqa: BLE001 — a scan failure is a finding
+        return [Finding(
+            observation="the secret scan could not be completed",
+            evidence_location=str(repo_root),
+            confidence="HIGH",
+            interpretation=f"{type(exc).__name__}: {exc}",
+            reversibility="reversible — read-only scan, nothing was written",
+            recommended_next_action="HUMAN_REVIEW_REQUIRED",
+        )]
+
+    findings = []
+    for f in report.findings:
+        if f.confidence not in ("HIGH", "MEDIUM"):
+            continue
+        # THE SCANNER RETURNS AN ABSOLUTE PATH WHEN GIVEN AN ABSOLUTE
+        # ROOT AND A RELATIVE ONE OTHERWISE. Comparing the raw string
+        # against a relative allowlist entry matched in this repository
+        # and silently never matched anywhere else -- so the exclusion
+        # looked correct and was load-bearing on the caller's cwd.
+        # Caught by the test that plants a fixture in a temp repo.
+        raw = f.evidence_location.rsplit(":", 1)[0]
+        try:
+            location = str(Path(raw).resolve().relative_to(
+                Path(repo_root).resolve()))
+        except (ValueError, OSError):
+            location = raw
+        if location in allowed:
+            continue
+        findings.append(Finding(
+            observation=f"{f.confidence}-confidence secret match: {f.observation}",
+            evidence_location=f.evidence_location,
+            confidence=f.confidence,
+            interpretation=(
+                "this repository is published publicly; a HIGH match is "
+                "real key material and a MEDIUM match is a credential "
+                "assignment"),
+            reversibility=(
+                "NOT fully reversible once pushed — a secret in git "
+                "history survives deletion of the file and must be "
+                "rotated, not merely removed"),
+            recommended_next_action="HUMAN_REVIEW_REQUIRED",
+        ))
+    return findings
+
+
 def check_protocol_document_targets(repo_root: Path) -> list[Finding]:
     """Clause 2 of the Consumer-Reality Contract: every callable a
     protocol document names must resolve to a real definition.
@@ -1883,6 +1968,7 @@ _LEVEL1_CHECKS: tuple = (
     check_frontier_hash_placeholders, check_protocol_document_targets,
     check_ci_matrix_coverage,
     check_local_runner_matches_ci,
+    check_high_confidence_secrets,
 )
 
 

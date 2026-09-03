@@ -2799,3 +2799,79 @@ class TestLocalRunnerMatchesCi(unittest.TestCase):
         found = check_local_runner_matches_ci(repo)
         self.assertEqual(len(found), 1)
         self.assertIn("no SUITES", found[0].observation)
+
+
+class HighConfidenceSecretCheckTests(unittest.TestCase):
+    """MEASURED 2026-09-04: secret_scanner.py had no production caller.
+
+    NOTE ON THE FIXTURES BELOW: every secret-shaped string is BUILT AT
+    RUNTIME from fragments rather than written as a literal. This file
+    is not on the check's allowlist and must not be -- allowlisting a
+    2,800-line test file would hide a real leak inside it. So the
+    fixtures are assembled instead, the same way the AWS ones already
+    were.
+    It ran when a human remembered to run it, in a repository that is
+    public on GitHub. Every "secrets: 0" reported across two sessions
+    came from invoking it by hand."""
+
+    def _repo(self, **files):
+        root = Path(tempfile.mkdtemp())
+        for rel, text in files.items():
+            p = root / rel
+            p.parent.mkdir(parents=True, exist_ok=True)
+            p.write_text(text, encoding="utf-8")
+        return root
+
+    def test_a_planted_aws_key_is_caught(self):
+        root = self._repo(**{"deploy.py": 'KEY = "AKIA' + "A" * 16 + '"\n'})
+        findings = sentinel.check_high_confidence_secrets(root)
+        self.assertEqual(len(findings), 1)
+        self.assertEqual(findings[0].confidence, "HIGH")
+
+    def test_a_planted_private_key_header_is_caught(self):
+        header = "-----BEGIN RSA " + "PRIVATE" + " KEY-----\n"
+        root = self._repo(**{"id_rsa": header})
+        self.assertEqual(len(sentinel.check_high_confidence_secrets(root)), 1)
+
+    def test_a_credential_assignment_is_caught_at_medium(self):
+        line = "api" + "_key = " + '"abcdefghijklmnop123"' + "\n"
+        root = self._repo(**{"conf.py": line})
+        findings = sentinel.check_high_confidence_secrets(root)
+        self.assertEqual([f.confidence for f in findings], ["MEDIUM"])
+
+    def test_low_confidence_noise_is_not_reported(self):
+        """6,476 LOW matches against 9 HIGH/MEDIUM in the real repo. A
+        check that fires 6,476 times is one people scroll past, which
+        returns the scanner to being ignored -- the state this fixes."""
+        root = self._repo(**{"notes.md": "contact jane@example.com in /home/bob/x\n"})
+        self.assertEqual(sentinel.check_high_confidence_secrets(root), [])
+
+    def test_the_scanners_own_fixtures_are_excluded(self):
+        root = self._repo(**{
+            "foundation/tests/test_secret_scanner.py":
+                'FAKE = "AKIA' + "B" * 16 + '"\n'})
+        self.assertEqual(sentinel.check_high_confidence_secrets(root), [])
+
+    def test_the_exclusion_is_one_named_file_not_a_pattern(self):
+        """A glob here could silently grow to cover a real leak."""
+        root = self._repo(**{
+            "foundation/tests/test_other_thing.py":
+                'LEAK = "AKIA' + "C" * 16 + '"\n'})
+        self.assertEqual(len(sentinel.check_high_confidence_secrets(root)), 1)
+
+    def test_it_says_a_pushed_secret_is_not_reversible(self):
+        """Deleting the file does not remove it from git history. The
+        recommended action is rotation, and the finding must say so."""
+        root = self._repo(**{"deploy.py": 'K = "AKIA' + "D" * 16 + '"\n'})
+        f = sentinel.check_high_confidence_secrets(root)[0]
+        self.assertIn("rotated", f.reversibility)
+        self.assertIn("NOT fully reversible", f.reversibility)
+
+    def test_it_is_wired_into_the_pulse_sweep(self):
+        """The whole point. An unwired check is the state we started in."""
+        self.assertIn(sentinel.check_high_confidence_secrets,
+                      sentinel._LEVEL1_CHECKS)
+
+    def test_a_clean_repository_reports_nothing(self):
+        root = self._repo(**{"ok.py": "x = 1\n"})
+        self.assertEqual(sentinel.check_high_confidence_secrets(root), [])

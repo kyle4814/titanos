@@ -1424,7 +1424,7 @@ byte-identical rows. That one was right.
 ### A quarter of this system cannot be invoked
 
 **Measured 2026-09-04.** `foundation/` holds 97 modules, 91 with test
-files. **23 of those 91 — 25% — are imported by nothing and have no way
+files. **23 of those 91 — 25% — were imported by nothing and have no way
 to run themselves.** They exist, they are tested, and no production path
 reaches them.
 
@@ -1444,11 +1444,39 @@ question was how many more there were. Answer: 23.
 already documents that. The report states plainly that unreachable is a
 *fact, not a verdict*, and refuses to guess which ones are intentional.
 
-**But one is not deliberate, and it matters.** `secret_scanner` is in the
-list. This repository is **public on GitHub**, and its own secret scanner
-has no automated caller — it runs when someone remembers to run it. Every
+**But one was not deliberate, and it mattered.** `secret_scanner` was in
+the list. This repository is **public on GitHub**, and its own secret
+scanner had no automated caller — it ran when someone remembered. Every
 "secrets: 0" line on this board came from me invoking it by hand each
-cycle. That is a safety control that depends on habit.
+cycle. That is a safety control resting on habit.
+
+**FIXED 2026-09-04, same night. 23 → 22.** `sentinel.check_high_
+confidence_secrets()` now runs on every pulse sweep, which is part of
+the standing cycle protocol. It is deliberately **HIGH and MEDIUM only**:
+measured across this repository, 6,476 LOW matches (emails, `/home/`
+paths) against 9 HIGH/MEDIUM. A check firing 6,476 times is one people
+scroll past — which returns the scanner to being ignored, the exact
+state it was in. HIGH is real key material (AWS ids, PEM private key
+headers); MEDIUM is a credential assignment.
+
+Three things worth knowing about how it was built:
+
+- **A test caught a real bug in the check itself.** The scanner returns
+  a *relative* path when given a relative root and an *absolute* one
+  otherwise. My allowlist compared raw strings, so it matched in this
+  repository and silently never matched anywhere else — an exclusion
+  that looked correct and was load-bearing on the caller's working
+  directory.
+- **The exclusion is one named file**, `test_secret_scanner.py`, not a
+  glob. A pattern there could quietly grow to cover a real leak.
+- **`test_sentinel.py` is NOT allowlisted**, so its own fixtures are
+  assembled at runtime from fragments rather than written as literals.
+  Allowlisting a 2,800-line test file to make my own fixtures
+  convenient would hide a real leak inside it.
+
+The finding it emits states that a pushed secret is **not reversible** —
+deleting the file leaves it in git history, so the action is rotation,
+not removal.
 
 Also unreachable, and each named in `CLAUDE.md` as a capability:
 `situation_analysis` (977 lines, the largest module here),
