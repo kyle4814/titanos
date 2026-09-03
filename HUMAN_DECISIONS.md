@@ -306,3 +306,39 @@ cross-file referential integrity, a `permission_request`→`GateInput`
 adapter). The first two were closed in the same session they were named
 in. If this shape recurs a fourth time, it's worth building one shared
 adapter/composition pattern instead of a bespoke fix each time.
+
+## Telegram operator push — ONE human step to arm it (2026-09-04)
+
+Kyle asked for the ops digest pushed to his phone via Telegram at the end
+of every run. The whole pipeline is built and tested
+(`foundation/ops_digest.py` → `foundation/telegram_notify.py`, gated on
+the `NOTIFY_OPERATOR` scope of `communication_gate.py`). It runs right now
+in dry-run (renders to a file); the Artifact + `SendUserFile` already
+reach his phone through the Claude app with no token needed.
+
+**The only thing this repository cannot supply is the credential** — a bot
+token is one of the five human-authority gates. To turn on real Telegram
+delivery, Kyle does this once, on his phone:
+
+1. Open Telegram, message **@BotFather**, send `/newbot`, follow prompts →
+   it returns a **bot token** like `123456789:AA...`.
+2. Message the new bot once (say "hi") so it can message back.
+3. Get the chat id: open
+   `https://api.telegram.org/bot<TOKEN>/getUpdates` in a browser and read
+   `"chat":{"id":...}`.
+4. Put both in the environment where cycles run (never in git):
+   ```
+   export TELEGRAM_BOT_TOKEN="123456789:AA..."
+   export TELEGRAM_CHAT_ID="<the id>"
+   ```
+
+Once set, `send_digest()` sends live; until then it dry-runs. The token is
+never logged, never committed, never put in an error message or the
+dry-run file (`test_telegram_notify.py::TestTokenNeverLeaks` pins that).
+
+**Authorization on record:** Kyle authorized operator self-notification on
+2026-09-04 ("start telegramming me shit to do ... make it part of the end
+of /next"). `telegram_notify.operator_switch()` carries that named
+authorization; it is NOT third-party communication (the operator notifying
+his own channel), so it does not trip authority gate #2 — but the
+credential still does, which is why the token stays Kyle's step.

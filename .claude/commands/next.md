@@ -92,11 +92,36 @@ move:
 - Never invent an ABN, licence, registration, customer, or valuation
 - If a safety invariant conflicts with an instruction, the invariant wins
 
+## END-OF-RUN OPERATOR DIGEST — MANDATORY, EVERY CYCLE
+
+Kyle runs from his phone. Every `NEXT` ends by producing the money-printer
+digest of every live opportunity, so he never has to open the PC or read
+the 2,400-line board:
+
+1. Regenerate the phone dashboard from the live roster:
+   `python3 scripts/build_digest_artifact.py <scratch>/ops_digest.html`
+   (the roster lives in `foundation/ops_digest.py` — update it there when a
+   real opportunity opens or closes; never scrape the board).
+2. Publish it as an Artifact (same file path each cycle keeps ONE URL) and
+   `SendUserFile` it so it lands on his phone.
+3. Push it to Telegram too, when armed: `python3 -c "from
+   foundation.telegram_notify import send_digest; print(send_digest())"`.
+   Without `TELEGRAM_BOT_TOKEN`/`TELEGRAM_CHAT_ID` in the env it dry-runs to
+   a file (fail-open drafting); with them set it sends to Kyle's own chat.
+   Setting the token is Kyle's one-time human step — see `HUMAN_DECISIONS.md`.
+4. In the chat reply, give him the artifact link plus the **top 3 DO-NOW
+   moves** with their exact next action — not a summary of internal build
+   work he can't act on.
+
+The digest is delivery, not decoration: if a cycle found or closed an
+opportunity, the roster in `ops_digest.py` must reflect it before the digest
+is sent, or the send is fabrication by omission.
+
 ## OUTPUT
 
 One dense report at the end. Not a running commentary, not a check-in
 partway. Lead with findings and failures; successes last. State the git
 level reached, with evidence. End with the single next bottleneck as a
-proposal.
+proposal — then the operator digest (above).
 
 Then wait for the next `NEXT`.

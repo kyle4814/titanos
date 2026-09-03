@@ -51,14 +51,26 @@ evidence fields every time, the same "verify from the record, not the
 label" discipline as `taal/gate/human_jurisdiction.py::
 confirm_pilot_authorized()` and `publication_gate.py::authorize_publish()`.
 
-SCOPE, DECLARED BUT NEVER ACTIVATED
+SCOPE
 
-`COMMUNICATION_SCOPES` names the specific future boundaries this switch
-can eventually govern (READ_URL, READ_API, RECEIVE_WEBHOOK) — declaring
-the vocabulary now makes the future integration contract legible without
-building any of the three. None of them do anything; there is no code
-anywhere that reads a URL, calls an API, or receives a webhook. A
-`CommunicationSwitch.requested_scope` must name one of these values or
+`COMMUNICATION_SCOPES` names the boundaries this switch governs. Two are
+now live and consumed by real code; two remain declared-only:
+
+  - READ_URL / READ_API — CONSUMED. `mouth_common.fetch_feed()` (the
+    repository's read socket) re-derives through this gate before every
+    request. See the CORRECTION note on `authorize_communication()`.
+  - NOTIFY_OPERATOR — CONSUMED (added 2026-09-04). A narrow, one-way,
+    outbound push to the OPERATOR'S OWN channel only (Kyle's Telegram
+    chat, via his own bot token). Not third-party communication — the
+    operator notifying himself, which Kyle explicitly authorized
+    ("start telegramming me shit to do"). Consumed by
+    `foundation/telegram_notify.py::send_digest()`, which still cannot
+    send without both this authorization AND an operator-supplied bot
+    token; absent the token it renders to a file (drafting is
+    fail-open; sending is fail-closed). Recorded in HUMAN_DECISIONS.md.
+  - RECEIVE_WEBHOOK — declared-only, no inbound listener exists.
+
+A `CommunicationSwitch.requested_scope` must name one of these values or
 authorization is refused — an unscoped "just turn communication on"
 request is not a real authorization request.
 
@@ -66,11 +78,18 @@ WHAT THIS FILE DOES NOT DO
 
 It does not perform any I/O. It does not import `requests`, `urllib`,
 `socket`, or `http.client`. It does not retrieve, send, or receive
-anything. It does not grant a caller any capability that did not already
-exist — no fetcher exists to grant capability to. `authorize_
-communication()`'s True return value is not consumed by anything in this
-repository; the future retrieval component this switch is meant to gate
-does not exist yet, per this cycle's own explicit non-goal.
+anything — the I/O lives in the consumers (`mouth_common.fetch_feed()`
+for reads, `telegram_notify.py` for the operator push), never here.
+
+CORRECTION 2026-09-04. Earlier this docstring said "`authorize_
+communication()`'s True return value is not consumed by anything in
+this repository; the future retrieval component this switch is meant to
+gate does not exist yet." That is now false in two directions: reads
+(the mouths, since 2026-09-01) and the outbound operator notification
+(`telegram_notify.py`, this cycle) both consume it. The standing lesson
+this file itself teaches — "a doctrine note that asserts an absence
+must be re-checked when the thing it says is absent gets built, or it
+becomes camouflage for the gap" — is applied here rather than repeated.
 """
 
 from __future__ import annotations
@@ -95,7 +114,7 @@ CAPABILITY_ID = "EXTERNAL_COMMUNICATION"
 # the doctrine's own §2 list mentions "external communication" generally,
 # not because any inbound mechanism is remotely close to justified.
 COMMUNICATION_SCOPES: FrozenSet[str] = frozenset({
-    "READ_URL", "READ_API", "RECEIVE_WEBHOOK",
+    "READ_URL", "READ_API", "RECEIVE_WEBHOOK", "NOTIFY_OPERATOR",
 })
 
 

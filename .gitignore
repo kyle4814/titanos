@@ -61,3 +61,7 @@ foundation/scheduled_brief_log.jsonl
 foundation/scheduled_brief_cron.log
 briefs/
 foundation/deal_pipeline_log.jsonl
+
+# Telegram digest dry-run output (never commit; may echo message content)
+digest_out/
+*.telegram_creds

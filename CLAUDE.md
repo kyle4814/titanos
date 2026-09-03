@@ -141,9 +141,14 @@ repository still makes zero network connections... no fetcher/adapter
 consumes that True, and none should be built until a concrete discovery
 objective is actually open." That became false when the mouths were
 built and stayed in this file for several cycles. `foundation/
-mouth_common.py::fetch_feed()` is the single socket in this repository
+mouth_common.py::fetch_feed()` is the READ socket in this repository
 and it makes real network requests; five mouths and `target_mapping.py`
-call it. For several of those cycles it did so WITHOUT consulting the
+call it. (As of 2026-09-04 there is a second, separately-gated socket:
+`foundation/telegram_notify.py` pushes the ops digest to Kyle's own
+Telegram on the NOTIFY_OPERATOR scope — see the value-radar and
+network-control-plane notes. Two sanctioned gated sockets, not one; the
+invariant `test_network_control_plane.py` enforces is "no UNGATED
+door".) For several cycles fetch_feed did so WITHOUT consulting the
 gate at all — the switch was armed and had no consumer, and this
 sentence is precisely why nobody noticed, because the file documenting
 the door insisted there was no door. Wired 2026-09-01: `fetch_feed()`
@@ -292,7 +297,9 @@ exists because a live run found the previous one lying.
   signals. Never fetches.
 - `mouth_common.py` + `mouth_github_releases/pypi/npm/github_issues/
   github_commits.py` — the fetchers. `fetch_feed()` is the repository's
-  only socket and is gated (see the communication-gate note above).
+  READ socket and is gated (see the communication-gate note above); the
+  only other socket is `telegram_notify.py`'s operator push, gated on
+  NOTIFY_OPERATOR.
   **It issues POST as well as GET since 2026-09-01**, and the reason is
   worth knowing: EU TED publishes ~397,000 open procurement notices under
   CC BY 4.0 with no key, its search endpoint is POST-only (`GET` → 405),

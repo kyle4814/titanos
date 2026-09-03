@@ -142,13 +142,18 @@ class TestNoProductionNetworkImport(unittest.TestCase):
 
 
 class TestFutureCapabilityPathDocumentedNotClaimed(unittest.TestCase):
-    def test_10_module_docstring_states_no_capability_implemented(self):
+    def test_10_module_docstring_states_gate_itself_does_no_io(self):
+        # The GATE file still opens no socket; the I/O lives in the
+        # consumers. That claim stays true and stays asserted.
         doc = _module.__doc__
         self.assertIn("MAKES NO NETWORK CONNECTION", doc)
 
-    def test_scopes_are_declared_but_none_implemented_anywhere_in_repo(self):
+    def test_scopes_are_the_declared_four(self):
+        # NOTIFY_OPERATOR added 2026-09-04 — the one outbound scope,
+        # consumed by telegram_notify.py. READ_URL/READ_API consumed by
+        # the mouths. RECEIVE_WEBHOOK still declared-only.
         self.assertEqual(COMMUNICATION_SCOPES, frozenset({
-            "READ_URL", "READ_API", "RECEIVE_WEBHOOK",
+            "READ_URL", "READ_API", "RECEIVE_WEBHOOK", "NOTIFY_OPERATOR",
         }))
 
 

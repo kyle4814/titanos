@@ -29,6 +29,49 @@ answer these yet, it stays in `INTUITION.md`, not here.
 
 ## Active
 
+### FRONTIER-026 — Operator digest delivered; the "upgrade massively" asks are sequenced, not built
+- **CURRENT:** the money-printer digest is built and delivered
+  (`foundation/ops_digest.py` roster + renderers, `foundation/telegram_notify.py`
+  gated sender, phone Artifact + `SendUserFile`, wired into `next.md`'s
+  end-of-run, 27 tests). This was the single highest-lever piece of Kyle's
+  2026-09-04 message: he can now run everything from his phone.
+- **GAP:** the same message named four larger asks, deliberately NOT built
+  this cycle (CT_141 / one-bottleneck-per-cycle):
+  1. **Telegram lead-contact discovery** — "start getting and searching for
+     telegram contacts for leads." This is outbound-adjacent and touches
+     real people; it must run through the partner-network evidence discipline
+     (`foundation/partner_network.py`: a contact is never a partner, no
+     scraping private data, no unsolicited contact) and the discovery gate.
+     Public channel/group discovery for security-bounty and procurement
+     signals is the lawful slice; scraping member lists is not.
+  2. **More search loops** — additional real sources into the existing mouth
+     pipeline (not a new one). Candidates already named on the board:
+     Denmark `udbud.dk`, Netherlands TenderNed (Dutch-only — language is the
+     open question), more EU national boards. Each is INSUFFICIENT_DATA until
+     documents are read; value is real but marginal per cycle.
+  3. **More agents / more loops** — `next.md` already authorizes a parallel
+     swarm; the missing piece is a scheduled cadence, which is blocked on the
+     same fact as the autonomy loop (a human decision on standing scheduling
+     authority — see `HUMAN_DECISIONS.md`), not on code.
+  4. **Auto-refresh the roster from cycle findings** — today `ops_digest.py`'s
+     roster is hand-updated when an opportunity opens/closes. A cycle that
+     discovers a QUALIFIED signal should append it to the roster as part of
+     the same motion, so the digest can never lag the board.
+- **LEVER:** #4 is the highest of the four — it closes the one honesty gap in
+  the digest (roster drift), reuses the existing outcome-ledger/signal spine,
+  needs no new external access, and makes every future cycle's digest
+  self-maintaining. #1 has the highest ceiling but the most gates.
+- **FIRST STEP:** a `roster_from_signals()` adapter that maps a QUALIFIED
+  `CanonicalSignal` / entry-gate PASS into an `Opportunity`, with provenance,
+  behind a test that a DISQUALIFIED/INSUFFICIENT_DATA signal never becomes a
+  card.
+- **PROOF:** a synthetic QUALIFIED signal produces exactly one new card;
+  a synthetic INSUFFICIENT_DATA signal produces none.
+- **UNLOCK:** the digest becomes a live view of the pipeline, not a
+  transcription — and #2's new sources then flow to Kyle's phone automatically.
+- **REUSE:** `signal_spine.py`, `opportunity.py`, `entry_gate.py`,
+  `ops_digest.Opportunity`.
+
 ### FRONTIER-024 — Identity-threshold and repo-wide-discovery had zero regression protection [CLOSED same cycle]
 - **CURRENT:** cycle `regression_probe_001` (2026-08-28) attacked
   whether the two fixes from `identity_classifier_001` (the `>=2`

@@ -146,13 +146,35 @@ class TestUnboundedObjectivesNeverReachTheSocket(unittest.TestCase):
 
 
 class TestThereIsExactlyOneSocket(unittest.TestCase):
-    """The gate's guarantee rests entirely on there being one door.
+    """Every socket in this repository lives in a SANCTIONED, GATED module.
 
-    If a second module starts calling urlopen directly, everything above
-    is worthless -- so that premise is checked rather than assumed.
+    The control plane's guarantee is not "there is one door" — it is "no
+    UNGATED door exists". As of 2026-09-04 there are two sockets, each
+    behind its own independent gate:
+
+      - foundation/mouth_common.py    — reads, gated on the DISCOVERY
+        control plane (authorize_discovery / DiscoveryPolicy).
+      - foundation/telegram_notify.py — the operator push (Kyle's own
+        Telegram), gated on communication_gate's NOTIFY_OPERATOR scope
+        (authorize_communication, re-derived from a named authorization
+        before any send). Proven gated in test_telegram_notify.py
+        (authorization is checked before credentials are even read).
+
+    A THIRD, unsanctioned caller still fails this test — which is the
+    property that actually matters. The earlier "exactly mouth_common"
+    form was correct only while reads were the sole network action; the
+    same "re-check an absence claim when the thing gets built" lesson the
+    communication_gate docstring teaches is applied here rather than
+    leaving a now-false invariant as camouflage.
     """
 
-    ALLOWED = {"foundation/mouth_common.py"}
+    ALLOWED = {"foundation/mouth_common.py", "foundation/telegram_notify.py"}
+    # Every ALLOWED socket module must reference its gate — a widened
+    # allowlist that dropped this check would be a real weakening.
+    GATE_REFERENCE = {
+        "foundation/mouth_common.py": "authorize_discovery",
+        "foundation/telegram_notify.py": "authorize_communication",
+    }
 
     def _network_callers(self):
         found = set()
@@ -173,13 +195,23 @@ class TestThereIsExactlyOneSocket(unittest.TestCase):
                         found.add(rel)
         return found
 
-    def test_only_mouth_common_opens_a_socket(self):
+    def test_only_sanctioned_gated_modules_open_a_socket(self):
         callers = self._network_callers()
         self.assertEqual(
             callers, self.ALLOWED,
-            f"a new network caller appeared outside the gate: "
-            f"{sorted(callers - self.ALLOWED)}. Route it through "
-            f"mouth_common.fetch_feed() or the control plane is bypassable.")
+            f"a new network caller appeared outside the sanctioned set: "
+            f"{sorted(callers - self.ALLOWED)}. Route it through an existing "
+            f"gated module, or the control plane is bypassable.")
+
+    def test_every_socket_module_references_its_gate(self):
+        # A socket without its gate in the same module is an ungated door
+        # wearing a sanctioned name. Check the gate symbol is present.
+        for rel, gate in self.GATE_REFERENCE.items():
+            src = (REPO_ROOT / rel).read_text(errors="ignore")
+            self.assertIn(
+                gate, src,
+                f"{rel} opens a socket but does not reference its gate "
+                f"{gate!r} — an ungated egress.")
 
 
 class TestEveryFetcherDeclaresAnObjective(unittest.TestCase):

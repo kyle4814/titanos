@@ -14,6 +14,30 @@ below.
 
 ---
 
+## 📱 NEW 2026-09-04 — THE PHONE MONEY-PRINTER (so you never open the PC)
+
+Every opportunity on this board is now delivered to your phone as
+individual, value-first, tappable cards — most-winnable first — at the end
+of every run. Built this cycle:
+
+- `foundation/ops_digest.py` — the 15 live opportunities as structured
+  cards (value, gate, deadline, exact steps, source), ranked 🟢 DO NOW →
+  🟠 ACT SOON → 🔵 PURSUE → 🟡 UNVERIFIED → ⚪ WATCH. Ruled-out items (the
+  8 reference/insurance walls) are excluded, not sold.
+- `foundation/telegram_notify.py` — pushes the digest to **your own
+  Telegram** via **your own bot token**, gated on a new `NOTIFY_OPERATOR`
+  scope. Runs now in dry-run; sends live the moment you set the token.
+- A phone dashboard (Artifact) + the digest are sent to your phone through
+  the Claude app already — no token needed for that.
+- Wired into `next.md`: every future run ends by regenerating and sending
+  the digest. 27 new tests, token-never-leaks pinned.
+
+**Your one step to turn on Telegram:** message @BotFather → `/newbot` →
+paste the token per `HUMAN_DECISIONS.md`. Until then the phone dashboard
+covers it.
+
+---
+
 ## TIER 1 — open today, no credential gate, no deadline
 
 These need nothing you do not already have. None has a closing date,
