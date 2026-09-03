@@ -102,6 +102,44 @@ so read the brief first and stay inside it.
 
 ---
 
+### 2b. The two bounties whose target is PUBLISHED SOURCE CODE ⭐
+
+Swept live 2026-09-04: 64 opportunities across YesWeHack (60 programs)
+and Hacker News "Who is hiring?" (4). Two of the 60 are a **different
+shape from every other item on this board**, and the difference is the
+scope field, read from the platform's own API:
+
+| Program | Scope, verbatim from the API | Bounty | Reports filed |
+|---|---|---|---|
+| **Swiss Post — E-Voting** | `Source Code`, `System Specification`, `Protocol of the Swiss Post Voting System`, `Scenarios with Special Bounties` | **€100 – €230,000** | 1,855 |
+| **Dovecot** (IMAP server) | `Dovecot IMAP Server and Pigeonhole SIEVE` — `scope_type: open-source` | €100 – €5,000 | 356 |
+
+**Why this is its own category.** Every other program on that board asks
+you to test somebody's *running production system* — which means rate
+limits, WAFs, scope boundaries you can cross by accident, and a legal
+position that depends entirely on staying inside a brief. These two ask
+you to read **published source code and published specifications**. The
+artifact is downloadable, re-readable, and yours to study for as long as
+you like. Nothing is touched. Nothing can be knocked over.
+
+Swiss Post's e-voting source is published for public scrutiny by design
+— that is the point of the programme — and it carries the **largest
+single payout figure found anywhere in this campaign**, with named
+special-bounty scenarios above the base range.
+
+**The honest counterweight, and it is heavy:** 1,855 reports on Swiss
+Post and 356 on Dovecot. Both are thoroughly worked. That is the
+opposite of the Ant Group logic (0 reports) that put Ant at Tier 1 —
+here the argument is not "nobody has looked", it is "the target rewards
+depth rather than speed, and it can be studied offline for weeks without
+touching anything". Those are different bets. Both are on the board.
+
+**The single gate on all 64, and it is one-time:** a free YesWeHack
+account. One registration opens every program above and every program
+found in future sweeps. Nothing after it needs the operator again.
+
+---
+
 ### 3. Ireland — NINE cyber qualification systems with no closing date at all ⭐
 
 **Found 2026-09-03 by walking the entire Irish register — 293 pages,
