@@ -180,6 +180,11 @@ class IncomeSignal:
     # with 0 has not been looked at. None means the source has no such
     # concept (an HN hiring gig) -- UNKNOWN, never treated as zero.
     contested: "Optional[int]" = None
+    # How many scopes the program admits -- attack surface. A 0-report
+    # program with 8 scopes (three of them wildcards, like Ant Group) is
+    # a far better first target than a 0-report program with one narrow
+    # scope. None where the source has no such concept (a hiring gig).
+    scope_breadth: "Optional[int]" = None
 
     def __post_init__(self) -> None:
         if self.kind not in KINDS:
@@ -189,6 +194,8 @@ class IncomeSignal:
             raise ValueError("IncomeSignal.identifier must not be empty")
         if self.contested is not None and self.contested < 0:
             raise ValueError("IncomeSignal.contested cannot be negative")
+        if self.scope_breadth is not None and self.scope_breadth < 0:
+            raise ValueError("IncomeSignal.scope_breadth cannot be negative")
         if not self.payout_observed:
             raise ValueError(
                 "IncomeSignal.payout_observed must never be empty -- use "
@@ -233,6 +240,7 @@ def _bounty_fields(item: dict) -> dict:
         # Pays, but published no range -- genuinely unknown.
         payout = NOT_OBSERVED
     reports = item.get("reports_count")
+    scopes = item.get("scopes_count")
     return {
         "identifier": slug,
         "title": title,
@@ -240,6 +248,7 @@ def _bounty_fields(item: dict) -> dict:
         "payout_observed": payout,
         # mouth_bounty carries the platform's own reports_count verbatim.
         "contested": reports if isinstance(reports, int) else None,
+        "scope_breadth": scopes if isinstance(scopes, int) else None,
     }
 
 
@@ -255,8 +264,9 @@ def _gig_fields(item: dict) -> dict:
         "title": snippet or object_id,
         "url": f"https://news.ycombinator.com/item?id={object_id}" if object_id else "",
         "payout_observed": NOT_OBSERVED,
-        # A hiring comment has no reports-filed concept -- None, never 0.
+        # A hiring comment has no reports-filed or scope concept -- None.
         "contested": None,
+        "scope_breadth": None,
     }
 
 
@@ -407,6 +417,7 @@ def watch(
                 first_seen=first_seen,
                 payout_observed=_clean_str(fields.get("payout_observed")) or NOT_OBSERVED,
                 contested=fields.get("contested"),
+                scope_breadth=fields.get("scope_breadth"),
             )
             all_signals.append(signal)
             if key not in seen:
@@ -466,6 +477,14 @@ def _contested_column(signal: "IncomeSignal") -> str:
     return f"  reports={signal.contested}"
 
 
+def _scope_column(signal: "IncomeSignal") -> str:
+    """Attack surface. Shown only when the source reports it; a bigger
+    number is more places a first finding can come from."""
+    if signal.scope_breadth is None:
+        return ""
+    return f"  scopes={signal.scope_breadth}"
+
+
 def render_income_watch(report: IncomeWatchReport, limit: Optional[int] = None) -> str:
     """Text render. NEW items lead: a newly-added bug bounty program or
     contract gig is the single highest-value signal in this lane for a
@@ -497,7 +516,8 @@ def render_income_watch(report: IncomeWatchReport, limit: Optional[int] = None) 
         shown_new = report.new_signals[:limit] if limit else report.new_signals
         for s in shown_new:
             lines.append(f"  NEW [{s.kind}] {s.title!r}"
-                         f"{_payout_column(s)}{_contested_column(s)}  {s.url}")
+                         f"{_payout_column(s)}{_contested_column(s)}"
+                         f"{_scope_column(s)}  {s.url}")
 
     new_ids = {(s.source_id, s.identifier) for s in report.new_signals}
     if report.signals:
@@ -511,7 +531,9 @@ def render_income_watch(report: IncomeWatchReport, limit: Optional[int] = None) 
         # actually winnable, so it belongs at the top of what Kyle scans.
         ranked = sorted(
             report.signals,
-            key=lambda s: (s.contested is None, s.contested if s.contested is not None else 0))
+            key=lambda s: (s.contested is None,
+                           s.contested if s.contested is not None else 0,
+                           -(s.scope_breadth or 0)))
         shown_all = ranked[:limit] if limit else ranked
         for s in shown_all:
             marker = "new " if (s.source_id, s.identifier) in new_ids else "seen"
@@ -522,6 +544,7 @@ def render_income_watch(report: IncomeWatchReport, limit: Optional[int] = None) 
             # pays nothing sat in it indistinguishable from one paying
             # EUR230,000.
             lines.append(f"  {marker} [{s.kind}] {s.title!r}"
-                         f"{_payout_column(s)}{_contested_column(s)}  {s.url}")
+                         f"{_payout_column(s)}{_contested_column(s)}"
+                         f"{_scope_column(s)}  {s.url}")
 
     return "\n".join(lines)

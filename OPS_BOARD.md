@@ -147,10 +147,20 @@ taken; one with 0 has not been looked at. `income_watch` was dropping
 the count entirely. Live result, top of the list:
 
 ```
-Ant Group Security Response Center   payout=10-2500 USD   UNCONTESTED (0 reports)
-Tencent Bug Bounty Program           payout=8-5000 USD    reports=15
-DataDome Bot Bounty                  payout=200-1000 EUR  reports=106   <- the cliff
+Ant Group Security Response Center   payout=10-2500 USD   UNCONTESTED (0 reports)  scopes=8
+Tencent Bug Bounty Program           payout=8-5000 USD    reports=15               scopes=2
+DataDome Bot Bounty                  payout=200-1000 EUR  reports=106  <- cliff    scopes=6
 ```
+
+**The newcomer's-edge triple is now complete (2026-09-05):** *uncontested
+× low payout floor × broad scope.* The third signal — **scope breadth**,
+the count of scopes a program admits (attack surface) — was also being
+dropped by `income_watch`; now surfaced and used as the secondary sort
+(more scopes first within a contested level). It confirms why Ant Group
+dominates: **0 reports AND 8 scopes** (three of them wildcards —
+`*.alipayplus.com`, `*.antom.com`, `*.worldfirst.com`) AND a $10 floor
+that pays for a Low finding. Contested still dominates — a wide-scope
+busy program never outranks a narrow-scope fresh one.
 
 Two of 63 are under-contested; everything else is past a 100+ report
 cliff. This is the ONE income route that needs no insurance, no

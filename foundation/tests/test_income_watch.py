@@ -23,7 +23,7 @@ def _bounty_raw(items: list[dict]) -> bytes:
 def _bounty_item(slug="acme-web", title="Acme Web", bounty=True,
                   reward_min=100, reward_max=5000, currency="USD",
                   vdp=False, public=True, disabled=False, archived=False,
-                  company_name="Acme", reports_count=None):
+                  company_name="Acme", reports_count=None, scopes_count=None):
     item = {
         "slug": slug, "public": public, "disabled": disabled,
         "archived": archived, "title": title, "bounty": bounty,
@@ -33,6 +33,8 @@ def _bounty_item(slug="acme-web", title="Acme Web", bounty=True,
     }
     if reports_count is not None:
         item["reports_count"] = reports_count
+    if scopes_count is not None:
+        item["scopes_count"] = scopes_count
     return item
 
 
@@ -505,3 +507,70 @@ class TestContestedRankingIsTheNewcomersEdge(unittest.TestCase):
             signals=signals, new_signals=())
         out = income_watch.render_income_watch(report)
         self.assertLess(out.index("'known'"), out.index("'gig'"))
+
+
+
+class TestScopeBreadthCompletesTheNewcomersEdge(unittest.TestCase):
+    """The newcomer's edge is uncontested x low payout floor x broad
+    scope. A 0-report program with 8 scopes (three of them wildcards,
+    like Ant Group) is a far better first target than a 0-report program
+    with one narrow scope. income_watch surfaced contested and payout
+    but dropped scope breadth."""
+
+    def test_scopes_count_is_carried_onto_the_signal(self):
+        item = mouth_bounty.parse_items(_bounty_raw([_bounty_item(scopes_count=8)]))[0]
+        self.assertEqual(income_watch._bounty_fields(item)["scope_breadth"], 8)
+
+    def test_a_gig_has_no_scope_concept(self):
+        item = mouth_gigs.parse_items(_gig_raw(hits=[_gig_hit()]))[0]
+        self.assertIsNone(income_watch._gig_fields(item)["scope_breadth"])
+
+    def test_scope_is_shown_in_the_render(self):
+        s = income_watch.IncomeSignal(
+            source_id="mouth_bounty_yeswehack", identifier="ant",
+            title="Ant Group", url="u", kind=income_watch.BOUNTY_PROGRAM,
+            first_seen="2026-09-05T00:00:00+00:00",
+            payout_observed="10-2500 USD", contested=0, scope_breadth=8)
+        report = income_watch.IncomeWatchReport(
+            observed_at="2026-09-05T00:00:00+00:00", results=(),
+            signals=(s,), new_signals=())
+        self.assertIn("scopes=8", income_watch.render_income_watch(report))
+
+    def test_more_scope_wins_within_the_same_contested_level(self):
+        def sig(ident, contested, scope):
+            return income_watch.IncomeSignal(
+                source_id="s", identifier=ident, title=ident, url="u",
+                kind=income_watch.BOUNTY_PROGRAM,
+                first_seen="2026-09-05T00:00:00+00:00",
+                payout_observed="1 USD", contested=contested, scope_breadth=scope)
+        # both uncontested; the 8-scope program must rank above the 1-scope
+        signals = (sig("narrow", 0, 1), sig("broad", 0, 8))
+        report = income_watch.IncomeWatchReport(
+            observed_at="2026-09-05T00:00:00+00:00", results=(),
+            signals=signals, new_signals=())
+        out = income_watch.render_income_watch(report)
+        self.assertLess(out.index("'broad'"), out.index("'narrow'"))
+
+    def test_contested_still_dominates_scope(self):
+        """A wide-scope contested program must NOT outrank a narrow-scope
+        uncontested one -- contested is the primary key."""
+        def sig(ident, contested, scope):
+            return income_watch.IncomeSignal(
+                source_id="s", identifier=ident, title=ident, url="u",
+                kind=income_watch.BOUNTY_PROGRAM,
+                first_seen="2026-09-05T00:00:00+00:00",
+                payout_observed="1 USD", contested=contested, scope_breadth=scope)
+        signals = (sig("busy_wide", 900, 30), sig("fresh_narrow", 0, 1))
+        report = income_watch.IncomeWatchReport(
+            observed_at="2026-09-05T00:00:00+00:00", results=(),
+            signals=signals, new_signals=())
+        out = income_watch.render_income_watch(report)
+        self.assertLess(out.index("'fresh_narrow'"), out.index("'busy_wide'"))
+
+    def test_a_negative_scope_is_refused(self):
+        with self.assertRaises(ValueError):
+            income_watch.IncomeSignal(
+                source_id="x", identifier="y", title="t", url="u",
+                kind=income_watch.BOUNTY_PROGRAM,
+                first_seen="2026-09-05T00:00:00+00:00",
+                payout_observed="1 USD", scope_breadth=-1)
