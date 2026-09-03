@@ -503,6 +503,68 @@ def cmd_dossier(args) -> int:
     return 0
 
 
+def cmd_digest(args) -> int:
+    """The end-of-run operator digest, as ONE command.
+
+    `next.md` mandates that every cycle produces the phone money-printer
+    digest; before this command that was a remembered sequence of steps.
+    This is the single reproducible entry point a Sonnet swarm or a future
+    session runs: it renders the phone dashboard HTML, pushes the digest
+    (dry-run without a token, live with one), and prints the top DO-NOW
+    moves as text. Touches the network ONLY when TELEGRAM creds are set
+    (operator self-notification, gated on NOTIFY_OPERATOR); otherwise it
+    writes the messages to a file and stays entirely offline."""
+    from foundation.ops_digest import live_opportunities
+    from foundation.telegram_notify import send_digest
+
+    now = datetime.now(timezone.utc)
+    opps = live_opportunities(now)
+
+    # 1. Phone dashboard HTML (self-contained, for Artifact / SendUserFile).
+    html_path = Path(args.html_out) if args.html_out else (
+        Path(__file__).resolve().parent.parent / "digest_out" / "ops_digest.html")
+    html_path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        import subprocess
+        subprocess.run(
+            [sys.executable, "scripts/build_digest_artifact.py", str(html_path)],
+            cwd=str(Path(__file__).resolve().parent.parent), check=True,
+            capture_output=True, timeout=60)
+        html_state = f"written -> {html_path}"
+    except Exception as exc:  # pragma: no cover - build-script shape
+        html_state = f"NOT written ({type(exc).__name__})"
+
+    # 2. Telegram push (dry-run unless creds present). send_digest is gated.
+    result = send_digest(now=now)
+
+    # 3. The operator-facing summary: top DO-NOW moves.
+    live = [o for o in opps if not o.is_expired(now)]
+    do_now = [o for o in live if o.effective_status(now) == "ACTIONABLE_NOW"]
+    act_soon = [o for o in live if o.effective_status(now) == "ACT_SOON"]
+
+    print("=" * 72)
+    print("OPERATOR DIGEST")
+    print("=" * 72)
+    print(f"generated : {now.strftime('%a %d %b %Y %H:%M UTC')}")
+    print(f"dashboard : {html_state}")
+    print(f"telegram  : {result.mode}"
+          + (f" ({result.dry_run_path})" if result.dry_run_path else
+             f" delivered {result.delivered}/{result.total}"))
+    print(f"live ops  : {len(live)}  (DO NOW {len(do_now)}, ACT SOON {len(act_soon)})")
+    print()
+    print("TOP MOVES (act on these first):")
+    for o in (do_now + act_soon)[:5]:
+        print(f"  {o.badge(now)}  {o.title}")
+        print(f"     value: {o.value}")
+        print(f"     step : {o.actions[0]}")
+        print(f"     link : {o.link}")
+    if result.errors and result.mode == "DRY_RUN":
+        print()
+        print("note: Telegram not armed — set TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID "
+              "to push (see HUMAN_DECISIONS.md). The dashboard covers you meanwhile.")
+    return 0
+
+
 # The pipeline lives beside the other durable ledgers, and is gitignored
 # for the same reason they are: it names counterparties the operator
 # intends to approach, and this repository is public.
@@ -1304,6 +1366,16 @@ def build_parser() -> "object":
     p_profile = sub.add_parser(
         "profile", help="show the currently configured operator profile")
     p_profile.set_defaults(func=cmd_profile)
+
+    p_digest = sub.add_parser(
+        "digest",
+        help="produce the end-of-run operator digest (dashboard + telegram "
+             "dry-run/send + top moves) in one command")
+    p_digest.add_argument(
+        "--html-out", default=None,
+        help="where to write the phone dashboard HTML "
+             "(default: digest_out/ops_digest.html)")
+    p_digest.set_defaults(func=cmd_digest)
 
     return parser
 

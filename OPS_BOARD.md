@@ -51,6 +51,29 @@ live count drops from 15 to 13. 8 new tests.
 distribution as prior cycles. Roster unchanged, verified accurate — no new
 opportunity to add.
 
+**2026-09-03 — the digest is now ONE command.**
+`python3 -m foundation.operator_cli digest` regenerates the phone
+dashboard, dry-runs/sends the Telegram push, and prints the top DO-NOW
+moves — the end-of-run step `next.md` mandates, previously a remembered
+sequence. Sonnet-viable, tested (2 tests), offline without a token.
+
+**2026-09-03 — Denmark/NL RESOLVED to human-browser-only (was "read one
+document").** The board flagged the Danish notices as unread. This cycle:
+- `udbud.dk` serves its notice pages as a **902-byte JavaScript SPA shell**
+  ("this page doesn't work properly without JavaScript enabled") — no
+  criteria server-side. robots.txt permits `/bekendtgoerelse/`, so this is
+  an architecture block, not a robots block, and not worked around.
+- The sanctioned structured route (TED, `operator_cli hunt --ted-query
+  'FT ~ ("cyber") AND CY=DNK' --live`) returned **QUALIFIED=0** across 45
+  assessed notices (INSUFFICIENT_DATA=35, DISQUALIFIED=10) — every Danish
+  cyber notice withholds its selection criteria from the notice itself, the
+  same standing pattern as the other EU national boards.
+- **Conclusion:** neither Denmark nor Netherlands can yield a QUALIFIED
+  lead by honest automated reading — the criteria live in login/portal-
+  gated documents. A human browser is the only route. Recorded so a future
+  cycle doesn't re-run the identical query expecting different output. This
+  seam is mined for the automated agent.
+
 ---
 
 ## TIER 1 — open today, no credential gate, no deadline

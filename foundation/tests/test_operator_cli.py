@@ -150,6 +150,42 @@ class TestDossierCommand(unittest.TestCase):
             self.assertIn(scheme, out)
 
 
+class TestDigestCommand(unittest.TestCase):
+    """The end-of-run digest as one command. Offline: without TELEGRAM
+    creds it must dry-run, never touch the network, and still print the
+    operator's top moves."""
+
+    def test_digest_dry_runs_offline_and_prints_top_moves(self):
+        import os
+        with tempfile.TemporaryDirectory() as d:
+            html = Path(d) / "ops.html"
+            # Ensure no creds so it stays offline (dry-run).
+            saved = {k: os.environ.pop(k, None)
+                     for k in ("TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID")}
+            try:
+                code, out, err = _run(["digest", "--html-out", str(html)])
+            finally:
+                for k, v in saved.items():
+                    if v is not None:
+                        os.environ[k] = v
+            self.assertEqual(code, 0, err)
+            self.assertIn("OPERATOR DIGEST", out)
+            self.assertIn("TOP MOVES", out)
+            self.assertIn("DRY_RUN", out)     # never sent without a token
+            self.assertIn("live ops", out)
+            self.assertTrue(html.exists(), "dashboard HTML was not written")
+
+    def test_digest_dashboard_html_is_self_contained(self):
+        with tempfile.TemporaryDirectory() as d:
+            html = Path(d) / "ops.html"
+            _run(["digest", "--html-out", str(html)])
+            text = html.read_text(encoding="utf-8")
+        self.assertIn("Ops Money-Printer", text)
+        # No external asset hosts except Google Fonts (CSP-permitted).
+        for bad in ("http://", "cdn."):
+            self.assertNotIn(bad, text)
+
+
 class TestHuntDryRunDefault(unittest.TestCase):
     """`--live` is never passed here -- these tests assert dry-run is the
     default and that no network call is attempted."""
