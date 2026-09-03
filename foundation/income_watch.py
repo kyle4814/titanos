@@ -174,6 +174,12 @@ class IncomeSignal:
     kind: str
     first_seen: str
     payout_observed: str = NOT_OBSERVED
+    # How many reports have already been filed against this program -- the
+    # single most decisive signal for a newcomer with no reputation. A
+    # program with 900 reports has had every accessible finding taken; one
+    # with 0 has not been looked at. None means the source has no such
+    # concept (an HN hiring gig) -- UNKNOWN, never treated as zero.
+    contested: "Optional[int]" = None
 
     def __post_init__(self) -> None:
         if self.kind not in KINDS:
@@ -181,6 +187,8 @@ class IncomeSignal:
                 f"IncomeSignal.kind must be one of {KINDS}, got {self.kind!r}")
         if not self.identifier:
             raise ValueError("IncomeSignal.identifier must not be empty")
+        if self.contested is not None and self.contested < 0:
+            raise ValueError("IncomeSignal.contested cannot be negative")
         if not self.payout_observed:
             raise ValueError(
                 "IncomeSignal.payout_observed must never be empty -- use "
@@ -224,11 +232,14 @@ def _bounty_fields(item: dict) -> dict:
     else:
         # Pays, but published no range -- genuinely unknown.
         payout = NOT_OBSERVED
+    reports = item.get("reports_count")
     return {
         "identifier": slug,
         "title": title,
         "url": f"https://yeswehack.com/programs/{slug}" if slug else "",
         "payout_observed": payout,
+        # mouth_bounty carries the platform's own reports_count verbatim.
+        "contested": reports if isinstance(reports, int) else None,
     }
 
 
@@ -244,6 +255,8 @@ def _gig_fields(item: dict) -> dict:
         "title": snippet or object_id,
         "url": f"https://news.ycombinator.com/item?id={object_id}" if object_id else "",
         "payout_observed": NOT_OBSERVED,
+        # A hiring comment has no reports-filed concept -- None, never 0.
+        "contested": None,
     }
 
 
@@ -393,6 +406,7 @@ def watch(
                 kind=source.kind,
                 first_seen=first_seen,
                 payout_observed=_clean_str(fields.get("payout_observed")) or NOT_OBSERVED,
+                contested=fields.get("contested"),
             )
             all_signals.append(signal)
             if key not in seen:
@@ -441,6 +455,17 @@ def _payout_column(signal: "IncomeSignal") -> str:
     return f"  payout={signal.payout_observed}"
 
 
+def _contested_column(signal: "IncomeSignal") -> str:
+    """Report count -- the newcomer's edge. UNCONTESTED is called out
+    loudly because a 0-report program is where a first finding is
+    actually winnable. None (a gig) shows nothing."""
+    if signal.contested is None:
+        return ""
+    if signal.contested == 0:
+        return "  UNCONTESTED (0 reports)"
+    return f"  reports={signal.contested}"
+
+
 def render_income_watch(report: IncomeWatchReport, limit: Optional[int] = None) -> str:
     """Text render. NEW items lead: a newly-added bug bounty program or
     contract gig is the single highest-value signal in this lane for a
@@ -471,14 +496,23 @@ def render_income_watch(report: IncomeWatchReport, limit: Optional[int] = None) 
         lines.append("NEW THIS CYCLE:")
         shown_new = report.new_signals[:limit] if limit else report.new_signals
         for s in shown_new:
-            payout = _payout_column(s)
-            lines.append(f"  NEW [{s.kind}] {s.title!r}{payout}  {s.url}")
+            lines.append(f"  NEW [{s.kind}] {s.title!r}"
+                         f"{_payout_column(s)}{_contested_column(s)}  {s.url}")
 
     new_ids = {(s.source_id, s.identifier) for s in report.new_signals}
     if report.signals:
         lines.append("")
-        lines.append(f"ALL CURRENTLY OBSERVED ({len(report.signals)}):")
-        shown_all = report.signals[:limit] if limit else report.signals
+        lines.append(
+            f"ALL CURRENTLY OBSERVED ({len(report.signals)}) "
+            f"-- least contested first, the newcomer's edge:")
+        # Sort key: known report count ascending (0 first), then the
+        # unknowns (None -- gigs, or a program that published no count).
+        # A program nobody has filed against is where a first finding is
+        # actually winnable, so it belongs at the top of what Kyle scans.
+        ranked = sorted(
+            report.signals,
+            key=lambda s: (s.contested is None, s.contested if s.contested is not None else 0))
+        shown_all = ranked[:limit] if limit else ranked
         for s in shown_all:
             marker = "new " if (s.source_id, s.identifier) in new_ids else "seen"
             # THE PAYOUT COLUMN BELONGS HERE TOO. It was rendered only in
@@ -488,6 +522,6 @@ def render_income_watch(report: IncomeWatchReport, limit: Optional[int] = None) 
             # pays nothing sat in it indistinguishable from one paying
             # EUR230,000.
             lines.append(f"  {marker} [{s.kind}] {s.title!r}"
-                         f"{_payout_column(s)}  {s.url}")
+                         f"{_payout_column(s)}{_contested_column(s)}  {s.url}")
 
     return "\n".join(lines)

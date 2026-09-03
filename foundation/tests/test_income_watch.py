@@ -23,14 +23,17 @@ def _bounty_raw(items: list[dict]) -> bytes:
 def _bounty_item(slug="acme-web", title="Acme Web", bounty=True,
                   reward_min=100, reward_max=5000, currency="USD",
                   vdp=False, public=True, disabled=False, archived=False,
-                  company_name="Acme"):
-    return {
+                  company_name="Acme", reports_count=None):
+    item = {
         "slug": slug, "public": public, "disabled": disabled,
         "archived": archived, "title": title, "bounty": bounty,
         "vdp": vdp, "bounty_reward_min": reward_min,
         "bounty_reward_max": reward_max,
         "business_unit": {"name": company_name, "currency": currency},
     }
+    if reports_count is not None:
+        item["reports_count"] = reports_count
+    return item
 
 
 def _gig_raw(story_id="1", story_title="Ask HN: Who is hiring? (Sep 2026)",
@@ -425,3 +428,80 @@ class DefaultSourcesTests(unittest.TestCase):
 
 if __name__ == "__main__":  # pragma: no cover
     unittest.main()
+
+
+
+class TestContestedRankingIsTheNewcomersEdge(unittest.TestCase):
+    """The single most decisive signal for a solo operator with no
+    reputation on the ONE income route that needs no insurance, no
+    references, no turnover: how many reports have already been filed. A
+    program with 900 reports is picked clean; one with 0 has not been
+    looked at. income_watch dropped the count entirely."""
+
+    def test_reports_count_is_carried_onto_the_signal(self):
+        item = mouth_bounty.parse_items(_bounty_raw([_bounty_item(reports_count=42)]))[0]
+        fields = income_watch._bounty_fields(item)
+        self.assertEqual(fields["contested"], 42)
+
+    def test_a_genuinely_zero_report_program_is_carried_as_zero(self):
+        """Ant Group has zero reports -- a real fact and the whole point.
+        It must survive as 0 (UNCONTESTED), not be lost."""
+        item = mouth_bounty.parse_items(_bounty_raw([_bounty_item(reports_count=0)]))[0]
+        self.assertEqual(income_watch._bounty_fields(item)["contested"], 0)
+
+    def test_a_gig_has_no_contested_concept(self):
+        item = mouth_gigs.parse_items(_gig_raw(hits=[_gig_hit()]))[0]
+        self.assertIsNone(income_watch._gig_fields(item)["contested"])
+
+    def test_zero_reports_renders_as_uncontested(self):
+        s = income_watch.IncomeSignal(
+            source_id="mouth_bounty_yeswehack", identifier="ant",
+            title="Ant Group", url="u", kind=income_watch.BOUNTY_PROGRAM,
+            first_seen="2026-09-05T00:00:00+00:00",
+            payout_observed="10-2500 USD", contested=0)
+        report = income_watch.IncomeWatchReport(
+            observed_at="2026-09-05T00:00:00+00:00", results=(),
+            signals=(s,), new_signals=())
+        self.assertIn("UNCONTESTED (0 reports)",
+                      income_watch.render_income_watch(report))
+
+    def test_the_listing_is_ranked_least_contested_first(self):
+        def sig(ident, contested):
+            return income_watch.IncomeSignal(
+                source_id="mouth_bounty_yeswehack", identifier=ident,
+                title=ident, url="u", kind=income_watch.BOUNTY_PROGRAM,
+                first_seen="2026-09-05T00:00:00+00:00",
+                payout_observed="1-2 USD", contested=contested)
+        # deliberately out of order
+        signals = (sig("busy", 900), sig("fresh", 0), sig("some", 15))
+        report = income_watch.IncomeWatchReport(
+            observed_at="2026-09-05T00:00:00+00:00", results=(),
+            signals=signals, new_signals=())
+        out = income_watch.render_income_watch(report)
+        # fresh (0) must appear before some (15) before busy (900)
+        self.assertLess(out.index("'fresh'"), out.index("'some'"))
+        self.assertLess(out.index("'some'"), out.index("'busy'"))
+
+    def test_a_negative_report_count_is_refused(self):
+        with self.assertRaises(ValueError):
+            income_watch.IncomeSignal(
+                source_id="x", identifier="y", title="t", url="u",
+                kind=income_watch.BOUNTY_PROGRAM,
+                first_seen="2026-09-05T00:00:00+00:00",
+                payout_observed="1 USD", contested=-1)
+
+    def test_unknown_contested_signals_sort_after_known_ones(self):
+        """A gig (None) or a program that published no count should not
+        jump ahead of a known-uncontested program."""
+        def sig(ident, contested, kind=income_watch.BOUNTY_PROGRAM):
+            return income_watch.IncomeSignal(
+                source_id="s", identifier=ident, title=ident, url="u",
+                kind=kind, first_seen="2026-09-05T00:00:00+00:00",
+                payout_observed=income_watch.NOT_OBSERVED, contested=contested)
+        signals = (sig("gig", None, income_watch.CONTRACT_GIG),
+                   sig("known", 5))
+        report = income_watch.IncomeWatchReport(
+            observed_at="2026-09-05T00:00:00+00:00", results=(),
+            signals=signals, new_signals=())
+        out = income_watch.render_income_watch(report)
+        self.assertLess(out.index("'known'"), out.index("'gig'"))

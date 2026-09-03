@@ -138,6 +138,26 @@ touching anything". Those are different bets. Both are on the board.
 account. One registration opens every program above and every program
 found in future sweeps. Nothing after it needs the operator again.
 
+**✅ NOW RANKED BY THE NEWCOMER'S EDGE — 2026-09-05.**
+`python3 -m foundation.operator_cli income --live` now surfaces each
+program's **report count** — the single most decisive signal for a solo
+operator with no reputation — and sorts the listing **least-contested
+first**. A program with 900 reports has had every accessible finding
+taken; one with 0 has not been looked at. `income_watch` was dropping
+the count entirely. Live result, top of the list:
+
+```
+Ant Group Security Response Center   payout=10-2500 USD   UNCONTESTED (0 reports)
+Tencent Bug Bounty Program           payout=8-5000 USD    reports=15
+DataDome Bot Bounty                  payout=200-1000 EUR  reports=106   <- the cliff
+```
+
+Two of 63 are under-contested; everything else is past a 100+ report
+cliff. This is the ONE income route that needs no insurance, no
+references, no turnover — and it now tells you exactly which programs a
+first finding is winnable on. UNKNOWN counts (a hiring gig has no such
+concept) sort after the known ones, never treated as zero.
+
 #### ✅ THE CORPUS IS ON DISK — and the cheap surface is already clean
 
 **Kyle ran the clone 2026-09-04.** 485 MB at
@@ -800,6 +820,18 @@ Rail), insurance as a broker's arrangeability letter (GNI), insurance as
 a promise to raise cover if awarded (Asiera), and insurance as a
 self-declared ability to obtain (HSE). "It's a DPS" predicts nothing.
 Each one had to be opened.
+
+#### ✅ PRIORITY 3 (deep Ireland) IS EXHAUSTED FOR KYLE'S PROFILE — 2026-09-05
+
+Scanned **all 656 rolling systems** in the walked register for IT/security
+work from buyers not already analysed. Result: **4 hits, none reachable**
+— Cork City Council consultancy panel, IPA design/development panel, OGP
+compute/storage infrastructure supply, Uisce Éireann software-licensing.
+All are infrastructure supply / generic consultancy / reselling, not
+solo cyber-services. The reachable set — the 9 cyber DPS + the 3 Iarnród
+Éireann ICT systems (7162, 7289, 7764) — was already fully read. The rest
+of the CIE family is rail engineering (bridges, steel, surveys) a Cairns
+cyber operator cannot bid on. Verified negative; this seam is mined.
 
 #### One buyer runs a whole family of these, on the same template ⭐⭐
 
