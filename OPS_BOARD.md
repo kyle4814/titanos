@@ -338,6 +338,52 @@ a promise to raise cover if awarded (Asiera), and insurance as a
 self-declared ability to obtain (HSE). "It's a DPS" predicts nothing.
 Each one had to be opened.
 
+#### One buyer runs a whole family of these, on the same template ⭐⭐
+
+The nine cyber systems were found by a **security keyword**. Widening to
+the whole register: **656 of the 2,921 open Irish notices — 22% — have
+no closing date at all.** Every one is an `Established` DPS or
+Qualification System. The security nine were a slice of a much larger
+standing market this campaign never knew existed.
+
+Inside it, **Iarnród Éireann / CIE runs at least four rolling ICT
+qualification systems on the same PQQ template** whose penetration-
+testing version already reads as the friendliest in Ireland:
+
+| Ref | System | Minimum turnover (Pass/Fail) |
+|---|---|---|
+| `3151458` | **7162 ICT Consultancy Services** | **€200k**/yr per lot |
+| `3245545` | **7764 ICT Professional Services** | Lot 6 **€200k**, Lots 1 & 4 €250k, Lot 3 €300k, Lots 2 & 5 €350k |
+| `3243649` | 7289 Penetration Testing | €250k |
+| `3245805` | 7292 Licensing & Software Maintenance | not read |
+
+Verified in each document read: the **same** turnover clause wording,
+the **same** "Reliance on resources to meet Turnover Requirement"
+paragraph permitting a third party's turnover, and insurance appearing
+**exactly once**, deferred:
+
+> "Applicants should note that those who have been **selected to proceed
+> to tender stage**, will be required to comply with the insurance
+> requirements of the Contract and be required to be in possession of
+> and produce a **Tax Clearance Certificate** from the Revenue
+> Commissioners of Ireland at time of contract award."
+> — 7162 and 7764, identically
+
+**€200k per annum is the lowest financial bar found anywhere in this
+campaign**, and it is met with someone else's turnover by a route the
+buyer wrote down itself. Multi-lot applications aggregate the
+requirement (7764: Lots 1+2 = €600k), so **apply for one lot, not
+several** — the aggregation rule is how an applicant accidentally
+triples their own bar.
+
+One buyer. One document shape. Four ways in. If a conversation with CIE
+works once, the template is already understood for the rest.
+
+**Still UNKNOWN and it applies to every one of them:** the PQQ
+submission deadline sits on a front cover that does not extract, and
+whether an Australian sole trader can obtain the Irish Tax Clearance
+Certificate has not been verified.
+
 **And the real gate is not insurance.** It is the 24×7 staffed service
 and the named-reference requirement — three of the nine demand a
 round-the-clock operation, which no amount of insurance, turnover or
