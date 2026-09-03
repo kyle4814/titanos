@@ -451,6 +451,32 @@ OPPORTUNITIES: tuple[Opportunity, ...] = (
         note="Recorded UNVERIFIED on purpose — a wrong eligibility claim is exactly "
              "the error that produced a false QUALIFIED earlier in the campaign.",
     ),
+    Opportunity(
+        opp_id="IMMUNEFI",
+        title="Immunefi — crypto bug bounties, no credentials, 76 need no KYC",
+        what="The most structurally open income on this board: no company, no "
+             "references, no insurance, no certifications, and 76 of 183 live "
+             "programs require no KYC at all. The catch is skill — these are "
+             "smart-contract / DeFi security audits, not web app testing.",
+        value="$1,000 – $10,000,000 (Sky $10M, GMX & SparkLend $5M — all no-KYC)",
+        gate="Free Immunefi account + genuine smart-contract audit skill — your "
+             "web3 skill is UNKNOWN, and that is the real question, not credentials",
+        status="UNVERIFIED",
+        deadline="None (standing)",
+        link="https://immunefi.com/bug-bounty/",
+        actions=(
+            "Register free — the 76 no-KYC programs need no identity documents.",
+            "Be honest with yourself about Solidity/DeFi audit skill: a $10M "
+            "payout means finding a critical bug in heavily-audited protocol "
+            "code — specialist work, the opposite of the $10 Ant Group Low.",
+            "If the skill is there (or worth building), this is the only route "
+            "with zero credential barriers AND life-changing ceilings.",
+        ),
+        source_ref="OPS_BOARD.md §Immunefi sweep 2026-09-03 (183 programs read live)",
+        note="Highest ceiling on the board AND the hardest skill gate — the exact "
+             "opposite tradeoff from Ant Group (low skill, low payout, uncontested). "
+             "Do not treat the $10M as reachable without demonstrated expertise.",
+    ),
 )
 
 

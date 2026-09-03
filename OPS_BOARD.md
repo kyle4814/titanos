@@ -176,6 +176,54 @@ so read the brief first and stay inside it.
 
 ---
 
+### 2c. Immunefi — crypto bounties, the most CREDENTIAL-open route found ⭐ NEW 2026-09-03
+
+Swept live 2026-09-03: `immunefi.com/bug-bounty/` (robots.txt `Allow: /`,
+program data server-embedded, no evasion). **183 live programs parsed
+directly from the page.** The structural finding is real and it is unique
+on this board:
+
+```
+183  live programs
+ 76  require NO KYC (no identity verification at all)
+$1,000 – $10,000,000  max-bounty range
+```
+
+**Top no-KYC ceilings (no identity docs required):**
+
+| Max bounty | Program |
+|---|---|
+| **$10,000,000** | Sky |
+| $5,000,000 | SparkLend · GMX |
+| $3,333,333 | Olympus |
+| $2,000,000 | Lido · Gnosis Chain · rhino.fi |
+| $1,000,000 | Balancer, PancakeSwap, CoW, Origin, Beanstalk, + more |
+
+**Why this is its own category.** Every credential wall that killed the
+Irish and NSW routes — references, insurance, turnover, certifications,
+a company — is **absent here**, and on 76 programs even KYC is absent.
+This is the single most credential-open income source the campaign has
+found. Nothing about Kyle's lack of insurance, references or certs
+matters at all.
+
+**The honest counterweight, and it is the whole story.** These are
+**smart-contract / DeFi security audits** — Solidity, protocol logic,
+economic exploits. A $10M payout means finding a critical bug in code
+that specialist auditors have already been over. **Kyle's smart-contract
+skill is UNKNOWN** (the operator profile declares no skills), so this is
+recorded **UNVERIFIED, not QUALIFIED** — the gate here is *capability*,
+not credentials, and it is a high one. Per "UNKNOWN is never ZERO" it is
+not assumed he lacks the skill either; whether it fits is his call.
+
+This is the exact opposite tradeoff from Ant Group (item 2): Ant Group is
+low-skill, low-payout, uncontested; Immunefi is high-skill, high-payout,
+heavily-contested. Both are now on the roster; Immunefi sits at UNVERIFIED
+so it never outranks a route Kyle can act on today.
+
+Added to the digest roster and close pack this cycle.
+
+---
+
 ### 2b. The two bounties whose target is PUBLISHED SOURCE CODE ⭐
 
 Swept live 2026-09-04: 64 opportunities across YesWeHack (60 programs)

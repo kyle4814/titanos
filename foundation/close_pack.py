@@ -188,6 +188,13 @@ CLOSE_PLANS: dict[str, ClosePlan] = {
         "ADB_CMS", "ACCOUNT",
         human_action="Open cms.adb.org, click Register — the form itself states "
                      "eligibility (still UNVERIFIED until you see it)."),
+    "IMMUNEFI": ClosePlan(
+        "IMMUNEFI", "FACT",
+        needs=("an honest read on your smart-contract / Solidity / DeFi audit "
+               "skill — the whole question here is capability, not credentials",),
+        human_action="Register free at immunefi.com (76 programs need no KYC); "
+                     "then judge the skill fit before sinking time into a $10M "
+                     "target that specialist auditors compete for."),
 }
 
 
