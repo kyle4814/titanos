@@ -7,11 +7,41 @@ import unittest
 from pathlib import Path
 
 from foundation.reachability import (
+    INTENT_CATEGORIES,
+    REACHABILITY_INTENT,
     ReachabilityError,
     ReachabilityReport,
     format_reachability,
     scan_reachability,
 )
+
+
+class TestEveryUnreachableModuleIsClassified(unittest.TestCase):
+    """The reachability finding is only honest if it stays current. If a
+    future module becomes tested-but-unreachable, it must be classified in
+    REACHABILITY_INTENT (or wired) — this test fails loudly until it is,
+    so 'unreachable, intent unknown' can never silently return."""
+
+    def test_every_real_unreachable_module_has_an_intent(self):
+        report = scan_reachability(Path(__file__).resolve().parents[2])
+        missing = [m.name for m in report.unreachable
+                   if m.name not in REACHABILITY_INTENT]
+        self.assertEqual(
+            missing, [],
+            f"unclassified unreachable module(s): {missing} — add each to "
+            f"REACHABILITY_INTENT with a docstring-cited reason, or wire it.")
+
+    def test_every_intent_uses_a_valid_category_and_a_reason(self):
+        for name, (cat, reason) in REACHABILITY_INTENT.items():
+            self.assertIn(cat, INTENT_CATEGORIES, name)
+            self.assertTrue(reason.strip(), name)
+
+    def test_the_report_names_the_categories(self):
+        report = scan_reachability(Path(__file__).resolve().parents[2])
+        out = format_reachability(report)
+        if report.unreachable:
+            for cat in INTENT_CATEGORIES:
+                self.assertIn(cat, out)
 
 
 def _repo(**files):
@@ -104,7 +134,7 @@ class TestItReportsFactsNotVerdicts(unittest.TestCase):
                         "foundation/tests/test_orphan.py": "pass\n"})
         out = format_reachability(scan_reachability(root))
         self.assertIn("FACT, not a verdict", out)
-        self.assertIn("deliberate", out)
+        self.assertIn("DELIBERATE_GATE", out)
 
     def test_a_fully_reached_package_says_so_plainly(self):
         root = _repo(**{

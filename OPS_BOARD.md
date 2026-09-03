@@ -1855,6 +1855,40 @@ scanner had no automated caller — it ran when someone remembered. Every
 "secrets: 0" line on this board came from me invoking it by hand each
 cycle. That is a safety control resting on habit.
 
+**RESOLVED 2026-09-04 — the 20 are now classified, and none is a genuine
+gap.** "A quarter of the system is unreachable" read as alarm; it isn't.
+Each of the 20 was classified from its OWN docstring (checkable, not
+asserted) and `operator_cli reachability` now prints the verdict inline:
+
+```
+DELIBERATE_GATE 4 · PRIMITIVE 10 · DORMANT_CAPABILITY 6
+```
+
+- **4 DELIBERATE_GATE** — `hells_gate`, `publication_gate`,
+  `contribution_gate`, `write_scope`: each guards a real external/human
+  action (git push, entry to another repo, a write event) that has no
+  in-repo call path *by design*. Wiring a caller would FAKE the action.
+- **10 PRIMITIVE** — composable building blocks (`low_regret_engine`,
+  `reality_yield_ledger`, `regression_engine`, `state_space_mapper`,
+  `defusal_router`, `contract_compat`, `admission`, `capability_profiles`,
+  `switch_hardener`, `historical_findings`): correctly dormant until a
+  real decision supplies their inputs. A CLI feeding them invented inputs
+  would be theater — `low_regret_engine` is the clearest: it takes
+  caller-declared payoffs, and inventing payoffs for the deals would
+  fabricate precision.
+- **6 DORMANT_CAPABILITY** — `target_mapping`, `brick_adapter`,
+  `gold_brick`, `offer_router`, `queue_worker_adapter`, `autonomous_window`:
+  real capabilities whose consumer is a pipeline mode not currently active
+  (the commercial-receipt pipeline, the software-demand GitHub→PyPI
+  pipeline, the autonomy ramp). `target_mapping` was checked directly —
+  its consumer correlates GitHub repos to PyPI/npm packages, and the
+  active focus is tenders, which have no package to map.
+
+**The one real operator-facing gap was `situation_analysis`, wired
+2026-09-04 (below).** A `test_reachability` forcing function now fails if
+any future module becomes unreachable-and-unclassified, so "unreachable,
+intent unknown" can never silently return.
+
 **FIXED 2026-09-04. 21 → 20 — `situation_analysis` wired.** The largest
 capability in the repository (977 lines: bottleneck / tension / off-ramp
 analysis) was reachable from nothing. Wired via `foundation/ops_situation.py`

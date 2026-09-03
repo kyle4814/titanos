@@ -177,6 +177,96 @@ def scan_reachability(repo_root: Path, package: str = "foundation") -> Reachabil
     return ReachabilityReport(modules=tuple(out))
 
 
+# ---------------------------------------------------------------------------
+# INTENT CLASSIFICATION
+#
+# The report above states a FACT (unreachable) and used to leave the verdict
+# ("is this a lost capability or deliberate?") to a reader. That left "25%
+# of the system is unreachable" reading as alarm when most of it is not.
+# This is that reader's judgment, made once, with each reason drawn from the
+# module's OWN docstring so it is checkable, not asserted. Three categories:
+#
+#   DELIBERATE_GATE     guards a real human/external action that has no
+#                       in-repo call path by design; wiring a caller would
+#                       be wrong (it would fake the action it guards).
+#   PRIMITIVE           a composable building block; correctly dormant until
+#                       a real decision/pipeline supplies its inputs. A CLI
+#                       that fed it invented inputs would be theater.
+#   DORMANT_CAPABILITY  a real capability whose consumer is a pipeline mode
+#                       not currently active (the commercial-receipt and
+#                       software-demand pipelines; the autonomy ramp).
+#
+# There is deliberately NO "GENUINE_GAP" value in active use: the one real
+# operator-facing gap, situation_analysis, was wired 2026-09-04. If a future
+# module is a genuine gap, it should be WIRED, not labelled — so this map
+# omits that category by design, and the test below fails loudly if a new
+# unreachable module appears unclassified.
+# ---------------------------------------------------------------------------
+INTENT_CATEGORIES = ("DELIBERATE_GATE", "PRIMITIVE", "DORMANT_CAPABILITY")
+
+REACHABILITY_INTENT: dict = {
+    "hells_gate": ("DELIBERATE_GATE",
+                   "the general admission front door; invoked at a real "
+                   "canonical-core entry event, documented in CLAUDE.md"),
+    "publication_gate": ("DELIBERATE_GATE",
+                         "guards `git push`, a human action with no in-repo "
+                         "call path (CLAUDE.md)"),
+    "contribution_gate": ("DELIBERATE_GATE",
+                          "guards a brick entering someone ELSE's repository "
+                          "— an external action, not an in-repo one"),
+    "write_scope": ("DELIBERATE_GATE",
+                    "a checkable write-path boundary, invoked at a real write "
+                    "event; a guard, not a callee"),
+    "low_regret_engine": ("PRIMITIVE",
+                          "minimax-regret over caller-DECLARED options; feeding "
+                          "it invented payoffs would fabricate precision"),
+    "reality_yield_ledger": ("PRIMITIVE",
+                             "assesses whether to harden a pathway; used when a "
+                             "real hardening decision is on the table"),
+    "regression_engine": ("PRIMITIVE",
+                          "proposes regressions (propose-never-execute); a QA "
+                          "primitive invoked on a real change"),
+    "defusal_router": ("PRIMITIVE",
+                       "CT_141 defusal sequence, routed on a real panic event"),
+    "state_space_mapper": ("PRIMITIVE",
+                           "999 state-space decision-coordinate model; composed "
+                           "by a real high-stakes decision"),
+    "contract_compat": ("PRIMITIVE",
+                        "'can capability A's output satisfy B's input' check; "
+                        "composed at a real seam"),
+    "admission": ("PRIMITIVE",
+                  "mission -> claimed-work-unit loading dock; a pipeline "
+                  "primitive"),
+    "capability_profiles": ("PRIMITIVE",
+                            "declared data only (no logic); consumed by scoring/"
+                            "matching when that runs"),
+    "switch_hardener": ("PRIMITIVE",
+                        "thin wrapper for the ten-gate hardening check; invoked "
+                        "on a real hardening"),
+    "historical_findings": ("PRIMITIVE",
+                            "one honest one-shot bridge of a fixed finding into "
+                            "ContradictionRegistry"),
+    "target_mapping": ("DORMANT_CAPABILITY",
+                       "GitHub->PyPI/npm correlation for the software-demand "
+                       "pipeline; the active focus is tenders, which have no "
+                       "package to map"),
+    "brick_adapter": ("DORMANT_CAPABILITY",
+                      "Receipt -> customer-readable artifact; the commercial "
+                      "receipt pipeline, not yet active"),
+    "gold_brick": ("DORMANT_CAPABILITY",
+                   "the canonical value artifact; commercial receipt pipeline"),
+    "offer_router": ("DORMANT_CAPABILITY",
+                     "Receipt -> one terminal commercial route; commercial "
+                     "pipeline"),
+    "queue_worker_adapter": ("DORMANT_CAPABILITY",
+                             "Queue<->Layer0Worker execution seam; the task-queue "
+                             "runner is not wired into an active loop"),
+    "autonomous_window": ("DORMANT_CAPABILITY",
+                          "bounded autonomous engineering window for the "
+                          "autonomy ramp, which is not currently running"),
+}
+
+
 def format_reachability(report: ReachabilityReport, *, verbose: bool = False) -> str:
     """Leads with the unreachable count, because that is the number to
     drive down."""
@@ -202,16 +292,39 @@ def format_reachability(report: ReachabilityReport, *, verbose: bool = False) ->
             "itself. Nothing here is finished-and-forgotten.")
         return "\n".join(lines)
 
-    lines.append("TESTED, AND REACHABLE FROM NOWHERE:")
+    # Group by intent so the count reads as what it is — mostly gates and
+    # dormant/primitive building blocks, not unfinished work.
+    by_cat: dict = {}
+    unclassified = []
     for m in report.unreachable:
-        lines.append(f"  ! {m.name}")
+        entry = REACHABILITY_INTENT.get(m.name)
+        if entry is None:
+            unclassified.append(m.name)
+        else:
+            by_cat.setdefault(entry[0], []).append((m.name, entry[1]))
+
+    counts = " · ".join(
+        f"{cat} {len(by_cat.get(cat, []))}" for cat in INTENT_CATEGORIES)
+    lines.append(f"TESTED, AND REACHABLE FROM NOWHERE — by intent ({counts}):")
+    for cat in INTENT_CATEGORIES:
+        for name, reason in sorted(by_cat.get(cat, [])):
+            lines.append(f"  ! {name}  [{cat}]")
+            lines.append(f"      {reason}")
+    if unclassified:
+        lines.append("")
+        lines.append("  UNCLASSIFIED (a new unreachable module — classify it "
+                     "in REACHABILITY_INTENT or wire it):")
+        for name in sorted(unclassified):
+            lines.append(f"  ?! {name}")
     lines.append("")
     lines.append(
-        "Unreachable is a FACT, not a verdict. Some of these are "
-        "deliberate -- publication_gate guards `git push`, a human "
-        "action with no in-repo call path, and CLAUDE.md says so. This "
-        "does not guess which ones are intentional; that judgment stays "
-        "with a reader.")
+        "Unreachable is a FACT, not a verdict — and now a classified one. "
+        "DELIBERATE_GATE guards a real external/human action (wiring a caller "
+        "would fake it). PRIMITIVE is a composable block awaiting real inputs "
+        "(a CLI feeding it invented inputs would be theater). "
+        "DORMANT_CAPABILITY serves a pipeline mode not currently active. The "
+        "one real operator-facing gap, situation_analysis, was wired "
+        "2026-09-04. Each reason is drawn from the module's own docstring.")
     if verbose:
         lines.append("")
         lines.append("REACHED, for contrast:")
