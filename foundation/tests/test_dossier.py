@@ -283,3 +283,56 @@ class TestSelfDeclaredDeclarationsNeverAutoAffirmed(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestTheLiveIrishLeadsAreCovered(unittest.TestCase):
+    """The dossier covered four AU/UK schemes but not the two Irish
+    qualification systems that survived the campaign's criteria analysis
+    as genuinely pursuable -- the leads with the lowest cost-to-start.
+    Added 2026-09-05, every requirement quoted from the real PQQ/QSQ."""
+
+    def setUp(self):
+        self.d = SupplierDossier(profile=_empty_profile())
+
+    def test_both_irish_schemes_are_registered(self):
+        self.assertIn("IARNROD_EIREANN_7289_PENTEST", SCHEMES)
+        self.assertIn("GAS_NETWORKS_IRELAND_23_049_CYBER", SCHEMES)
+
+    def test_irish_rail_names_the_250k_turnover_and_the_reliance_route(self):
+        facts = missing_facts_for_scheme(self.d, "IARNROD_EIREANN_7289_PENTEST")
+        blob = " ".join(f.fact + " " + f.why_needed for f in facts)
+        self.assertIn("250", blob)
+        self.assertIn("third party", blob.lower())  # reliance route
+
+    def test_irish_rail_flags_tax_clearance_as_deferred_not_blocking(self):
+        facts = missing_facts_for_scheme(self.d, "IARNROD_EIREANN_7289_PENTEST")
+        tax = [f for f in facts if "Tax Clearance" in f.fact][0]
+        self.assertIn("CONTRACT AWARD", tax.why_needed)
+        self.assertIn("Does NOT block applying", tax.why_needed)
+
+    def test_gni_names_the_175k_turnover_and_the_broker_letter(self):
+        facts = missing_facts_for_scheme(self.d, "GAS_NETWORKS_IRELAND_23_049_CYBER")
+        blob = " ".join(f.fact + " " + f.why_needed for f in facts)
+        self.assertIn("175", blob)
+        self.assertIn("can be arranged", blob)  # the declaration route
+
+    def test_gni_records_the_personal_experience_carveout(self):
+        facts = missing_facts_for_scheme(self.d, "GAS_NETWORKS_IRELAND_23_049_CYBER")
+        blob = " ".join(f.why_needed for f in facts)
+        self.assertIn("CANNOT be relied upon", blob)
+
+    def test_every_missing_fact_carries_a_quoted_reason(self):
+        for scheme in ("IARNROD_EIREANN_7289_PENTEST",
+                       "GAS_NETWORKS_IRELAND_23_049_CYBER"):
+            for f in missing_facts_for_scheme(self.d, scheme):
+                self.assertTrue(f.why_needed.strip())
+                self.assertEqual(f.scheme, scheme)
+
+    def test_the_render_lists_the_two_irish_schemes(self):
+        text = render_dossier(self.d)
+        self.assertIn("IARNROD_EIREANN_7289_PENTEST", text)
+        self.assertIn("GAS_NETWORKS_IRELAND_23_049_CYBER", text)
+
+    def test_a_missingfact_for_an_unregistered_scheme_is_refused(self):
+        with self.assertRaises(ValueError):
+            MissingFact("NOT_A_REAL_SCHEME", "x", "y")

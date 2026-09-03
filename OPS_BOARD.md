@@ -677,6 +677,25 @@ feedback, not required as a gate.
    That is a conversation with an established firm, not a wall.
 3. Do **not** start with RTÉ. It is a definite no on quoted clauses.
 
+**✅ THE READINESS CHECKLIST IS NOW COMPUTED — 2026-09-05.**
+`python3 -m foundation.operator_cli dossier` now covers both live Irish
+leads (they were absent — it only knew the four AU/UK schemes). For each
+it prints the exact, quoted, still-missing facts that need *your* input:
+
+- **Irish Rail 7289:** audited €250k/yr turnover **or** a third-party
+  reliance declaration; Irish Tax Clearance obtainability (deferred to
+  award, does not block applying); a signed PQQ declaration; scored
+  pen-test experience/references. Insurance is deferred — not needed to
+  apply.
+- **GNI 23/049:** €175k avg turnover (pro-rata for a young business); a
+  broker letter that cover *can be arranged* (not held); a bank-standing
+  declaration; scored experience — with the carve-out that personal
+  employment experience cannot be counted.
+
+Every line quotes the real criterion. This is preparation material only,
+stamped DRAFT — a human transcribes, verifies, and signs. It converts
+the two leads from "promising" to "here is precisely what to prepare."
+
 **⚠️ GAS NETWORKS IRELAND 23/049 — read third, and it changes the shape
 again.** Lower bar than Irish Rail on money, harder on experience.
 

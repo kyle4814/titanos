@@ -87,6 +87,13 @@ SCHEMES = (
     "UK_CCS_CYBER_SECURITY_SERVICES_3_DPS",
     "ICN_GATEWAY",
     "QLD_SUPPLIER_PORTAL",
+    # The two Irish qualification systems that SURVIVED the campaign's
+    # criteria analysis as genuinely pursuable (see OPS_BOARD.md). Added
+    # 2026-09-05: the dossier covered four AU/UK schemes but not the two
+    # leads with the lowest cost-to-start. Every requirement below is
+    # quoted from the real PQQ/QSQ read via eTenders' anonymous download.
+    "IARNROD_EIREANN_7289_PENTEST",
+    "GAS_NETWORKS_IRELAND_23_049_CYBER",
 )
 
 # Category K (Security management) labels, quoted verbatim from
@@ -361,11 +368,90 @@ def _qld_missing(d: SupplierDossier) -> Tuple[MissingFact, ...]:
     return tuple(out)
 
 
+def _irish_rail_7289_missing(d: SupplierDossier) -> Tuple[MissingFact, ...]:
+    """Iarnrod Eireann CIE 7289 -- Qualification System for Penetration
+    Testing. Open for applications before Jan 2029. Criteria quoted from
+    the real PQQ (PQQ/CIE/Version/2/18)."""
+    S = "IARNROD_EIREANN_7289_PENTEST"
+    out = [
+        MissingFact(S, "audited turnover of EUR 250,000/yr for 3 years, "
+                    "OR a third-party reliance declaration",
+                    "the ONLY Pass/Fail financial criterion: '5.1 MINIMUM "
+                    "QUALIFICATION CRITERIA ... A minimum annual turnover "
+                    "of 250k per annum for the last three audited "
+                    "financial year ends.' The PQQ permits meeting this "
+                    "with a third party's turnover ('Reliance on resources "
+                    "to meet Turnover Requirement') -- if relying on a "
+                    "partner, that entity's audited turnover and a signed "
+                    "reliance declaration are required instead. Kyle must "
+                    "supply his own figures or name a partner."),
+        MissingFact(S, "Irish Tax Clearance Certificate obtainability",
+                    "required at CONTRACT AWARD, not at application ('will "
+                    "be required to be in possession of and produce a Tax "
+                    "Clearance Certificate ... at time of contract award'). "
+                    "Whether an Australian sole trader can obtain one from "
+                    "the Revenue Commissioners has not been verified and "
+                    "must be confirmed with Revenue before this route is "
+                    "relied on. Does NOT block applying."),
+        MissingFact(S, "signed PQQ minimum-qualification declaration",
+                    "a signed Declaration in Part 2 of the Questionnaire "
+                    "is a legal statement only the operator can make; this "
+                    "module cannot sign for him."),
+    ]
+    if not d.facts.skills:
+        out.append(MissingFact(
+            S, "declared penetration-testing experience / references",
+            "Technical & Professional Ability is SCORED (40% of points "
+            "per criterion to pass), and client references are sought as "
+            "feedback. No skills declared, so the scored section cannot "
+            "be prepared. NOTE: insurance is DEFERRED to call-off and is "
+            "NOT needed to apply."))
+    return tuple(out)
+
+
+def _gni_23_049_missing(d: SupplierDossier) -> Tuple[MissingFact, ...]:
+    """Gas Networks Ireland 23/049 -- Qualification System for Cyber
+    Security Services. Criteria quoted from the real QSQ."""
+    S = "GAS_NETWORKS_IRELAND_23_049_CYBER"
+    out = [
+        MissingFact(S, "average annual turnover of EUR 175,000 "
+                    "(pro-rata if recently established)",
+                    "D1 Turnover (Pass/Fail): 'an average annual turnover, "
+                    "in the last 2 years or pro-rata for a company "
+                    "established within the last 2 years of at least: "
+                    "EUR175,000.' Lowest financial bar found in Ireland. "
+                    "Kyle must supply his own figures (pro-rata clause "
+                    "helps a young business)."),
+        MissingFact(S, "broker/insurer letter that cover CAN BE ARRANGED",
+                    "F1 Insurance is satisfiable by a STATEMENT, not held "
+                    "cover: 'provide a letter from their insurers/brokers "
+                    "stating ... cover can be arranged' (PL EUR6.5m, PI "
+                    "EUR6.5m, EL EUR13m, Products EUR6.5m). Kyle must "
+                    "obtain such a letter -- he does not need to hold the "
+                    "policies to apply."),
+        MissingFact(S, "bank account in good standing (self-declaration)",
+                    "the QSQ requires confirmation the company holds a "
+                    "bank account presently in good standing -- a "
+                    "declaration only the operator can make."),
+    ]
+    if not d.facts.skills and d.facts.years_experience is None:
+        out.append(MissingFact(
+            S, "cyber-security experience evidence (scored)",
+            "Experience is scored 375 marks, 175 to pass, with an "
+            "explicit carve-out: experience gained by an individual while "
+            "working for a third-party entity CANNOT be relied upon. "
+            "Kyle's own past employment does not count as his business's "
+            "experience -- read this clause before spending effort here."))
+    return tuple(out)
+
+
 _SCHEME_MISSING_FNS = {
     "NSW_ICT_SERVICES_SCHEME": _nsw_missing,
     "UK_CCS_CYBER_SECURITY_SERVICES_3_DPS": _uk_ccs_missing,
     "ICN_GATEWAY": _icn_missing,
     "QLD_SUPPLIER_PORTAL": _qld_missing,
+    "IARNROD_EIREANN_7289_PENTEST": _irish_rail_7289_missing,
+    "GAS_NETWORKS_IRELAND_23_049_CYBER": _gni_23_049_missing,
 }
 
 
@@ -523,7 +609,9 @@ def render_dossier(dossier: SupplierDossier) -> str:
         "submission. A human must transcribe, independently verify, "
         "and sign every declaration before anything here is submitted "
         "to NSW ICT Services Scheme, UK CCS Cyber Security Services 3 "
-        "DPS, ICN Gateway, or the QLD Supplier Portal.",
+        "DPS, ICN Gateway, the QLD Supplier Portal, Iarnrod Eireann "
+        "CIE 7289 (penetration testing), or Gas Networks Ireland 23/049 "
+        "(cyber security).",
         "",
         _render_business_details(dossier),
         "",
