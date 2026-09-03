@@ -262,6 +262,20 @@ def parse_items(raw: bytes) -> tuple[dict, ...]:
             "currency": currency,
             "scopes_count": entry.get("scopes_count")
             if isinstance(entry.get("scopes_count"), int) else 0,
+            # THE UNIT IS NOT PUBLISHED AND IS NOT GUESSED HERE.
+            #
+            # Every programme carries `report_submission_cost` as a small
+            # integer -- measured live 2026-09-04 across all 60 public
+            # programmes: 51 carry 2, and the values rise with programme
+            # value (TeamViewer 5, Swiss Post e-voting 7). The API states
+            # no unit anywhere. It is NOT known to be money, and calling
+            # it a fee would be exactly the fabricated criterion this
+            # repository forbids. Carried verbatim as an integer so a
+            # caller can see the relative ordering, named
+            # `_unit_unknown` so nobody can read a currency into it by
+            # accident.
+            "report_submission_cost_unit_unknown": entry.get("report_submission_cost")
+            if isinstance(entry.get("report_submission_cost"), int) else None,
             "last_update_at": entry.get("last_update_at")
             if isinstance(entry.get("last_update_at"), (int, float)) else None,
         })

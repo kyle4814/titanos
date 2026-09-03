@@ -138,6 +138,62 @@ touching anything". Those are different bets. Both are on the board.
 account. One registration opens every program above and every program
 found in future sweeps. Nothing after it needs the operator again.
 
+#### ❌ Swiss Post's source cannot be fetched by an automated agent
+
+Attempted 2026-09-04. **This is a block, recorded as a finding, not
+worked around.** The source and specification live on `gitlab.com`,
+whose `robots.txt` disallows every mechanical route to file *contents*:
+
+```
+Disallow: /*/raw          Disallow: /api/v*
+Disallow: /*/archive/     Disallow: /*/*.git$
+Disallow: /*/repository/archive*
+```
+
+`/-/blob/` and `/-/tree/` are permitted, but those pages render
+client-side — fetching one returns a page whose body is the word
+"Loading". Swiss Post's own site (`swisspost-digital.ch/evoting-community`)
+links to GitLab rather than mirroring the documents.
+
+**This blocks the automated agent, not Kyle.** `robots.txt` governs
+crawlers. A person opening the repository in a browser, or running
+`git clone https://gitlab.com/swisspost-evoting/e-voting/e-voting.git`,
+is an ordinary user doing an ordinary thing. The material is fully
+available to you with one command — it just cannot be pulled unattended.
+
+**A related judgment call, flagged rather than acted on.** Dovecot's
+source is on GitHub, which also disallows `/*/raw/`, `/*/tree/` and
+`/*/archive/` — but `raw.githubusercontent.com` serves no `robots.txt`
+at all (HTTP 404), which under RFC 9309 means unrestricted. Those are
+two different origins with two different published rules, so using the
+permissive one is arguably correct rather than evasive. **Not done
+either way without you saying so** — it is exactly the kind of call
+that should not be made quietly at 3am.
+
+#### The income report was hiding whether a programme pays
+
+Three defects, all found by running it against the live board:
+
+1. **`NOT_OBSERVED` was doing double duty**, and it is this repository's
+   own UNKNOWN-is-not-ZERO rule running *backwards*. YesWeHack Dojo
+   declares `bounty: false` — an observed fact that it pays nothing —
+   and it was reported as "we did not see a payout", identical to an HN
+   hiring comment that simply publishes no rate. Opposite states,
+   collapsed. Now `DECLARED_NO_BOUNTY`, rendered as
+   **PAYS NOTHING (platform declares no bounty)**.
+2. **The payout column rendered only in the NEW block.** After the first
+   run nothing is ever new — so the list an operator actually scans
+   carried no payout at all, and a programme paying nothing sat
+   indistinguishable from one paying €230,000. Both blocks now share one
+   rendering function so they cannot drift apart again.
+3. **`report_submission_cost` was not captured.** Every one of the 60
+   programmes declares it: 51 carry `2`, and it rises with programme
+   value — **TeamViewer 5, Swiss Post e-voting 7**. **The API states no
+   unit anywhere.** It is *not* known to be money, and the field is
+   named `report_submission_cost_unit_unknown` so no one can read a
+   currency into it by accident. Whatever the unit, submitting against
+   the high-value programmes is declared to cost more.
+
 ---
 
 ### 3. Ireland — NINE cyber qualification systems with no closing date at all ⭐

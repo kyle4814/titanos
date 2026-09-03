@@ -99,11 +99,46 @@ class FieldNormalisationTests(unittest.TestCase):
         fields = income_watch._bounty_fields(item)
         self.assertEqual(fields["payout_observed"], "100-5000 USD")
 
-    def test_bounty_fields_vdp_only_is_not_observed(self):
+    def test_a_platform_declaring_no_bounty_is_not_reported_as_unobserved(self):
+        """CHANGED DELIBERATELY 2026-09-04, and the old assertion was
+        this repository's own UNKNOWN-is-not-ZERO rule running backwards.
+
+        A VDP declares that it pays no bounty. That is an OBSERVED FACT,
+        and reporting it as NOT_OBSERVED told the operator "we did not
+        see a payout" about a programme that had explicitly published
+        one: none. An HN hiring comment with no rate field and a
+        programme that states it pays nothing are opposite states, and
+        collapsing them wastes exactly the attention this module exists
+        to save."""
         raw = _bounty_raw([_bounty_item(bounty=False, reward_min=None, reward_max=None, vdp=True)])
         item = mouth_bounty.parse_items(raw)[0]
         fields = income_watch._bounty_fields(item)
-        self.assertEqual(fields["payout_observed"], income_watch.NOT_OBSERVED)
+        self.assertEqual(fields["payout_observed"], income_watch.DECLARED_NO_BOUNTY)
+        self.assertNotEqual(fields["payout_observed"], income_watch.NOT_OBSERVED)
+
+    def test_bounty_false_alone_also_declares_no_pay(self):
+        """Measured live: YesWeHack Dojo carries bounty=false and
+        vdp=false. It is training, not income, and the report must say
+        so rather than listing it beside a EUR230,000 programme with an
+        identical blank payout column."""
+        raw = _bounty_raw([_bounty_item(bounty=False, reward_min=None, reward_max=None, vdp=False)])
+        item = mouth_bounty.parse_items(raw)[0]
+        fields = income_watch._bounty_fields(item)
+        self.assertEqual(fields["payout_observed"], income_watch.DECLARED_NO_BOUNTY)
+
+    def test_the_render_states_it_pays_nothing_rather_than_leaving_it_blank(self):
+        """A blank payout column reads as 'rate not published', which is
+        the opposite of what the platform declared."""
+        signal = income_watch.IncomeSignal(
+            source_id="mouth_bounty_yeswehack", identifier="dojo",
+            title="YesWeHack Dojo", url="https://yeswehack.com/programs/dojo",
+            kind=income_watch.BOUNTY_PROGRAM, first_seen="2026-09-04T00:00:00+00:00",
+            payout_observed=income_watch.DECLARED_NO_BOUNTY)
+        report = income_watch.IncomeWatchReport(
+            observed_at="2026-09-04T00:00:00+00:00", results=(),
+            signals=(signal,), new_signals=(signal,))
+        out = income_watch.render_income_watch(report)
+        self.assertIn("PAYS NOTHING", out)
 
     def test_bounty_fields_never_fabricates_zero(self):
         # bounty True but reward_max missing/zero must never render "0"

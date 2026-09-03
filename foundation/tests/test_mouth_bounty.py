@@ -31,6 +31,7 @@ def _program(
     currency="USD",
     scopes_count=7,
     last_update_at=1788251461,
+    report_submission_cost=None,
 ):
     return {
         "title": name,
@@ -48,6 +49,7 @@ def _program(
         "bounty_reward_max": bounty_reward_max,
         "scopes_count": scopes_count,
         "last_update_at": last_update_at,
+        "report_submission_cost": report_submission_cost,
         "business_unit": {"name": company_name, "currency": currency},
     }
 
@@ -323,3 +325,35 @@ class DiscoveryPolicyGateTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ReportSubmissionCostTests(unittest.TestCase):
+    """Measured live 2026-09-04 across all 60 public programmes: every
+    one carries `report_submission_cost` as a small integer, 51 of them
+    the value 2, rising with programme value (TeamViewer 5, Swiss Post
+    e-voting 7). The API publishes no unit for it anywhere."""
+
+    def test_the_declared_value_is_carried_verbatim(self):
+        item = mouth_bounty.parse_items(_merged(_program(report_submission_cost=7)))[0]
+        self.assertEqual(item["report_submission_cost_unit_unknown"], 7)
+
+    def test_a_missing_value_is_none_not_zero(self):
+        """Zero would be a claim that submitting costs nothing. The API
+        did not say that; it said nothing."""
+        item = mouth_bounty.parse_items(_merged(_program()))[0]
+        self.assertIsNone(item["report_submission_cost_unit_unknown"])
+
+    def test_a_non_integer_value_is_refused_rather_than_coerced(self):
+        item = mouth_bounty.parse_items(_merged(_program(report_submission_cost="two")))[0]
+        self.assertIsNone(item["report_submission_cost_unit_unknown"])
+
+    def test_the_field_name_cannot_be_read_as_currency(self):
+        """The unit is unpublished. A field called `submission_fee` or
+        `cost_eur` would invent one, which is the fabricated-criterion
+        failure this repository forbids."""
+        item = mouth_bounty.parse_items(_merged(_program(report_submission_cost=2)))[0]
+        key = "report_submission_cost_unit_unknown"
+        self.assertIn(key, item)
+        self.assertIn("unit_unknown", key)
+        for forbidden in ("fee", "eur", "usd", "price", "dollars"):
+            self.assertNotIn(forbidden, key.lower())

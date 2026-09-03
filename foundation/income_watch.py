@@ -123,6 +123,7 @@ from foundation.mouth_common import FetchError
 
 __all__ = [
     "BOUNTY_PROGRAM", "CONTRACT_GIG", "KINDS", "NOT_OBSERVED",
+    "DECLARED_NO_BOUNTY",
     "IncomeSignal", "IncomeSource", "IncomeSourceResult", "IncomeWatchReport",
     "bounty_source", "gigs_source", "default_sources",
     "watch", "render_income_watch",
@@ -134,6 +135,22 @@ KINDS = (BOUNTY_PROGRAM, CONTRACT_GIG)
 
 # Never a fabricated number. See module docstring's VALUE DISCIPLINE.
 NOT_OBSERVED = "NOT_OBSERVED"
+
+# THIS REPOSITORY'S OWN RULE, RUNNING BACKWARDS.
+#
+# Everywhere else here, the discipline is that an absent value must not
+# be reported as zero: UNKNOWN is not ZERO. This module had the inverse
+# defect. YesWeHack declares `bounty: false` on YesWeHack Dojo -- that
+# is an OBSERVED FACT that the programme pays nothing, and it was being
+# reported as NOT_OBSERVED, which says "we did not see a payout".
+#
+# An operator reading the report could not tell a programme that
+# publishes no rate (an HN hiring comment, genuinely unknown) from one
+# that explicitly states it pays nothing. Those are opposite states and
+# collapsing them wastes exactly the attention this module exists to
+# save. Measured live 2026-09-04: 1 of 60 programmes declares
+# `bounty: false`; all 60 declare `vdp: false`.
+DECLARED_NO_BOUNTY = "DECLARED_NO_BOUNTY"
 
 
 def _clean_str(value: object) -> str:
@@ -195,12 +212,17 @@ def _bounty_fields(item: dict) -> dict:
     uses, never re-derived differently here."""
     slug = _clean_str(item.get("slug")).strip()
     title = _clean_str(item.get("title")).strip() or slug
-    is_paying = bool(item.get("bounty")) and isinstance(
-        item.get("bounty_reward_max"), (int, float)) and item["bounty_reward_max"] > 0
-    if is_paying:
+    # Three states, not two. See DECLARED_NO_BOUNTY.
+    declares_no_pay = item.get("vdp") is True or item.get("bounty") is False
+    has_range = isinstance(item.get("bounty_reward_max"), (int, float)) \
+        and item["bounty_reward_max"] > 0
+    if bool(item.get("bounty")) and has_range:
         currency = _clean_str(item.get("currency"))
         payout = f"{item.get('bounty_reward_min')}-{item.get('bounty_reward_max')} {currency}".strip()
+    elif declares_no_pay:
+        payout = DECLARED_NO_BOUNTY
     else:
+        # Pays, but published no range -- genuinely unknown.
         payout = NOT_OBSERVED
     return {
         "identifier": slug,
@@ -403,6 +425,22 @@ _DISCLAIMER = (
 )
 
 
+def _payout_column(signal: "IncomeSignal") -> str:
+    """One rendering of payout, used by both blocks of the report.
+
+    It was inlined in the NEW block only, which is how the full listing
+    came to carry no payout at all -- see the note at its second call
+    site. One function so the two blocks cannot drift apart again.
+    """
+    if signal.payout_observed == NOT_OBSERVED:
+        return ""
+    if signal.payout_observed == DECLARED_NO_BOUNTY:
+        # Stated loudly rather than left blank: a blank reads as "rate
+        # not published", the opposite of what the platform declared.
+        return "  PAYS NOTHING (platform declares no bounty)"
+    return f"  payout={signal.payout_observed}"
+
+
 def render_income_watch(report: IncomeWatchReport, limit: Optional[int] = None) -> str:
     """Text render. NEW items lead: a newly-added bug bounty program or
     contract gig is the single highest-value signal in this lane for a
@@ -433,7 +471,7 @@ def render_income_watch(report: IncomeWatchReport, limit: Optional[int] = None) 
         lines.append("NEW THIS CYCLE:")
         shown_new = report.new_signals[:limit] if limit else report.new_signals
         for s in shown_new:
-            payout = "" if s.payout_observed == NOT_OBSERVED else f"  payout={s.payout_observed}"
+            payout = _payout_column(s)
             lines.append(f"  NEW [{s.kind}] {s.title!r}{payout}  {s.url}")
 
     new_ids = {(s.source_id, s.identifier) for s in report.new_signals}
@@ -443,6 +481,13 @@ def render_income_watch(report: IncomeWatchReport, limit: Optional[int] = None) 
         shown_all = report.signals[:limit] if limit else report.signals
         for s in shown_all:
             marker = "new " if (s.source_id, s.identifier) in new_ids else "seen"
-            lines.append(f"  {marker} [{s.kind}] {s.title!r}  {s.url}")
+            # THE PAYOUT COLUMN BELONGS HERE TOO. It was rendered only in
+            # the NEW block -- and after the first run nothing is ever
+            # new, so the list an operator actually scans carried no
+            # payout information at all. A programme that declares it
+            # pays nothing sat in it indistinguishable from one paying
+            # EUR230,000.
+            lines.append(f"  {marker} [{s.kind}] {s.title!r}"
+                         f"{_payout_column(s)}  {s.url}")
 
     return "\n".join(lines)
