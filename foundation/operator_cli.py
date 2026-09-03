@@ -73,6 +73,7 @@ from foundation.entry_gate import assess_entry, format_entry
 from foundation.reachability import format_reachability, scan_reachability
 from foundation.pit_report import format_pit_summary, summarise_pit_report
 from foundation.corpus_triage import triage as triage_corpus
+from foundation import mouth_find_a_tender_uk
 from foundation.spec_crossref import (
     crossref,
     format_crossref,
@@ -938,6 +939,46 @@ def cmd_spec(args) -> int:
     return 0
 
 
+def cmd_fat_notice(args) -> int:
+    """Read a UK Find a Tender notice's REAL bidder criteria by OCID and
+    run them through the entry-gate barrier analysis.
+
+    The free-text UK feed carries no criteria, so every UK notice comes
+    back INSUFFICIENT_DATA. The public keyless OCDS release endpoint
+    carries the authoritative selection criteria. This resolved a real
+    question 2026-09-05: the City of Bradford penetration-testing
+    framework (ocds-h6vhtk-06e59c) shows ZERO stated barriers.
+    """
+    ocid = args.ocid.strip()
+    objective = (f"read one named OCDS release, {ocid}, to assess the "
+                 f"bidder qualification barriers stated on a UK Find a "
+                 f"Tender notice")
+    if not args.live:
+        print("DRY RUN (default) -- no network request will be made.")
+        print(f"  ocid      : {ocid}")
+        print(f"  endpoint  : {mouth_find_a_tender_uk.OCDS_RELEASE_URL.format(ocid=ocid)}")
+        print("Pass --live to actually fetch.")
+        return 0
+    policy = _build_policy(objective, args.max_queries,
+                           args.max_wall_clock_seconds, args.max_results)
+    try:
+        release = mouth_find_a_tender_uk.fetch_release(ocid, policy)
+    except Exception as exc:  # noqa: BLE001 -- named refusal, never a traceback
+        print(f"FETCH FAILED: {type(exc).__name__}: {exc}", file=sys.stderr)
+        return 1
+    text = mouth_find_a_tender_uk.release_assessable_text(release)
+    tender = release.get("tender", {})
+    print(f"notice : {tender.get('title', ocid)}")
+    val = tender.get("value") or {}
+    print(f"value  : {val.get('amountGross')} {val.get('currency','')}"
+          f"   status: {tender.get('status')}"
+          f"   closes: {(tender.get('tenderPeriod') or {}).get('endDate')}")
+    print(f"criteria text: {len(text)} characters")
+    print()
+    print(format_entry(assess_entry(text)))
+    return 0
+
+
 def cmd_triage(args) -> int:
     """Measure whether a delivered corpus contains buildable substance or
     is descriptive scaffolding.
@@ -1185,6 +1226,19 @@ def build_parser() -> "object":
                         help="also report identifiers cited neither by "
                              "number nor by name anywhere")
     p_spec.set_defaults(func=cmd_spec)
+
+    p_fat = sub.add_parser(
+        "fat-notice",
+        help="read a UK Find a Tender notice's real bidder criteria by OCID "
+             "(via the public OCDS release API) and analyse its entry gates")
+    p_fat.add_argument("ocid", help="the OCDS id, e.g. ocds-h6vhtk-06e59c")
+    p_fat.add_argument("--live", action="store_true",
+                       help="actually fetch. Default is dry-run.")
+    p_fat.add_argument("--max-queries", type=int, default=DEFAULT_MAX_QUERIES)
+    p_fat.add_argument("--max-wall-clock-seconds", type=int,
+                       default=DEFAULT_MAX_WALL_CLOCK_SECONDS)
+    p_fat.add_argument("--max-results", type=int, default=DEFAULT_MAX_RESULTS)
+    p_fat.set_defaults(func=cmd_fat_notice)
 
     p_triage = sub.add_parser(
         "triage",

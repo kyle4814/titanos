@@ -758,6 +758,46 @@ class TestTriageCommand(unittest.TestCase):
         self.assertIn("REFUSED", err)
 
 
+class TestFatNoticeCommand(unittest.TestCase):
+    """Reads a UK notice's real criteria by OCID via the OCDS release
+    API. Dry-run by default; the live path is exercised only via a
+    mocked fetch so no test opens a socket."""
+
+    def test_dry_run_is_the_default_and_touches_nothing(self):
+        code, out, err = _run(["fat-notice", "ocds-h6vhtk-06e59c"])
+        self.assertEqual(code, 0)
+        self.assertIn("DRY RUN", out)
+        self.assertIn("ocds-h6vhtk-06e59c", out)
+
+    def test_live_runs_the_criteria_through_entry_gate(self):
+        release = {"tender": {"title": "Bradford Pen Testing",
+                              "description": "suitably experienced Provider",
+                              "value": {"amountGross": 300327.0, "currency": "GBP"},
+                              "status": "active"}}
+        with patch.object(operator_cli.mouth_find_a_tender_uk, "fetch_release",
+                          return_value=release):
+            code, out, err = _run(["fat-notice", "ocds-x", "--live"])
+        self.assertEqual(code, 0)
+        self.assertIn("Bradford Pen Testing", out)
+        self.assertIn("WHAT IT COSTS TO START", out)
+
+    def test_a_real_barrier_in_the_release_is_surfaced(self):
+        release = {"tender": {"title": "X",
+                              "description": "Tenderers must hold a valid "
+                              "ISO 27001 certification.", "status": "active"}}
+        with patch.object(operator_cli.mouth_find_a_tender_uk, "fetch_release",
+                          return_value=release):
+            code, out, err = _run(["fat-notice", "ocds-x", "--live"])
+        self.assertIn("CERTIFICATION", out)
+
+    def test_a_fetch_failure_is_a_named_refusal_not_a_traceback(self):
+        with patch.object(operator_cli.mouth_find_a_tender_uk, "fetch_release",
+                          side_effect=RuntimeError("boom")):
+            code, out, err = _run(["fat-notice", "ocds-x", "--live"])
+        self.assertEqual(code, 1)
+        self.assertIn("FETCH FAILED", err)
+
+
 class TestExitCodes(unittest.TestCase):
     def test_empty_hunt_report_is_success_not_failure(self):
         from foundation.hunt import HuntReport

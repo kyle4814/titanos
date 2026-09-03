@@ -194,6 +194,7 @@ __all__ = [
     "MOUTH_ID", "FEED_URL", "DISCOVERY_POLICY", "FetchError",
     "MouthObservation", "parse_items", "observe",
     "find_a_tender_signal", "FindATenderSweep", "sweep",
+    "OCDS_RELEASE_URL", "release_assessable_text", "fetch_release",
 ]
 
 MOUTH_ID = "tender_radar_uk_find_a_tender"
@@ -207,6 +208,99 @@ FEED_URL = (
     "https://www.find-tender.service.gov.uk/search/opportunities"
     "?language=en_GB&filters.cpv-codes=79700000"
 )
+
+
+# THE AUTHORITATIVE STRUCTURED PATH, wired 2026-09-05.
+#
+# The free-text FEED_URL above carries no bidder criteria at all -- every
+# UK notice from it can only ever come back INSUFFICIENT_DATA. This
+# module's docstring recorded the public keyless OCDS release endpoint as
+# "the authoritative structured-data path a future module extending this
+# one should use" and then did not use it. This cycle it resolved a real
+# question that mattered: the City of Bradford penetration-testing
+# framework (ocds-h6vhtk-06e59c, GBP300,327, closing 2026-09-14) was
+# marked "unresolved -- might require CHECK-scheme accreditation". The
+# OCDS release states ZERO qualification barriers (no CREST, no
+# certification, no insurance, no references, no turnover) -- far stronger
+# evidence than the free-text summary. So the endpoint is wired here as a
+# per-notice lookup, kept deliberately separate from the sweep (it is one
+# fetch per ocid, not a bulk feed).
+OCDS_RELEASE_URL = "https://www.find-tender.service.gov.uk/api/1.0/ocdsReleasePackages/{ocid}"
+
+# The tender fields worth reading for barriers. Only text a human bidder
+# would read for qualification conditions -- never the whole release,
+# which is mostly identifiers and dates.
+_ASSESSABLE_TENDER_KEYS = (
+    "title", "description", "eligibilityCriteria",
+    "selectionCriteria", "submissionMethodDetails",
+)
+
+
+def release_assessable_text(release: dict) -> str:
+    """Extract the bidder-facing text from one OCDS release, for feeding
+    to `entry_gate.assess_entry()` / `access_barriers`.
+
+    Pure, offline, no network. Reads only the criteria-relevant tender
+    fields (see `_ASSESSABLE_TENDER_KEYS`) plus any `criteria` array's
+    descriptions -- never the whole release, whose identifiers and dates
+    are noise a barrier scan would only be confused by. Returns "" for a
+    release carrying none of them, which `assess_entry()` then reports as
+    NOT_ASSESSED rather than as "no barriers".
+    """
+    if not isinstance(release, dict):
+        raise FetchError(
+            f"release_assessable_text() takes a release dict, got "
+            f"{type(release).__name__}")
+    tender = release.get("tender")
+    if not isinstance(tender, dict):
+        return ""
+    parts: list[str] = []
+    for key in _ASSESSABLE_TENDER_KEYS:
+        value = tender.get(key)
+        if isinstance(value, str) and value.strip():
+            parts.append(value)
+    # OCDS `tender.criteria[].description` is where selection conditions
+    # live when the buyer used the structured form rather than prose.
+    criteria = tender.get("criteria")
+    if isinstance(criteria, list):
+        for c in criteria:
+            if isinstance(c, dict):
+                desc = c.get("description")
+                if isinstance(desc, str) and desc.strip():
+                    parts.append(desc)
+                for req in (c.get("requirementGroups") or []):
+                    for r in (isinstance(req, dict) and req.get("requirements") or []):
+                        rd = isinstance(r, dict) and r.get("description")
+                        if isinstance(rd, str) and rd.strip():
+                            parts.append(rd)
+    return "\n".join(parts)
+
+
+def fetch_release(ocid: str, policy: DiscoveryPolicy,
+                  fetch_fn: Optional[Callable[[], bytes]] = None) -> dict:
+    """Fetch one named OCDS release by ocid. `fetch_fn` is the offline
+    injection point every test uses; no test opens a socket.
+
+    Returns the first release dict in the package, or raises FetchError
+    on a malformed/empty package -- the same UNAVAILABLE-not-crash
+    contract every fetch in this repository gives.
+    """
+    import json
+    if not isinstance(ocid, str) or not ocid.strip():
+        raise FetchError("fetch_release() requires a non-empty ocid")
+    fetch = fetch_fn or (lambda: fetch_feed(
+        OCDS_RELEASE_URL.format(ocid=ocid.strip()), policy=policy))
+    raw = fetch()
+    try:
+        package = json.loads(raw)
+    except (ValueError, TypeError) as exc:
+        raise FetchError(f"OCDS package did not parse as JSON: {exc}") from exc
+    releases = package.get("releases") if isinstance(package, dict) else None
+    if not isinstance(releases, list) or not releases or \
+            not isinstance(releases[0], dict):
+        raise FetchError(
+            f"OCDS package for {ocid!r} carried no usable release")
+    return releases[0]
 
 DISCOVERY_POLICY = DiscoveryPolicy(
     objective=(

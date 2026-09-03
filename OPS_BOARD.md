@@ -1217,11 +1217,47 @@ performed by **CHECK-scheme accredited** testers, and that requirement
 would sit in the tender documents rather than the notice. This is
 **unresolved**, not cleared.
 
-**ACTION — needs your browser, ten minutes:** the submission portal is
-`uk.eu-supply.com` and it is **session-cookie-gated, not WAF-blocked**,
-which means a human browser gets in where an automated fetcher cannot.
-Open it, find the CHECK/CREST answer, and tell me. This is the
-highest-value live item on the board.
+**✅ MUCH STRONGER EVIDENCE — 2026-09-05, from the authoritative OCDS
+release** (`ocds-h6vhtk-06e59c`, Find a Tender's public keyless API, the
+structured selection-criteria source, not the free-text summary). Scanned
+the entire release:
+
+```
+CREST            0        certification    0        insurance   0
+CHECK-scheme     0 *      Cyber Essentials 0        turnover    0
+accreditation    0        ISO 27001        0        references  0
+```
+`* the two "CHECK" string matches are both inside "IT Health Checks" in
+the title, not CHECK-scheme accreditation.`
+
+**The authoritative notice data states ZERO qualification barriers.** The
+only stated requirement is "a suitably experienced and qualified
+Provider", the procedure is **Open** (no pre-selection), status **active**,
+deadline confirmed **2026-09-14T16:00Z**, value £300,327 gross / £250,273
+net. No public tender document is linked beyond the notice itself.
+
+This is now a repeatable one-command check for any UK notice:
+`python3 -m foundation.operator_cli fat-notice <ocid> --live` fetches the
+notice's real criteria from the public OCDS release API and runs them
+through the entry-gate barrier analysis. The UK free-text feed carries no
+criteria (every UK notice was stuck at INSUFFICIENT_DATA); this wires the
+authoritative structured path the mouth's own docstring had flagged as
+unused.
+
+**The honest limit, per our own rule (absence ≠ no requirement):** this
+does not *prove* no CHECK requirement exists — the ITT / specification
+annex lives behind `uk.eu-supply.com` and has not been read. But the
+strongest structured evidence available now says every conventional
+barrier is absent, which moves this from "probably needs CHECK" to "the
+one place a barrier could still hide is the portal-gated ITT."
+
+**ACTION — needs your browser, ten minutes, and it is time-critical (11
+days):** open `uk.eu-supply.com` (session-cookie-gated, NOT WAF-blocked —
+a human browser gets in where the fetcher cannot), download the ITT, and
+confirm whether CHECK/CREST is required. Given the OCDS release shows no
+barriers, an Open procedure, and top-3 appointment on your exact skill
+(pen testing, NCSC/OWASP, 10-day blocks), **this is the highest-value
+live item on the board and the only one with a near deadline.**
 
 ---
 

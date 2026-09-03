@@ -270,3 +270,65 @@ class DiscoveryPolicyGateTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class OcdsReleaseTests(unittest.TestCase):
+    """The authoritative structured path, wired 2026-09-05. The free-text
+    feed carries no criteria; the OCDS release does. Offline throughout --
+    fetch_release's fetch_fn is injected."""
+
+    def _package(self, tender):
+        import json
+        return json.dumps({"releases": [{"tender": tender}]}).encode()
+
+    def test_assessable_text_pulls_the_bidder_facing_fields(self):
+        rel = {"tender": {"title": "Pen Testing Framework",
+                          "description": "suitably experienced Provider",
+                          "eligibilityCriteria": "must hold CREST"}}
+        text = mouth_find_a_tender_uk.release_assessable_text(rel)
+        self.assertIn("Pen Testing Framework", text)
+        self.assertIn("suitably experienced", text)
+        self.assertIn("CREST", text)
+
+    def test_assessable_text_reads_structured_criteria_descriptions(self):
+        rel = {"tender": {"title": "X", "criteria": [
+            {"description": "minimum turnover of GBP 1,000,000"}]}}
+        self.assertIn("minimum turnover", mouth_find_a_tender_uk.release_assessable_text(rel))
+
+    def test_assessable_text_ignores_identifiers_and_dates(self):
+        """Only criteria-relevant fields -- never the whole release, whose
+        ids and dates would only confuse a barrier scan."""
+        rel = {"tender": {"title": "X", "id": "abc-123",
+                          "tenderPeriod": {"endDate": "2026-09-14"}}}
+        text = mouth_find_a_tender_uk.release_assessable_text(rel)
+        self.assertIn("X", text)
+        self.assertNotIn("abc-123", text)
+        self.assertNotIn("2026-09-14", text)
+
+    def test_a_release_with_no_tender_yields_empty_not_a_crash(self):
+        self.assertEqual(mouth_find_a_tender_uk.release_assessable_text({"tender": None}), "")
+        self.assertEqual(mouth_find_a_tender_uk.release_assessable_text({}), "")
+
+    def test_non_dict_release_is_refused(self):
+        with self.assertRaises(mouth_find_a_tender_uk.FetchError):
+            mouth_find_a_tender_uk.release_assessable_text("not a dict")
+
+    def test_fetch_release_returns_the_first_release(self):
+        rel = mouth_find_a_tender_uk.fetch_release(
+            "ocds-x", policy=None,
+            fetch_fn=lambda: self._package({"title": "Bradford"}))
+        self.assertEqual(rel["tender"]["title"], "Bradford")
+
+    def test_fetch_release_refuses_an_empty_package(self):
+        with self.assertRaises(mouth_find_a_tender_uk.FetchError):
+            mouth_find_a_tender_uk.fetch_release("ocds-x", policy=None,
+                               fetch_fn=lambda: b'{"releases": []}')
+
+    def test_fetch_release_refuses_malformed_json(self):
+        with self.assertRaises(mouth_find_a_tender_uk.FetchError):
+            mouth_find_a_tender_uk.fetch_release("ocds-x", policy=None,
+                               fetch_fn=lambda: b'{not json')
+
+    def test_fetch_release_refuses_an_empty_ocid(self):
+        with self.assertRaises(mouth_find_a_tender_uk.FetchError):
+            mouth_find_a_tender_uk.fetch_release("   ", policy=None, fetch_fn=lambda: b'{}')
