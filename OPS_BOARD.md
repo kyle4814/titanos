@@ -228,6 +228,66 @@ DDH". They commissioned a CNRS/LORIA expert to write on it —
 are where a genuine finding would have to live, because everything
 inside the model is already proven.
 
+#### 📝 ONE SUBMITTABLE CANDIDATE — Low severity, documentation
+
+**Read `Protocol/sgsp.pdf` (Pierrick Gaudry, CNRS/LORIA, May 2022).**
+It is 10,000 characters and it contains one claim about the *system*
+rather than the mathematics:
+
+> "**Fact.** It is crucial to have a 'provably randomly generated'
+> prime. In the Swiss Post case, it means that the seed given to
+> Algorithm `GetEncryptionParameters` must be public. This is indeed the
+> case, since it is said to be 'The name of the election event'."
+
+And the concern it defends against, in the same note:
+
+> "one can imagine other adversary constructions of the prime *p* where
+> some multiplicative relation between the ℓᵢ's is known to the person
+> who constructed the prime and could therefore easily (in polynomial
+> time) break SGSP."
+
+**What actually delivers that property.** System Specification §3.2
+restricts the seed to `CT_YYYYMMDD_XYnm` — canton (2), election date
+(8), TT/TP/PP plus a 2-digit ascending sequence. For a productive event
+in a given canton on a legally-fixed date, the only free field is the
+sequence number: **at most ~99 candidate primes.** That bound is what
+makes prime-grinding hopeless, and it is a real, well-designed control.
+Verification 5.01 checks the format and recomputes (p,q,g) from the
+seed, so it is enforced, not just written down.
+
+**The candidate: that control is documented as a naming convention.**
+Computed, not eyeballed:
+
+```
+TERM TRACE: 'SGSP'
+     Computational proof            : 43 mentions
+     Gaudry SGSP note               : 20 mentions
+  !! System Specification v1.6.1    :  0 mentions
+  !! Verifier Specification v1.7.1  :  0 mentions
+```
+
+Zero in both documents that define and enforce the control. The only
+rationale §3.2 gives for the format is modulo-overflow prevention, which
+is about the *size* of the primes, not the *unpredictability* of p.
+
+**Why it is worth submitting anyway, at Low.** It is not a
+vulnerability and must not be presented as one. It is a load-bearing
+security property presented as a formatting rule — precisely the shape
+of thing a future revision relaxes (a longer sequence field, free-text
+event names) without anyone noticing what it was holding up. A
+one-sentence cross-reference from §3.2 to the SGSP assumption closes it
+permanently.
+
+**⚠️ THE HONEST UNKNOWN, and it must go in the report.** The System
+Specification changelog records: *"Moved the `GetEncryptionParameters`
+algorithm to the crypto-primitives specification."* That specification
+is **a separate repository, not in this clone**, and it may well carry
+the rationale. The claim is therefore *"absent from the two documents I
+read"*, never *"undocumented"*. Clone
+`crypto-primitives/crypto-primitives` and check before submitting.
+
+Reproduce with `foundation/spec_crossref.py::trace_term()`.
+
 #### ❌ Swiss Post's source cannot be fetched by an automated agent
 
 Attempted 2026-09-04. **This is a block, recorded as a finding, not
