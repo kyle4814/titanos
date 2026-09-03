@@ -390,15 +390,70 @@ event names) without anyone noticing what it was holding up. A
 one-sentence cross-reference from §3.2 to the SGSP assumption closes it
 permanently.
 
-**⚠️ THE HONEST UNKNOWN, and it must go in the report.** The System
-Specification changelog records: *"Moved the `GetEncryptionParameters`
-algorithm to the crypto-primitives specification."* That specification
-is **a separate repository, not in this clone**, and it may well carry
-the rationale. The claim is therefore *"absent from the two documents I
-read"*, never *"undocumented"*. Clone
-`crypto-primitives/crypto-primitives` and check before submitting.
+**✅ THE UNKNOWN IS RESOLVED, 2026-09-04 — the candidate SURVIVES.**
+`crypto-primitives` cloned at tag `crypto-primitives` HEAD and read.
+Evidence:
 
-Reproduce with `foundation/spec_crossref.py::trace_term()`.
+- **SGSP appears ZERO times** in crypto-primitives source and docs. (One
+  grep hit exists — a base64 blob in a mixnet test fixture that happens
+  to contain the substring "sgsp" — a false positive, not a mention.)
+- The control **is implemented**:
+  `EncryptionParameters.getEncryptionParameters(seed, smallPrimes)`
+  derives `q` from `shake256(seed)`, so a public election-event-name
+  seed fully determines `(p, q, g)`. Real, well-built.
+- Its javadoc documents **only** *"executions with the same seed yield
+  the same encryption parameters"* and *"seed = the name of the election
+  event"* — the reproducibility property. **No mention of SGSP, no
+  mention that the public, constrained seed is what prevents an
+  adversary constructing a special-form prime.**
+
+So the finding is confirmed across **all three** reachable sources
+(System Spec 0, Verifier Spec 0, crypto-primitives 0). The security
+rationale for the seed constraint lives only in Gaudry's commissioned
+note, which is not part of the spec or the code. **This is a real,
+submittable Low-severity documentation finding.** It is not a
+vulnerability and must not be presented as one: a one-line
+cross-reference from the parameter-generation code/spec to the SGSP
+assumption closes it.
+
+Reproduce: `operator_cli spec --trace SGSP <sysspec.pdf> <sgsp.pdf>`, or
+`grep -rc SGSP` across the three repos.
+
+#### ✅ THE 2026 HIGH (€19,000 cache bug) — VERIFIED CLOSED in 1.6.1
+
+Traced the exact 2026 High through source at the pinned post-fix tag
+`e-voting-1.6.1.0`. Every category stated with its evidence:
+
+- **VERIFIED — poisoning half fixed.** `evoting-libraries …/caching/
+  GqGroupCache.java`: the cache key is now the composite record
+  `GqGroupCacheKey(p, q, g)`, derived from all three of p, q, g. A
+  different `g` yields a different key, so the legitimate entry cannot be
+  shadowed. The 2026 "keyed only by p" defect is gone.
+- **VERIFIED — deserialization-cache growth fixed.**
+  `GqGroupCache.getGqGroupFromContext()`: on a cache **miss** it returns
+  a transient group and does **not** `put`. The map can no longer grow
+  from request input.
+- **VERIFIED — native fixed-base cache not reachable from the voting
+  path.** The only allocators of fixed-base tables are the warm-up paths.
+  `publishGqGroupCreationEvent` has **zero callers** in crypto-primitives;
+  `modExponentiate`/`multiModExp` allocate nothing per call. The one
+  request-path allocator, `RequestCcKeysController` (config phase,
+  `saveElectionEventContext → warmUpCaches`), sits **behind a
+  fail-closed canton-signature gate**: `verifyPayloadSignature` throws on
+  null signature, on `SignatureException`, and on `isSignatureValid ==
+  false` — no log-and-continue path exists.
+
+**Conclusion: the 2026 High is fully patched in 1.6.1. Stop hunting this
+class here — no sunk-cost.** This is a verified negative, not a paying
+finding, and it is worth exactly what it is: it tells us where NOT to
+spend the next hundred hours.
+
+**Scope limit, stated honestly:** this verifies the *specific* 2026
+vector against *static source* at one tag. It is not a claim that
+voting-server is secure, and it is not dynamic proof — a static read can
+miss a path where the signature gate is reachable by another route. Full
+assurance needs the system running (the deployable-server clone), which
+remains the real next lever for fresh classes.
 
 #### ❌ Swiss Post's source cannot be fetched by an automated agent
 
