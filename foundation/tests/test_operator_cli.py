@@ -798,6 +798,36 @@ class TestFatNoticeCommand(unittest.TestCase):
         self.assertIn("FETCH FAILED", err)
 
 
+class TestPartnerNeedsCommand(unittest.TestCase):
+    def _doc(self, text):
+        d = Path(tempfile.mkdtemp()); (d / "notice.txt").write_text(text, encoding="utf-8")
+        return str(d / "notice.txt")
+
+    def test_a_gated_opportunity_yields_partner_needs(self):
+        path = self._doc("Minimum annual turnover of 250k per annum. Evidence "
+                         "of three reference contracts required.")
+        code, out, err = _run(["partner-needs", path])
+        self.assertEqual(code, 0)
+        self.assertIn("WHAT A PARTNER WOULD HAVE TO SUPPLY", out)
+        self.assertIn("MINIMUM_TURNOVER", out)
+
+    def test_an_ungated_opportunity_needs_no_partner(self):
+        path = self._doc("The authority seeks a supplier of advisory services.")
+        code, out, err = _run(["partner-needs", path])
+        self.assertIn("NO PARTNER NEEDED", out)
+
+    def test_the_output_disclaims_it_is_a_match_or_authority(self):
+        path = self._doc("Tenderers must maintain Public Liability Insurance "
+                         "of EUR6.5M.")
+        code, out, err = _run(["partner-needs", path])
+        self.assertIn("NOT a matched partner", out)
+
+    def test_a_missing_document_is_a_named_refusal(self):
+        code, out, err = _run(["partner-needs", "/nonexistent/doc.pdf"])
+        self.assertEqual(code, 1)
+        self.assertIn("REFUSED", err)
+
+
 class TestExitCodes(unittest.TestCase):
     def test_empty_hunt_report_is_success_not_failure(self):
         from foundation.hunt import HuntReport

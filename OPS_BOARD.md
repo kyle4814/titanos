@@ -1995,6 +1995,47 @@ A notice published inside the window may still have closed.
 
 ---
 
+## 🤝 THE DELIVERY-PARTNER LAYER — first slice built 2026-09-05
+
+Every real opportunity on this board is gated on something Kyle lacks:
+held insurance, a certification, corporate references, a turnover figure,
+staff based in a jurisdiction. The lawful way to clear those is a
+**delivery partner** who supplies the missing capability, with revenue
+shared under a transparent agreement. The single highest-leverage missing
+piece was the **bridge** from "this opportunity has a gate Kyle can't
+clear" to "what a partner must supply" — and a way to hold candidate
+partners honestly. That bridge is now built (`foundation/partner_network.py`,
+`operator_cli partner-needs <document>`), reusing `entry_gate` — it
+invents no requirement the document did not state.
+
+Run against the board's real leads, it computes the partner shape of each:
+
+| Opportunity | What a partner must supply |
+|---|---|
+| **Irish Rail 7289** | REFERENCES + MINIMUM_TURNOVER (€250k — the PQQ's own reliance route) |
+| **RTÉ 25P041** | INSURANCE (held €6.5M) + REFERENCES + TURNOVER |
+| **HSE 22167** | LOCAL_PRESENCE + STAFFED_ROUND_THE_CLOCK — an **Ireland-based MSP** partner, the one wall Kyle cannot clear alone |
+
+**What this slice deliberately is, and is not.** It is the data model +
+the opportunity→need bridge + a forward-only lifecycle
+(DISCOVERED → … → ACTIVE) with the discipline that **a contact is never a
+partner** (`is_partner()` is true only for a signed ACTIVE relationship;
+DISCOVERED/CONTACTED never are) and **a claim is never fact because the
+candidate said it** (evidence tiers: SELF_REPORTED cannot become VERIFIED
+without an independent source). It has **no outreach, no email, no
+network, and no invented people** — the registry starts empty and every
+test is synthetic. Outreach, agreements, and payments are human-approved
+actions gated elsewhere; automation prepares and ranks, it never invents
+authority or consent. 37 tests, the adversarial set (fabricated
+credentials refused, AI-confidence state-skip refused, opt-out respected).
+
+**Kyle's move this unlocks:** the HSE €16M–€60M cyber systems, written off
+as "geography wall, impossible for a solo operator," are now precisely a
+**find-an-Ireland-based-security-partner** problem — a real, lawful
+commercial path, not a dead end. But no partner exists yet: the next step
+is discovering evidence-backed candidates, which needs Kyle's go-ahead on
+outreach.
+
 ## THE MECHANISM THAT CHANGES THE STRATEGY
 
 Found 2026-09-02 by reading **all five** live Irish tender documents in

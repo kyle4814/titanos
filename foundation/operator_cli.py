@@ -70,6 +70,7 @@ from foundation.discovery_authorization import (
 )
 from foundation.access_barriers import assess_access, format_access
 from foundation.entry_gate import assess_entry, format_entry
+from foundation.partner_network import derive_partner_needs, format_partner_needs
 from foundation.reachability import format_reachability, scan_reachability
 from foundation.pit_report import format_pit_summary, summarise_pit_report
 from foundation.corpus_triage import triage as triage_corpus
@@ -848,6 +849,31 @@ def cmd_deep_ireland(args) -> int:
     return 0
 
 
+def cmd_partner_needs(args) -> int:
+    """Given a tender document, print exactly what a delivery partner
+    would have to supply to make it winnable -- the capability gaps the
+    operator cannot clear himself.
+
+    The commercial thesis in one command: every opportunity gated on a
+    held credential, a turnover figure, references, or local staffing is
+    a partner-shaped opportunity. This reuses entry_gate; it invents no
+    requirement the document did not state. It is NOT a matched partner
+    and NOT authority to contact anyone.
+    """
+    path = Path(args.document)
+    if not path.exists():
+        print(f"REFUSED: no such document: {path}", file=sys.stderr)
+        return 1
+    text = _read_document_text(path)
+    print(f"document : {path.name}")
+    if not text.strip():
+        print("NOTE     : nothing extractable -- a scanned image reads the "
+              "same as a permissive document from here.")
+    print()
+    print(format_partner_needs(derive_partner_needs(assess_entry(text))))
+    return 0
+
+
 def cmd_gates(args) -> int:
     """Read a tender document for what it costs the OPERATOR to start.
 
@@ -1193,6 +1219,15 @@ def build_parser() -> "object":
                         help="print every notice, not only the "
                              "security-relevant ones")
     p_deep.set_defaults(func=cmd_deep_ireland)
+
+    p_pneeds = sub.add_parser(
+        "partner-needs",
+        help="given a tender document, print what a delivery partner would "
+             "have to supply to make it winnable (the gaps you cannot clear "
+             "yourself)")
+    p_pneeds.add_argument("document",
+                          help="path to a .pdf/.docx/.rtf/text tender document")
+    p_pneeds.set_defaults(func=cmd_partner_needs)
 
     p_gates = sub.add_parser(
         "gates",
