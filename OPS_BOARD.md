@@ -77,6 +77,18 @@ been picked over by 106 to 900+ reports.
 **Three wildcards means every subdomain is in play — and nobody has
 filed a single report against any of it.** Eight scopes, zero reports.
 
+**✅ RE-VERIFIED LIVE 2026-09-05 against the program's own API.** Still
+`reports_count: 0`, `bounty: true`, `disabled: false`, $10–$2,500, and
+the scope above is byte-for-byte unchanged. **Zero reports after two-plus
+weeks is the proof this is genuinely unlooked-at, not a stale snapshot** —
+if it were merely new, someone among YesWeHack's hunters would have filed
+by now. It remains the single most winnable target on this board.
+
+Re-scanned the full public board the same day for any *newer*
+low-contested programme: still exactly two under 20 reports (Ant Group 0,
+Tencent 15), nothing new appeared, one programme dropped off (60 → 59).
+Kyle is not missing a fresher target — Ant Group is still the one.
+
 | | |
 |---|---|
 | Minimum bounty | **$10** — so it pays for a Low, which is the finding a newcomer actually gets first |
