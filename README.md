@@ -69,7 +69,7 @@ measurement that buries them has already failed.
 
 | Claim | Status |
 |---|---|
-| Tests pass | ✅ **4,204 tests across 12 subsystems** — green, and verified in a fresh clone, not just on the author's machine |
+| Tests pass | ✅ **4,209 tests across 12 subsystems** — green, and verified in a fresh clone, not just on the author's machine |
 | CI is green | ✅ [`.github/workflows/tests.yml`](.github/workflows/tests.yml) — the authoritative check |
 | Runtime dependencies | ✅ One: PyYAML |
 | Released | ✅ [v0.1.0](https://github.com/kyle4814/titanos/releases/tag/v0.1.0), wheel + sdist |
