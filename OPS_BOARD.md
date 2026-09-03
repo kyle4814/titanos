@@ -233,9 +233,53 @@ feedback, not required as a gate.
    That is a conversation with an established firm, not a wall.
 3. Do **not** start with RTÉ. It is a definite no on quoted clauses.
 
-The other seven remain unread. HSE's three (€60M, €60M, €16M) and
-Asiera's €175M are large enough to expect RTÉ-shaped insurance gates;
-Gas Networks Ireland is unread and unguessed.
+**⚠️ GAS NETWORKS IRELAND 23/049 — read third, and it changes the shape
+again.** Lower bar than Irish Rail on money, harder on experience.
+
+> **D1 Turnover (Pass/Fail)** — "an average annual turnover, in the last
+> 2 years **or pro-rata for a company established within the last 2
+> years** of at least: **€175,000**"
+
+Lowest financial threshold found in Ireland, and the pro-rata clause is
+written for a young business. Insurance is stranger and better than it
+looks:
+
+> **F1 Insurance requirements** — "The Applicant is to provide a letter
+> from their insurers/brokers stating the following: We, the
+> insurers/brokers to [Applicant] hereby confirm that the following type
+> and level of cover **can be arranged** on the Applicant's behalf"
+
+Cover that **can be arranged**, not cover already held — a broker's
+letter, not a policy. Levels are large (Public Liability €6.5m, Products
+Liability €6.5m, Employers Liability €13m, plus Professional Indemnity).
+
+The gate here is experience, scored not Pass/Fail — Financials 150 (75
+to pass), Resources 375 (175), **Experience 375 (175)**, Data Protection
+50 (30), Information Security 50 (30). Reliance on another entity's
+resources is permitted, with one carve-out that lands directly on a solo
+operator:
+
+> "previous experience gained by: **an individual while working for a
+> third-party entity** ... cannot [be relied upon]"
+
+Kyle's own past work for employers cannot be counted as his business's
+experience. That is the clause to read in full before spending effort
+here.
+
+Round 1 queries closed 13 February 2024. A qualification system admits
+continuously, so later rounds should exist — **UNKNOWN, and worth one
+message through the eTenders facility before doing any work.**
+
+The other six remain unread. HSE's three (€60M, €60M, €16M) and Asiera's
+€175M are large enough to expect RTÉ-shaped insurance gates.
+
+**What three readings establish, and it is worth stating plainly: the
+nine are not one thing.** RTÉ demands held insurance at admission and is
+a definite no. Irish Rail defers insurance to call-off entirely. Gas
+Networks Ireland wants only a broker's letter of arrangeability. The
+same instrument, the same country, three different answers — so "DPS"
+is not a shortcut, and no conclusion about the remaining six should be
+drawn from these three.
 
 ---
 
