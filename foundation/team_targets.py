@@ -69,7 +69,7 @@ TEAM_TARGETS: Tuple[TeamTarget, ...] = (
     TeamTarget(
         "IE_FAILTE", "Fáilte Ireland — Cybersecurity Specialist Services (IT/2026/08)",
         "€800,000 (contract; turnover bar €400k)",
-        "2026-09-24", "https://ted.europa.eu/en/notice/-/detail/588260-2026",
+        "2026-09-24 12:00 (re-verified live 04 Sep)", "https://ted.europa.eu/en/notice/-/detail/588260-2026",
         "Irish national tourism authority cyber services tender (TED-verified).",
         ("Turnover €400,000", "Employer's liability insurance €13,000,000",
          "Professional indemnity €2,000,000", "3 corporate reference contracts",
@@ -167,7 +167,7 @@ TEAM_TARGETS: Tuple[TeamTarget, ...] = (
         "OPS_BOARD.md §CLOSED ECHA"),
     TeamTarget(
         "DE_DEGEWO", "degewo AG (DE) — Penetration Testing framework",
-        "€691,200", "2026-09-22",
+        "€691,200", "2026-09-22 10:00 (re-verified live 04 Sep)",
         "https://ted.europa.eu/en/notice/-/detail/578580-2026",
         "German housing group penetration-testing framework (TED-verified live).",
         ("3 named testers", "2 reference contracts over €50,000 each",
@@ -176,7 +176,7 @@ TEAM_TARGETS: Tuple[TeamTarget, ...] = (
     # --- New team targets found live via TED, 2026-09-04 (verified values) ---
     TeamTarget(
         "DK_STATENS_IT", "Statens IT (DK) — Managed Detection & Response (MDR)",
-        "DKK 24,000,000 (≈ €3.2M)", "2026-09-17",
+        "DKK 24,000,000 (≈ €3.2M)", "2026-09-17 12:00 (re-verified live 04 Sep)",
         "https://ted.europa.eu/en/notice/-/detail/568334-2026",
         "Danish state IT authority MDR framework — real cyber delivery, "
         "time-critical. Bilingual notice; a team member reads the Danish/English "

@@ -5,6 +5,14 @@ read off a primary source during this campaign, not recalled. Where
 something is unknown it says UNKNOWN — that is a real state, not a gap
 someone forgot to fill.
 
+**Round 8, 2026-09-04 — freshness on the near-deadline TED targets.** Re-queried
+TED by publication-number: **all three still LIVE**, with exact cutoff TIMES
+now captured — **Statens IT (DK) MDR DKK 24M closes 17 Sep 12:00**, **degewo
+(DE) €691k closes 22 Sep 10:00**, **Fáilte (IE) €800k closes 24 Sep 12:00**.
+Updated the entries so the team has the exact deadline hour, not just the day.
+The TED notice-detail URL is the access point for these (TED doesn't expose
+the buyer's document portal the way UK OCDS did). No stale/closed targets.
+
 **Round 7, 2026-09-04 — bid paths for the top UK targets (drive to the submit
 line).** Instead of another target, pulled the FULL OCDS releases for the 3
 UK flagship contracts and gave the team the real access path for each — buyer,
