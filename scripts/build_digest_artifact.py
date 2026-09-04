@@ -275,6 +275,10 @@ footer {{ text-align:center; color:var(--muted); font-size:.72rem;
   <footer>TITANOS · generated from OPS_BOARD.md · figures traceable per card</footer>
 </div>
 <script>
+function selectNode(el){{
+  var r = document.createRange(); r.selectNodeContents(el);
+  var s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
+}}
 document.querySelectorAll('.copybtn').forEach(function(btn){{
   btn.addEventListener('click', function(){{
     var pre = btn.parentElement.querySelector('pre');
@@ -282,17 +286,23 @@ document.querySelectorAll('.copybtn').forEach(function(btn){{
     var text = pre.textContent;
     var done = function(){{ btn.textContent='Copied ✓'; btn.classList.add('done');
       setTimeout(function(){{ btn.textContent='Copy'; btn.classList.remove('done'); }}, 1800); }};
+    // If programmatic copy is blocked by the sandbox, never fail silently:
+    // select the text so the reader can long-press / Ctrl-C it manually.
+    var manual = function(){{ selectNode(pre);
+      btn.textContent='☝ text selected — long-press or Ctrl-C to copy'; }};
     if(navigator.clipboard && navigator.clipboard.writeText){{
-      navigator.clipboard.writeText(text).then(done).catch(function(){{ fallback(text, done); }});
-    }} else {{ fallback(text, done); }}
+      navigator.clipboard.writeText(text).then(done).catch(function(){{ execCopy(text, done, manual); }});
+    }} else {{ execCopy(text, done, manual); }}
   }});
 }});
-function fallback(text, done){{
+function execCopy(text, done, manual){{
   var ta = document.createElement('textarea');
-  ta.value = text; ta.style.position='fixed'; ta.style.opacity='0';
+  ta.value = text; ta.style.position='fixed'; ta.style.top='0'; ta.style.opacity='0';
   document.body.appendChild(ta); ta.focus(); ta.select();
-  try {{ document.execCommand('copy'); done(); }} catch(e) {{}}
+  var ok = false;
+  try {{ ok = document.execCommand('copy'); }} catch(e) {{ ok = false; }}
   document.body.removeChild(ta);
+  if(ok) {{ done(); }} else {{ manual(); }}
 }}
 </script>
 """
