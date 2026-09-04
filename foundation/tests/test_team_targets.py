@@ -35,7 +35,7 @@ class TestTeamTargets(unittest.TestCase):
         self.assertEqual(ords, sorted(ords))
 
     def test_expired_targets_drop_out(self):
-        future = datetime(2031, 1, 1, tzinfo=timezone.utc)  # past every deadline
+        future = datetime(2035, 1, 1, tzinfo=timezone.utc)  # past every deadline
         live = live_team_targets(future)
         # only the standing/rolling ones (no parseable deadline) survive
         self.assertTrue(all(t.deadline_date() is None for t in live))

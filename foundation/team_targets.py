@@ -198,6 +198,27 @@ TEAM_TARGETS: Tuple[TeamTarget, ...] = (
          "English/UK — no language or jurisdiction barrier for a UK-facing team"),
         "Find-a-Tender ocds-h6vhtk-06e9f0 (live 2026-09-04)"),
     TeamTarget(
+        "DE_UKF", "Universitätsklinikum Frankfurt (DE) — Cybersecurity Managed Service",
+        "€7,926,450", "2026-10-06",
+        "https://ted.europa.eu/en/notice/-/detail/609103-2026",
+        "German university hospital cybersecurity managed service, five service "
+        "areas in one lot (TED-verified). Genuine cyber delivery.",
+        ("Cybersecurity managed-service delivery (SOC/MDR-style, 5 areas)",
+         "CEFR German — the notice and bid are in German; a team member needs it",
+         "Selection criteria in the tender documents — team reads them"),
+        "TED 609103-2026 (live 2026-09-04)"),
+    TeamTarget(
+        "NL_RADBOUD", "Radboud University (NL) — security governance / risk / compliance",
+        "€10,800,000 (long framework, runs to 2034)", "2034-06-25",
+        "https://ted.europa.eu/en/notice/-/detail/432742-2026",
+        "Dutch university framework for security governance, risk analysis and "
+        "ISO/NEN/BIO compliance advice (TED-verified). Real cyber-advisory work, "
+        "but a multi-year framework with a distant end date.",
+        ("Security governance, risk-analysis and compliance (ISO/NEN/BIO) capability",
+         "Dutch language — the notice is in Dutch; a team member needs it",
+         "Framework selection criteria in the documents — team reads them"),
+        "TED 432742-2026 (live 2026-09-04)"),
+    TeamTarget(
         "DK_NATIONALBANK", "Danmarks Nationalbank (DK) — cybersecurity advisory framework",
         "DKK 9,200,000 (≈ €1.2M)", "2026-10-02",
         "https://ted.europa.eu/en/notice/-/detail/603665-2026",

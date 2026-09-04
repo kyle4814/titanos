@@ -5,6 +5,21 @@ read off a primary source during this campaign, not recalled. Where
 something is unknown it says UNKNOWN — that is a real state, not a gap
 someone forgot to fill.
 
+**TEAM-SCALE hunt — TED round 3, 2026-09-04.** UK keyword search proved a
+dead end (the `keywords=` param is silently ignored — returns generic
+notices; CPV filtering is the only UK lever, and cyber has no single CPV).
+Went back to TED (structured values work) and reviewed the remaining
+cyber-matched notices. Most matched a security keyword but aren't cyber
+(a comms platform, a grant-management system, office automation) — not
+added. **Two are genuinely cyber and verified, added:**
+**Universitätsklinikum Frankfurt (DE) — Cybersecurity Managed Service,
+€7,926,450, closes 6 Oct** (German-language) and **Radboud University (NL)
+— security governance/risk/ISO compliance, €10,800,000, a long framework to
+2034** (Dutch). `team_targets.py` now **18**. Discipline held: broad
+IT-with-a-cyber-mention frameworks (DG SANTE €7M, Clean Hydrogen €15M,
+ECDC €12M) were seen but NOT added — they're IT infrastructure, not cyber
+delivery, and inflating the list helps no one.
+
 **TEAM-SCALE hunt — UK, 2026-09-04 (round 2).** Pulled UK Find a Tender's
 security-CPV feed (79700000, 20 notices). **Finding worth carrying: that CPV
 is mostly PHYSICAL security** (guards, CCTV, body cameras, alarms, lone-worker
