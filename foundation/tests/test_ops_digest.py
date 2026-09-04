@@ -92,6 +92,23 @@ class TestRosterIntegrity(unittest.TestCase):
             _opp(actions=())
 
 
+class TestEveryLinkIsWellFormed(unittest.TestCase):
+    """A card whose link is malformed sends Kyle to a dead page. Every
+    live roster link was verified to resolve live on 2026-09-04 (all 17
+    returned <400, or a WAF 403 that a human browser passes); this offline
+    guard keeps the well-formedness true for any future entry — the most
+    likely error being a typo when a card is added."""
+
+    def test_every_opportunity_link_is_https_and_well_formed(self):
+        from urllib.parse import urlparse
+        for o in OPPORTUNITIES:
+            p = urlparse(o.link)
+            self.assertEqual(p.scheme, "https", f"{o.opp_id}: not https")
+            self.assertTrue(p.netloc and "." in p.netloc,
+                            f"{o.opp_id}: bad host {o.link!r}")
+            self.assertNotIn(" ", o.link, f"{o.opp_id}: space in link")
+
+
 class TestOrdering(unittest.TestCase):
     def test_actionable_now_sorts_ahead_of_watch(self):
         opps = live_opportunities()

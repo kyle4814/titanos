@@ -5,6 +5,16 @@ read off a primary source during this campaign, not recalled. Where
 something is unknown it says UNKNOWN — that is a real state, not a gap
 someone forgot to fill.
 
+**Deliverable integrity check, 2026-09-04.** All **17 roster links
+re-fetched live** — every one resolves (15× HTTP 200, Bradford a normal
+302 redirect, NSW `buy.nsw.gov.au` + QITC `hpw.qld.gov.au` a WAF 403 that a
+human browser passes). **Zero genuinely broken links.** Bounty board
+re-swept: 0 new, Ant Group still the top uncontested target. Close pack
+re-checked: Synack and Immunefi render with accurate walls/needs. A new
+offline test now guards link well-formedness so a typo'd link in a future
+card can't ship. Nothing broken, nothing new — recorded so the "all clean"
+state is on the record, not assumed.
+
 **Roster freshness re-verification, 2026-09-03.** The two time-critical
 digest cards were re-fetched live to be sure the money-printer isn't
 showing a stale deadline: **Bradford £300,327** — still `active`, closes
