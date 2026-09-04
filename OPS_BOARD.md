@@ -5,13 +5,26 @@ read off a primary source during this campaign, not recalled. Where
 something is unknown it says UNKNOWN — that is a real state, not a gap
 someone forgot to fill.
 
+**TEAM-SCALE hunt, 2026-09-04.** Now that Kyle is building a team (credential
+walls no longer disqualify), the INSUFFICIENT_DATA tender notices are real
+leads. Pulled TED's structured cyber notices (223 items, values attached):
+**87 carry a value ≥ €500k; 24 are genuinely-cyber, team-viable
+(€300k–€40M) with a future deadline.** Added two verified new team targets
+(`foundation/team_targets.py`): **Statens IT (DK) Managed Detection &
+Response, DKK 24M, closes 17 Sep** and **Danmarks Nationalbank (DK)
+cybersecurity advisory, DKK 9.2M, closes 2 Oct**. The live pull also **caught
+an error**: `IE_FAILTE`'s value was the turnover *requirement* (€400k), not
+the €800k contract value TED shows — corrected; `IE_OIREACHTAS`/`IE_ANPOST`
+values relabelled as turnover bars (contract value UNKNOWN), degewo confirmed
+live at €691,200 / 22 Sep. Bigger mega-frameworks seen but not added (€700M
+EC, €162M Consip — consortium-scale, not this team yet).
+
 **Priority-4 dynamic re-sweep, 2026-09-04 — clean.** Bounty board: 63
 programs, **0 new**, Ant Group still the top uncontested target. Tender
 hunt (date-bounded, last 10 days across TED/UK/IE/NZ/DK/NL): 385 fetched,
 28 assessed, **QUALIFIED=0** (26 INSUFFICIENT_DATA, 2 DISQUALIFIED) — the
 standing pattern (criteria live in the procurement documents, not the
-notices). Nothing new actionable. Recorded so the next cycle sees the
-sweep was done and was clean.
+notices). Nothing new actionable for a SOLO operator; team-scale is above.
 
 **Deliverable integrity check, 2026-09-04.** All **17 roster links
 re-fetched live** — every one resolves (15× HTTP 200, Bradford a normal

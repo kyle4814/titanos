@@ -67,22 +67,25 @@ _ET = "https://www.etenders.gov.ie"  # Irish notices are searched by reference h
 TEAM_TARGETS: Tuple[TeamTarget, ...] = (
     # --- Dated Irish tenders (TIME-CRITICAL — real deadlines, weeks out) ---
     TeamTarget(
-        "IE_FAILTE", "Fáilte Ireland — cyber security services", "€400,000",
-        "2026-09-24", _ET,
-        "Irish national tourism authority cyber services tender.",
+        "IE_FAILTE", "Fáilte Ireland — Cybersecurity Specialist Services (IT/2026/08)",
+        "€800,000 (contract; turnover bar €400k)",
+        "2026-09-24", "https://ted.europa.eu/en/notice/-/detail/588260-2026",
+        "Irish national tourism authority cyber services tender (TED-verified).",
         ("Turnover €400,000", "Employer's liability insurance €13,000,000",
          "Professional indemnity €2,000,000", "3 corporate reference contracts",
          "ESPD completed for every consortium member/subcontractor relied on"),
         "OPS_BOARD.md §7 Fáilte Ireland"),
     TeamTarget(
-        "IE_OIREACHTAS", "Houses of the Oireachtas — cyber", "€2,600,000",
+        "IE_OIREACHTAS", "Houses of the Oireachtas — cyber",
+        "Contract value UNKNOWN (turnover bar €2.6M)",
         "2026-09-28", _ET,
         "Irish parliament cyber security contract — the largest dated one.",
         ("Turnover €2,600,000", "Employer's liability insurance €13,000,000",
          "Professional indemnity €10,000,000", "Previous contracts required (Pass/Fail)"),
         "OPS_BOARD.md §7 Oireachtas"),
     TeamTarget(
-        "IE_ANPOST", "An Post — SOC/SIEM", "€1,000,000",
+        "IE_ANPOST", "An Post — SOC/SIEM",
+        "Contract value UNKNOWN (turnover bar €1M)",
         "2026-09-29", _ET,
         "Irish postal service SOC/SIEM managed security tender.",
         ("Turnover €1,000,000", "Employer's liability insurance €13,000,000",
@@ -163,13 +166,35 @@ TEAM_TARGETS: Tuple[TeamTarget, ...] = (
         ("Average turnover €1,000,000", "5 reference contracts over €100,000 each"),
         "OPS_BOARD.md §CLOSED ECHA"),
     TeamTarget(
-        "DE_DEGEWO", "degewo (DE) — TED 578580-2026", "UNKNOWN",
-        "Check TED for current status",
+        "DE_DEGEWO", "degewo AG (DE) — Penetration Testing framework",
+        "€691,200", "2026-09-22",
         "https://ted.europa.eu/en/notice/-/detail/578580-2026",
-        "German housing group security testing — needs German-language capacity.",
+        "German housing group penetration-testing framework (TED-verified live).",
         ("3 named testers", "2 reference contracts over €50,000 each",
          "Insurance €3,000,000", "CEFR C1 German (a team member must have this)"),
-        "OPS_BOARD.md §CLOSED degewo"),
+        "OPS_BOARD.md §CLOSED degewo + TED 578580-2026"),
+    # --- New team targets found live via TED, 2026-09-04 (verified values) ---
+    TeamTarget(
+        "DK_STATENS_IT", "Statens IT (DK) — Managed Detection & Response (MDR)",
+        "DKK 24,000,000 (≈ €3.2M)", "2026-09-17",
+        "https://ted.europa.eu/en/notice/-/detail/568334-2026",
+        "Danish state IT authority MDR framework — real cyber delivery, "
+        "time-critical. Bilingual notice; a team member reads the Danish/English "
+        "spec for the selection criteria.",
+        ("MDR / SOC delivery capability",
+         "Selection criteria are in the tender documents — a team must read them",
+         "Likely Danish-market presence or partner; confirm in the ESPD"),
+        "TED 568334-2026 (live 2026-09-04)"),
+    TeamTarget(
+        "DK_NATIONALBANK", "Danmarks Nationalbank (DK) — cybersecurity advisory framework",
+        "DKK 9,200,000 (≈ €1.2M)", "2026-10-02",
+        "https://ted.europa.eu/en/notice/-/detail/603665-2026",
+        "Danish central bank framework for security/technical consultancy "
+        "(TED-verified, English half real).",
+        ("Security advisory capability",
+         "Selection criteria in the framework documents — team reads them",
+         "Central-bank engagements often need security clearances — confirm"),
+        "TED 603665-2026 (live 2026-09-04)"),
 )
 
 
