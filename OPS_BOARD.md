@@ -5,6 +5,19 @@ read off a primary source during this campaign, not recalled. Where
 something is unknown it says UNKNOWN — that is a real state, not a gap
 someone forgot to fill.
 
+**Round 11, 2026-09-05 — all 5 dated Irish tenders now have DIRECT links +
+verified live ⭐.** Walked the eTenders register (19 pages) and found all five
+with their `resourceId` notice links, confirmed still in the current register
+with exact deadline times: **Fáilte 24 Sep 12:00** (rid 8915449), **Oireachtas
+28 Sep 12:00** (8943772, "Managed [Security]"), **An Post 29 Sep 12:00**
+(8927838, "Security Operations Centre"), **Dept of Justice 2 Oct 12:00**
+(8916237, "Managed Services PQQ"), **HSA 12 Oct 17:00** (8939732, "Security
+Operations Centre (SOC)"). Team entries switched from the eTenders base URL to
+the direct `prepareViewCfTWS.do?resourceId=` links — the team clicks straight
+to each notice. (Aside: my first register-walk attempt printed `resourceId`
+None — that was a wrong field name in my own probe, `resource_id` is the field;
+the parser was never broken.)
+
 **Round 10, 2026-09-05 — clock live; freshness + a real timeout fix.** The
 date rolled to 5 Sep, so re-verified the near-deadline UK targets: **all
 still active** — Southern Water £10M MDR (closes 21 Sep 16:00), T160/NI Water
