@@ -5,6 +5,17 @@ read off a primary source during this campaign, not recalled. Where
 something is unknown it says UNKNOWN — that is a real state, not a gap
 someone forgot to fill.
 
+**Round 9, 2026-09-04 — fresh UK re-sweep + Irish dated access check.** TED
+Ireland returned 0 for the dated tenders (they're on eTenders, below TED
+threshold; the board has no direct resourceIds so eTenders search-by-reference
+stays the access path). Re-swept the UK cyber CPVs (feed is dynamic): **no new
+BIDDABLE contract** — the 5 not-already-held were IT-infra, an investigation
+system, and 3 pre-tender PME/RFI notices. The PMEs are a real **pipeline
+signal** though: more UK managed-security tenders are coming. Added the most
+concrete as a watch — **WMCA (West Midlands Combined Authority) — Managed SOC,
+£540k, planning stage**: respond to the market engagement now to be positioned
+when it opens. `team_targets.py` now 22 (21 real + 2 UK pipeline watches).
+
 **Round 8, 2026-09-04 — freshness on the near-deadline TED targets.** Re-queried
 TED by publication-number: **all three still LIVE**, with exact cutoff TIMES
 now captured — **Statens IT (DK) MDR DKK 24M closes 17 Sep 12:00**, **degewo

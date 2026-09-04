@@ -221,6 +221,18 @@ TEAM_TARGETS: Tuple[TeamTarget, ...] = (
          "Submission is imminent (enquiries closed 2 Sep) — check the portal now"),
         "Find-a-Tender Notice 074300-2026 / ocds-h6vhtk-06dcac (verified 2026-09-04)"),
     TeamTarget(
+        "UK_WMCA_SOC", "West Midlands Combined Authority (UK) — Managed Security Operations Centre",
+        "£540,000 (PLANNING — market engagement stage)",
+        "Not yet open — respond to the market engagement to position",
+        "https://www.find-tender.service.gov.uk/api/1.0/ocdsReleasePackages/ocds-h6vhtk-058d82",
+        "WMCA (a UK combined authority) published a Preliminary Market "
+        "Engagement for a Managed SOC — the tender is coming. English. Respond "
+        "to the PME to be on the radar when it opens; don't wait for the tender.",
+        ("Managed SOC capability",
+         "English/UK — no barrier",
+         "Register interest / respond to the market engagement now (pre-tender)"),
+        "Find-a-Tender ocds-h6vhtk-058d82 (OCDS-verified planning, 2026-09-04)"),
+    TeamTarget(
         "UK_UKRI_6251", "UKRI (UK) — Cyber Security Managed Service / MDR / SOC",
         "£1,500,000 (PLANNING stage — not yet open)",
         "Not yet open — watch for the live tender",
