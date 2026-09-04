@@ -5,6 +5,16 @@ read off a primary source during this campaign, not recalled. Where
 something is unknown it says UNKNOWN — that is a real state, not a gap
 someone forgot to fill.
 
+**Round 12, 2026-09-05 — deep Ireland walked for the TEAM, exhausted.**
+Priority 3, redone for a team (not just solo cyber-DPS): `deep_sweep`
+walked **60 register pages (600 security-relevant rows)** and found **zero
+new genuine cyber tenders** beyond the 5 dated + 9 DPS already held. The
+handful that keyword-matched were false positives (social-housing
+construction, a hybrid bus, PR/comms, LAN/WAN maintenance — several with
+2024 deadlines already passed). The Irish cyber seam is complete for the
+team, same conclusion as it reached for the solo operator. Recorded so a
+future cycle doesn't re-walk it.
+
 **Round 11, 2026-09-05 — all 5 dated Irish tenders now have DIRECT links +
 verified live ⭐.** Walked the eTenders register (19 pages) and found all five
 with their `resourceId` notice links, confirmed still in the current register
