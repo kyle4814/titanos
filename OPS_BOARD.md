@@ -5,6 +5,19 @@ read off a primary source during this campaign, not recalled. Where
 something is unknown it says UNKNOWN — that is a real state, not a gap
 someone forgot to fill.
 
+**Round 16, 2026-09-05 — tried to pull the Irish SOC award/scoring criteria,
+documents are browser-gated (priority 2).** Attempted to add bid-winning
+intelligence (the scoring method, not just pass/fail) for the top Irish SOC
+target (HSA, rid 8939732). Its eTenders notice page loads (200, 31KB) but the
+document-download links are **JavaScript-rendered** — 0 `documentId`s in the
+static HTML, 34 `javascript` references, no `downloadContractDocument` link.
+So the full tender documents (with the award/scoring criteria) are
+browser-only for an automated agent; the pass/fail selection requirements the
+board extracted earlier via the anonymous-download flow are the
+machine-extractable set, and they are already in `team_targets.py`. The team
+opens the direct notice link in a browser to download the full pack. Verified
+negative — no new extractable intelligence.
+
 **Round 15, 2026-09-05 — suspected defect investigated, DISPROVEN (priority
 5).** Last cycle's deep_sweep reported "600 security-relevant rows" and my
 ad-hoc probes kept catching "soc" inside social/associated, so I checked the
