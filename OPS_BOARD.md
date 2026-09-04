@@ -5,6 +5,24 @@ read off a primary source during this campaign, not recalled. Where
 something is unknown it says UNKNOWN — that is a real state, not a gap
 someone forgot to fill.
 
+**Round 17, 2026-09-05 — built the winnability scorer (priority 5, unwired
+capability closed).** The pipeline had 22 team targets but nothing that told
+Kyle *which* his team can win. Built `foundation/team_fit.py`: declare the
+team's capability (turnover / insurance / references / languages / 24×7 SOC /
+capability tags) and it ranks all 22 MEET / PARTIAL / GAP, naming the exact
+blocking clause on every gap. Honest by construction — an undeclared
+capability or an unparseable requirement is UNKNOWN (human read), never a
+silent pass; hedged "likely/confirm" clauses are UNKNOWN, not hard fails.
+Wired into `operator_cli team-fit` (finish the door). It earned its place on
+first run: a realistic UK-only MDR team scores 3 MEET (RTÉ/HSE/ECHA DPS
+frameworks) / 14 PARTIAL / 5 GAP — and it flagged that Statens IT DK (my
+standing "bid first" rec) carries a Danish-market-presence clause, so it's
+PARTIAL (confirm a DK partner), not a clean bid, for an English-only team. The
+German (degewo, Frankfurt), Dutch (Radboud) and DK targets GAP out without a
+local-language team member — a real, previously-implicit wall now made
+explicit. 25 tests green; README 4,219→4,244; no new external notice this
+cycle.
+
 **Round 16, 2026-09-05 — tried to pull the Irish SOC award/scoring criteria,
 documents are browser-gated (priority 2).** Attempted to add bid-winning
 intelligence (the scoring method, not just pass/fail) for the top Irish SOC
