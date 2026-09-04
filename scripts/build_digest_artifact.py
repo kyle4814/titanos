@@ -104,10 +104,11 @@ def main(out_path: str) -> None:
         'name + ABN into the [blanks] and send.</li>\n'
         '    </ol>\n  </div>')
 
-    # --- Ready-to-send drafts, copy-pasteable inline ---
+    # --- Ready-to-send drafts, copy-pasteable inline (one-tap copy) ---
     def _draft_block(title, meta, text):
         return (f'  <details class="ready"><summary>{esc(title)}</summary>\n'
                 f'    <p class="rmeta">{esc(meta)}</p>\n'
+                f'    <button class="copybtn" type="button">Copy</button>\n'
                 f'    <pre>{esc(text)}</pre>\n  </details>')
     from foundation.close_pack import CLOSE_PLANS
     sgsp_path = Path("SGSP_SUBMISSION_DRAFT.md")
@@ -250,6 +251,11 @@ footer {{ text-align:center; color:var(--muted); font-size:.72rem;
   border-radius:8px; padding:12px; overflow-x:auto; font-size:.8rem;
   font-family:"IBM Plex Mono", monospace; white-space:pre-wrap;
   word-break:break-word; margin:0 0 12px; }}
+.copybtn {{ font-family:"IBM Plex Mono", monospace; font-size:.78rem;
+  font-weight:600; color:#fff; background:var(--accent); border:none;
+  border-radius:8px; padding:8px 16px; margin:0 0 10px; cursor:pointer; }}
+.copybtn:active {{ opacity:.8; }}
+.copybtn.done {{ background:var(--go); }}
 </style>
 
 <header><div class="inner">
@@ -268,6 +274,27 @@ footer {{ text-align:center; color:var(--muted); font-size:.72rem;
 {ruled_html}
   <footer>TITANOS · generated from OPS_BOARD.md · figures traceable per card</footer>
 </div>
+<script>
+document.querySelectorAll('.copybtn').forEach(function(btn){{
+  btn.addEventListener('click', function(){{
+    var pre = btn.parentElement.querySelector('pre');
+    if(!pre) return;
+    var text = pre.textContent;
+    var done = function(){{ btn.textContent='Copied ✓'; btn.classList.add('done');
+      setTimeout(function(){{ btn.textContent='Copy'; btn.classList.remove('done'); }}, 1800); }};
+    if(navigator.clipboard && navigator.clipboard.writeText){{
+      navigator.clipboard.writeText(text).then(done).catch(function(){{ fallback(text, done); }});
+    }} else {{ fallback(text, done); }}
+  }});
+}});
+function fallback(text, done){{
+  var ta = document.createElement('textarea');
+  ta.value = text; ta.style.position='fixed'; ta.style.opacity='0';
+  document.body.appendChild(ta); ta.focus(); ta.select();
+  try {{ document.execCommand('copy'); done(); }} catch(e) {{}}
+  document.body.removeChild(ta);
+}}
+</script>
 """
     with open(out_path, "w", encoding="utf-8") as fh:
         fh.write(doc)
