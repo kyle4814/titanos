@@ -116,12 +116,18 @@ The digest is delivery, not decoration: if a cycle found or closed an
 opportunity, the roster in `ops_digest.py` must reflect it before the digest
 is sent, or the send is fabrication by omission.
 
-**Full portfolio on request.** When Kyle asks for "everything" / the full
-portfolio / a zip, run `python3 -m foundation.operator_cli portfolio --out
-<scratch>/TITANOS_PORTFOLIO --zip` — it assembles the whole thing fresh
-(START_HERE map, live opps, ready-to-send drafts, full board, decision
-records, archive) and zips it. Then `SendUserFile` the zip AND START_HERE.md
-(so he can read the plan without unzipping).
+**Team payload every cycle (standing, since 2026-09-04).** Kyle is building
+a team to submit, so credential walls (references/insurance/turnover/certs/
+staffing) no longer disqualify — the big contracts are back in play. End
+each cycle by building and sending the ZIP payload:
+`python3 -m foundation.operator_cli team-payload --out
+<scratch>/TEAM_PAYLOAD_<date> --zip`, then `SendUserFile` the zip. It
+contains `01_PORTFOLIO/TEAM_TARGETS.md` (the credential-walled contracts a
+team can win, dated Irish tenders first) plus the full portfolio. Keep
+HUNTING team-scale each cycle — INSUFFICIENT_DATA notices are now worth
+surfacing because a team can read the documents and meet the criteria. See
+`foundation/team_targets.py`; add real new targets there (quoted
+requirements, never invented).
 
 ## OUTPUT
 

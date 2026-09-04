@@ -1,0 +1,226 @@
+"""
+Team Targets — the high-value contracts a TEAM can win that a solo operator
+could not.
+
+Kyle is building a team to submit (2026-09-04). Every wall that ruled these
+out for a solo Cairns operator — corporate references, insurance held at
+admission, turnover, certifications, 24×7 staffing, local presence — is a
+capability a team/firm can carry. So the contracts sitting in
+`ops_digest.RULED_OUT`, plus the five dated Irish tenders that came back
+CANNOT-APPLY, are now real targets. This registry reframes each one: the
+'wall' becomes 'what your team must bring', quoted from the real notice, so
+the team knows exactly what to prepare.
+
+Nothing is fabricated: every requirement is read from a primary source
+(OPS_BOARD.md, which read it from the notice), and where a figure is
+unknown it says UNKNOWN. Deadlines are the real closing dates — several are
+weeks out, which makes the dated Irish tenders the most urgent team work.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from datetime import date, datetime, timezone
+from typing import List, Optional, Tuple
+
+from foundation.ops_digest import _parse_deadline_date
+
+__all__ = ["TeamTarget", "TEAM_TARGETS", "live_team_targets",
+           "render_team_targets_md", "TeamTargetError"]
+
+
+class TeamTargetError(Exception):
+    pass
+
+
+@dataclass(frozen=True)
+class TeamTarget:
+    target_id: str
+    title: str
+    value: str
+    deadline: str          # real closing date, or "Standing / rolling"
+    link: str
+    what: str
+    requirements: Tuple[str, ...]   # what the TEAM must bring, quoted
+    source_ref: str
+
+    def __post_init__(self) -> None:
+        for name in ("target_id", "title", "value", "deadline", "link",
+                     "what", "source_ref"):
+            if not str(getattr(self, name)).strip():
+                raise TeamTargetError(f"{self.target_id!r}: empty {name}")
+        if not self.requirements:
+            raise TeamTargetError(f"{self.target_id!r}: no requirements listed")
+
+    def deadline_date(self) -> Optional[date]:
+        return _parse_deadline_date(self.deadline)
+
+    def is_expired(self, now: Optional[datetime] = None) -> bool:
+        d = self.deadline_date()
+        if d is None:
+            return False
+        return d < (now or datetime.now(timezone.utc)).date()
+
+
+_ET = "https://www.etenders.gov.ie"  # Irish notices are searched by reference here
+
+TEAM_TARGETS: Tuple[TeamTarget, ...] = (
+    # --- Dated Irish tenders (TIME-CRITICAL — real deadlines, weeks out) ---
+    TeamTarget(
+        "IE_FAILTE", "Fáilte Ireland — cyber security services", "€400,000",
+        "2026-09-24", _ET,
+        "Irish national tourism authority cyber services tender.",
+        ("Turnover €400,000", "Employer's liability insurance €13,000,000",
+         "Professional indemnity €2,000,000", "3 corporate reference contracts",
+         "ESPD completed for every consortium member/subcontractor relied on"),
+        "OPS_BOARD.md §7 Fáilte Ireland"),
+    TeamTarget(
+        "IE_OIREACHTAS", "Houses of the Oireachtas — cyber", "€2,600,000",
+        "2026-09-28", _ET,
+        "Irish parliament cyber security contract — the largest dated one.",
+        ("Turnover €2,600,000", "Employer's liability insurance €13,000,000",
+         "Professional indemnity €10,000,000", "Previous contracts required (Pass/Fail)"),
+        "OPS_BOARD.md §7 Oireachtas"),
+    TeamTarget(
+        "IE_ANPOST", "An Post — SOC/SIEM", "€1,000,000",
+        "2026-09-29", _ET,
+        "Irish postal service SOC/SIEM managed security tender.",
+        ("Turnover €1,000,000", "Employer's liability insurance €13,000,000",
+         "3 corporate reference contracts",
+         "Tick-box: may rely on combined consortium turnover"),
+        "OPS_BOARD.md §7 An Post"),
+    TeamTarget(
+        "IE_JUSTICE", "Department of Justice — national PKI", "€800,000",
+        "2026-10-02", _ET,
+        "Irish national public-key-infrastructure contract.",
+        ("Turnover €800,000", "Insurance €12,700,000", "Professional indemnity €1,000,000",
+         "1 reference contract over €50,000"),
+        "OPS_BOARD.md §7 Dept of Justice"),
+    TeamTarget(
+        "IE_HSA", "Health & Safety Authority — cyber", "€900,000",
+        "2026-10-12", _ET,
+        "Irish H&S Authority cyber services tender.",
+        ("Turnover €1,800,000", "Employer's liability insurance €13,000,000",
+         "Professional indemnity €1,000,000", "3 corporate reference contracts (Pass/Fail)"),
+        "OPS_BOARD.md §7 HSA"),
+    # --- Standing high-value DPS/quals (no closing pressure, huge ceilings) ---
+    TeamTarget(
+        "IE_ASIERA", "Asiera / HEAnet — Managed ICT Security Services DPS",
+        "€175,000,000", "Standing / rolling DPS", _ET,
+        "The largest ceiling on the board — a rolling DPS for managed security.",
+        ("SOC + Incident Response delivered 24×7×365",
+         "Three named customer references (addresses + phone)",
+         "Evidence of a single order worth €80,000/year",
+         "Turnover over €500,000 in any of the last 3 years (pro-rata if newer)",
+         "Insurance: statement willing to raise cover to required levels if awarded"),
+        "OPS_BOARD.md §3 Asiera"),
+    TeamTarget(
+        "IE_HSE_MTDR", "HSE — Managed Threat Detection & Response DPS (21236)",
+        "€60,000,000", "Standing / rolling DPS", _ET,
+        "Irish health service managed threat detection — huge ceiling.",
+        ("Service delivered by staff BASED IN the Republic of Ireland",
+         "Dublin-based on-site incident response within 24 hours",
+         "Delivered similar services on at least 3 occasions in last 3 years",
+         "Insurance: has in place OR ability to obtain"),
+        "OPS_BOARD.md §3 HSE 21236"),
+    TeamTarget(
+        "IE_HSE_CIR", "HSE — Unified Cyber Incident Response DPS (22167)",
+        "€16,000,000", "Standing / rolling DPS", _ET,
+        "Irish health service unified cyber IR — same document family as 21236.",
+        ("Staff based in Republic of Ireland + Dublin on-site within 24hrs",
+         "3 similar contracts in last 3 years with values + references"),
+        "OPS_BOARD.md §3 HSE 22167"),
+    TeamTarget(
+        "IE_HSE_CISO", "HSE 23097 — CISO Threat & Vulnerability Management DPS",
+        "€60,000,000", "Standing / rolling DPS", _ET,
+        "Irish health service CISO/threat DPS. UNREAD (document exceeds the "
+        "fetcher's 5MB cap) — a human on the team should open it.",
+        ("UNKNOWN — document not yet read; expect the HSE geography clause "
+         "(staff in Ireland + Dublin on-site) plus experience references",),
+        "OPS_BOARD.md §3 HSE 23097 (UNREAD)"),
+    TeamTarget(
+        "IE_RTE", "RTÉ 25P041 — Cyber Security Services DPS", "€7,500,000",
+        "2030-10-30", _ET,
+        "Irish national broadcaster cyber DPS — admits new suppliers to 2030.",
+        ("Turnover €350,000 in each of the last 3 financial years",
+         "Public Liability insurance €6,500,000 (held at admission)",
+         "Cyber insurance €1,000,000", "Professional Liability €1,000,000"),
+        "OPS_BOARD.md §3 RTÉ 25P041"),
+    # --- UK / EU big contracts a firm can carry ---
+    TeamTarget(
+        "UK_NHS_ENGLAND", "NHS England — cyber", "£7,200,000",
+        "UNKNOWN (selective via CCS RM3764 DPS)",
+        "https://supplierregistration.cabinetoffice.gov.uk/dps",
+        "NHS England cyber contract — routed selectively via a CCS DPS.",
+        ("Prior admission to CCS RM3764 DPS (join that first)",
+         "Then the DPS selection questionnaire"),
+        "OPS_BOARD.md §CLOSED NHS England"),
+    TeamTarget(
+        "EU_ECHA", "ECHA (EU) — TED 244223-2024", "UNKNOWN (large)",
+        "Check TED for current status",
+        "https://ted.europa.eu/en/notice/-/detail/244223-2024",
+        "European Chemicals Agency security services — a real EU contract.",
+        ("Average turnover €1,000,000", "5 reference contracts over €100,000 each"),
+        "OPS_BOARD.md §CLOSED ECHA"),
+    TeamTarget(
+        "DE_DEGEWO", "degewo (DE) — TED 578580-2026", "UNKNOWN",
+        "Check TED for current status",
+        "https://ted.europa.eu/en/notice/-/detail/578580-2026",
+        "German housing group security testing — needs German-language capacity.",
+        ("3 named testers", "2 reference contracts over €50,000 each",
+         "Insurance €3,000,000", "CEFR C1 German (a team member must have this)"),
+        "OPS_BOARD.md §CLOSED degewo"),
+)
+
+
+def live_team_targets(now: Optional[datetime] = None) -> List[TeamTarget]:
+    """Team targets, soonest real deadline first, expired ones dropped."""
+    now = now or datetime.now(timezone.utc)
+    live = [t for t in TEAM_TARGETS if not t.is_expired(now)]
+
+    def _key(t: TeamTarget):
+        d = t.deadline_date()
+        return (0, d.toordinal()) if d is not None else (1, 0)
+    return sorted(live, key=_key)
+
+
+def render_team_targets_md(now: Optional[datetime] = None) -> str:
+    now = now or datetime.now(timezone.utc)
+    targets = live_team_targets(now)
+    dated = [t for t in targets if t.deadline_date() is not None]
+    out: List[str] = [
+        "# 🏢 TEAM TARGETS — contracts your team can win",
+        "",
+        f"_{now.strftime('%d %B %Y')}. {len(targets)} high-value contracts that "
+        "were out of reach for a solo operator but are winnable with a team that "
+        "carries the references, insurance, turnover and staffing._",
+        "",
+        "Each lists **exactly what your team must bring**, quoted from the real "
+        "notice. Nothing invented; UNKNOWN where a figure hasn't been read. The "
+        "dated Irish tenders are time-critical — bid those first.",
+        "",
+    ]
+    if dated:
+        out += ["## ⏰ Time-critical (real deadlines)", ""]
+        for t in dated:
+            out += _target_block(t)
+    standing = [t for t in targets if t.deadline_date() is None]
+    if standing:
+        out += ["## ♾️ Standing / rolling (no deadline, huge ceilings)", ""]
+        for t in standing:
+            out += _target_block(t)
+    return "\n".join(out)
+
+
+def _target_block(t: TeamTarget) -> List[str]:
+    lines = [
+        f"### {t.title} — {t.value}",
+        f"- **Deadline:** {t.deadline}",
+        f"- **What it is:** {t.what}",
+        f"- **Where:** {t.link}",
+        "- **Your team must bring:**",
+    ]
+    for r in t.requirements:
+        lines.append(f"  - {r}")
+    lines += [f"  <sub>source: {t.source_ref}</sub>", ""]
+    return lines

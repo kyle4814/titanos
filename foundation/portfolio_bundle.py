@@ -79,17 +79,35 @@ def _render_start_here() -> str:
       "with the exact clause that ruled it out, so you can challenge any that "
       "changed).")
     w("")
-    w("## ⚡ The one thing that unlocks most of it")
+    w("## 🏢 FOR YOUR TEAM — the big contracts are back in play")
     w("")
-    w("Almost every route needs four facts about you the profile is blank on. "
-      "Fill these once and most applications become fill-in-the-blanks:")
+    try:
+        from foundation.team_targets import live_team_targets
+        tt = live_team_targets()
+        dated = [t for t in tt if t.deadline_date() is not None]
+        w(f"With a team that carries references, insurance, turnover and staffing, "
+          f"**{len(tt)} high-value contracts** that were out of reach solo are now "
+          f"winnable — including €175M (Asiera), €60M (HSE), £7.5M (RTÉ), and "
+          f"{len(dated)} dated Irish tenders closing in weeks. Each with the exact "
+          f"requirements your team must bring is in `01_PORTFOLIO/TEAM_TARGETS.md`.")
+        w("")
+        if dated:
+            w("**Bid these first — real deadlines:**")
+            w("")
+            for t in dated:
+                w(f"- **{t.title}** — {t.value}, closes **{t.deadline}** → {t.link}")
+            w("")
+    except Exception:  # pragma: no cover
+        pass
+    w("## ⚡ The 4 facts that unlock the solo-viable routes too")
+    w("")
+    w("For the routes below (bounties, Synack, the friendly Irish Rail quals), "
+      "send me these 4 facts once and most applications become fill-in-the-blanks:")
     w("")
     w("1. **Legal / trading name**  2. **ABN number**  3. **Business address**  "
       "4. **Contact email + phone**")
     w("")
-    w("Plus, per tender: your real turnover (or a partner whose turnover you "
-      "rely on) and your declared security skills. None of these were invented "
-      "— that's why the drafts carry `[BRACKETS]`.")
+    w("Nothing was invented — that's why the drafts carry `[BRACKETS]`.")
     w("")
     w("## 📋 The portfolio at a glance")
     w("")
@@ -180,6 +198,8 @@ def build_portfolio_bundle(dest: Path) -> List[Path]:
     # 01 — generated deliverables
     p01 = dest / "01_PORTFOLIO"
     _write(p01 / "portfolio_full.md", format_phone_markdown(), written)
+    from foundation.team_targets import render_team_targets_md
+    _write(p01 / "TEAM_TARGETS.md", render_team_targets_md(), written)
     from foundation.close_pack import render_close_pack, CLOSE_PLANS
     _write(p01 / "close_pack.md", render_close_pack(), written)
     from foundation.ops_situation import analyse_ops_bottleneck, render_bottleneck

@@ -583,6 +583,28 @@ def cmd_portfolio(args) -> int:
     return 0
 
 
+def cmd_team_payload(args) -> int:
+    """Build the end-of-cycle ZIP payload for Kyle's team to submit: the
+    full portfolio plus TEAM_TARGETS (the credential-walled contracts a team
+    can win). Same bundle as `portfolio`, framed for the team."""
+    from foundation.portfolio_bundle import build_portfolio_bundle
+    from foundation.team_targets import live_team_targets
+    import zipfile
+    dest = Path(args.out).expanduser()
+    written = build_portfolio_bundle(dest)
+    tt = live_team_targets()
+    print(f"team payload assembled at {dest}  ({len(written)} files, "
+          f"{len(tt)} team targets)")
+    if args.zip:
+        zpath = dest.with_suffix(".zip")
+        with zipfile.ZipFile(zpath, "w", zipfile.ZIP_DEFLATED) as z:
+            for f in written:
+                z.write(f, f.relative_to(dest.parent))
+        print(f"zipped -> {zpath}  ({zpath.stat().st_size // 1024} KB)")
+    print("hand 01_PORTFOLIO/TEAM_TARGETS.md to the team — dated Irish tenders first.")
+    return 0
+
+
 def cmd_situation(args) -> int:
     """Print the ops bottleneck analysis, computed by situation_analysis
     (the repo's largest capability, previously reachable from nothing) over
@@ -1437,6 +1459,14 @@ def build_parser() -> "object":
     p_portfolio.add_argument("--zip", action="store_true",
                              help="also write <out>.zip")
     p_portfolio.set_defaults(func=cmd_portfolio)
+
+    p_team = sub.add_parser(
+        "team-payload",
+        help="build the end-of-cycle ZIP payload for Kyle's team (portfolio + "
+             "TEAM_TARGETS — the contracts a team can win)")
+    p_team.add_argument("--out", required=True, help="destination folder")
+    p_team.add_argument("--zip", action="store_true", help="also write <out>.zip")
+    p_team.set_defaults(func=cmd_team_payload)
 
     return parser
 
