@@ -1155,6 +1155,18 @@ and click Register. The form itself states what it requires. Ten minutes
 answers whether the biggest structural opening found in nine cycles is
 real.
 
+**✅ WHY IT STAYS UNVERIFIED — RESOLVED 2026-09-03 (D-016).** The
+eligibility rules could not be confirmed because the authoritative source
+is unreachable to an honest agent: **adb.org returns HTTP 403** (WAF —
+even `/robots.txt` 403s), and `cms.adb.org` is a JS SPA. The whole
+individual-consultant lane was checked the same way — **UNDP disallows all
+crawling (`robots.txt: Disallow: /`)**, the EU expert portal is a
+client-rendered shell, UNGM/World Bank expose no static eligibility page.
+**The lane is human-browser-only**; no automated sweep is possible without
+evading a WAF or a robots rule, which is refused. So ADB stays UNVERIFIED
+with a specific reason now on record, and the resolving action is
+unchanged — Kyle's ten minutes in a browser. See `docs/DECISIONS/D-016`.
+
 **Related, same class, same unresolved status:** UNGM's registration
 reportedly offers "Individual Consultant" and "Sole proprietor" account
 types with no incorporation requirement. UNOPS's Individual Contractor
