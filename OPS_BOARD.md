@@ -5,6 +5,23 @@ read off a primary source during this campaign, not recalled. Where
 something is unknown it says UNKNOWN — that is a real state, not a gap
 someone forgot to fill.
 
+**Round 7, 2026-09-04 — bid paths for the top UK targets (drive to the submit
+line).** Instead of another target, pulled the FULL OCDS releases for the 3
+UK flagship contracts and gave the team the real access path for each — buyer,
+free document portal, human notice URL, confirmed deadline:
+
+- **UK MDR £10M** = **Southern Water Services**, docs FREE/unrestricted at
+  `southernwater.bravosolution.co.uk`, notice `/Notice/076524-2026`, **closes
+  21 Sep 16:00**.
+- **Jisc SIEM/SOAR £11.1M** = JISC, docs at `uk.eu-supply.com` (JISC), notice
+  `/Notice/083054-2026`, enquiries close 21 Sep.
+- **T160 Cyber Assurance £720k** = **Northern Ireland Water**, docs at
+  `etendersni.gov.uk`, notice `/Notice/074300-2026`, submission imminent.
+
+**Pattern worth carrying:** the UK cyber MDR/SIEM buyers are UTILITIES and
+EDUCATION (Southern Water, NI Water, JISC), not central government — a good
+seam for future UK hunts. The team can now go straight to the documents.
+
 **Round 6, 2026-09-04 — hunt saturating, two English sources checked.** TED
 Ireland cyber (CY=IRL): **0 new** beyond the 5 dated + Fáilte already held.
 Tried two more English-language portals: **Public Contracts Scotland is
