@@ -5,6 +5,22 @@ read off a primary source during this campaign, not recalled. Where
 something is unknown it says UNKNOWN — that is a real state, not a gap
 someone forgot to fill.
 
+**TEAM-SCALE hunt — UK cyber via IT CPVs, 2026-09-04 (round 4) ⭐.** Acted on
+last cycle's finding (UK cyber lives under IT CPVs, not 79700000). Swept Find
+a Tender CPVs 72000000/72500000/72600000/48730000/72212731 → **11 genuine UK
+cyber-title notices**, verified the live ones via OCDS. **Three active,
+English-language, high-value contracts added — the best team fit yet (no
+translator needed):**
+
+- **UK — Managed Detection and Response Tender, £10,000,000, status active,
+  closes 2026-09-21** (OCDS-verified) — now the #2 dated target.
+- **Jisc — SIEM/SOAR for its Security Operations Centre, £11,100,000, active.**
+- **T160 — Cyber Assurance Services, £720,000, active.**
+
+(SOC/SIEM 06a22d was `planned` not open — noted, not added; Bradford 06e59c
+already on the board.) English is the strongest jurisdiction for the team, so
+these outrank the German/Dutch/Danish ones on fit. `team_targets.py` now 21.
+
 **TEAM-SCALE hunt — TED round 3, 2026-09-04.** UK keyword search proved a
 dead end (the `keywords=` param is silently ignored — returns generic
 notices; CPV filtering is the only UK lever, and cyber has no single CPV).

@@ -186,6 +186,37 @@ TEAM_TARGETS: Tuple[TeamTarget, ...] = (
          "Likely Danish-market presence or partner; confirm in the ESPD"),
         "TED 568334-2026 (live 2026-09-04)"),
     TeamTarget(
+        "UK_MDR", "UK — Managed Detection and Response Tender", "£10,000,000",
+        "2026-09-21",
+        "https://www.find-tender.service.gov.uk/api/1.0/ocdsReleasePackages/ocds-h6vhtk-0606ff",
+        "A live, active UK MDR contract — English-language, £10M, closing in "
+        "days (OCDS-verified: status active, closes 2026-09-21). One of the "
+        "strongest team targets on the board.",
+        ("MDR / SOC delivery capability",
+         "English/UK — NO language or jurisdiction barrier for a UK-facing team",
+         "Selection criteria are in the tender documents — team must read them"),
+        "Find-a-Tender ocds-h6vhtk-0606ff (OCDS-verified 2026-09-04)"),
+    TeamTarget(
+        "UK_JISC_SIEM", "Jisc (UK) — SIEM/SOAR Solution for its Security Operations Centre",
+        "£11,100,000", "Active — deadline UNKNOWN, check the notice",
+        "https://www.find-tender.service.gov.uk/api/1.0/ocdsReleasePackages/ocds-h6vhtk-066870",
+        "Jisc (UK education/research network) SIEM/SOAR for its SOC — active, "
+        "£11.1M, English (OCDS-verified). Genuine cyber delivery.",
+        ("SIEM/SOAR implementation + SOC capability",
+         "English/UK — no language barrier",
+         "Read the tender documents for the selection criteria and deadline"),
+        "Find-a-Tender ocds-h6vhtk-066870 (OCDS-verified 2026-09-04)"),
+    TeamTarget(
+        "UK_T160", "UK — T160 Cyber Assurance Services", "£720,000",
+        "Active — deadline UNKNOWN, check the notice",
+        "https://www.find-tender.service.gov.uk/api/1.0/ocdsReleasePackages/ocds-h6vhtk-06dcac",
+        "A live, active UK cyber assurance contract — English, £720k "
+        "(OCDS-verified). Team-sized.",
+        ("Cyber assurance / audit capability",
+         "English/UK — no language barrier",
+         "Read the tender documents for the selection criteria and deadline"),
+        "Find-a-Tender ocds-h6vhtk-06dcac (OCDS-verified 2026-09-04)"),
+    TeamTarget(
         "UK_UKRI_6251", "UKRI (UK) — Cyber Security Managed Service / MDR / SOC",
         "£1,500,000 (PLANNING stage — not yet open)",
         "Not yet open — watch for the live tender",
