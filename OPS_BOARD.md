@@ -5,6 +5,18 @@ read off a primary source during this campaign, not recalled. Where
 something is unknown it says UNKNOWN — that is a real state, not a gap
 someone forgot to fill.
 
+**Round 15, 2026-09-05 — suspected defect investigated, DISPROVEN (priority
+5).** Last cycle's deep_sweep reported "600 security-relevant rows" and my
+ad-hoc probes kept catching "soc" inside social/associated, so I checked the
+production filter for a substring bug. Clean on both counts: `mouth_etenders_
+ie.is_security_relevant` uses `"soc "` **with a trailing space** (matches the
+standalone word, never "so**c**ial"), and `deep_sweep` returns **all** walked
+register rows by design (deduped on `key`) — it does not pre-filter, so "600"
+was 60 pages × 10 rows, not 600 security matches. My own prior label was
+wrong; the code is correct. No change needed. (The "soc"-substring looseness
+was only in my throwaway probe scripts, never the repo.) Recorded so it isn't
+re-suspected.
+
 **Round 14, 2026-09-05 — NZ GETS swept for the team, 0 cyber.** Priority 1 for
 the team dimension: pulled the live NZ GETS feed (327 open notices), filtered
 for cyber/security-services. **Zero genuine cyber tenders** — every keyword
