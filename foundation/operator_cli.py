@@ -605,6 +605,37 @@ def cmd_team_payload(args) -> int:
     return 0
 
 
+def cmd_team_fit(args) -> int:
+    """Rank the live team targets by winnability against a declared team
+    capability profile. Honest: an undeclared capability or an unparseable
+    requirement is UNKNOWN (needs a human read), never a silent pass. With
+    no flags, every target shows its gaps against a zero profile — which is
+    itself a useful checklist of exactly what the team must bring."""
+    from foundation.team_fit import TeamCapability, render_fit_md
+    langs = tuple(l.strip().lower() for l in (args.languages or "").split(",")
+                  if l.strip())
+    caps = tuple(c.strip().lower() for c in (args.capabilities or "").split(",")
+                 if c.strip())
+    cap = TeamCapability(
+        annual_turnover_eur=args.turnover,
+        max_insurance_eur=args.insurance,
+        can_obtain_higher_insurance=args.can_raise_insurance,
+        reference_contracts=args.references,
+        largest_reference_eur=args.largest_reference,
+        languages=langs,
+        has_247_soc=args.soc,
+        capabilities=caps,
+        named_testers=args.named_testers,
+    )
+    md = render_fit_md(cap)
+    if getattr(args, "out", None):
+        Path(args.out).expanduser().write_text(md, encoding="utf-8")
+        print(f"team-fit report written -> {args.out}")
+    else:
+        print(md)
+    return 0
+
+
 def cmd_situation(args) -> int:
     """Print the ops bottleneck analysis, computed by situation_analysis
     (the repo's largest capability, previously reachable from nothing) over
@@ -1467,6 +1498,31 @@ def build_parser() -> "object":
     p_team.add_argument("--out", required=True, help="destination folder")
     p_team.add_argument("--zip", action="store_true", help="also write <out>.zip")
     p_team.set_defaults(func=cmd_team_payload)
+
+    p_fit = sub.add_parser(
+        "team-fit",
+        help="rank the live team targets by winnability against a declared "
+             "team capability profile (honest: undeclared = UNKNOWN, never a pass)")
+    p_fit.add_argument("--turnover", type=float, default=0.0,
+                       help="team annual turnover in EUR")
+    p_fit.add_argument("--insurance", type=float, default=0.0,
+                       help="highest single insurance cover the team holds, EUR")
+    p_fit.add_argument("--can-raise-insurance", action="store_true",
+                       help="team is willing/able to raise cover if awarded")
+    p_fit.add_argument("--references", type=int, default=0,
+                       help="number of deliverable corporate reference contracts")
+    p_fit.add_argument("--largest-reference", type=float, default=0.0,
+                       help="value of the largest single reference, EUR")
+    p_fit.add_argument("--languages", default="",
+                       help="comma-separated languages, e.g. english,german")
+    p_fit.add_argument("--soc", action="store_true",
+                       help="team delivers 24x7x365 SOC / incident response")
+    p_fit.add_argument("--capabilities", default="",
+                       help="comma-separated capability tags, e.g. soc,mdr,siem")
+    p_fit.add_argument("--named-testers", type=int, default=0,
+                       help="number of named pen-testers (for tester-count reqs)")
+    p_fit.add_argument("--out", help="write the report to this file instead of stdout")
+    p_fit.set_defaults(func=cmd_team_fit)
 
     return parser
 
