@@ -5,6 +5,18 @@ read off a primary source during this campaign, not recalled. Where
 something is unknown it says UNKNOWN — that is a real state, not a gap
 someone forgot to fill.
 
+**Round 14, 2026-09-05 — NZ GETS swept for the team, 0 cyber.** Priority 1 for
+the team dimension: pulled the live NZ GETS feed (327 open notices), filtered
+for cyber/security-services. **Zero genuine cyber tenders** — every keyword
+hit was a false positive on "soc" inside "so**c**ial"/"asso**c**iated"
+(Professional Learning, Forestry, Bike Hub...). The NZ route stays the
+Government Marketplace, already held as `NZ_MARKETPLACE`. With NZ now checked,
+**all five reachable sources (UK / Ireland / TED-EU / Denmark / NZ) are
+confirmed exhausted for the team** — the 22-target pipeline is the complete
+reachable set. The genuine remaining levers are Kyle's: the team bidding the
+live queue, and the team's capabilities (references/insurance/languages) so
+the 22 can be ranked and drafted.
+
 **Round 13, 2026-09-05 — fresh TED re-sweep, 0 new cyber.** TED posts daily,
 so re-pulled the cyber set (223 matched): **no new team-viable cyber contract**
 since the last sweep. The 8 in the 400k–30M future-deadline band are the same
