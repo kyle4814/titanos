@@ -186,6 +186,18 @@ TEAM_TARGETS: Tuple[TeamTarget, ...] = (
          "Likely Danish-market presence or partner; confirm in the ESPD"),
         "TED 568334-2026 (live 2026-09-04)"),
     TeamTarget(
+        "UK_UKRI_6251", "UKRI (UK) — Cyber Security Managed Service / MDR / SOC",
+        "£1,500,000 (PLANNING stage — not yet open)",
+        "Not yet open — watch for the live tender",
+        "https://www.find-tender.service.gov.uk/api/1.0/ocdsReleasePackages/ocds-h6vhtk-06e9f0",
+        "UK Research & Innovation cyber MDR + SOC contract, English-language. "
+        "Currently PLANNING (buyer intent published, tender NOT yet open) — a "
+        "lead to prepare for and register interest, not to bid today.",
+        ("Watch for the tender to open (status: planning as of 2026-09-04)",
+         "MDR + SOC delivery capability",
+         "English/UK — no language or jurisdiction barrier for a UK-facing team"),
+        "Find-a-Tender ocds-h6vhtk-06e9f0 (live 2026-09-04)"),
+    TeamTarget(
         "DK_NATIONALBANK", "Danmarks Nationalbank (DK) — cybersecurity advisory framework",
         "DKK 9,200,000 (≈ €1.2M)", "2026-10-02",
         "https://ted.europa.eu/en/notice/-/detail/603665-2026",

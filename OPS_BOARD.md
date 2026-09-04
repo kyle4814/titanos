@@ -5,6 +5,18 @@ read off a primary source during this campaign, not recalled. Where
 something is unknown it says UNKNOWN — that is a real state, not a gap
 someone forgot to fill.
 
+**TEAM-SCALE hunt — UK, 2026-09-04 (round 2).** Pulled UK Find a Tender's
+security-CPV feed (79700000, 20 notices). **Finding worth carrying: that CPV
+is mostly PHYSICAL security** (guards, CCTV, body cameras, alarms, lone-worker
+devices) — UK *cyber* tenders sit under IT CPVs (72xxxxx), so future UK cyber
+sweeps should query those, not 79700000. One genuine cyber contract in the
+feed: **UKRI-6251 — Cyber Security Managed Service / MDR / SOC, £1,500,000**
+(UK Research & Innovation), verified via its OCDS release — **status
+`planning`**, i.e. buyer intent published but the tender is NOT yet open.
+Added as a team target flagged PLANNING/watch (prepare + register interest,
+don't bid yet). English-language, no jurisdiction barrier for a UK-facing
+team. `foundation/team_targets.py` now 16 targets.
+
 **TEAM-SCALE hunt, 2026-09-04.** Now that Kyle is building a team (credential
 walls no longer disqualify), the INSUFFICIENT_DATA tender notices are real
 leads. Pulled TED's structured cyber notices (223 items, values attached):
