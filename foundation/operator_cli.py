@@ -565,6 +565,24 @@ def cmd_digest(args) -> int:
     return 0
 
 
+def cmd_portfolio(args) -> int:
+    """Assemble the WHOLE tendering portfolio (live opps + drafts + full
+    intelligence + archive) into one folder, fresh. Optionally zip it."""
+    from foundation.portfolio_bundle import build_portfolio_bundle
+    import zipfile
+    dest = Path(args.out).expanduser()
+    written = build_portfolio_bundle(dest)
+    print(f"portfolio assembled at {dest}  ({len(written)} files)")
+    if args.zip:
+        zpath = dest.with_suffix(".zip")
+        with zipfile.ZipFile(zpath, "w", zipfile.ZIP_DEFLATED) as z:
+            for f in written:
+                z.write(f, f.relative_to(dest.parent))
+        print(f"zipped -> {zpath}  ({zpath.stat().st_size // 1024} KB)")
+    print("open START_HERE.md first — it is the map and the do-first order.")
+    return 0
+
+
 def cmd_situation(args) -> int:
     """Print the ops bottleneck analysis, computed by situation_analysis
     (the repo's largest capability, previously reachable from nothing) over
@@ -1409,6 +1427,16 @@ def build_parser() -> "object":
         help="bottleneck analysis over the real income situation, computed by "
              "situation_analysis (not asserted)")
     p_situation.set_defaults(func=cmd_situation)
+
+    p_portfolio = sub.add_parser(
+        "portfolio",
+        help="assemble the WHOLE tendering portfolio (opps + drafts + full "
+             "intelligence + archive) into one folder, fresh")
+    p_portfolio.add_argument("--out", required=True,
+                             help="destination folder for the bundle")
+    p_portfolio.add_argument("--zip", action="store_true",
+                             help="also write <out>.zip")
+    p_portfolio.set_defaults(func=cmd_portfolio)
 
     return parser
 

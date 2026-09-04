@@ -116,6 +116,13 @@ The digest is delivery, not decoration: if a cycle found or closed an
 opportunity, the roster in `ops_digest.py` must reflect it before the digest
 is sent, or the send is fabrication by omission.
 
+**Full portfolio on request.** When Kyle asks for "everything" / the full
+portfolio / a zip, run `python3 -m foundation.operator_cli portfolio --out
+<scratch>/TITANOS_PORTFOLIO --zip` — it assembles the whole thing fresh
+(START_HERE map, live opps, ready-to-send drafts, full board, decision
+records, archive) and zips it. Then `SendUserFile` the zip AND START_HERE.md
+(so he can read the plan without unzipping).
+
 ## OUTPUT
 
 One dense report at the end. Not a running commentary, not a check-in
