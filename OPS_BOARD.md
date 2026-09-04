@@ -5,6 +5,20 @@ read off a primary source during this campaign, not recalled. Where
 something is unknown it says UNKNOWN — that is a real state, not a gap
 someone forgot to fill.
 
+**Round 6, 2026-09-04 — hunt saturating, two English sources checked.** TED
+Ireland cyber (CY=IRL): **0 new** beyond the 5 dated + Fáilte already held.
+Tried two more English-language portals: **Public Contracts Scotland is
+robots-blocked** (`User-agent: * / Disallow: /` — only named search engines
+allowed; recorded as a finding, not fetched). **Sell2Wales is reachable but
+an ASP.NET form-POST search** (ViewState-stateful) — a fragile bespoke
+scraper for a small nation with few cyber contracts; **deferred as low-ROI**
+given the team already holds 21 targets, more than it can bid. Honest state:
+the readily-reachable English + EU cyber sources (TED, UK Find a Tender) are
+mined; further cycles yield diminishing NEW targets. The value now is the
+team acting on the 21 — which needs Kyle's team capabilities to prioritise
+and prep. (Building the Wales scraper is a standing option if Kyle wants that
+source; it is not worth an autonomous cycle unweighted.)
+
 **Round 5, 2026-09-04.** Swept 6 more UK cyber-adjacent CPVs (72810000,
 48731000, 72220000, 79417000, ...) — matches were generic audit/investigation,
 **no new genuine cyber contract** (verified negative, recorded so they're not
