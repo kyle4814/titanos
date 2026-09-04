@@ -6,6 +6,7 @@ Usage: python3 scripts/build_digest_artifact.py <out.html>
 import html
 import sys
 from datetime import datetime, timezone
+from pathlib import Path
 
 sys.path.insert(0, ".")
 from foundation.ops_digest import (  # noqa: E402
@@ -82,6 +83,48 @@ def main(out_path: str) -> None:
         'has changed (new insurance, a partner\'s turnover, a consortium), it '
         'moves back into play — that\'s why they\'re here, not hidden.</p>\n'
         f'    <ul>\n{ruled_rows}\n    </ul>\n  </details>')
+
+    # --- Plan section (do-first order + the 4 facts) ---
+    plan_html = (
+        '  <div class="plan">\n'
+        '    <h3>Do these first</h3>\n'
+        '    <div class="facts">The one thing that unlocks most of it — send me '
+        'these 4 facts once: <b>legal/trading name</b>, <b>ABN number</b>, '
+        '<b>business address</b>, <b>contact email + phone</b>. Then most '
+        'applications become fill-in-the-blanks.</div>\n'
+        '    <ol>\n'
+        '      <li><b>Bradford £300k pen-test — closes 14 Sep.</b> Open '
+        'uk.eu-supply.com, download the ITT, check if CHECK/CREST is required; '
+        'if not, bid.</li>\n'
+        '      <li><b>Register on YesWeHack</b> (free) — work Ant Group (0 '
+        'reports) and file the ready-made SGSP report below.</li>\n'
+        '      <li><b>Start Synack Red Team</b> — paid pentest work vetted by a '
+        'skills test, no credential walls; ~6-month vetting, so begin now.</li>\n'
+        '      <li><b>Send the two ready-made inquiries below</b> — paste your '
+        'name + ABN into the [blanks] and send.</li>\n'
+        '    </ol>\n  </div>')
+
+    # --- Ready-to-send drafts, copy-pasteable inline ---
+    def _draft_block(title, meta, text):
+        return (f'  <details class="ready"><summary>{esc(title)}</summary>\n'
+                f'    <p class="rmeta">{esc(meta)}</p>\n'
+                f'    <pre>{esc(text)}</pre>\n  </details>')
+    from foundation.close_pack import CLOSE_PLANS
+    sgsp_path = Path("SGSP_SUBMISSION_DRAFT.md")
+    sgsp_text = sgsp_path.read_text(encoding="utf-8") if sgsp_path.exists() else ""
+    ready_html = (
+        '  <div class="sec-title">✉️ READY TO SEND — paste your details into the [blanks]</div>\n'
+        + _draft_block("NSW referee email — unlocks a $150k scheme",
+                       "Send to ICTServices@customerservice.nsw.gov.au",
+                       CLOSE_PLANS["NSW_ICT_SCHEME"].draft or "")
+        + "\n"
+        + _draft_block("Gas Networks Ireland — is a round open?",
+                       "Send via the eTenders messaging facility on notice 23/049",
+                       CLOSE_PLANS["IE_GNI_23_049"].draft or "")
+        + ("\n" + _draft_block(
+            "SGSP bug-bounty report — file after you register on YesWeHack",
+            "A Low DOCUMENTATION finding, not a vulnerability — read its disclaimer",
+            sgsp_text) if sgsp_text else ""))
     doc = f"""<title>Ops Money-Printer</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -189,6 +232,24 @@ footer {{ text-align:center; color:var(--muted); font-size:.72rem;
 .ruledout .rv {{ font-family:"IBM Plex Mono", monospace; color:var(--muted);
   font-size:.78rem; margin-left:6px; }}
 .ruledout .rw {{ color:var(--muted); }}
+.plan {{ background:var(--surface); border:1px solid var(--line);
+  border-radius:14px; padding:16px; margin:0 0 18px; }}
+.plan h3 {{ margin:0 0 4px; font-size:1rem; }}
+.plan .facts {{ background:var(--surface2); border-radius:10px; padding:12px 14px;
+  margin:12px 0; font-size:.9rem; }}
+.plan .facts b {{ color:var(--accent); }}
+.plan ol {{ margin:8px 0 0; padding-left:22px; }}
+.plan ol li {{ font-size:.92rem; margin:0 0 8px; }}
+.sec-title {{ font-family:"IBM Plex Mono", monospace; font-size:.72rem;
+  font-weight:700; letter-spacing:.1em; color:var(--muted); margin:8px 0 12px; }}
+.ready {{ background:var(--surface); border:1px solid var(--line);
+  border-radius:14px; padding:6px 16px; margin:0 0 14px; }}
+.ready summary {{ font-weight:600; cursor:pointer; padding:10px 0; }}
+.ready .rmeta {{ font-size:.82rem; color:var(--muted); margin:0 0 8px; }}
+.ready pre {{ background:var(--surface2); border:1px solid var(--line);
+  border-radius:8px; padding:12px; overflow-x:auto; font-size:.8rem;
+  font-family:"IBM Plex Mono", monospace; white-space:pre-wrap;
+  word-break:break-word; margin:0 0 12px; }}
 </style>
 
 <header><div class="inner">
@@ -201,7 +262,9 @@ footer {{ text-align:center; color:var(--muted); font-size:.72rem;
 </div></header>
 
 <div class="wrap">
+{plan_html}
 {cards}
+{ready_html}
 {ruled_html}
   <footer>TITANOS · generated from OPS_BOARD.md · figures traceable per card</footer>
 </div>
