@@ -198,7 +198,7 @@ TEAM_TARGETS: Tuple[TeamTarget, ...] = (
         "Find-a-Tender ocds-h6vhtk-0606ff (OCDS-verified 2026-09-04)"),
     TeamTarget(
         "UK_JISC_SIEM", "Jisc (UK) — SIEM/SOAR Solution for its Security Operations Centre",
-        "£11,100,000", "Active — deadline UNKNOWN, check the notice",
+        "£11,100,000", "Active — enquiries close 21 Sep, so bid soon after (exact submission date in the notice)",
         "https://www.find-tender.service.gov.uk/api/1.0/ocdsReleasePackages/ocds-h6vhtk-066870",
         "Jisc (UK education/research network) SIEM/SOAR for its SOC — active, "
         "£11.1M, English (OCDS-verified). Genuine cyber delivery.",
@@ -208,7 +208,7 @@ TEAM_TARGETS: Tuple[TeamTarget, ...] = (
         "Find-a-Tender ocds-h6vhtk-066870 (OCDS-verified 2026-09-04)"),
     TeamTarget(
         "UK_T160", "UK — T160 Cyber Assurance Services", "£720,000",
-        "Active — deadline UNKNOWN, check the notice",
+        "Active — enquiries CLOSED 2 Sep, so submission is imminent — check the notice URGENTLY",
         "https://www.find-tender.service.gov.uk/api/1.0/ocdsReleasePackages/ocds-h6vhtk-06dcac",
         "A live, active UK cyber assurance contract — English, £720k "
         "(OCDS-verified). Team-sized.",

@@ -5,6 +5,14 @@ read off a primary source during this campaign, not recalled. Where
 something is unknown it says UNKNOWN — that is a real state, not a gap
 someone forgot to fill.
 
+**Round 5, 2026-09-04.** Swept 6 more UK cyber-adjacent CPVs (72810000,
+48731000, 72220000, 79417000, ...) — matches were generic audit/investigation,
+**no new genuine cyber contract** (verified negative, recorded so they're not
+re-swept). Pulled the enquiry periods for the two UK targets whose submission
+deadline OCDS didn't carry: **T160 enquiries CLOSED 2 Sep → submission
+imminent, bid urgently**; **Jisc enquiries close 21 Sep → submission soon
+after**. Both updated in `team_targets.py`.
+
 **TEAM-SCALE hunt — UK cyber via IT CPVs, 2026-09-04 (round 4) ⭐.** Acted on
 last cycle's finding (UK cyber lives under IT CPVs, not 79700000). Swept Find
 a Tender CPVs 72000000/72500000/72600000/48730000/72212731 → **11 genuine UK
