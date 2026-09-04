@@ -50,7 +50,14 @@ __all__ = [
     "read_mouth_log_continuity",
 ]
 
-DEFAULT_TIMEOUT_SECONDS = 10
+# 45s, raised from 10s on 2026-09-05: the UK Find a Tender OCDS API (the
+# path fat-notice uses to verify team contracts) was measured responding in
+# ~33s, and a 30s timeout still failed. A 10s timeout failed every request
+# while the host was merely slow, not down. A longer READ timeout is safe
+# here because MAX_FEED_BYTES still bounds the total response size — the
+# timeout only bounds a stalled read, and a slow-but-honest government
+# portal must not read as a failure. Beyond ~45s the host really is down.
+DEFAULT_TIMEOUT_SECONDS = 45
 
 # Hard ceiling on a single feed response. The two real feeds are a few
 # kilobytes; 5 MB is ~1000x headroom while still bounding memory. See

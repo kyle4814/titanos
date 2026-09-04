@@ -5,6 +5,19 @@ read off a primary source during this campaign, not recalled. Where
 something is unknown it says UNKNOWN — that is a real state, not a gap
 someone forgot to fill.
 
+**Round 10, 2026-09-05 — clock live; freshness + a real timeout fix.** The
+date rolled to 5 Sep, so re-verified the near-deadline UK targets: **all
+still active** — Southern Water £10M MDR (closes 21 Sep 16:00), T160/NI Water
+(active, submission imminent), Bradford (closes 14 Sep 16:00), Jisc (active,
+enquiries close 21 Sep). Nothing expired. **Defect found and fixed:**
+`mouth_common.DEFAULT_TIMEOUT_SECONDS` was **10s**, but the UK Find a Tender
+OCDS API (the path `fat-notice` uses to verify contracts) is responding in
+**33–48s** today — so every UK verification was failing on a merely-slow, not
+down, host. Raised to **45s** (safe: MAX_FEED_BYTES still bounds the response;
+the timeout only bounds a stalled read). The host is exceptionally slow right
+now (48s), recorded as a transient — the earlier 45s checks this cycle
+succeeded, which is how the statuses above were confirmed.
+
 **Round 9, 2026-09-04 — fresh UK re-sweep + Irish dated access check.** TED
 Ireland returned 0 for the dated tenders (they're on eTenders, below TED
 threshold; the board has no direct resourceIds so eTenders search-by-reference
