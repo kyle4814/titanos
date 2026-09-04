@@ -5,6 +5,16 @@ read off a primary source during this campaign, not recalled. Where
 something is unknown it says UNKNOWN — that is a real state, not a gap
 someone forgot to fill.
 
+**Round 13, 2026-09-05 — fresh TED re-sweep, 0 new cyber.** TED posts daily,
+so re-pulled the cyber set (223 matched): **no new team-viable cyber contract**
+since the last sweep. The 8 in the 400k–30M future-deadline band are the same
+broad-IT/non-cyber ones already assessed — incl. Irish Rail 605566 (€4M, 14
+Oct), which I fetched in full this time and confirmed is a **passenger-
+information Station Services Mediation System, NOT cyber**. With UK, Ireland,
+TED-EU and Denmark all now mined, the hunt is saturated across every reachable
+source; the pipeline of 22 targets is the complete reachable set. Recorded so
+the identical sweep isn't re-run expecting a different answer.
+
 **Round 12, 2026-09-05 — deep Ireland walked for the TEAM, exhausted.**
 Priority 3, redone for a team (not just solo cyber-DPS): `deep_sweep`
 walked **60 register pages (600 security-relevant rows)** and found **zero
