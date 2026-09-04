@@ -1,9 +1,17 @@
 # OPS BOARD — every live opportunity, what it's worth, what it needs
 
-Compiled 2026-09-02, last re-swept 2026-09-03. Every figure here was
+Compiled 2026-09-02, last re-swept 2026-09-04. Every figure here was
 read off a primary source during this campaign, not recalled. Where
 something is unknown it says UNKNOWN — that is a real state, not a gap
 someone forgot to fill.
+
+**Priority-4 dynamic re-sweep, 2026-09-04 — clean.** Bounty board: 63
+programs, **0 new**, Ant Group still the top uncontested target. Tender
+hunt (date-bounded, last 10 days across TED/UK/IE/NZ/DK/NL): 385 fetched,
+28 assessed, **QUALIFIED=0** (26 INSUFFICIENT_DATA, 2 DISQUALIFIED) — the
+standing pattern (criteria live in the procurement documents, not the
+notices). Nothing new actionable. Recorded so the next cycle sees the
+sweep was done and was clean.
 
 **Deliverable integrity check, 2026-09-04.** All **17 roster links
 re-fetched live** — every one resolves (15× HTTP 200, Bradford a normal
