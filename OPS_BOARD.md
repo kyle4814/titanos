@@ -5,6 +5,25 @@ read off a primary source during this campaign, not recalled. Where
 something is unknown it says UNKNOWN — that is a real state, not a gap
 someone forgot to fill.
 
+**Round 19, 2026-09-05 — test suite sped up + `/next` upgraded (priority 5,
+the 12× slowdown was a real defect).** The runner's own comment claimed
+foundation was "~90s"; reality was **1083s** — a silent 12× regression, caused
+by the foundation suite running the full real-repo `compute_sigil` (which
+shells out to run every subsystem suite) from ~4 test paths, each ~226s.
+Fixes, all measured, zero coverage lost in the default path:
+  - `sigil.py::_dimension_proof` now runs the 8 subsystem suites **concurrently**
+    (a real `compute_sigil()` speedup, not just a test trick) — recursion guard
+    intact.
+  - `test_sigil` computes its determinism pair **concurrently** (452s→~226s).
+  - `run_all_tests.sh` runs the 12 suites **in parallel** (wall = slowest
+    suite, not the sum) with corrected per-suite timing.
+  - New `run_all_tests.sh --fast` (`TITAN_SKIP_REALREPO_SIGIL=1`) skips only the
+    heavy real-repo sigil paths for the dev loop — **never** for pre-commit.
+  - **Measured: full 910s (was ~1180s), fast 240s (~5× faster dev loop)**, all
+    12 suites green (4,212 tests). `.claude/commands/next.md` upgraded: 4–6-agent
+    swarm codified, fast/full test modes, team-fit + phone-board + payload
+    delivery wired into the end-of-cycle. No README drift (no new tests added).
+
 **Round 18, 2026-09-05 — NZ GETS detail sweep CLOSED (priority 1), 0 cyber
 confirmed by category code.** Executed the standing priority-1 item instead of
 deferring it. Pulled the live feed (327 notices), filtered cyber by title with

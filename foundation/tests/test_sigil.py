@@ -326,8 +326,26 @@ class TestComputeSigilOnRealRepo(unittest.TestCase):
                 "running nested inside another compute_sigil() call's proof "
                 "dimension -- skipping to avoid unbounded recursion"
             )
-        cls.first = compute_sigil(REPO_ROOT)
-        cls.second = compute_sigil(REPO_ROOT)
+        # Optional skip for the tight dev loop: `TITAN_SKIP_REALREPO_SIGIL=1`
+        # (set by `run_all_tests.sh --fast`) skips this ~4-minute class.
+        # Default/unset runs it in full — pre-commit and CI keep full coverage.
+        if os.environ.get("TITAN_SKIP_REALREPO_SIGIL") == "1":
+            raise unittest.SkipTest(
+                "TITAN_SKIP_REALREPO_SIGIL=1 -- real-repo sigil skipped in fast mode"
+            )
+        # The two computes are genuinely independent (that is the whole
+        # point -- proving determinism across two separate real computations).
+        # Independent means they can run CONCURRENTLY: wall time drops from
+        # first+second to ~max(first, second), halving this class's cost with
+        # zero loss of what it proves. Both run at guard depth 0 in this one
+        # process, so each passes the guard and stamps depth-1 ancestry on its
+        # own child subprocesses, exactly as a sequential pair did.
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            f1 = pool.submit(compute_sigil, REPO_ROOT)
+            f2 = pool.submit(compute_sigil, REPO_ROOT)
+            cls.first = f1.result()
+            cls.second = f2.result()
 
     def test_deterministic_across_two_runs(self):
         self.assertEqual(self.first, self.second)
@@ -392,6 +410,8 @@ class TestRecordedSigilRetrieval(unittest.TestCase):
         self.assertIsInstance(parsed, RecordedSigil)
         self.assertNotIsInstance(parsed, Sigil)
 
+    @unittest.skipIf(os.environ.get("TITAN_SKIP_REALREPO_SIGIL") == "1",
+                     "fast mode: real-repo reconcile (full PROOF) skipped")
     def test_a_parsed_snapshot_works_as_reconcile_sigils_previous(self):
         """The whole point of the switch: the stored line can now reach
         the consumer that was always documented for it."""

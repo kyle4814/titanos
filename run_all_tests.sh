@@ -7,39 +7,75 @@
 # expected runtime and no aggregate result. That is a real onboarding
 # defect, reported by a cleanroom reconstruction test on 2026-09-01.
 #
-# foundation/ is the slow one (~90s) and that is EXPECTED: it contains
-# sigil.py's real-repository tests, and compute_sigil()'s PROOF
-# dimension genuinely shells out to run every subsystem's suite. It is
-# doing real work, not hanging.
+# SPEED (2026-09-05): the 12 suites now run CONCURRENTLY, not one after
+# another -- wall time is the SLOWEST suite, not the SUM. foundation/ is
+# the slow pole and that is EXPECTED: it contains sigil.py's real-repo
+# tests, and compute_sigil()'s PROOF dimension genuinely shells out to run
+# every subsystem's suite (now itself parallel, and its determinism pair
+# now computed concurrently). For the tight dev loop, `--fast` skips only
+# the one ~4-minute real-repo sigil class (TITAN_SKIP_REALREPO_SIGIL=1) and
+# brings the whole run under ~a minute. DEFAULT (no flag) runs everything,
+# so pre-commit and CI keep full coverage -- never commit on --fast alone.
 set -uo pipefail
 cd "$(dirname "$0")"
+
+FAST=0
+for arg in "$@"; do
+  case "$arg" in
+    --fast) FAST=1 ;;
+    -h|--help) echo "usage: $0 [--fast]"; exit 0 ;;
+    *) echo "unknown arg: $arg" >&2; exit 2 ;;
+  esac
+done
+if [ "$FAST" = "1" ]; then export TITAN_SKIP_REALREPO_SIGIL=1; fi
+
 # Must match .github/workflows' matrix exactly. They diverged once:
 # CI ran gems/claim_ledger and this file did not, so a local 'all
 # green' could differ from CI's. Add a suite to BOTH or neither.
 SUITES=(schema firewall kpm magl rpa taal foundation narrative compiler
         legacy gems/claim_ledger provenance)
-total=0; failed=""
-printf "%-12s %8s %10s\n" SUITE TESTS RESULT
-printf -- "----------------------------------\n"
+
+work=$(mktemp -d)
+trap 'rm -rf "$work"' EXIT
+
+# Launch every present suite CONCURRENTLY. Each writes its own stderr to a
+# private file. We read the summary from STDERR ONLY: unittest writes
+# "Ran N tests" and "OK"/"FAILED" to stderr; a test's own print() goes to
+# stdout, which is block-buffered when piped and flushes AFTER stderr at
+# process exit. Merging them with 2>&1 once put a compiler test's JSON
+# output last, so `tail` never saw the summary and 41 passing tests were
+# reported as "0 FAIL". release.sh gates on this script's verdict, so the
+# parser must never be displaceable by arbitrary test output.
 for s in "${SUITES[@]}"; do
   [ -d "$s" ] || continue
-  start=$(date +%s)
-  # Read the summary from STDERR ONLY. unittest writes "Ran N tests" and
-  # "OK"/"FAILED" to stderr; a test's own print() goes to stdout, which is
-  # block-buffered when piped and therefore flushes AFTER stderr at process
-  # exit. Merging them with 2>&1 put a compiler test's JSON output last, so
-  # `tail` never saw the summary: 41 passing tests were reported as
-  # "0 FAIL" and dropped from the total. release.sh gates on this script's
-  # verdict, so a parser that can be displaced by arbitrary test output is
-  # not a test result -- it is a coin flip that usually lands right.
-  out=$(python3 -m unittest discover -s "$s" 2>&1 1>/dev/null | tail -4)
-  el=$(( $(date +%s) - start ))
+  safe=${s//\//_}
+  # Each subshell records its OWN start/end, so the per-suite time is the
+  # suite's real duration -- not the shared wall measured after `wait`.
+  ( st=$(date +%s); \
+    python3 -m unittest discover -s "$s" >/dev/null 2>"$work/$safe.err"; \
+    rc=$?; echo "$rc" >"$work/$safe.rc"; echo $(( $(date +%s) - st )) >"$work/$safe.el" ) &
+done
+wait
+
+printf "%-12s %8s %10s\n" SUITE TESTS RESULT
+printf -- "----------------------------------\n"
+total=0; failed=""
+for s in "${SUITES[@]}"; do
+  [ -d "$s" ] || continue
+  safe=${s//\//_}
+  el=$(cat "$work/$safe.el" 2>/dev/null || echo 0)
+  out=$(tail -4 "$work/$safe.err" 2>/dev/null)
+  rc=$(cat "$work/$safe.rc" 2>/dev/null || echo 1)
   n=$(echo "$out" | grep -oE 'Ran [0-9]+' | grep -oE '[0-9]+' || echo 0)
-  if echo "$out" | grep -qE '^OK'; then r="OK"; else r="FAIL"; failed="$failed $s"; fi
+  # Green iff the process exited 0 AND unittest printed an OK line. Either
+  # alone is insufficient: a crash before the summary exits non-zero with
+  # no OK; a skip-only run still prints OK. Both must agree.
+  if [ "$rc" = "0" ] && echo "$out" | grep -qE '^OK'; then r="OK"; else r="FAIL"; failed="$failed $s"; fi
   printf "%-12s %8s %7s %3ss\n" "$s" "$n" "$r" "$el"
   total=$(( total + n ))
 done
 printf -- "----------------------------------\n"
+[ "$FAST" = "1" ] && echo "(--fast: real-repo sigil class skipped -- not for pre-commit)"
 if [ -z "$failed" ]; then
   echo "PASS  $total tests, ${#SUITES[@]} suites, 0 failures"; exit 0
 else

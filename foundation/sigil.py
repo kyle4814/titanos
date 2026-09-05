@@ -47,6 +47,7 @@ import os
 import re
 import subprocess
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
@@ -244,11 +245,18 @@ def _dimension_proof(repo_root: Path) -> tuple[int, str, bool, int]:
     all_green = True
     timed_out: list[str] = []
     spawn_env = guard_child_env(PROOF_OPERATION)
-    for name in subsystems:
+
+    def _run_one(name: str) -> tuple[str, int, bool, bool]:
+        """Run one subsystem's suite in a fresh subprocess. Returns
+        (name, tests_counted, ok, did_time_out). Pure per-subsystem work
+        with no shared state, so it is safe to run these concurrently —
+        each is an independent `subprocess.run`, and the recursion guard
+        env (spawn_env) still stamps every child, so the nested-foundation
+        subprocess still guard-skips this very function exactly as it did
+        when this loop was sequential."""
         subsystem_dir = repo_root / name
         if not subsystem_dir.is_dir():
-            all_green = False
-            continue
+            return (name, 0, False, False)
         try:
             proc = subprocess.run(
                 [sys.executable, "-m", "unittest", "discover", "-s", name, "-p", "test_*.py"],
@@ -262,13 +270,25 @@ def _dimension_proof(repo_root: Path) -> tuple[int, str, bool, int]:
             # slow reported as a suite that was broken -- a confident
             # verdict computed over a machine-load artefact. Recorded
             # separately so the justification can say which happened.
-            timed_out.append(name)
-            all_green = False
-            continue
+            return (name, 0, False, True)
         match = _TESTS_RUN_PATTERN.search(proc.stderr)
-        total += int(match.group(1)) if match else 0
-        if proc.returncode != 0:
-            all_green = False
+        counted = int(match.group(1)) if match else 0
+        return (name, counted, proc.returncode == 0, False)
+
+    # Run the subsystem suites CONCURRENTLY. subprocess.run releases the
+    # GIL while the child runs, so these overlap; wall time drops from the
+    # SUM of the suites to roughly the slowest single suite. The score is
+    # unchanged: aggregation below is order-independent (sum of counts, AND
+    # of green), exactly as the prior sequential loop computed it. Bounded
+    # at len(subsystems) workers so peak parallelism never exceeds the work
+    # actually queued.
+    with ThreadPoolExecutor(max_workers=max(1, len(subsystems))) as pool:
+        for name, counted, ok, did_timeout in pool.map(_run_one, subsystems):
+            total += counted
+            if did_timeout:
+                timed_out.append(name)
+            if not ok:
+                all_green = False
     if total == 0:
         score = 0
     elif not all_green:
