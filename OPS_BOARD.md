@@ -5,6 +5,24 @@ read off a primary source during this campaign, not recalled. Where
 something is unknown it says UNKNOWN — that is a real state, not a gap
 someone forgot to fill.
 
+**Round 18, 2026-09-05 — NZ GETS detail sweep CLOSED (priority 1), 0 cyber
+confirmed by category code.** Executed the standing priority-1 item instead of
+deferring it. Pulled the live feed (327 notices), filtered cyber by title with
+word boundaries (not the "soc"-in-"associated" substring trap) → **0 cyber
+notices**. The only real security notices are physical, and their detail pages
+(fetched politely, ~6s apart, via `mouth_gets_nz.fetch_tender_detail` —
+first RUNTIME-VERIFIED against the live network, previously only unit-tested
+with an injected fetcher) prove it by UNSPSC category:
+  - 322859 Security Services → 92120000 *Security and personal safety* → pre-qual **None**
+  - 324523 Enterprise CCTV → 46170000 *Security surveillance and detection* → pre-qual **None**
+  - Corporate Security → 92121700 *Security systems services* → pre-qual **None**
+Every one physical guarding/surveillance, none cyber; every one states Required
+Pre-qualifications "None" (a stated value, not an inferred absence). This closes
+priority 1 with hard evidence and confirms round 14's "0 cyber" with fresh
+data. NZ route for the team stays the Government Marketplace (`NZ_MARKETPLACE`).
+No new target, no code change — a verified-negative plus a capability advanced
+from TESTED to RUNTIME_VERIFIED.
+
 **Round 17, 2026-09-05 — built the winnability scorer (priority 5, unwired
 capability closed).** The pipeline had 22 team targets but nothing that told
 Kyle *which* his team can win. Built `foundation/team_fit.py`: declare the
