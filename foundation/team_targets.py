@@ -65,6 +65,24 @@ class TeamTarget:
 _ET = "https://www.etenders.gov.ie"  # Irish notices are searched by reference here
 
 TEAM_TARGETS: Tuple[TeamTarget, ...] = (
+    # --- WINNABLE for a solo operator + automation (no US-entity/reference wall) ---
+    TeamTarget(
+        "NL_NLNET", "NLnet / NGI Zero — open-source security/tech R&D grant",
+        "€5,000–€50,000 (verified live on nlnet.nl 05 Sep)",
+        "2026-11-03 (rolling call; next deadline)",
+        "https://nlnet.nl/propose/",
+        "R&D grant for open-source internet/security/privacy technology. The "
+        "single best fit for the Kyle+system model: the system can help BUILD "
+        "the project you propose. Open to individuals worldwide.",
+        ("Open worldwide to individuals AND organisations (nlnet.nl/NGI0 verbatim: "
+         "\"Available to both individuals and organisations\")",
+         "A proposal for open-source internet/security/privacy technology "
+         "(\"used, studied, modified and shared by anyone for any purpose\")",
+         "Outputs must be released as free/open source",
+         "NO US-entity wall, NO turnover bar, NO corporate-reference wall",
+         "Grant €5,000–€50,000, with possibility to scale up"),
+        "nlnet.nl/themes + nlnet.nl/NGI0/ (grant range + eligibility quoted, "
+        "deadline parsed, verified live 2026-09-05)"),
     # --- Dated Irish tenders (TIME-CRITICAL — real deadlines, weeks out) ---
     TeamTarget(
         "IE_FAILTE", "Fáilte Ireland — Cybersecurity Specialist Services (IT/2026/08)",
