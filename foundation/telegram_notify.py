@@ -118,21 +118,26 @@ def _resolve_credentials(token: Optional[str],
 
 
 def _post_message(token: str, chat_id: str, text: str,
-                  opener: Callable[[urllib.request.Request], object]) -> None:
+                  opener: Callable[[urllib.request.Request], object],
+                  reply_markup: Optional[dict] = None) -> None:
     """POST one message to Telegram's sendMessage. `opener` is injected in
-    tests so no test touches the real network. Raises TelegramNotifyError
+    tests so no test touches the real network. `reply_markup` (optional) adds
+    an inline keyboard (e.g. Approve/Deny buttons). Raises TelegramNotifyError
     (token never in the message) on any non-ok response."""
     if len(text.encode("utf-8")) > _MAX_MESSAGE_BYTES:
         raise TelegramNotifyError(
             "a digest message exceeds Telegram's 4096-char limit — "
             "ops_digest should have split it")
     url = f"{API_BASE}/bot{token}/sendMessage"
-    payload = urllib.parse.urlencode({
+    fields = {
         "chat_id": chat_id,
         "text": text,
         "parse_mode": "HTML",
         "disable_web_page_preview": "true",
-    }).encode("utf-8")
+    }
+    if reply_markup is not None:
+        fields["reply_markup"] = json.dumps(reply_markup)
+    payload = urllib.parse.urlencode(fields).encode("utf-8")
     req = urllib.request.Request(url, data=payload, method="POST")
     req.add_header("Content-Type", "application/x-www-form-urlencoded")
     try:
@@ -155,6 +160,25 @@ def _post_message(token: str, chat_id: str, text: str,
         # `description` is safe (no token); `url` is not, and is not used.
         raise TelegramNotifyError(
             f"Telegram rejected the message: {body.get('description', 'unknown')}")
+
+
+def send_card(text: str, reply_markup: dict,
+              *,
+              token: Optional[str] = None,
+              chat_id: Optional[str] = None,
+              opener: Optional[Callable] = None,
+              now: Optional[datetime] = None) -> bool:
+    """Send ONE message carrying an inline keyboard (e.g. Approve/Deny) through
+    the sanctioned gated socket. Gate FIRST, then credentials. Returns True if
+    sent, False if credentials are absent (no dry-run file — a card with no
+    reachable buttons is pointless). `opener` injected in tests."""
+    authorize_communication(operator_switch(now=now))
+    token, chat_id = _resolve_credentials(token, chat_id)
+    if not token or not chat_id:
+        return False
+    opener = opener or (lambda req: urllib.request.urlopen(req, timeout=30))
+    _post_message(token, chat_id, text, opener, reply_markup=reply_markup)
+    return True
 
 
 def send_messages(messages: tuple[str, ...],

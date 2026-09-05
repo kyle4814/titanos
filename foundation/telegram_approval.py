@@ -28,15 +28,12 @@ No test touches the network: `sender` and `decision_source` are injected.
 
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass
 from enum import Enum
 from typing import Callable, Optional
 
-from foundation.telegram_notify import (
-    API_BASE, TelegramNotifyError, _resolve_credentials, _post_message,
-    operator_switch,
-)
+from foundation import telegram_notify
+from foundation.telegram_notify import _resolve_credentials, operator_switch
 from foundation.communication_gate import authorize_communication
 
 __all__ = [
@@ -93,25 +90,14 @@ def format_card(req: ApprovalRequest) -> str:
 
 def _default_sender(req_id: str, text: str,
                     token: str, chat_id: str) -> None:
-    """Send the card with inline Approve/Deny buttons via the real bot."""
-    import urllib.request
-    import urllib.parse
-    url = f"{API_BASE}/bot{token}/sendMessage"
+    """Send the card with inline Approve/Deny buttons — through
+    `telegram_notify`'s sanctioned gated socket, NOT a socket of our own (the
+    control plane must stay unbypassable)."""
     markup = {"inline_keyboard": [[
         {"text": "✅ Approve", "callback_data": f"approve:{req_id}"},
         {"text": "❌ Deny", "callback_data": f"deny:{req_id}"},
     ]]}
-    payload = urllib.parse.urlencode({
-        "chat_id": chat_id, "text": text, "parse_mode": "HTML",
-        "reply_markup": json.dumps(markup),
-    }).encode("utf-8")
-    r = urllib.request.Request(url, data=payload, method="POST")
-    r.add_header("Content-Type", "application/x-www-form-urlencoded")
-    resp = urllib.request.urlopen(r, timeout=30)  # pragma: no cover - network
-    body = json.loads(resp.read().decode("utf-8", "replace"))
-    if not body.get("ok", False):
-        raise TelegramNotifyError(
-            f"Telegram rejected the card: {body.get('description', 'unknown')}")
+    telegram_notify.send_card(text, markup, token=token, chat_id=chat_id)
 
 
 def request_approval(req: ApprovalRequest,
@@ -166,22 +152,18 @@ def alert_operator(headline: str, detail: str = "",
                    token: Optional[str] = None,
                    chat_id: Optional[str] = None) -> bool:
     """Ping Kyle to come into the chat — 'I need a sword to sharpen against.'
-    Returns True if sent, False if no credentials / gate closed (fail-soft: an
-    alert that can't send just doesn't, it never blocks the op). `opener` is
-    injected in tests."""
-    if not authorize_communication(operator_switch()):
-        return False
+    Returns True if sent, False if no credentials (fail-soft: an alert that
+    can't send just doesn't, it never blocks the op). Routes through
+    `telegram_notify`'s sanctioned gated socket. `opener` injected in tests."""
     tok, cid = _resolve_credentials(token, chat_id)
     if not tok or not cid:
         return False
     text = ("🗡️ <b>TITAN needs you</b>\n\n" + str(headline)
             + (("\n\n" + str(detail)) if detail else "")
             + "\n\nCome sharpen swords when you get a sec.")
-    if opener is None:
-        import urllib.request
-        opener = urllib.request.urlopen  # pragma: no cover - network
     try:
-        _post_message(tok, cid, text, opener)
-        return True
-    except TelegramNotifyError:
+        result = telegram_notify.send_messages(
+            (text,), token=tok, chat_id=cid, opener=opener)
+    except Exception:
         return False
+    return result.delivered > 0

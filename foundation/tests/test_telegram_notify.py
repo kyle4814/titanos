@@ -18,8 +18,10 @@ from foundation.telegram_notify import (
     SendResult,
     TelegramNotifyError,
     operator_switch,
+    send_card,
     send_messages,
 )
+import urllib.parse as _urlparse
 from foundation import communication_gate
 
 
@@ -116,6 +118,28 @@ class TestSendPath(unittest.TestCase):
         # captured as a per-message error, not a crash of the whole batch
         self.assertEqual(res.delivered, 0)
         self.assertTrue(any("4096" in e for e in res.errors))
+
+
+class TestSendCard(unittest.TestCase):
+    def test_card_sends_with_inline_keyboard_through_the_socket(self):
+        opener = _RecordingOpener()
+        markup = {"inline_keyboard": [[{"text": "✅ Approve",
+                                        "callback_data": "approve:x"}]]}
+        ok = send_card("decide this", markup, token=TOKEN, chat_id=CHAT,
+                       opener=opener, now=NOW)
+        self.assertTrue(ok)
+        self.assertEqual(len(opener.calls), 1)
+        # the reply_markup actually rode along in the POST body
+        body = _urlparse.parse_qs(opener.calls[0].data.decode("utf-8"))
+        self.assertIn("reply_markup", body)
+        self.assertIn("approve:x", body["reply_markup"][0])
+
+    def test_card_without_credentials_returns_false_and_no_network(self):
+        opener = _RecordingOpener()
+        ok = send_card("x", {"inline_keyboard": []}, token=None, chat_id=None,
+                       opener=opener, now=NOW)
+        self.assertFalse(ok)
+        self.assertEqual(opener.calls, [])
 
 
 class TestTokenNeverLeaks(unittest.TestCase):
