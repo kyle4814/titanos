@@ -5,6 +5,22 @@ read off a primary source during this campaign, not recalled. Where
 something is unknown it says UNKNOWN — that is a real state, not a gap
 someone forgot to fill.
 
+**Round 38, 2026-09-06 — closed a real coverage gap: end-to-end CLI tests for
+the four SpoofGuard commands Kyle actually runs.** `test_operator_cli.py` had 94
+tests but ZERO touching `security-report` / `remediate` / `leads` /
+`spoofguard-monitor` — the modules were unit-tested, the CLI wiring
+(argparse→dispatch→module) was not. That is exactly the gap class that shipped a
+red push in rounds 29–30. Added 5 CLI smoke tests (`TestSpoofGuardCommands`)
+that drive each command through `main()` with the DoH fetch patched at
+`_default_fetch` (no network): grade + fix records present by default, `--no-fix`
+omits them, remediate emits safe softfail/p=none records, leads ranks a
+wide-open domain hot, monitor's first check succeeds. Found nothing broken — the
+wiring is solid — but the surface is now regression-pinned. Judged this higher
+value than manufacturing another module (self-host/community reporting are
+blocked on an external surface or unengaged users — the scale-fantasy trap);
+verification of what Kyle runs beats speculative build. Full suite (touches the
+structural test file + foundation).
+
 **Round 37, 2026-09-06 — completed the sellable deliverable: one command now
 gives diagnosis + cure.** `security-report --domain X` previously gave the
 graded posture; the exact records lived in a separate `remediate` command.

@@ -1077,3 +1077,59 @@ class TestAccessCommand(unittest.TestCase):
             text = _read_document_text(p)
         self.assertIn("Electronic Bidding will not be permitted", text)
         self.assertNotIn("PK", text[:4])
+
+
+class TestSpoofGuardCommands(unittest.TestCase):
+    """End-to-end CLI coverage for the four SpoofGuard commands Kyle runs:
+    security-report, remediate, leads, spoofguard-monitor. Before this, the
+    modules were unit-tested but the CLI wiring (argparse -> dispatch -> module)
+    was not — exactly the class of gap that shipped a red push in earlier
+    rounds. The DoH fetch is patched at _default_fetch so no test touches the
+    network. The canned responder returns no records for every query, so the
+    test domain is wide-open (SPF/DMARC absent) — which exercises grading,
+    remediation-record generation and hot-lead ranking together."""
+
+    def _empty_doh(self, url):
+        return json.dumps({"Status": 0, "Answer": []}).encode()
+
+    def setUp(self):
+        self._p = patch("foundation.email_security_report._default_fetch",
+                        self._empty_doh)
+        self._p.start()
+        self.addCleanup(self._p.stop)
+
+    def test_security_report_includes_grade_and_fix_records_by_default(self):
+        code, out, err = _run(["security-report", "--domain", "open.example"])
+        self.assertEqual(code, 0)
+        self.assertIn("Overall grade", out)
+        self.assertIn("Records to publish", out)          # the fix is included
+        self.assertIn("v=spf1", out)
+
+    def test_security_report_no_fix_omits_records(self):
+        code, out, err = _run(["security-report", "--domain", "open.example",
+                               "--no-fix"])
+        self.assertEqual(code, 0)
+        self.assertIn("Overall grade", out)
+        self.assertNotIn("Records to publish", out)
+
+    def test_remediate_emits_safe_records(self):
+        code, out, err = _run(["remediate", "--domain", "open.example"])
+        self.assertEqual(code, 0)
+        self.assertIn("stop email spoofing", out.lower())
+        self.assertIn("p=none", out)                      # staged DMARC, safe
+        # the generated SPF record is softfail, never a hardfail record
+        self.assertIn("v=spf1 ~all", out)
+        self.assertNotIn("v=spf1 -all", out)
+
+    def test_leads_ranks_a_wide_open_domain_hot(self):
+        code, out, err = _run(["leads", "--domains", "open.example,two.example"])
+        self.assertEqual(code, 0)
+        self.assertIn("LEAD SHEET", out)
+        self.assertIn("open.example", out)
+
+    def test_spoofguard_monitor_first_check_is_calm(self):
+        with tempfile.TemporaryDirectory() as td:
+            store = Path(td) / "snap.jsonl"
+            code, out, err = _run(["spoofguard-monitor", "--domain",
+                                   "open.example", "--store", str(store)])
+            self.assertEqual(code, 0)
