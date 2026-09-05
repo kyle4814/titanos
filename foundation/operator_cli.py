@@ -665,6 +665,19 @@ def cmd_opp_drop(args) -> int:
     return 0
 
 
+def cmd_spoofguard_monitor(args) -> int:
+    """SpoofGuard monitor: check a domain's email-security posture and report
+    any REGRESSION since the last check (the alertable event). Persists a
+    snapshot each run so it catches the moment a domain becomes spoofable."""
+    from foundation.spoofguard_monitor import monitor, render_alert
+    store = Path(args.store).expanduser() if args.store \
+        else Path.home() / ".titanos_spoofguard.jsonl"
+    snap, changes = monitor(args.domain, store)
+    print(f"{args.domain}: grade {snap['grade']}")
+    print(render_alert(args.domain, changes))
+    return 0
+
+
 def cmd_nlnet(args) -> int:
     """Show NLnet / NGI Zero's current open call live — the genuinely winnable
     grant (EUR 5k-50k, open to individuals worldwide, funds open-source
@@ -1699,6 +1712,15 @@ def build_parser() -> "object":
         "nlnet", help="show NLnet/NGI Zero's current open call (winnable grant, "
                       "EUR 5k-50k, open to individuals worldwide)")
     p_nlnet.set_defaults(func=cmd_nlnet)
+
+    p_sgm = sub.add_parser(
+        "spoofguard-monitor",
+        help="check a domain's email-security posture and flag any regression "
+             "since the last check (SpoofGuard continuous monitoring)")
+    p_sgm.add_argument("--domain", required=True, help="domain to monitor")
+    p_sgm.add_argument("--store", help="snapshot store path "
+                       "(default ~/.titanos_spoofguard.jsonl)")
+    p_sgm.set_defaults(func=cmd_spoofguard_monitor)
 
     p_opp = sub.add_parser(
         "opp-drop",
