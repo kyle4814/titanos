@@ -5,6 +5,20 @@ read off a primary source during this campaign, not recalled. Where
 something is unknown it says UNKNOWN — that is a real state, not a gap
 someone forgot to fill.
 
+**Round 26, 2026-09-05 — built `lead_engine`: prospect triage (the first-dollar
+lever).** Execution-phase build toward the reality anchor (first real dollar =
+Kyle closing a warm lead). `foundation/lead_engine.py` `triage_domains(domains)`
+assesses each domain's public email security (reuses `email_security_report`,
+gated DoH) and ranks HOTTEST-FIRST by spoofability: no/weak SPF+DMARC = email
+forgeable in their name = a real, provable, urgent hook. Grade D = 🔥🔥🔥 call
+first; a secure domain is NOT a lead and never inflated into one; the sheet
+stays honest (posture signal not a full audit; Kyle makes the contact
+lawfully). Wired as `operator_cli leads --domains / --from FILE`.
+RUNTIME-VERIFIED live (example.com → grade D on fire; github.com → C warm).
+6 tests. README 4,281→4,287. Feeds Kyle's own sales motion; the missing piece
+is a *source* of real business domains (his leads, or a future lead-source
+mouth) — the tool triages whatever list it's given.
+
 **Round 25, 2026-09-05 — built the keystone: `telegram_approval` (async
 human-in-the-loop).** Kyle gave the greenlight and confirmed his moneyprinter
 Telegram bot is already wired — so this builds the piece that plugs in.
