@@ -158,7 +158,17 @@ not a summary of internal build work he can't.
    password-locked, phone-first HTML page of the live tenders with tap-to-open
    links and the agent guide — publish via `Artifact`, same file path keeps
    ONE URL, hand Kyle the link + password. Load `artifact-design` first.
-5. In the chat reply, give the artifact link / DO-NOW moves — the levers, not
+5. **Desktop opportunity drop (EVERY run):** `python3 -m
+   foundation.operator_cli opp-drop` — writes/refreshes the
+   `TITAN_OPPORTUNITIES` folder on Kyle's desktop: START_HERE (today's top
+   moves), one ready-to-file pack per live tender, and the titanos.tech
+   cold-call kit (pitch + script + the `security-report` command to generate a
+   prospect's free email-security hook). This is the hand-off: Kyle opens the
+   folder and works — cold-calls, sells, submits — without needing to talk to
+   the system. Each run must ADD real found opportunities to it; hunt broad
+   (any size/shape — tender, grant, service, lead), package what's reachable,
+   and say honestly in START_HERE which streams aren't built yet.
+6. In the chat reply, give the artifact link / DO-NOW moves — the levers, not
    the build log.
 
 Delivery is not decoration: if a cycle found or closed an opportunity, the

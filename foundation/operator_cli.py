@@ -636,6 +636,23 @@ def cmd_team_fit(args) -> int:
     return 0
 
 
+def cmd_opp_drop(args) -> int:
+    """Write/refresh the TITAN_OPPORTUNITIES package on Kyle's desktop (or a
+    given --dest): START_HERE, one ready-to-file pack per live tender, and the
+    titanos.tech cold-call kit. The mad-dog hunter's hand-off to the closer —
+    he opens the folder and works, no need to talk to the system."""
+    from foundation.opp_drop import build_opp_drop, default_desktop, OPP_ROOT_NAME
+    dest = Path(args.dest).expanduser() if args.dest else default_desktop()
+    if dest is None:
+        print("no desktop found — pass --dest <folder>")
+        return 2
+    written = build_opp_drop(dest, include_sample=not args.no_sample)
+    print(f"opportunity package written -> {dest / OPP_ROOT_NAME}  "
+          f"({len(written)} files)")
+    print("open START_HERE.md first.")
+    return 0
+
+
 def cmd_security_report(args) -> int:
     """Produce an automated email-security report for a domain — SPF, DMARC,
     DKIM, DNSSEC, MX, MTA-STS — from public DNS only. The first sellable,
@@ -1604,6 +1621,15 @@ def build_parser() -> "object":
     p_sec.add_argument("--domain", required=True, help="domain to check, e.g. acme.com")
     p_sec.add_argument("--out", help="write the report to this file instead of stdout")
     p_sec.set_defaults(func=cmd_security_report)
+
+    p_opp = sub.add_parser(
+        "opp-drop",
+        help="write/refresh the TITAN_OPPORTUNITIES package on the desktop "
+             "(START_HERE + tender packs + titanos.tech cold-call kit)")
+    p_opp.add_argument("--dest", help="destination folder (default: the desktop)")
+    p_opp.add_argument("--no-sample", action="store_true",
+                       help="skip the live-DNS sample report")
+    p_opp.set_defaults(func=cmd_opp_drop)
 
     return parser
 
