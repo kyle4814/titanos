@@ -5,6 +5,21 @@ read off a primary source during this campaign, not recalled. Where
 something is unknown it says UNKNOWN — that is a real state, not a gap
 someone forgot to fill.
 
+**Round 42, 2026-09-06 — deadline fix VERIFIED LIVE + priority-4 re-sweep
+(0 qualified).** Ran `hunt --live --keyword cyber` end-to-end to verify rounds
+40–41 against real data, not just unit tests. Result proves the fix: of 78
+assessed notices the render now marks **34 CLOSED, 8 OPEN, 36 UNKNOWN** — last
+cycle every one read UNKNOWN and closed 2025 tenders (e.g. deadlines 2025-09-22,
+2025-10-10) polluted the candidate set; they are now flagged "⚠ CLOSED" with a
+"34 of 78 shown … not open opportunities" summary. The sweep is trustworthy.
+Priority-4 substance: **424 fetched, 78 cyber-relevant, QUALIFIED=0**. The 8 OPEN
+are all INSUFFICIENT_DATA (criteria gated in the procurement docs); 6 are NL
+TenderNed (Dutch-language — a wall for English-only operation, correctly
+INSUFFICIENT_DATA not DISQUALIFIED since the notice didn't publish the language).
+The only English-possible OPEN eyeball candidates: TED 612163-2025 and DK udbud
+f104f4f6-…-6968e40f18d1 — both unqualified (need the docs), neither a confirmed
+opportunity. No new winnable work; the deadline fix is the durable gain. Doc-only.
+
 **Round 41, 2026-09-06 — finished the door on the expired-notice defect:
 `render_hunt` now labels every entry OPEN / CLOSED / UNKNOWN.** With round 40's
 data fix landing real deadlines on entries, the render now marks each notice
