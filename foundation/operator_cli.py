@@ -676,9 +676,17 @@ def cmd_leads(args) -> int:
     if args.from_file:
         text = Path(args.from_file).expanduser().read_text(encoding="utf-8")
         domains += [ln.strip() for ln in text.splitlines() if ln.strip()]
+    if args.from_csv:
+        from foundation.lead_source import domains_from_csv
+        text = Path(args.from_csv).expanduser().read_text(
+            encoding="utf-8", errors="replace")
+        domains += domains_from_csv(text, limit=args.limit)
     if not domains:
-        print("no domains — pass --domains a.com,b.com or --from FILE")
+        print("no domains — pass --domains a.com,b.com, --from FILE, or "
+              "--from-csv LEADS.csv")
         return 2
+    if args.limit:
+        domains = domains[:args.limit]
     md = render_lead_sheet_md(triage_domains(domains))
     if getattr(args, "out", None):
         Path(args.out).expanduser().write_text(md, encoding="utf-8")
@@ -1663,6 +1671,12 @@ def build_parser() -> "object":
     p_leads.add_argument("--domains", help="comma-separated domains")
     p_leads.add_argument("--from", dest="from_file",
                          help="file with one domain per line")
+    p_leads.add_argument("--from-csv", dest="from_csv",
+                         help="a lead CSV (business_name,email,website,...) — "
+                              "domains extracted from website/email columns")
+    p_leads.add_argument("--limit", type=int,
+                         help="triage at most N domains (polite batch; "
+                              "recommended with --from-csv)")
     p_leads.add_argument("--out", help="write the lead sheet to this file")
     p_leads.set_defaults(func=cmd_leads)
 
