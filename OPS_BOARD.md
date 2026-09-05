@@ -5,6 +5,20 @@ read off a primary source during this campaign, not recalled. Where
 something is unknown it says UNKNOWN — that is a real state, not a gap
 someone forgot to fill.
 
+**Round 35, 2026-09-06 — 🎯 NLnet grant application SUBMITTED (real external
+event).** Kyle completed and submitted the SpoofGuard application to NLnet;
+recorded by NLnet as **application 2026-11-076**, Restack Fund, **€30,000**,
+entity Individual/AU. Full receipt in `NLNET_SUBMISSION_RECEIPT.md`. This is the
+first genuine external ping this project has produced that reaches a funding
+body — NOT internal, NOT synthetic. Tagged honestly: SUBMITTED ≠ FUNDED; no
+money won, outcome PENDING NLnet review. Backed by a working, tested prototype
+(`email_security_report.py`, `spoofguard_monitor.py`, `leads --from-csv`,
+`SPOOFGUARD.md`) whose core honesty property is enforced in code. Answers
+provided this session: fund selection (Restack, from quoted nlnet.nl scope),
+technical-challenges + ecosystem answers, GenAI-use disclosure. Next real event
+is NLnet's decision; no outbound contact owed until they ask. Applicant
+phone/email kept OUT of this public repo.
+
 **Round 34, 2026-09-06 — hardened the batch command Kyle will run commercially
 (`leads --from-csv`) + pinned the over-flagging bug class at batch level.**
 Search-before-build found the batch scan already wired: `leads --from-csv` →
