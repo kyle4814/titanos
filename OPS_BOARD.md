@@ -5,6 +5,22 @@ read off a primary source during this campaign, not recalled. Where
 something is unknown it says UNKNOWN — that is a real state, not a gap
 someone forgot to fill.
 
+**Round 20, 2026-09-05 — deduped the redundant real-repo sigil computes
+(priority 5), full gate now 475s.** Last round flagged that the full suite
+still recomputed the SAME real-repo sigil ~4× (setUpClass pair + two reconcile
+tests), each ~226s of shelling out over every subsystem. Fixed: `reconcile_
+sigil(repo_root, previous, current=None)` now accepts an already-measured
+`Sigil` and skips the recompute (a real win for the SIGIL.md update flow too),
+type-gated so a hand-edited `RecordedSigil` is refused. `test_sigil` computes
+the real sigil ONCE (lazy `real_repo_sigil()` cache) shared by the reconcile
+tests; the determinism test still computes a second independent sigil, so
+"deterministic across two real runs" is unchanged. **Measured: full suite
+910s→475s** (foundation 910→475), all 12 green (4,214 tests). Caught and fixed
+one self-inflicted red on the way — the +2 new tests drifted README 4,244→
+4,246, which dropped `_dimension_sight` to 7 and cascaded; autonomy_loop fixed
+it (the documented drift dance), not a logic bug. Cumulative this session:
+full gate 1180s→475s (~2.5×), plus `--fast` dev loop 240s (~5×).
+
 **Round 19, 2026-09-05 — test suite sped up + `/next` upgraded (priority 5,
 the 12× slowdown was a real defect).** The runner's own comment claimed
 foundation was "~90s"; reality was **1083s** — a silent 12× regression, caused
