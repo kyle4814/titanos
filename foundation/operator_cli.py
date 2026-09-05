@@ -636,6 +636,23 @@ def cmd_team_fit(args) -> int:
     return 0
 
 
+def cmd_security_report(args) -> int:
+    """Produce an automated email-security report for a domain — SPF, DMARC,
+    DKIM, DNSSEC, MX, MTA-STS — from public DNS only. The first sellable,
+    fully-automated deliverable: the system runs it, the operator sells and
+    delivers it. Reads public records only; no credentials, no intrusion."""
+    from foundation.email_security_report import (
+        assess_email_security, render_report_md)
+    report = assess_email_security(args.domain)
+    md = render_report_md(report)
+    if getattr(args, "out", None):
+        Path(args.out).expanduser().write_text(md, encoding="utf-8")
+        print(f"email-security report written -> {args.out}  (grade {report.grade})")
+    else:
+        print(md)
+    return 0
+
+
 def cmd_submission_prep(args) -> int:
     """Assemble a ready-to-file submission pack for one target: portal + login
     URL, the step sequence (stopping at the human Submit), the upload checklist
@@ -1579,6 +1596,14 @@ def build_parser() -> "object":
                             "annual_turnover_eur, insurance_cover, references, ...)")
     p_sub.add_argument("--out", help="write the pack to this file instead of stdout")
     p_sub.set_defaults(func=cmd_submission_prep)
+
+    p_sec = sub.add_parser(
+        "security-report",
+        help="automated email-security report for a domain (SPF/DMARC/DKIM/"
+             "DNSSEC/MX) from public DNS — the first sellable deliverable")
+    p_sec.add_argument("--domain", required=True, help="domain to check, e.g. acme.com")
+    p_sec.add_argument("--out", help="write the report to this file instead of stdout")
+    p_sec.set_defaults(func=cmd_security_report)
 
     return parser
 
