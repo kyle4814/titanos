@@ -38,24 +38,36 @@ SUITES=(schema firewall kpm magl rpa taal foundation narrative compiler
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 
-# Launch every present suite CONCURRENTLY. Each writes its own stderr to a
-# private file. We read the summary from STDERR ONLY: unittest writes
-# "Ran N tests" and "OK"/"FAILED" to stderr; a test's own print() goes to
-# stdout, which is block-buffered when piped and flushes AFTER stderr at
-# process exit. Merging them with 2>&1 once put a compiler test's JSON
-# output last, so `tail` never saw the summary and 41 passing tests were
-# reported as "0 FAIL". release.sh gates on this script's verdict, so the
-# parser must never be displaceable by arbitrary test output.
+# Each suite writes its own stderr to a private file, and its OWN start/end so
+# the per-suite time is real. We read the summary from STDERR ONLY: unittest
+# writes "Ran N tests" and "OK"/"FAILED" to stderr; a test's own print() goes
+# to stdout, which is block-buffered when piped and flushes AFTER stderr at
+# process exit. Merging them with 2>&1 once put a compiler test's JSON output
+# last, so `tail` never saw the summary and 41 passing tests were reported as
+# "0 FAIL". release.sh gates on this script's verdict, so the parser must never
+# be displaceable by arbitrary test output.
+run_suite() {
+  local s="$1" safe st
+  safe=${s//\//_}
+  st=$(date +%s)
+  python3 -m unittest discover -s "$s" >/dev/null 2>"$work/$safe.err"
+  echo "$?" >"$work/$safe.rc"; echo $(( $(date +%s) - st )) >"$work/$safe.el"
+}
+
+# The 11 LIGHT suites run concurrently among themselves. `foundation` runs
+# ISOLATED afterwards, because it internally spawns its own subprocess swarm
+# (the real-repo sigil PROOF shells out to run all 8 subsystem suites) — under
+# concurrent load with the others that over-subscribes an 8-core box, a nested
+# subprocess starves, and `all_tests_green` flips false. Diagnosed 2026-09-05:
+# foundation and the real-repo sigil classes each pass ALONE; only the fully
+# concurrent run flaked. Isolating foundation gives its swarm the whole box.
 for s in "${SUITES[@]}"; do
   [ -d "$s" ] || continue
-  safe=${s//\//_}
-  # Each subshell records its OWN start/end, so the per-suite time is the
-  # suite's real duration -- not the shared wall measured after `wait`.
-  ( st=$(date +%s); \
-    python3 -m unittest discover -s "$s" >/dev/null 2>"$work/$safe.err"; \
-    rc=$?; echo "$rc" >"$work/$safe.rc"; echo $(( $(date +%s) - st )) >"$work/$safe.el" ) &
+  [ "$s" = "foundation" ] && continue
+  run_suite "$s" &
 done
 wait
+[ -d foundation ] && run_suite foundation
 
 printf "%-12s %8s %10s\n" SUITE TESTS RESULT
 printf -- "----------------------------------\n"
