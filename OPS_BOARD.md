@@ -5,6 +5,22 @@ read off a primary source during this campaign, not recalled. Where
 something is unknown it says UNKNOWN — that is a real state, not a gap
 someone forgot to fill.
 
+**Round 21, 2026-09-05 — built `submission_pack` (Kyle asked for one-click
+command submissions).** The honest answer: the clicking was never the wall —
+the bids aren't written, and that needs the team's real facts. Built the
+machinery that drives to the submit line: `foundation/submission_pack.py`
+`build_submission_pack(target, TeamProfile)` → portal + login URL, the real
+per-portal step sequence (eTenders/TED-buyer/Find-a-Tender), the upload
+checklist from the notice's quoted requirements, and an ESPD/qualification
+answer sheet filled from the profile. Honest by construction: an unsupplied
+fact is UNKNOWN and listed under MISSING (never invented); the final step is
+ALWAYS the human Submit (filing a public tender is a binding legal act a person
+must attest); no network, no credentials, no account creation. Wired as
+`operator_cli submission-prep --target <id> [--profile team.json] [--out]`. 8
+tests. What stays Kyle's by design: the login, the Submit click, and the actual
+bid content (pricing/references/signed ESPD). Caught the README-drift→sight
+cascade again (the +8 tests), fixed via autonomy_loop before push.
+
 **Round 20, 2026-09-05 — deduped the redundant real-repo sigil computes
 (priority 5), full gate now 475s.** Last round flagged that the full suite
 still recomputed the SAME real-repo sigil ~4× (setUpClass pair + two reconcile
