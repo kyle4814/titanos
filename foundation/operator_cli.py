@@ -741,6 +741,24 @@ def cmd_security_report(args) -> int:
     return 0
 
 
+def cmd_remediate(args) -> int:
+    """Generate the exact DNS records a domain should publish to stop email
+    spoofing — SPF (softfail, never hardfail), staged DMARC (p=none first,
+    never a jump to reject), DKIM as a provider instruction (never a fabricated
+    key). Detects the mail provider from MX; an unknown provider yields a
+    template with a warning, never an invented sender. Reads public DNS only."""
+    from foundation.email_security_report import assess_email_security
+    from foundation.remediation import build_remediation, render_remediation_md
+    report = assess_email_security(args.domain)
+    md = render_remediation_md(build_remediation(report))
+    if getattr(args, "out", None):
+        Path(args.out).expanduser().write_text(md, encoding="utf-8")
+        print(f"remediation plan written -> {args.out}  (grade {report.grade})")
+    else:
+        print(md)
+    return 0
+
+
 def cmd_submission_prep(args) -> int:
     """Assemble a ready-to-file submission pack for one target: portal + login
     URL, the step sequence (stopping at the human Submit), the upload checklist
@@ -1692,6 +1710,14 @@ def build_parser() -> "object":
     p_sec.add_argument("--domain", required=True, help="domain to check, e.g. acme.com")
     p_sec.add_argument("--out", help="write the report to this file instead of stdout")
     p_sec.set_defaults(func=cmd_security_report)
+
+    p_rem = sub.add_parser(
+        "remediate",
+        help="generate the exact DNS records to publish to STOP email spoofing "
+             "(safe: SPF softfail, staged DMARC, provider-aware) from public DNS")
+    p_rem.add_argument("--domain", required=True, help="domain to fix, e.g. acme.com")
+    p_rem.add_argument("--out", help="write the remediation plan to this file")
+    p_rem.set_defaults(func=cmd_remediate)
 
     p_leads = sub.add_parser(
         "leads", help="triage domains into ranked hot leads by email-security "

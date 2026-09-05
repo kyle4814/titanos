@@ -52,7 +52,17 @@ python3 -m foundation.operator_cli leads --from-csv businesses.csv --limit 50
 
 # Continuous monitoring — flags any REGRESSION since the last check
 python3 -m foundation.operator_cli spoofguard-monitor --domain acme.com
+
+# Remediation — the EXACT DNS records to publish to stop spoofing, safely
+python3 -m foundation.operator_cli remediate --domain acme.com
 ```
+
+The remediation generator is deliberately conservative — it detects the mail
+provider from MX and produces SPF at **softfail (~all), never hardfail (-all)**,
+DMARC **staged from p=none, never a jump to p=reject**, and DKIM as a provider
+instruction (keys are provider-generated, never fabricated). An unrecognised
+provider yields a clearly-marked template, never an invented sender — because a
+wrong record breaks a business's real mail.
 
 The monitor stores a snapshot each run (`~/.titanos_spoofguard.jsonl` by
 default) and, on the next run, reports only what genuinely changed — a
@@ -76,8 +86,7 @@ Core modules:
 **Prototype, working.** The checks, grading, remediation guidance, batch mode
 and monitoring above all run today and are covered by an automated test suite.
 
-**Roadmap (what the grant funds):** deeper remediation (generate ready-to-paste
-DNS records per provider), a self-host container + setup docs, scheduled
+**Roadmap (what the grant funds):** a self-host container + setup docs, scheduled
 monitoring with alerting, and a community/CERT batch mode with reporting — so
 any group can measurably shrink the number of spoofable domains in its own
 long tail. All outputs released as free/open source.

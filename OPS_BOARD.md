@@ -5,6 +5,23 @@ read off a primary source during this campaign, not recalled. Where
 something is unknown it says UNKNOWN — that is a real state, not a gap
 someone forgot to fill.
 
+**Round 36, 2026-09-06 — built the grant's hardest deliverable: safe,
+provider-aware remediation (`foundation/remediation.py`).** With the NLnet
+application in, advanced the prototype toward what the grant funds — turning
+"you failed DMARC" into "publish exactly this record", the dangerous step most
+tools skip (a wrong record bounces a business's real mail). Safe BY
+CONSTRUCTION, each property pinned by a test: SPF generated at **softfail (~all),
+never hardfail (-all)**; DMARC **staged from p=none, never a jump to p=reject**;
+mail provider detected from MX (Google/M365/Zoho/Proton/Fastmail/iCloud/
+Mimecast/Proofpoint) — an **unrecognised provider yields a template + warning,
+never a fabricated SPF include**; DKIM emitted as a provider instruction, **never
+a fabricated key**; a control already passing gets no record; an UNKNOWN
+(incomplete) scan generates no changes at all. 14 tests. Wired + reachable as
+`operator_cli remediate --domain X` (finished the door) and RUNTIME-VERIFIED on
+a real grade-D domain (unknown-provider path → safe template + p=none). Full
+suite mandatory (new module + shared operator_cli wiring). SPOOFGUARD.md updated
+(remediation moved roadmap→built).
+
 **Round 35, 2026-09-06 — 🎯 NLnet grant application SUBMITTED (real external
 event).** Kyle completed and submitted the SpoofGuard application to NLnet;
 recorded by NLnet as **application 2026-11-076**, Restack Fund, **€30,000**,
