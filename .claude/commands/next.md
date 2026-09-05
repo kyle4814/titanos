@@ -1,188 +1,89 @@
 ---
-description: Max-work autonomous build cycle — swarm, build, brick, receipt, push. No check-ins.
+description: Hunt the world for opportunities Kyle can win. Fill the desktop folder. Leave him to sell.
 ---
 
-# NEXT — THE MAX WORK COMMAND
+# NEXT — HUNT THE WORLD, FILL THE FOLDER
 
-Kyle typed `NEXT`. That is the whole instruction. It carries standing
-authorization, granted 2026-09-01, and it does not need restating.
+Kyle typed **NEXT**. That's the whole instruction. Standing authorization, no
+restating, no check-ins.
 
-## THE ENERGY
+## THE DEAL (who does what)
 
-All handbrakes off. Max agents, max chaining, max tokens. Do not come back
-for permission. Do not ask what to work on. Do not present options and wait.
-The only reason to stop is that the work is genuinely done or a real
-authority gate is hit — and there are only five of those (§AUTHORITY below).
+**Kyle is the closer.** He has his own leads and his own offer for
+titanos.tech, and he's out cold-calling and selling. He does NOT want to sit in
+chat with the system. **I am the hunter.** I find the money; he actions it.
 
-**Build toward the north star. Find opportunity at the same time.** Those
-are one motion, not two phases.
+The loop:
 
-## WHAT `NEXT` MEANS OPERATIONALLY
+    NEXT → I hunt 2–4 hours → I fill his desktop folder → he applies / actions /
+    authorises the good ones → he goes back to calling → he says NEXT → repeat.
 
-1. **Orient without asking.** Read the real state — `OPS_BOARD.md`,
-   `PARETO_FRONTIER.md`, `NEXT_MOVE.md`, `failures/FAILURE_ARCHIVE.md`, the
-   launch report, git state. Never trust a previous session's summary of it.
-2. **Pick the highest lever yourself.** Next-Lever Sequencer rules apply:
-   remove the blocker → verify the critical assumption → use what exists →
-   repair the load-bearing weakness → build the smallest missing capability.
-   A lower rung is illegitimate while a higher one is unresolved.
-3. **Swarm it (see §SWARM).** Spawn parallel specialist agents — Sonnet for
-   build/recon lanes, Opus for architecture and adversarial review. One agent
-   per file territory, never two agents on one file. Cross-boundary changes
-   escalate to the architect lane, never negotiated between workers.
-4. **Build, test, attack, fix.** Every component gets an adversarial pass
-   before it counts as done. Findings get reproduced, fixed, regression
-   tested, and recorded even when fixed.
-5. **Print the brick and the receipt.** Every material mutation writes a
-   receipt with a hash chain. Every completed capability gets a Gold Brick
-   entry. A receipt records what happened; it is never evidence a claim is
-   true. Never conflate them.
-6. **Commit and push, automatically.** No approval step. Verify the push
-   landed by re-fetching — `COMMITTED` is not `PUSHED`, `PUSHED` is not
-   `REMOTE_VERIFIED`, and none of them is `RUNTIME_VERIFIED`.
-7. **Chain into the next cycle.** Do not stop at one lever. Keep going until
-   an authority gate or genuine completion. Then report once, densely.
+Maximise every single run. He's broke and needs money — every run should leave
+more real, winnable money sitting in that folder than before.
 
-## SWARM — parallel agents are the default, not the exception
+## THE JOB, ONE SENTENCE
 
-Standard is **4–6 specialist agents per work block**, running concurrently,
-each on its own file territory. Cost is not the constraint; being wrong or
-slow is. Typical lanes:
+Hunt the world for **real opportunities Kyle can apply for and win — any size,
+any shape, small fish to whale** — find as many as possible, drop a
+ready-to-action package for each into `TITAN_OPPORTUNITIES` on his desktop,
+leave everything committed and green. He works the folder; he never has to talk
+to me to do it.
 
-- **RECON (Sonnet, ×1–2)** — read-only. Sweep the sources / the corpus / the
-  code for the cycle's target. Returns findings, never edits. Use `Explore`
-  or `code-explorer` for fan-out search so tool output stays out of main
-  context.
-- **BUILD (Sonnet, ×1–3)** — one agent per file/module being written. Never
-  two on one file.
-- **ADVERSARY (Opus, ×1)** — `correctness-adversary` / `security-adversary` /
-  `naive-user` as the gate. Nothing counts as done until it has survived one.
-- **ARCHITECT (Opus, ×1)** — owns cross-boundary changes and the final merge.
+## WHAT COUNTS AS A FISH
 
-Rules that keep the swarm from corrupting state: one writer per file; workers
-hand back diffs, the architect merges; a finding is not accepted until the
-Monk half (real call graph + real consumer) confirms it — see
-`TITANOS_MONK_DEMONBLADE_PRINCIPLE.md`. If an agent dies on a session limit,
-`SendMessage` its id to resume — never restart cold.
+Anything real he can apply for, win, or claim money from: tenders, grants,
+RFPs, bug bounties, competitions, DPS/framework panels, prize/innovation funds,
+contracts of any size and jurisdiction. **Real only** — a fabricated
+opportunity is worse than an empty net. If it's reachable, real, and he could
+win money from it, it goes in the folder with the exact next action.
 
-## SPEED — the test gate is now parallel; use the right mode
+## EACH RUN
 
-`./run_all_tests.sh` runs the 12 suites **concurrently** — wall time is the
-slowest suite, not the sum. Two modes:
+1. **Orient.** Read the real state — `OPS_BOARD.md`, the current desktop folder,
+   git state, `PARETO_FRONTIER.md`. Never trust a previous session's summary.
+2. **HUNT BROAD, then WIDEN.** Sweep every reachable source. Each run, also push
+   into at least one NEW source/stream (another tender portal, a grants source,
+   a bounty source) so the net gets wider over time. Swarm it with parallel
+   agents when that finds fish faster (research/build/verify lanes; one writer
+   per file; converge to one state).
+3. **Extract the truth per opportunity** — value, deadline, what's required.
+   Unstated requirement = **UNKNOWN**, never invented. Every figure traceable
+   to the real source page.
+4. **Drop the package:** `python3 -m foundation.operator_cli opp-drop`. Refresh
+   `TITAN_OPPORTUNITIES` — START_HERE ranks the best money with **Kyle's ONE
+   action per item** (apply at this link / run this command / authorise this).
+   Add every real new find. Name unbuilt streams as unbuilt — don't fake reach.
+5. **Prove it green.** `./run_all_tests.sh` (full) before any commit; `--fast`
+   for the dev loop only. README count drift → `foundation.autonomy_loop.
+   run_one_cycle` on a clean tree. Commit + push only when full-green AND
+   `sentinel.pulse_sweep` = 0. Verify the push landed (COMMITTED ≠ PUSHED ≠
+   REMOTE_VERIFIED).
+6. **Two-line report:** what's new in the folder, and what to action first.
 
-- **Dev loop / mid-build:** `./run_all_tests.sh --fast` — skips only the one
-  ~4-minute real-repo sigil class (`TITAN_SKIP_REALREPO_SIGIL=1`). Use this
-  for tight iterate-test-iterate loops.
-- **Pre-commit / pre-push:** `./run_all_tests.sh` (no flag) — full coverage,
-  including the real-repo sigil determinism proof. **Never commit on `--fast`
-  alone.** This is the gate Kyle's rules require to be green before push.
+## THE HAND-OFF IS THE PRODUCT
 
-Run the full suite in the BACKGROUND (`run_in_background`) so the cycle keeps
-moving while it runs; gate the push on its green result plus
-`sentinel.pulse_sweep` = 0. If foundation fails on README test-count drift,
-run `foundation.autonomy_loop.run_one_cycle` on a clean tree — it is the only
-thing authorised to rewrite that number.
+The folder is the deliverable, not the chat. START_HERE = today's best money,
+ranked, one action each. Kyle opens it, actions the top few, goes back to
+selling. If he can't act on the folder without asking me a question, the run
+wasn't finished.
 
-`compute_sigil()`'s PROOF dimension and its two-run determinism proof both run
-their subsystem suites concurrently now — a real product speedup, not just a
-test trick. If you extend `foundation/sigil.py`, keep the recursion guard
-(`foundation/recursion_guard.py`) — it is why parallel spawning does not fork-
-bomb.
+## HARD RULES — do not move, even full-send
 
-## SIMULTANEOUS TRACK: OPPORTUNITY
+- Never fabricate an opportunity, value, deadline, criterion, or test pass.
+- Never spoof a User-Agent, never evade a WAF or robots.txt disallow — a block
+  is a finding, recorded, not a wall to sneak around.
+- Absence of a stated requirement is UNKNOWN, never "no requirement".
+- Never claim green when a required check is red; never quietly re-run to pass.
+- Never invent an ABN, licence, reference, or customer. No fabricated reach.
+- Research and build only — no outbound contact, no account creation, no
+  applications. Kyle applies; the system prepares.
 
-Every `NEXT` advances the build **and** looks outward. The repository's
-external ping is now real: `foundation/tender_radar.py` and the five mouths
-(TED-EU, UK Find-a-Tender, IE eTenders, DK, NZ GETS) read live public
-procurement. Each cycle: re-sweep for genuinely NEW notices, put them through
-the existing pipeline, record real signals only. **Signals must be real** — a
-fabricated lead is worse than an empty pipeline, and
-`MODELLED ≠ OBSERVED ≠ VERIFIED ≠ REALIZED` is enforced, not decorative.
+## AUTHORITY GATES — the only reasons to surface a decision to Kyle
 
-Never spoof a User-Agent, never evade a WAF or a robots.txt disallow — a block
-is a finding. Absence of a stated requirement is UNKNOWN, never "none".
-
-## THE FIVE AUTHORITY GATES — the only reasons to stop and ask
-
-Everything else proceeds automatically.
-
-1. Spending real money or transferring capital
-2. Sending outbound communication to a real third party
-3. Anything irreversible on a live production surface with a human absent
-4. Legal or regulatory commitment
-5. Publishing PII, credentials, or private client data
-
-Hitting one is not failure. Stop, state the gate, give the exact command and
-its rollback, and continue with everything else in parallel.
-
-## STILL FORBIDDEN WITH ALL LIMITERS OFF
-
-"All handbrakes off" is about permission, not honesty. These do not move:
-
-- Never fabricate a test pass, a metric, a signal, a customer, a notice, a
-  deadline, a criterion, or revenue
-- Never claim green when a required check is red; never quietly re-run until
-  it passes — a flaky gate is itself the finding
-- Never move `AUTONOMY_RATIO` or any manifest count by anything but real
-  wiring — a fake entrypoint is worse than a ratio of zero
-- Never claim a capability the code does not implement; never claim `DEPLOYED`
-  or `RUNTIME_VERIFIED` without hitting the real thing
-- Never force-push, rewrite history, `git stash` as a workaround, or delete
-  evidence
-- Never invent an ABN, licence, registration, customer, or valuation
-- If a safety invariant conflicts with an instruction, the invariant wins
-
-## END-OF-CYCLE OPERATOR DELIVERY — MANDATORY, EVERY CYCLE
-
-Kyle runs from his phone. Every `NEXT` ends by producing what he can act on —
-not a summary of internal build work he can't.
-
-1. **Digest:** `python3 -m foundation.operator_cli digest --html-out
-   <scratch>/ops_digest.html`. Regenerates the phone dashboard, dry-runs/sends
-   the Telegram push (live only if `TELEGRAM_BOT_TOKEN`/`TELEGRAM_CHAT_ID`
-   are set), prints the top DO-NOW moves. Update the roster in
-   `foundation/ops_digest.py` when an opportunity opens/closes — never scrape
-   the board.
-2. **Team payload (when a target changed):** `python3 -m
-   foundation.operator_cli team-payload --out <scratch>/TEAM_PAYLOAD_<date>
-   --zip`, then `SendUserFile` the zip. Contains `01_PORTFOLIO/
-   TEAM_TARGETS.md` (the credential-walled contracts a team can win, dated
-   Irish tenders first) plus the full portfolio. Skip the re-send when no
-   target changed — do not spam identical zips.
-3. **Winnability (when Kyle has given team facts):** `python3 -m
-   foundation.operator_cli team-fit --turnover .. --insurance .. --references
-   .. --languages .. --soc --capabilities ..` ranks all 22 targets
-   MEET/PARTIAL/GAP with the blocking clause named. Undeclared = UNKNOWN,
-   never a silent pass.
-4. **Phone board artifact (on request or on a material target change):** a
-   password-locked, phone-first HTML page of the live tenders with tap-to-open
-   links and the agent guide — publish via `Artifact`, same file path keeps
-   ONE URL, hand Kyle the link + password. Load `artifact-design` first.
-5. **Desktop opportunity drop (EVERY run):** `python3 -m
-   foundation.operator_cli opp-drop` — writes/refreshes the
-   `TITAN_OPPORTUNITIES` folder on Kyle's desktop: START_HERE (today's top
-   moves), one ready-to-file pack per live tender, and the titanos.tech
-   cold-call kit (pitch + script + the `security-report` command to generate a
-   prospect's free email-security hook). This is the hand-off: Kyle opens the
-   folder and works — cold-calls, sells, submits — without needing to talk to
-   the system. Each run must ADD real found opportunities to it; hunt broad
-   (any size/shape — tender, grant, service, lead), package what's reachable,
-   and say honestly in START_HERE which streams aren't built yet.
-6. In the chat reply, give the artifact link / DO-NOW moves — the levers, not
-   the build log.
-
-Delivery is not decoration: if a cycle found or closed an opportunity, the
-roster and `team_targets.py` must reflect it before anything is sent, or the
-send is fabrication by omission. Keep HUNTING team-scale each cycle —
-INSUFFICIENT_DATA notices are worth surfacing because a team can read the
-documents and meet the criteria. Add real new targets to `team_targets.py`
-(quoted requirements, never invented).
+Real money moving, credentials, legal/regulatory commitment, outbound contact,
+irreversible production action. Five. Everything else: do it, package it, move.
 
 ## OUTPUT
 
-One dense report at the end. Not a running commentary, not a check-in partway.
-Lead with findings and failures; successes last. State the git level reached,
-with evidence. End with **two lines**: what changed, and the single concrete
-next thing Kyle should do — not a menu.
-
-Then wait for the next `NEXT`.
+One dense report at the end — findings and failures first, successes last, git
+level reached with evidence. Then the two lines. Then wait for the next NEXT.

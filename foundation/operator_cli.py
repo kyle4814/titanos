@@ -646,7 +646,7 @@ def cmd_opp_drop(args) -> int:
     if dest is None:
         print("no desktop found — pass --dest <folder>")
         return 2
-    written = build_opp_drop(dest, include_sample=not args.no_sample)
+    written = build_opp_drop(dest)
     print(f"opportunity package written -> {dest / OPP_ROOT_NAME}  "
           f"({len(written)} files)")
     print("open START_HERE.md first.")
@@ -1627,8 +1627,6 @@ def build_parser() -> "object":
         help="write/refresh the TITAN_OPPORTUNITIES package on the desktop "
              "(START_HERE + tender packs + titanos.tech cold-call kit)")
     p_opp.add_argument("--dest", help="destination folder (default: the desktop)")
-    p_opp.add_argument("--no-sample", action="store_true",
-                       help="skip the live-DNS sample report")
     p_opp.set_defaults(func=cmd_opp_drop)
 
     return parser

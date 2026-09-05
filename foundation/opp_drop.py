@@ -57,120 +57,65 @@ def _write(path: Path, text: str, written: List[Path]) -> None:
     written.append(path)
 
 
-def _cold_call_kit(sample_domain: str) -> str:
-    return f"""# SELL TITANOS.TECH — cold-call kit
-
-You sell, the system delivers. The hook is dead simple: nearly every small
-business has **spoofable email** (no or weak SPF/DMARC), and that is invoice
-fraud and phishing waiting to happen. You run a free 60-second public check,
-show them they're exposed, and sell the fix + ongoing monitoring.
-
-## The 30-second pitch
-"Hi, I'm [name] from Titanos. I run cyber security for small businesses. I did
-a free public check on your email security and found your domain can be
-**spoofed** — someone can send email that looks exactly like it's from you, to
-your customers. It's a common gap and it's a quick fix. Can I send you the
-one-page report, no charge?"
-
-Then: they say yes → you email the report (you already have it) → you follow up
-to sell the fix (you set up SPF/DMARC/DKIM properly) + a monthly monitoring
-retainer.
-
-## How to generate a prospect's report (ONE command)
-Before or after the call, run this on their domain — it reads PUBLIC DNS only,
-nothing intrusive, totally legal:
-
-    python3 -m foundation.operator_cli security-report --domain THEIRDOMAIN.com --out report.md
-
-You get a professional graded report (A–D) with the exact gaps and fixes. That
-report IS the product you're selling the fix for. A domain that grades C or D
-is a hot lead — they're exposed and you can prove it.
-
-## What you're selling (three tiers)
-1. **The fix** (one-off): set up SPF, DMARC, DKIM properly. A few hundred $.
-2. **Monitoring** (retainer): monthly re-check + report. Recurring $.
-3. **Full email-security posture** for bigger clients.
-
-## Rules (keep it clean)
-- The report reads PUBLIC records only — never say you "hacked" or "scanned
-  their systems." You checked their public email security posture. True + safe.
-- Don't overclaim. It's an email-security check, not a full audit. The report
-  says so.
-- A prospect who grades A: thank them, they're already sorted — move on.
-
-## Sample to show them
-See `sample_report.md` in this folder — a real report generated for {sample_domain}.
-Send prospects theirs, not this one.
-"""
-
-
-def _start_here(now: datetime, dated, n_tenders: int) -> str:
-    soon = [t for t in dated if t.deadline_date()][:3]
+def _start_here(now: datetime, dated) -> str:
+    """The day's hunt result: opportunities to apply for, ranked, with Kyle's
+    ONE action per item. He applies/actions/authorises, then goes back to
+    selling. No cold-call kit — he has his own leads and offer."""
+    withd = [t for t in dated if t.deadline_date()]
+    standing = [t for t in dated if not t.deadline_date()]
     lines: List[str] = []
-    lines.append(f"# 🐕 TITAN — START HERE  ({now:%a %d %b %Y})")
+    lines.append(f"# 🐕 TITAN — OPPORTUNITIES TO APPLY FOR  ({now:%a %d %b %Y})")
     lines.append("")
-    lines.append("The system hunted while you slept. Here's what to work today.")
-    lines.append("You sell and click; the system already did the finding + prep.")
+    lines.append("The system hunted the world while you were calling. Below is")
+    lines.append("real money you can apply for — every figure is off the actual")
+    lines.append("notice, nothing invented. Action the good ones, then back to it.")
     lines.append("")
-    lines.append("## 🔥 DO FIRST — sell titanos.tech (fastest cash)")
-    lines.append("- Open `SELL_TITANOS/COLD_CALL_KIT.md` — the pitch + script.")
-    lines.append("- Pick businesses to call. For each, run one command to get")
-    lines.append("  their free email-security report (the hook):")
-    lines.append("      python3 -m foundation.operator_cli security-report --domain THEIRDOMAIN.com --out report.md")
-    lines.append("- A domain grading C or D = spoofable = hot lead. Sell the fix.")
+    lines.append(f"**{len(dated)} live opportunities. {len(withd)} on a clock, "
+                 f"{len(standing)} always-open.**")
     lines.append("")
-    lines.append(f"## 📄 TENDERS — {n_tenders} live, packs ready in TENDERS/")
-    lines.append("Each file has the portal, login, steps, and upload checklist.")
-    lines.append("Fill your team facts once (a team.json) and the ESPD answers")
-    lines.append("auto-fill. Soonest deadlines:")
-    for t in soon:
-        lines.append(f"- **{t.deadline_date()}** — {t.title} ({t.value}) → `TENDERS/{t.target_id}.md`")
+    lines.append("## ⏰ CLOSING SOON — apply first (soonest deadline)")
+    for t in withd:
+        lines.append(f"- **{t.deadline_date()}** · {t.value} · {t.title}")
+        lines.append(f"  → ACTION: open `TENDERS/{t.target_id}.md`, apply at {t.link}")
     lines.append("")
-    lines.append("## 🧭 STREAMS NOT YET BUILT (honest)")
-    lines.append("Grants and on-chain/OSINT streams are on the roadmap but not")
-    lines.append("wired yet — the system isn't pretending it has them. Each future")
-    lines.append("run aims to add reachable streams here.")
+    lines.append("## 💰 ALWAYS-OPEN — join anytime, no deadline")
+    for t in standing:
+        lines.append(f"- {t.value} · {t.title} → `TENDERS/{t.target_id}.md`")
     lines.append("")
-    lines.append("_Everything here is real and checkable — links go to the actual")
-    lines.append("government/vendor pages. Nothing was invented. Refreshed every run._")
+    lines.append("## YOUR ACTION PER ITEM")
+    lines.append("Open the pack in `TENDERS/`. Each has the portal, the steps, and")
+    lines.append("the exact checklist. You: apply / run the command it names /")
+    lines.append("authorise it. Fill your team facts once (a team.json) and the")
+    lines.append("qualification answers auto-fill across every pack.")
+    lines.append("")
+    lines.append("## 🧭 STREAMS NOT YET BUILT (honest — the net is still widening)")
+    lines.append("Grants, bug bounties, and on-chain opportunities are on the")
+    lines.append("roadmap but not wired yet. The system isn't pretending it has")
+    lines.append("them — each run adds another reachable source here. Say NEXT and")
+    lines.append("it hunts another 2–4 hours and this folder grows.")
+    lines.append("")
+    lines.append("_Real and checkable — links go to the actual notice pages. "
+                 "Refreshed every run._")
     return "\n".join(lines)
 
 
 def build_opp_drop(dest: Path,
-                   now: Optional[datetime] = None,
-                   sample_domain: str = "github.com",
-                   include_sample: bool = True) -> List[Path]:
+                   now: Optional[datetime] = None) -> List[Path]:
     """Write/refresh the TITAN_OPPORTUNITIES package under `dest`. Returns the
     files written. `dest` is the desktop (or any dir); the package root is
-    created inside it. `include_sample=False` skips the live-DNS sample report
-    (used by tests, which never touch the network)."""
+    created inside it. Pure file assembly from the registry — no network."""
     now = now or datetime.now(timezone.utc)
     root = Path(dest) / OPP_ROOT_NAME
     written: List[Path] = []
 
     dated = live_team_targets(now)
 
-    # START_HERE (refreshed each run)
-    _write(root / "START_HERE.md", _start_here(now, dated, len(dated)), written)
+    # START_HERE (refreshed each run) — the ranked hunt result + actions.
+    _write(root / "START_HERE.md", _start_here(now, dated), written)
 
-    # TENDERS — one ready-to-file pack per live tender
+    # TENDERS — one ready-to-apply pack per live opportunity.
     for t in dated:
         pack = build_submission_pack(t, TeamProfile())
         _write(root / "TENDERS" / f"{t.target_id}.md", render_pack_md(pack, now), written)
-
-    # SELL_TITANOS — the cold-call kit + a real sample report
-    _write(root / "SELL_TITANOS" / "COLD_CALL_KIT.md",
-           _cold_call_kit(sample_domain), written)
-    if not include_sample:
-        return written
-    try:
-        from foundation.email_security_report import (
-            assess_email_security, render_report_md)
-        sample = render_report_md(assess_email_security(sample_domain))
-        _write(root / "SELL_TITANOS" / "sample_report.md", sample, written)
-    except Exception:
-        # Sample needs a live DNS read; if unavailable, skip it (the kit still
-        # tells him the command to generate one). Never write a fake sample.
-        pass
 
     return written
