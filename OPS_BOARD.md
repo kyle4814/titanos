@@ -5,6 +5,18 @@ read off a primary source during this campaign, not recalled. Where
 something is unknown it says UNKNOWN — that is a real state, not a gap
 someone forgot to fill.
 
+**Round 30, 2026-09-06 — fixed a red push (mouth_nlnet was unreachable) +
+lesson.** Round 29 pushed `9ab3697` on the fast-verify path — and the background
+full-suite checkpoint caught it RED: `mouth_nlnet.py` was added but never wired,
+so the reachability gate (`test_every_real_unreachable_module_has_an_intent`)
+failed inside the real-repo sigil path, which fast-verify skips. Diagnosed
+honestly (isolated `test_sigil` → nested foundation → the exact test), NOT
+re-run-till-green. Fixed by WIRING it (finish the door): `operator_cli nlnet`
+shows NLnet's live open call/deadline, so `mouth_nlnet` is reachable AND useful.
+**LESSON (now firmer in velocity config): the full suite is mandatory before
+push when touching shared/core code — the fast-verify subset is only safe for a
+truly isolated add.** Full suite green (4,272 tests); remote back to green.
+
 **Round 29, 2026-09-05 — 🎯 FIRST GENUINELY-WINNABLE SOURCE WIRED: NLnet/NGI
 Zero.** Kyle called out (correctly) that the finder was a keyhole — 5 saturated
 gov feeds — while "the internet is a cesspool of cash." Proved the well is deep
