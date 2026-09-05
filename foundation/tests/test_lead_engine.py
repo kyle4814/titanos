@@ -74,6 +74,36 @@ class TestTriage(unittest.TestCase):
         self.assertEqual(len(res), 1)
 
 
+class TestFailedLookupNeverBecomesALead(unittest.TestCase):
+    """Batch-level regression for a live-found defect: the shared discovery
+    budget (5) exhausted mid-batch (DKIM alone probes 12 selectors), and the
+    swallowed error made every domain after the cap read as 'no SPF/DMARC' —
+    so `leads --from-csv` on a real list flagged nearly everything spoofable.
+    A failed/incomplete lookup must be UNKNOWN and NEVER a hot lead."""
+
+    def test_all_lookups_failing_yields_no_leads(self):
+        def boom(url):
+            raise RuntimeError("network down / budget exhausted")
+        res = triage_domains(["a.com", "b.com", "c.com"], boom)
+        self.assertTrue(all(r.grade.startswith("UNKNOWN") for r in res))
+        self.assertTrue(all(not r.spoofable for r in res))
+        self.assertTrue(all(r.heat == 0 for r in res))
+
+    def test_one_failed_lookup_does_not_poison_a_real_open_domain(self):
+        # open.com genuinely has no records (real spoofable); bad.com's fetch
+        # fails. The real one still ranks hot; the failed one is UNKNOWN, cold.
+        def fetch(url):
+            if "name=bad.com" in url or "name=_dmarc.bad.com" in url \
+               or "._domainkey.bad.com" in url:
+                raise RuntimeError("lookup failed for bad.com")
+            return _doh([])  # everything else absent -> open.com is wide open
+        res = {r.domain: r for r in triage_domains(["open.com", "bad.com"], fetch)}
+        self.assertEqual(res["open.com"].heat, 3)
+        self.assertTrue(res["open.com"].spoofable)
+        self.assertTrue(res["bad.com"].grade.startswith("UNKNOWN"))
+        self.assertFalse(res["bad.com"].spoofable)
+
+
 class TestSheet(unittest.TestCase):
     def test_sheet_counts_hot_leads_and_stays_honest(self):
         res = triage_domains(["safe.com", "weak.com", "open.com"], _fetch_multi())

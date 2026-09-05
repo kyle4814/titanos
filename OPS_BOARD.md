@@ -5,6 +5,23 @@ read off a primary source during this campaign, not recalled. Where
 something is unknown it says UNKNOWN — that is a real state, not a gap
 someone forgot to fill.
 
+**Round 34, 2026-09-06 — hardened the batch command Kyle will run commercially
+(`leads --from-csv`) + pinned the over-flagging bug class at batch level.**
+Search-before-build found the batch scan already wired: `leads --from-csv` →
+`triage_domains` → ranked spoofable sheet (my round-33 scratchpad was
+redundant). Critical realisation: `triage_domains` calls the same
+`assess_email_security` fixed in round 33, so `leads --from-csv` carried the
+IDENTICAL budget-exhaustion bug — on a long list it would have mis-flagged
+nearly every domain as spoofable after the first. Round 33's per-domain budget
+reset repaired it too. Runtime-verified on 12 real CSV domains: realistic D/C
+spread, 0 UNKNOWN, per-domain budget reset working (before the fix this batch
+would have over-flagged). Added 2 batch-level regression tests
+(`TestFailedLookupNeverBecomesALead`): all-failing lookups → zero leads; one
+failed lookup never poisons a genuinely-open domain's ranking. Priorities 1–4
+confirmed exhausted (NZ GETS closed round 18 by category; Ireland gated; TED/DK/
+UK swept) — no new external notice, so the lever was hardening the load-bearing
+commercial path, not re-sweeping saturated sources. Test-only + board.
+
 **Round 33, 2026-09-06 — killed a false-positive engine in SpoofGuard's core
 (`email_security_report.py`).** Running the tool over Kyle's own 150k-lead CSV
 flagged 39/40 businesses as "spoofable" — including paypal.com and google.com,
