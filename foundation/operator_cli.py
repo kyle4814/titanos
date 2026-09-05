@@ -732,7 +732,13 @@ def cmd_security_report(args) -> int:
     from foundation.email_security_report import (
         assess_email_security, render_report_md)
     report = assess_email_security(args.domain)
-    md = render_report_md(report)
+    if getattr(args, "no_fix", False):
+        md = render_report_md(report)
+    else:
+        # Default: the complete deliverable — diagnosis AND the exact records
+        # to publish. --no-fix gives the posture report only.
+        from foundation.remediation import render_report_with_fixes
+        md = render_report_with_fixes(report)
     if getattr(args, "out", None):
         Path(args.out).expanduser().write_text(md, encoding="utf-8")
         print(f"email-security report written -> {args.out}  (grade {report.grade})")
@@ -1709,6 +1715,8 @@ def build_parser() -> "object":
              "DNSSEC/MX) from public DNS — the first sellable deliverable")
     p_sec.add_argument("--domain", required=True, help="domain to check, e.g. acme.com")
     p_sec.add_argument("--out", help="write the report to this file instead of stdout")
+    p_sec.add_argument("--no-fix", dest="no_fix", action="store_true",
+                       help="posture report only, without the exact records to publish")
     p_sec.set_defaults(func=cmd_security_report)
 
     p_rem = sub.add_parser(

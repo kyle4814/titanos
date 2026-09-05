@@ -137,5 +137,23 @@ class TestNoOverReach(unittest.TestCase):
         self.assertIn("Records to publish", md)
 
 
+class TestCompleteDeliverable(unittest.TestCase):
+    def test_report_with_fixes_has_both_diagnosis_and_records(self):
+        from foundation.remediation import render_report_with_fixes
+        r = report(spf="FAIL", dmarc="FAIL",
+                   mx_detail="Mail servers configured: aspmx.l.google.com")
+        md = render_report_with_fixes(r)
+        self.assertIn("Email Security Report", md)      # the diagnosis half
+        self.assertIn("Records to publish", md)          # the cure half
+        self.assertIn("v=spf1", md)
+
+    def test_clean_domain_appends_no_remediation_block(self):
+        from foundation.remediation import render_report_with_fixes
+        r = report(spf="PASS", dmarc="PASS", dkim="PASS",
+                   mx_detail="Mail servers configured: aspmx.l.google.com")
+        md = render_report_with_fixes(r)
+        self.assertNotIn("Records to publish", md)
+
+
 if __name__ == "__main__":
     unittest.main()

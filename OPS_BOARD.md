@@ -5,6 +5,17 @@ read off a primary source during this campaign, not recalled. Where
 something is unknown it says UNKNOWN — that is a real state, not a gap
 someone forgot to fill.
 
+**Round 37, 2026-09-06 — completed the sellable deliverable: one command now
+gives diagnosis + cure.** `security-report --domain X` previously gave the
+graded posture; the exact records lived in a separate `remediate` command.
+Integrated them: the report now ends with the exact DNS records to publish
+(via `render_report_with_fixes`, which lives in `remediation.py` so the posture
+module never depends on the cure — the diagnosis can't depend on the fix).
+`--no-fix` gives posture-only; a clean domain appends no empty remediation
+block. Makes SpoofGuard's "remediation-first" claim real in the primary
+command. 2 tests; runtime-verified (grade-D domain → diagnosis + p=none/~all
+records in one output). Full suite (shared operator_cli).
+
 **Round 36, 2026-09-06 — built the grant's hardest deliverable: safe,
 provider-aware remediation (`foundation/remediation.py`).** With the NLnet
 application in, advanced the prototype toward what the grant funds — turning

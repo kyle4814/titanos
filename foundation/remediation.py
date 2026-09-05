@@ -246,3 +246,17 @@ def render_remediation_md(plan: RemediationPlan) -> str:
              "flow. This is safe guidance, not a guarantee about your specific "
              "sender setup, which only you can confirm.*")
     return "\n".join(L)
+
+
+def render_report_with_fixes(report: EmailSecurityReport) -> str:
+    """The complete client deliverable: the graded posture report AND the exact
+    records to publish. Lives here (not in email_security_report) so the posture
+    module stays free of any dependency on remediation — the diagnosis never
+    depends on the cure. When there is nothing to fix, the posture report's own
+    'no action needed' stands and no empty remediation block is appended."""
+    from foundation.email_security_report import render_report_md
+    posture = render_report_md(report)
+    plan = build_remediation(report)
+    if plan.nothing_to_fix:
+        return posture
+    return posture + "\n\n" + render_remediation_md(plan)
