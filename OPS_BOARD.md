@@ -5,6 +5,22 @@ read off a primary source during this campaign, not recalled. Where
 something is unknown it says UNKNOWN — that is a real state, not a gap
 someone forgot to fill.
 
+**Round 43, 2026-09-06 — built the client-facing deliverable: SpoofGuard HTML
+report (`foundation/report_html.py`).** The engine was complete but its only
+output was terminal markdown — not something Kyle hands a prospect. Kyle's model
+is "the system delivers a professional report, I sell and click," so the
+prospect-facing artifact was the real gap. `render_report_html(report)` composes
+the graded posture + the safe remediation records into ONE self-contained HTML
+file (inline CSS, no fonts/scripts/images/links) so it renders offline, in an
+email client, or on a phone, and sends as a single attachment. Honest by
+construction: nothing invented, an UNKNOWN scan renders UNKNOWN not a grade, the
+records are remediation.py's safe ones (SPF ~all, DMARC p=none), all dynamic text
+HTML-escaped (a domain cannot inject markup — tested), scope disclaimer travels
+with it. Wired + reachable as `report-html --domain X --out FILE`,
+runtime-verified on a real grade-D domain (6KB file), sample delivered to Kyle.
+8 module tests + 1 CLI smoke test. Full suite (new module + shared operator_cli).
+This is the most commercially-relevant piece: it's what a prospect actually sees.
+
 **Round 42, 2026-09-06 — deadline fix VERIFIED LIVE + priority-4 re-sweep
 (0 qualified).** Ran `hunt --live --keyword cyber` end-to-end to verify rounds
 40–41 against real data, not just unit tests. Result proves the fix: of 78

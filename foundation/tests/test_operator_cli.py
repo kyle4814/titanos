@@ -1127,6 +1127,14 @@ class TestSpoofGuardCommands(unittest.TestCase):
         self.assertIn("LEAD SHEET", out)
         self.assertIn("open.example", out)
 
+    def test_report_html_emits_self_contained_html(self):
+        code, out, err = _run(["report-html", "--domain", "open.example"])
+        self.assertEqual(code, 0)
+        self.assertIn("<!doctype html>", out.lower())
+        self.assertIn("open.example", out)
+        self.assertNotIn("http://", out)     # self-contained, no external fetch
+        self.assertNotIn("https://", out)
+
     def test_spoofguard_monitor_first_check_is_calm(self):
         with tempfile.TemporaryDirectory() as td:
             store = Path(td) / "snap.jsonl"

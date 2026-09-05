@@ -747,6 +747,23 @@ def cmd_security_report(args) -> int:
     return 0
 
 
+def cmd_report_html(args) -> int:
+    """Generate the client-facing HTML email-security report for a domain — the
+    deliverable a prospect actually opens: grade, what is exposed, and the exact
+    safe records to publish. One self-contained file (no external resources), so
+    it can be emailed or shown on a phone. Reads public DNS only."""
+    from foundation.email_security_report import assess_email_security
+    from foundation.report_html import render_report_html
+    report = assess_email_security(args.domain)
+    html = render_report_html(report)
+    if getattr(args, "out", None):
+        Path(args.out).expanduser().write_text(html, encoding="utf-8")
+        print(f"HTML report written -> {args.out}  (grade {report.grade})")
+    else:
+        print(html)
+    return 0
+
+
 def cmd_remediate(args) -> int:
     """Generate the exact DNS records a domain should publish to stop email
     spoofing — SPF (softfail, never hardfail), staged DMARC (p=none first,
@@ -1718,6 +1735,14 @@ def build_parser() -> "object":
     p_sec.add_argument("--no-fix", dest="no_fix", action="store_true",
                        help="posture report only, without the exact records to publish")
     p_sec.set_defaults(func=cmd_security_report)
+
+    p_html = sub.add_parser(
+        "report-html",
+        help="client-facing HTML email-security report for a domain (grade + "
+             "exact fix, one self-contained file to email/show a prospect)")
+    p_html.add_argument("--domain", required=True, help="domain to report on")
+    p_html.add_argument("--out", help="write the HTML to this file")
+    p_html.set_defaults(func=cmd_report_html)
 
     p_rem = sub.add_parser(
         "remediate",
