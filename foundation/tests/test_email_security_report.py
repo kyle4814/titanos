@@ -91,6 +91,48 @@ class TestSpoofableDomain(unittest.TestCase):
         self.assertIn("p=none", dmarc.detail.lower())
 
 
+class TestLookupFailureIsUnknownNotAbsent(unittest.TestCase):
+    """A failed DNS read must never be scored as 'record absent'. Regression
+    for a live-found defect: the discovery budget (default 5) exhausted after
+    DKIM's 12 selector probes, and the swallowed DiscoveryBudgetExhausted made
+    MX/MTA-STS read as 'No record' — manufacturing false 'spoofable' grades on
+    domains (paypal.com, google.com) that are in fact well configured."""
+
+    def test_every_check_unknown_when_fetch_raises(self):
+        def boom(url):
+            raise RuntimeError("network down / budget exhausted")
+        r = assess_email_security("x.com", boom)
+        self.assertTrue(all(f.status == "UNKNOWN" for f in r.findings))
+
+    def test_lookup_failure_never_counts_as_a_fail(self):
+        def boom(url):
+            raise RuntimeError("network down")
+        r = assess_email_security("x.com", boom)
+        self.assertEqual(r.fails, ())
+
+    def test_incomplete_report_grades_unknown_not_a_letter(self):
+        def boom(url):
+            raise RuntimeError("network down")
+        r = assess_email_security("x.com", boom)
+        self.assertTrue(r.grade.startswith("UNKNOWN"))
+        self.assertNotIn(r.grade[0], ("A", "B", "C", "D"))
+
+    def test_one_failed_check_does_not_poison_the_others(self):
+        # SPF reads fine (absent → FAIL), but MX lookup fails → MX UNKNOWN.
+        # The whole report is then UNKNOWN (not fully assessed), but the SPF
+        # FAIL is a real absent-record finding, not a fabricated one.
+        def fetch(url):
+            if "type=MX" in url:
+                raise RuntimeError("MX lookup failed")
+            return json.dumps({"Status": 0, "Answer": []}).encode()
+        r = assess_email_security("x.com", fetch)
+        mx = next(f for f in r.findings if f.check == "MX")
+        spf = next(f for f in r.findings if f.check == "SPF")
+        self.assertEqual(mx.status, "UNKNOWN")
+        self.assertEqual(spf.status, "FAIL")   # genuine absent, fetch succeeded
+        self.assertTrue(r.grade.startswith("UNKNOWN"))
+
+
 class TestReportRendering(unittest.TestCase):
     def test_report_has_grade_actions_and_scope_disclaimer(self):
         r = assess_email_security("bad.com", make_fetch({}))

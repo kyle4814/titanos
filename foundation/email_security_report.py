@@ -14,6 +14,10 @@ HONEST BY CONSTRUCTION:
     security audit — the report says so. No claim beyond what the records show.
   - A control that is absent is reported as absent (FAIL/spoofable), never
     hand-waved. A control present but weak is a WARN, not a PASS.
+  - A control whose DNS lookup FAILED (network error, exhausted query budget)
+    is UNKNOWN, never scored as absent — a failed read is not evidence of a
+    missing record. A report with any UNKNOWN check grades UNKNOWN, not a
+    letter, because it was not fully assessed.
   - Every network read goes through the gated `mouth_common.fetch_feed()` via
     DNS-over-HTTPS (dns.google), so it obeys the same authorization/robots
     discipline as every other fetch in this repo. No raw sockets, no new deps.
@@ -27,7 +31,7 @@ from dataclasses import dataclass
 from typing import Callable, List, Optional, Tuple
 
 from foundation.mouth_common import fetch_feed
-from foundation.discovery_authorization import DiscoveryPolicy
+from foundation.discovery_authorization import DiscoveryPolicy, reset_budgets
 
 __all__ = [
     "Finding",
@@ -42,6 +46,12 @@ DISCOVERY_POLICY = DiscoveryPolicy(
                "DKIM, DNSSEC, MX, MTA-STS) to produce an email-security posture "
                "report for a client"),
     requested_scope="READ_API",
+    # One report issues up to ~17 DoH lookups (DKIM alone probes 12 selectors).
+    # The default budget of 5 exhausts mid-report, which — before this was
+    # sized correctly — silently failed the later checks (MX, MTA-STS) and
+    # scored them as "absent". The budget still bounds ONE report; batch runs
+    # reset it per domain (see assess_email_security).
+    max_queries=30,
 )
 
 _DOH_URL = "https://dns.google/resolve"
@@ -59,13 +69,28 @@ def _default_fetch(url: str) -> bytes:
     return fetch_feed(url, policy=DISCOVERY_POLICY)
 
 
+class _LookupFailed(Exception):
+    """The DoH read itself failed (network error, exhausted query budget,
+    unparseable response). This is NOT the same as a successful lookup that
+    returned no records — a failed read is UNKNOWN, an empty read is absent.
+    Conflating the two is how a broken fetch manufactures false 'spoofable'
+    findings, so the two paths are kept strictly separate."""
+
+
 def _query(name: str, rrtype: str, fetch: FetchFn) -> dict:
-    """One DoH query. Returns the parsed JSON dict (with Answer/AD/Status)."""
+    """One DoH query. Returns the parsed JSON dict (with Answer/AD/Status)
+    on success — including a valid response that simply has no Answer.
+    Raises `_LookupFailed` if the fetch or JSON parse fails, so a caller can
+    tell 'record absent' from 'could not read'."""
     url = f"{_DOH_URL}?name={name}&type={rrtype}"
     try:
-        return json.loads(fetch(url).decode("utf-8"))
-    except Exception:
-        return {}
+        raw = fetch(url)
+    except Exception as e:
+        raise _LookupFailed(f"fetch failed for {name}/{rrtype}: {e}") from e
+    try:
+        return json.loads(raw.decode("utf-8"))
+    except Exception as e:
+        raise _LookupFailed(f"unparseable DoH response for {name}/{rrtype}: {e}") from e
 
 
 def _txt_records(name: str, fetch: FetchFn) -> List[str]:
@@ -213,6 +238,11 @@ class EmailSecurityReport:
 
     @property
     def grade(self) -> str:
+        # A report that could not complete every check was not fully assessed;
+        # it does not get a confident letter. UNKNOWN is not FAIL — a failed
+        # lookup is never scored as a spoofable gap.
+        if any(f.status == "UNKNOWN" for f in self.findings):
+            return "UNKNOWN — lookup incomplete, not assessed"
         crit = [f for f in self.findings if f.check in _CRITICAL]
         crit_fail = sum(1 for f in crit if f.status == "FAIL")
         crit_warn = sum(1 for f in crit if f.status == "WARN")
@@ -230,15 +260,40 @@ class EmailSecurityReport:
         return tuple(f for f in self.findings if f.status == "FAIL")
 
 
+_CHECK_LABELS = {
+    _spf: "SPF", _dmarc: "DMARC", _dkim: "DKIM",
+    _dnssec: "DNSSEC", _mx: "MX", _mta_sts: "MTA-STS",
+}
+
+
+def _run_check(check: "Callable", domain: str, fetch: FetchFn) -> Finding:
+    """Run one check; if the DNS read failed, return UNKNOWN rather than
+    letting an absent-record path score a lookup failure as a finding."""
+    try:
+        return check(domain, fetch)
+    except _LookupFailed as e:
+        return Finding(_CHECK_LABELS[check], "UNKNOWN",
+                       f"DNS lookup failed for this check — status not assessed "
+                       f"({e}).", "")
+
+
 def assess_email_security(domain: str,
-                          fetch_fn: Optional[FetchFn] = None) -> EmailSecurityReport:
+                          fetch_fn: Optional[FetchFn] = None,
+                          reset_budget: bool = True) -> EmailSecurityReport:
     domain = domain.strip().lower().rstrip(".")
     fetch = fetch_fn or _default_fetch
-    findings = tuple(check(domain, fetch) for check in _CHECKS)
+    # A batch caller assesses many domains in one process. The discovery
+    # budget accumulates per policy across the whole process, so without a
+    # per-report reset every domain after the budget cap would fail. Reset
+    # only applies to the real gated fetch — an injected fetch_fn has no
+    # budget and needs no reset (keeps tests isolated from the ledger).
+    if fetch_fn is None and reset_budget:
+        reset_budgets()
+    findings = tuple(_run_check(check, domain, fetch) for check in _CHECKS)
     return EmailSecurityReport(domain=domain, findings=findings)
 
 
-_MARK = {"PASS": "✅", "WARN": "⚠️", "FAIL": "❌"}
+_MARK = {"PASS": "✅", "WARN": "⚠️", "FAIL": "❌", "UNKNOWN": "❔"}
 
 
 def render_report_md(report: EmailSecurityReport) -> str:

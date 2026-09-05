@@ -5,6 +5,25 @@ read off a primary source during this campaign, not recalled. Where
 something is unknown it says UNKNOWN — that is a real state, not a gap
 someone forgot to fill.
 
+**Round 33, 2026-09-06 — killed a false-positive engine in SpoofGuard's core
+(`email_security_report.py`).** Running the tool over Kyle's own 150k-lead CSV
+flagged 39/40 businesses as "spoofable" — including paypal.com and google.com,
+among the most email-hardened domains alive. Killed the finding before it
+reached Kyle. Root cause: the discovery query budget was 5, but one report
+fires ~17 DoH lookups (DKIM alone probes 12 selectors), so every check after
+the 5th raised `DiscoveryBudgetExhausted`, which `_query` **swallowed and scored
+as "record absent" = a fabricated FAIL/spoofable**. Two fixes: (1) a failed
+lookup is now `UNKNOWN`, never scored as absent — the absence≠UNKNOWN rule this
+repo enforces everywhere else, now enforced in the product; a report with any
+UNKNOWN check grades `UNKNOWN`, not a letter; (2) budget sized to one report
+(30) + reset per domain for batch runs. Verified against ground truth: paypal→B,
+google→C, forced network failure→all-UNKNOWN/zero fake fails. 4 regression tests
+added (`TestLookupFailureIsUnknownNotAbsent`). Re-run over the CSV now gives a
+real A/B/C/D spread (redbridgecyber.com→A, a cyber firm); 2 grade-D domains
+spot-verified via direct DoH to genuinely lack SPF+DMARC. LESSON: a
+sell-facing tool that turns a fetch failure into a finding manufactures exactly
+the false claim the whole doctrine exists to prevent.
+
 **Round 32, 2026-09-06 — documented the SpoofGuard prototype (`SPOOFGUARD.md`,
 NLnet proposal outcome #5).** All the prototype's capabilities are built
 (check, remediate, monitor, batch — commands `security-report`, `leads`,
