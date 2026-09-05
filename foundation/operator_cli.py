@@ -640,7 +640,9 @@ def cmd_alert(args) -> int:
     """Ping Kyle on Telegram — 'I need a sword to sharpen against.' Sends via
     the moneyprinter bot (TELEGRAM_BOT_TOKEN/CHAT_ID); fail-soft if not set."""
     from foundation.telegram_approval import alert_operator
-    ok = alert_operator(args.headline, args.detail or "")
+    from foundation.telegram_notify import resolve_operator_credentials
+    tok, cid = resolve_operator_credentials()
+    ok = alert_operator(args.headline, args.detail or "", token=tok, chat_id=cid)
     print("alert sent to Kyle" if ok else
           "alert NOT sent (no TELEGRAM_BOT_TOKEN/CHAT_ID, or gate closed)")
     return 0 if ok else 1

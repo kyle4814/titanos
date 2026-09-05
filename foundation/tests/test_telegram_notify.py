@@ -9,6 +9,7 @@ a file, a log, or an exception.
 import io
 import json
 import unittest
+from unittest import mock
 from datetime import datetime, timezone
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -118,6 +119,56 @@ class TestSendPath(unittest.TestCase):
         # captured as a per-message error, not a crash of the whole batch
         self.assertEqual(res.delivered, 0)
         self.assertTrue(any("4096" in e for e in res.errors))
+
+
+class TestSecretsFileAndAliases(unittest.TestCase):
+    def test_dm_id_alias_resolves_as_chat_id(self):
+        import foundation.telegram_notify as tn
+        with mock.patch.dict("os.environ",
+                             {"TELEGRAM_BOT_TOKEN": "t", "TELEGRAM_DM_ID": "42"},
+                             clear=True):
+            tok, chat = tn._resolve_credentials(None, None)
+        self.assertEqual(tok, "t")
+        self.assertEqual(chat, "42")
+
+    def test_read_secrets_file_is_pure_and_telegram_only(self):
+        import foundation.telegram_notify as tn
+        with TemporaryDirectory() as d:
+            f = Path(d) / ".titanos_env"
+            f.write_text("export TELEGRAM_BOT_TOKEN='filetok'\n"
+                         "TELEGRAM_DM_ID=\"99\"\n"
+                         "CLOUDFLARE_SECRET=should_not_load\n"
+                         "# comment\n", encoding="utf-8")
+            secrets = tn._read_secrets_file(str(f))
+        self.assertEqual(secrets.get("TELEGRAM_BOT_TOKEN"), "filetok")
+        self.assertEqual(secrets.get("TELEGRAM_DM_ID"), "99")
+        # non-Telegram secrets are NOT read, and os.environ is untouched
+        self.assertNotIn("CLOUDFLARE_SECRET", secrets)
+
+    def test_missing_secrets_file_returns_empty(self):
+        import foundation.telegram_notify as tn
+        self.assertEqual(tn._read_secrets_file("/no/such/file"), {})
+
+    def test_app_resolver_prefers_env_then_file_no_mutation(self):
+        import os
+        import foundation.telegram_notify as tn
+        with TemporaryDirectory() as d:
+            f = Path(d) / ".titanos_env"
+            f.write_text("TELEGRAM_BOT_TOKEN=filetok\nTELEGRAM_DM_ID=77\n",
+                         encoding="utf-8")
+            # env empty -> falls back to the file, WITHOUT mutating os.environ
+            with mock.patch.dict("os.environ", {}, clear=True), \
+                 mock.patch.object(tn, "SECRETS_FILE", str(f)):
+                tok, chat = tn.resolve_operator_credentials()
+                self.assertEqual((tok, chat), ("filetok", "77"))
+                self.assertIsNone(os.environ.get("TELEGRAM_BOT_TOKEN"))  # untouched
+            # env present -> env wins, file not needed
+            with mock.patch.dict("os.environ",
+                                 {"TELEGRAM_BOT_TOKEN": "envtok",
+                                  "TELEGRAM_CHAT_ID": "55"}, clear=True), \
+                 mock.patch.object(tn, "SECRETS_FILE", "/no/such/file"):
+                self.assertEqual(tn.resolve_operator_credentials(),
+                                 ("envtok", "55"))
 
 
 class TestSendCard(unittest.TestCase):

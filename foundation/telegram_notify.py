@@ -67,6 +67,13 @@ __all__ = [
 API_BASE = "https://api.telegram.org"
 TOKEN_ENV = "TELEGRAM_BOT_TOKEN"
 CHAT_ENV = "TELEGRAM_CHAT_ID"
+# Kyle's existing moneyprinter bot wiring names the chat id TELEGRAM_DM_ID.
+# Accept it as an alias so the standing setup Just Works without renaming.
+CHAT_ENV_ALIASES = ("TELEGRAM_CHAT_ID", "TELEGRAM_DM_ID")
+# The standing secrets file the wiring already lives in. Loaded (Telegram keys
+# only, never overriding an already-set var) so an autonomous run that did not
+# source it can still reach Kyle. Never logged.
+SECRETS_FILE = os.path.expanduser("~/.titanos_env")
 _MAX_MESSAGE_BYTES = 4096  # Telegram's own hard limit
 
 
@@ -110,11 +117,67 @@ def operator_switch(now: Optional[datetime] = None) -> CommunicationSwitch:
     )
 
 
+def _read_secrets_file(path: str = SECRETS_FILE) -> dict:
+    """Read ONLY the TELEGRAM_* keys from the standing secrets file and return
+    them as a dict. PURE — never mutates os.environ (that would leak across
+    unit tests and pollute the no-credentials paths), never touches
+    non-Telegram secrets, never logs a value. Empty dict if absent/unreadable."""
+    out: dict = {}
+    try:
+        with open(path, "r", encoding="utf-8") as fh:
+            lines = fh.readlines()
+    except OSError:
+        return out
+    for line in lines:
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if line.startswith("export "):
+            line = line[len("export "):]
+        if "=" not in line:
+            continue
+        key, _, val = line.partition("=")
+        key = key.strip()
+        if key.startswith("TELEGRAM_"):
+            out[key] = val.strip().strip('"').strip("'")
+    return out
+
+
 def _resolve_credentials(token: Optional[str],
                          chat_id: Optional[str]) -> tuple[Optional[str], Optional[str]]:
+    """ENV-ONLY resolution (plus the TELEGRAM_DM_ID alias). Never reads the
+    secrets file — keeps library callers and their tests pure. The file is
+    only consulted at the app boundary, via resolve_operator_credentials()."""
     token = token or os.environ.get(TOKEN_ENV) or None
-    chat_id = chat_id or os.environ.get(CHAT_ENV) or None
-    return token, chat_id
+    if not chat_id:
+        for name in CHAT_ENV_ALIASES:
+            if os.environ.get(name):
+                chat_id = os.environ[name]
+                break
+    return token, chat_id or None
+
+
+def resolve_operator_credentials(token: Optional[str] = None,
+                                 chat_id: Optional[str] = None
+                                 ) -> tuple[Optional[str], Optional[str]]:
+    """App-boundary resolver: env first (with the DM_ID alias), then the
+    standing secrets file as a fallback — WITHOUT mutating os.environ. The CLI
+    and the daemon call this and pass the result explicitly to the send
+    functions, so an autonomous run that didn't source the env still reaches
+    Kyle, while the library stays env-pure for tests."""
+    token, chat_id = _resolve_credentials(token, chat_id)
+    if token and chat_id:
+        return token, chat_id
+    # Read the CURRENT module-level path (not the def-time default), so tests
+    # that patch SECRETS_FILE never fall through to the real file.
+    secrets = _read_secrets_file(SECRETS_FILE)
+    token = token or secrets.get(TOKEN_ENV) or None
+    if not chat_id:
+        for name in CHAT_ENV_ALIASES:
+            if secrets.get(name):
+                chat_id = secrets[name]
+                break
+    return token, chat_id or None
 
 
 def _post_message(token: str, chat_id: str, text: str,
