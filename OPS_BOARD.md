@@ -5,6 +5,24 @@ read off a primary source during this campaign, not recalled. Where
 something is unknown it says UNKNOWN — that is a real state, not a gap
 someone forgot to fill.
 
+**Round 40, 2026-09-06 — fixed the root cause behind round 39's expired-notice
+trap: `ted_signal` now reads the deadline from BOTH item shapes.** Traced round
+39's "STRONG match on a closed notice" to a real defect: `hunt()` re-parses TED
+items so its deadline is correct, but `hunt_multi()` (the multi-source path the
+re-sweep uses) passes each source's RAW item straight to `ted_signal`, which
+read only the flat `deadline` key — absent from the raw search-API shape (raw key
+is `deadline-receipt-request`). So every `hunt_multi` TED notice carried an
+UNKNOWN deadline, and nothing downstream (incl. `brief.py`, which sorts by
+deadline) could tell a closed notice from an open one. Fix: `_deadline_of(item)`
+reads whichever shape is present (flat `deadline`, or raw
+`deadline-receipt-request` as list/string), mirroring `parse_items`' own list
+handling; it can only FILL an empty deadline, never overwrite a correct one, so
+it is safe for both callers. Both `facts["deadline"]` and `evidence["deadline"]`
+now use it. 7 regression tests (`TestTedSignalDeadlineShapeTolerance`). This
+feeds real deadlines into `brief.py`'s urgency sort and is the groundwork for a
+render-level EXPIRED marker (deferred — the data fix comes first). Full suite
+(shared mouth_ted).
+
 **Round 39, 2026-09-06 — priority-4 live re-sweep: verified negative, and a
 finding killed on its own deadline check.** Ran a real bounded multi-source hunt
 (`hunt --live --keyword cyber`) across all 7 sources: **fetched 425, assessed 78

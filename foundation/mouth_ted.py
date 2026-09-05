@@ -1016,6 +1016,34 @@ def observe(
 # decomposed, verified still collapsing correctly -- without merging
 # distinct characters. A search index wants NFKC. An identity does not.
 
+def _deadline_of(item: dict) -> str:
+    """The notice's closing datetime string, tolerant of BOTH item shapes.
+
+    `ted_signal()` is fed the flat `parse_items()` shape by `hunt()` (which
+    re-parses first) but the RAW search-API shape by `hunt_multi()` (which
+    passes the source's raw item straight to its `signal_fn`). The flat shape
+    carries `deadline`; the raw shape carries `deadline-receipt-request` (a
+    list of per-lot strings, or a single string). Reading only `deadline`
+    silently returned "" for every `hunt_multi()` TED notice, so a closed
+    notice could not be told from an open one downstream. This reads whichever
+    key is present, mirroring `parse_items()`'s own list handling (first
+    non-empty string), and returns "" (an honest UNKNOWN) when neither is
+    present. It can only fill a previously-empty deadline from a real field —
+    never overwrite a correct one — so it is safe for both callers."""
+    flat = item.get("deadline", "")
+    if isinstance(flat, str) and flat.strip():
+        return flat.strip()
+    raw = item.get("deadline-receipt-request", "")
+    if isinstance(raw, list):
+        for candidate in raw:
+            if isinstance(candidate, str) and candidate.strip():
+                return candidate.strip()
+        return ""
+    if isinstance(raw, str):
+        return raw.strip()
+    return ""
+
+
 def ted_signal(item: dict, now: Optional[datetime] = None) -> CanonicalSignal:
     """One open-EU-tender item -> one `CanonicalSignal`.
 
@@ -1107,7 +1135,7 @@ def ted_signal(item: dict, now: Optional[datetime] = None) -> CanonicalSignal:
         "tender_id": safe_tender_id,
         "buyer_name_safe": buyer.safe,
         "identity_hash": identity_hash,
-        "deadline": item.get("deadline", ""),
+        "deadline": _deadline_of(item),
         "title_safe": title.safe,
         "description_safe": description.safe,
         "injection_markers": markers,
@@ -1136,7 +1164,7 @@ def ted_signal(item: dict, now: Optional[datetime] = None) -> CanonicalSignal:
         observed_at=observed_at,
         target_established_by="SOURCE_NATIVE",
         facts={
-            "deadline": item.get("deadline", ""),
+            "deadline": _deadline_of(item),
             # The notice's OWN CPV, so a relevance scorer matching CPV is
             # matching the notice rather than the query used to find it.
             "cpv": item.get("cpv", ""),

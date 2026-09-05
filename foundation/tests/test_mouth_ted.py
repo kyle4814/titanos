@@ -1244,3 +1244,46 @@ class TestStateFilenameSuffix(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestTedSignalDeadlineShapeTolerance(unittest.TestCase):
+    """ted_signal() is fed the flat parse_items shape by hunt() but the RAW
+    search-API shape by hunt_multi(). Regression: reading only the flat
+    `deadline` key returned "" for every hunt_multi TED notice, so a closed
+    notice could not be told from an open one downstream. _deadline_of() reads
+    whichever shape is present, and can only fill an empty deadline, never
+    overwrite a correct one."""
+
+    def test_raw_shape_list_populates_deadline(self):
+        item = {"deadline-receipt-request": ["2026-10-10T12:00:00+01:00"],
+                "notice-title": "t", "publication-number": "1-2026"}
+        self.assertEqual(mouth_ted.ted_signal(item).facts["deadline"],
+                         "2026-10-10T12:00:00+01:00")
+
+    def test_raw_shape_single_string_populates_deadline(self):
+        self.assertEqual(
+            mouth_ted._deadline_of({"deadline-receipt-request": "2026-09-22T11:00:00Z"}),
+            "2026-09-22T11:00:00Z")
+
+    def test_flat_shape_is_unchanged(self):
+        item = {"deadline": "2026-12-01T00:00:00Z", "title": "y", "key": "2"}
+        self.assertEqual(mouth_ted.ted_signal(item).facts["deadline"],
+                         "2026-12-01T00:00:00Z")
+
+    def test_flat_wins_over_raw_when_both_present(self):
+        # parse_items shape already resolved the deadline — never re-derive it
+        item = {"deadline": "2026-12-01T00:00:00Z",
+                "deadline-receipt-request": ["2020-01-01T00:00:00Z"]}
+        self.assertEqual(mouth_ted._deadline_of(item), "2026-12-01T00:00:00Z")
+
+    def test_neither_key_is_honest_unknown(self):
+        self.assertEqual(mouth_ted._deadline_of({"buyer_name": "z"}), "")
+
+    def test_non_list_non_string_raw_is_unknown(self):
+        self.assertEqual(
+            mouth_ted._deadline_of({"deadline-receipt-request": {"not": "usable"}}), "")
+
+    def test_list_skips_leading_non_string(self):
+        self.assertEqual(
+            mouth_ted._deadline_of({"deadline-receipt-request": [None, "2026-10-01T00:00:00Z"]}),
+            "2026-10-01T00:00:00Z")
