@@ -5,6 +5,19 @@ read off a primary source during this campaign, not recalled. Where
 something is unknown it says UNKNOWN — that is a real state, not a gap
 someone forgot to fill.
 
+**Round 28, 2026-09-05 — 🟢 FIRST-DOLLAR LEVER OPERATIONAL: Kyle's 150k leads →
+ranked hot prospects.** The lead engine needed a source; Kyle already has one —
+`~/titanos_leads_FINAL_20260701.csv`, **150,047 real Australian businesses**
+(business_name, email, website, category, suburb, state). Built
+`foundation/lead_source.py` `domains_from_csv()`: extracts business domains from
+the website column (email fallback, drops free-mail providers), normalises,
+de-dupes, polite `limit`. Wired `operator_cli leads --from-csv LEADS.csv --limit
+N`. **RUNTIME-VERIFIED live end-to-end: 3 leads from the real CSV → 2 graded D**
+(wide open, spoofable, call-first). The chain is now whole: real leads → domains
+→ email-security triage → ranked hot-lead sheet with a provable hook → (Telegram
+live) can ping Kyle. 7 tests, pure parsing (synthetic CSV, never his data).
+README 4,291→4,298.
+
 **Round 27, 2026-09-05 — 🟢 THE TELEGRAM LOOP IS LIVE (first real external
 ping sent).** Kyle: "it's all wired up already, please use it." It was — I was
 reading the wrong var names. His moneyprinter bot creds live in `~/.titanos_env`
