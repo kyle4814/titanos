@@ -665,6 +665,21 @@ def cmd_opp_drop(args) -> int:
     return 0
 
 
+def cmd_nlnet(args) -> int:
+    """Show NLnet / NGI Zero's current open call live — the genuinely winnable
+    grant (EUR 5k-50k, open to individuals worldwide, funds open-source
+    security/tech the system can build). Reads the public page via the gate."""
+    from foundation.mouth_nlnet import fetch_open_call
+    call = fetch_open_call()
+    dl = call.deadline.isoformat() if call.deadline else "UNKNOWN — check the site"
+    print("NLnet / NGI Zero — next open call")
+    print(f"  deadline:    {dl}")
+    print(f"  grant:       {call.grant_range}")
+    print(f"  eligibility: {call.eligibility}")
+    print(f"  apply:       {call.apply_url}")
+    return 0
+
+
 def cmd_leads(args) -> int:
     """Triage a list of domains into ranked hot leads by email-security
     weakness (spoofable = a provable sales hook). --domains a.com,b.com or
@@ -1679,6 +1694,11 @@ def build_parser() -> "object":
                               "recommended with --from-csv)")
     p_leads.add_argument("--out", help="write the lead sheet to this file")
     p_leads.set_defaults(func=cmd_leads)
+
+    p_nlnet = sub.add_parser(
+        "nlnet", help="show NLnet/NGI Zero's current open call (winnable grant, "
+                      "EUR 5k-50k, open to individuals worldwide)")
+    p_nlnet.set_defaults(func=cmd_nlnet)
 
     p_opp = sub.add_parser(
         "opp-drop",
