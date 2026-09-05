@@ -5,6 +5,22 @@ read off a primary source during this campaign, not recalled. Where
 something is unknown it says UNKNOWN — that is a real state, not a gap
 someone forgot to fill.
 
+**Round 29, 2026-09-05 — 🎯 FIRST GENUINELY-WINNABLE SOURCE WIRED: NLnet/NGI
+Zero.** Kyle called out (correctly) that the finder was a keyhole — 5 saturated
+gov feeds — while "the internet is a cesspool of cash." Proved the well is deep
+(grants.gov alone: 215 cyber / 640 tech open live), but grants.gov is US-entity
+gated = not winnable for a solo Aussie. Found and wired the one that IS:
+**NLnet/NGI Zero** — verified live on nlnet.nl: **€5,000–€50,000 R&D grants,
+"available to both individuals and organisations"** (no US-entity/turnover/
+reference wall), rolling calls, next deadline **2026-11-03**, funding
+open-source security/tech **the system can help BUILD**. This is the single best
+fit for the Kyle+system model. Built `foundation/mouth_nlnet.py` (static page,
+gated socket, deadline parsed/None-if-UNKNOWN; 6 tests) + added `NL_NLNET` to
+`team_targets` so it flows to the desktop folder. README 4,298→4,304. Verified
+fast per the velocity rule (module+control-plane+manifest+all downstream
+consumers green); full suite as background checkpoint. NEXT: more winnable
+sources (bug bounties, EU-open-to-non-EU, inferred-demand) + a fit-filter.
+
 **Round 28, 2026-09-05 — 🟢 FIRST-DOLLAR LEVER OPERATIONAL: Kyle's 150k leads →
 ranked hot prospects.** The lead engine needed a source; Kyle already has one —
 `~/titanos_leads_FINAL_20260701.csv`, **150,047 real Australian businesses**
