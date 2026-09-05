@@ -636,6 +636,50 @@ def cmd_team_fit(args) -> int:
     return 0
 
 
+def cmd_submission_prep(args) -> int:
+    """Assemble a ready-to-file submission pack for one target: portal + login
+    URL, the step sequence (stopping at the human Submit), the upload checklist
+    from the notice's quoted requirements, and a qualification/ESPD answer
+    sheet filled from the team profile. Unsupplied facts are UNKNOWN and listed
+    under MISSING — never invented. Offline; files nothing, submits nothing."""
+    import json
+    from foundation.submission_pack import (
+        TeamProfile, build_submission_pack, render_pack_md)
+    from foundation.team_targets import TEAM_TARGETS
+    target = next((t for t in TEAM_TARGETS if t.target_id == args.target), None)
+    if target is None:
+        ids = ", ".join(sorted(t.target_id for t in TEAM_TARGETS))
+        print(f"unknown target {args.target!r}. known: {ids}")
+        return 2
+    profile = TeamProfile()
+    if args.profile:
+        raw = json.loads(Path(args.profile).expanduser().read_text(encoding="utf-8"))
+        profile = TeamProfile(
+            legal_name=raw.get("legal_name", ""),
+            registration=raw.get("registration", ""),
+            contact_name=raw.get("contact_name", ""),
+            contact_email=raw.get("contact_email", ""),
+            address=raw.get("address", ""),
+            annual_turnover_eur=float(raw.get("annual_turnover_eur", 0) or 0),
+            insurance_cover={k: float(v) for k, v in
+                             (raw.get("insurance_cover", {}) or {}).items()},
+            references=tuple(raw.get("references", []) or ()),
+            certifications=tuple(raw.get("certifications", []) or ()),
+            languages=tuple(raw.get("languages", []) or ()),
+            has_247_soc=bool(raw.get("has_247_soc", False)),
+        )
+    pack = build_submission_pack(target, profile)
+    md = render_pack_md(pack)
+    if getattr(args, "out", None):
+        Path(args.out).expanduser().write_text(md, encoding="utf-8")
+        print(f"submission pack written -> {args.out}"
+              + (f"  ({len(pack.missing)} facts still MISSING)"
+                 if pack.missing else "  (profile complete)"))
+    else:
+        print(md)
+    return 0
+
+
 def cmd_situation(args) -> int:
     """Print the ops bottleneck analysis, computed by situation_analysis
     (the repo's largest capability, previously reachable from nothing) over
@@ -1523,6 +1567,18 @@ def build_parser() -> "object":
                        help="number of named pen-testers (for tester-count reqs)")
     p_fit.add_argument("--out", help="write the report to this file instead of stdout")
     p_fit.set_defaults(func=cmd_team_fit)
+
+    p_sub = sub.add_parser(
+        "submission-prep",
+        help="assemble a ready-to-file submission pack for one target "
+             "(portal, checklist, ESPD answers) — stops at the human Submit")
+    p_sub.add_argument("--target", required=True,
+                       help="target id, e.g. IE_HSA (see team-payload / OPS_BOARD)")
+    p_sub.add_argument("--profile",
+                       help="path to a team profile JSON (legal_name, registration, "
+                            "annual_turnover_eur, insurance_cover, references, ...)")
+    p_sub.add_argument("--out", help="write the pack to this file instead of stdout")
+    p_sub.set_defaults(func=cmd_submission_prep)
 
     return parser
 
