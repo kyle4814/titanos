@@ -636,6 +636,16 @@ def cmd_team_fit(args) -> int:
     return 0
 
 
+def cmd_alert(args) -> int:
+    """Ping Kyle on Telegram — 'I need a sword to sharpen against.' Sends via
+    the moneyprinter bot (TELEGRAM_BOT_TOKEN/CHAT_ID); fail-soft if not set."""
+    from foundation.telegram_approval import alert_operator
+    ok = alert_operator(args.headline, args.detail or "")
+    print("alert sent to Kyle" if ok else
+          "alert NOT sent (no TELEGRAM_BOT_TOKEN/CHAT_ID, or gate closed)")
+    return 0 if ok else 1
+
+
 def cmd_opp_drop(args) -> int:
     """Write/refresh the TITAN_OPPORTUNITIES package on Kyle's desktop (or a
     given --dest): START_HERE, one ready-to-file pack per live tender, and the
@@ -1628,6 +1638,13 @@ def build_parser() -> "object":
              "(START_HERE + tender packs + titanos.tech cold-call kit)")
     p_opp.add_argument("--dest", help="destination folder (default: the desktop)")
     p_opp.set_defaults(func=cmd_opp_drop)
+
+    p_alert = sub.add_parser(
+        "alert", help="ping Kyle on Telegram to come sharpen swords (needs "
+                      "TELEGRAM_BOT_TOKEN/CHAT_ID)")
+    p_alert.add_argument("--headline", required=True, help="the one-line ask")
+    p_alert.add_argument("--detail", help="optional extra context")
+    p_alert.set_defaults(func=cmd_alert)
 
     return parser
 
