@@ -5,6 +5,20 @@ read off a primary source during this campaign, not recalled. Where
 something is unknown it says UNKNOWN — that is a real state, not a gap
 someone forgot to fill.
 
+**Round 41, 2026-09-06 — finished the door on the expired-notice defect:
+`render_hunt` now labels every entry OPEN / CLOSED / UNKNOWN.** With round 40's
+data fix landing real deadlines on entries, the render now marks each notice
+against `now`: CLOSED only when the deadline can be PROVEN passed, OPEN when
+future, UNKNOWN when the notice's search projection carries no parseable
+deadline (NZ GETS' human-readable dates included — never guessed closed). A
+header line summarises how many shown entries are already closed. This closes
+the round-39 trap by construction: a STRONG-relevance band on a notice whose
+deadline has passed now reads "⚠ CLOSED" inline — the exact case that nearly had
+me report expired 2025 tenders as opportunities. `render_hunt` gained a `now`
+param (default current UTC) for testability. 4 tests
+(`TestRenderDeadlineLabel`). Full suite (shared hunt.py). The round-39→41 arc
+(diagnose → fix data flow → surface it) is now complete.
+
 **Round 40, 2026-09-06 — fixed the root cause behind round 39's expired-notice
 trap: `ted_signal` now reads the deadline from BOTH item shapes.** Traced round
 39's "STRONG match on a closed notice" to a real defect: `hunt()` re-parses TED

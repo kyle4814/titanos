@@ -55,7 +55,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Callable, Optional, Sequence, Tuple
 
 from foundation.discovery_authorization import DiscoveryPolicy
@@ -633,14 +633,58 @@ _HEADER = (
 )
 
 
-def render_hunt(report: HuntReport, limit: Optional[int] = None) -> str:
+def _entry_deadline_dt(entry) -> Optional[datetime]:
+    """A hunt entry's closing datetime (UTC), or None (UNKNOWN) when its signal
+    carries no parseable ISO-8601 deadline. Never raises. NZ GETS' human-readable
+    dates parse as None here -> UNKNOWN, which is the honest, safe direction: an
+    entry is labelled CLOSED only when its deadline can be PROVEN to have passed,
+    never guessed closed."""
+    sig = getattr(entry, "signal", None)
+    if sig is None:
+        return None
+    facts = getattr(sig, "facts", None) or {}
+    raw = ""
+    for key in ("deadline", "close_date"):
+        value = str(facts.get(key) or "").strip()
+        if value:
+            raw = value
+            break
+    if not raw:
+        return None
+    if raw.endswith("Z"):
+        raw = raw[:-1] + "+00:00"
+    try:
+        dt = datetime.fromisoformat(raw)
+    except ValueError:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
+
+
+def _deadline_label(entry, now: datetime) -> str:
+    """OPEN / CLOSED / UNKNOWN for one entry. CLOSED only when proven passed."""
+    dt = _entry_deadline_dt(entry)
+    if dt is None:
+        return "deadline : UNKNOWN (not published in the notice's search projection)"
+    if dt < now:
+        return f"deadline : {dt.date().isoformat()}  ⚠ CLOSED (deadline passed)"
+    return f"deadline : {dt.date().isoformat()}  OPEN"
+
+
+def render_hunt(report: HuntReport, limit: Optional[int] = None,
+                now: Optional[datetime] = None) -> str:
     """Render a report as inspectable text. Order is `BAND_ORDER`;
     every DISQUALIFIED entry prints its quoted blocking clause, because
     a verdict without its evidence is the thing this module exists to
-    stop producing."""
+    stop producing. Each entry is labelled OPEN / CLOSED / UNKNOWN against
+    `now` (default: current UTC) so a high-relevance band on a notice whose
+    deadline has already passed can never again read as an open opportunity —
+    the exact trap that surfaced closed notices as STRONG candidates."""
     if not isinstance(report, HuntReport):
         raise HuntIntegrityError(
             f"expected a HuntReport, got {type(report).__name__}")
+    now = now or datetime.now(timezone.utc)
     lines = list(_HEADER)
     lines.append(f"objective : {report.objective}")
     lines.append(
@@ -648,9 +692,15 @@ def render_hunt(report: HuntReport, limit: Optional[int] = None) -> str:
         f"skipped: {len(report.skipped)}")
     counts = {b: len(report.by_band(b)) for b in BAND_ORDER}
     lines.append("bands     : " + "  ".join(f"{b}={counts[b]}" for b in BAND_ORDER))
-    lines.append("")
 
     shown = report.entries if limit is None else report.entries[:limit]
+    closed = sum(1 for e in shown
+                 if (d := _entry_deadline_dt(e)) is not None and d < now)
+    if closed:
+        lines.append(f"CLOSED    : {closed} of {len(shown)} shown have a deadline "
+                     f"that has already passed — not open opportunities.")
+    lines.append("")
+
     if not shown:
         lines.append("No notice was assessed. That is a real result, not an error.")
     for entry in shown:
@@ -659,6 +709,7 @@ def render_hunt(report: HuntReport, limit: Optional[int] = None) -> str:
         url = entry.eligibility.notice_url
         if url:
             lines.append(f"  notice   : {url}")
+        lines.append(f"  {_deadline_label(entry, now)}")
         for doc in (entry.eligibility.procurement_documents_urls or ())[:2]:
             lines.append(f"  documents: {doc}")
         if entry.relevance is not None:

@@ -362,3 +362,49 @@ class TestSourceFailureIsLoud(unittest.TestCase):
             degewo_notice()])
         self.assertEqual(len(r.skipped), 1)
         self.assertNotIn("SOURCE(S) RETURNED NOTHING", render_hunt(r))
+
+
+class TestRenderDeadlineLabel(unittest.TestCase):
+    """render_hunt labels each entry OPEN / CLOSED / UNKNOWN against `now`, so a
+    high-relevance band on a notice whose deadline has passed can never again
+    read as an open opportunity (the round-39 trap: STRONG match on a closed
+    2025 notice)."""
+
+    from datetime import datetime as _dt, timezone as _tz
+    NOW = _dt(2026, 9, 6, tzinfo=_tz.utc)
+
+    def _entry_with_deadline(self, iso):
+        notice = degewo_notice()
+        notice["deadline-receipt-request"] = [iso]
+        cap = CapabilityProfile(name="pentest", declared_by="operator",
+                                keywords=frozenset({"penetration"}))
+        return hunt("q", SOLO, capability=cap,
+                    fetch_notices_fn=lambda: [notice]).entries[0]
+
+    def test_past_deadline_is_labelled_closed(self):
+        from foundation.hunt import _deadline_label
+        e = self._entry_with_deadline("2025-10-10T12:00:00+01:00")
+        self.assertIn("CLOSED", _deadline_label(e, self.NOW))
+
+    def test_future_deadline_is_labelled_open(self):
+        from foundation.hunt import _deadline_label
+        e = self._entry_with_deadline("2030-01-01T12:00:00Z")
+        label = _deadline_label(e, self.NOW)
+        self.assertIn("OPEN", label)
+        self.assertNotIn("CLOSED", label)
+
+    def test_absent_deadline_is_unknown_never_closed(self):
+        from foundation.hunt import _deadline_label
+        r = hunt("q", SOLO, fetch_notices_fn=lambda: [degewo_notice()])
+        label = _deadline_label(r.entries[0], self.NOW)
+        self.assertIn("UNKNOWN", label)
+        self.assertNotIn("CLOSED", label)
+
+    def test_render_summarises_closed_count_and_marks_the_entry(self):
+        from foundation.hunt import render_hunt
+        e = self._entry_with_deadline("2025-10-10T12:00:00+01:00")
+        report = HuntReport(entries=(e,), fetched=1, assessed=1,
+                            skipped=(), objective="o")
+        text = render_hunt(report, now=self.NOW)
+        self.assertIn("CLOSED", text)
+        self.assertIn("have a deadline", text)   # the summary line
