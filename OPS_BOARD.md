@@ -5,6 +5,23 @@ read off a primary source during this campaign, not recalled. Where
 something is unknown it says UNKNOWN — that is a real state, not a gap
 someone forgot to fill.
 
+**Round 39, 2026-09-06 — priority-4 live re-sweep: verified negative, and a
+finding killed on its own deadline check.** Ran a real bounded multi-source hunt
+(`hunt --live --keyword cyber`) across all 7 sources: **fetched 425, assessed 78
+cyber-relevant, QUALIFIED=0** (INSUFFICIENT_DATA=48 — criteria gated in the
+procurement docs; DISQUALIFIED=30 — mostly non-English/Polish language walls).
+4 scored STRONG_MATCH and looked genuinely new (TED: Ireland "Vulnerability
+Disclosure & Bug Bounty" 590755-2025, Norway "Cyber Threat Intelligence"
+598093-2025, Luxembourg IT CFT-1748 597248-2025, Greece IT 607194-2025) — pulled
+each via the TED API and **killed all four on the deadline check: they are 2025
+notices, deadlines already passed** (Ireland 2025-10-10, Norway 2025-09-22,
+Luxembourg 2025-12-10, Greece none). Nearly handed Kyle expired tenders as
+opportunities — caught it by verifying deadlines before reporting. NET: no new
+winnable work; the tender frontier stays where prior cycles left it. LATENT
+OBSERVATION (not fixed this cycle): the hunt's relevance pass surfaces
+closed notices as STRONG candidates — it does not filter by open deadline, so
+"STRONG match" ≠ "open". Recorded for a future cycle; not a blocker. Doc-only.
+
 **Round 38, 2026-09-06 — closed a real coverage gap: end-to-end CLI tests for
 the four SpoofGuard commands Kyle actually runs.** `test_operator_cli.py` had 94
 tests but ZERO touching `security-report` / `remediate` / `leads` /
