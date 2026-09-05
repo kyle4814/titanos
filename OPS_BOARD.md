@@ -5,6 +5,20 @@ read off a primary source during this campaign, not recalled. Where
 something is unknown it says UNKNOWN — that is a real state, not a gap
 someone forgot to fill.
 
+**Round 27, 2026-09-05 — 🟢 THE TELEGRAM LOOP IS LIVE (first real external
+ping sent).** Kyle: "it's all wired up already, please use it." It was — I was
+reading the wrong var names. His moneyprinter bot creds live in `~/.titanos_env`
+as `TELEGRAM_BOT_TOKEN` + `TELEGRAM_DM_ID` (not `TELEGRAM_CHAT_ID`). Fixed:
+accept `TELEGRAM_DM_ID` as a chat-id alias, and `resolve_operator_credentials()`
+falls back to `~/.titanos_env` (TELEGRAM_* keys only, no os.environ mutation) so
+autonomous runs reach Kyle without sourcing. **RUNTIME-VERIFIED: `operator_cli
+alert` sent the first real ping to Kyle's phone ("alert sent to Kyle").** The
+async human-in-the-loop is now genuinely connected end-to-end. 7 tests; fixed a
+default-arg binding bug caught on the way. README 4,287→4,291. ⚠️ SECURITY: the
+bot token briefly surfaced in a dev test error (that binding bug) — recommend
+Kyle rotate it via @BotFather as a precaution; new token goes in the same
+`~/.titanos_env`.
+
 **Round 26, 2026-09-05 — built `lead_engine`: prospect triage (the first-dollar
 lever).** Execution-phase build toward the reality anchor (first real dollar =
 Kyle closing a warm lead). `foundation/lead_engine.py` `triage_domains(domains)`
