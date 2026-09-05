@@ -5,6 +5,23 @@ read off a primary source during this campaign, not recalled. Where
 something is unknown it says UNKNOWN — that is a real state, not a gap
 someone forgot to fill.
 
+**Round 22, 2026-09-05 — built `email_security_report`: the first sellable
+automated deliverable (priority 5, new capability + defect fixed).** Kyle's
+model is "the system delivers, I sell and click" — so the engine needs a
+product. Built `foundation/email_security_report.py`: give it a domain, it
+produces a professional email-security posture report (SPF/DMARC/DKIM/DNSSEC/
+MX/MTA-STS) from public DNS only, via gated DNS-over-HTTPS (dns.google) — no
+credentials, no intrusion, no new deps, no raw sockets, same gate as every
+other fetch. Honest: absent controls report FAIL (never hand-waved), weak ones
+WARN not PASS, scope disclaimer says posture-check not full audit. Wired as
+`operator_cli security-report --domain X`. RUNTIME-VERIFIED live against real
+domains (github.com → grade C, real gaps found). Defect caught in the live run
+and fixed: a substring match read `p=reject` out of `sp=reject` and mis-graded
+p=quarantine as PASS — now parses the actual `p=` tag; regression test added.
+8 tests. This is the same fetch→extract→structure→report loop as the tender
+radar, pointed at a new target — proof the engine generalises. README
+4,254→4,262.
+
 **Round 21, 2026-09-05 — built `submission_pack` (Kyle asked for one-click
 command submissions).** The honest answer: the clicking was never the wall —
 the bids aren't written, and that needs the team's real facts. Built the
