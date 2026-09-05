@@ -5,6 +5,21 @@ read off a primary source during this campaign, not recalled. Where
 something is unknown it says UNKNOWN — that is a real state, not a gap
 someone forgot to fill.
 
+**Round 23, 2026-09-05 — built `opp-drop`: the desktop opportunity package
+(the hunter's hand-off to the closer).** Kyle's directive: stop making him talk
+to the system — every run, drop a ready-to-work package on his desktop so he
+just opens it and cold-calls / sells / submits. Built `foundation/opp_drop.py`
++ `operator_cli opp-drop`: writes/refreshes a `TITAN_OPPORTUNITIES` folder on
+the desktop with START_HERE (top moves), one ready-to-file pack per live tender
+(22), and a `SELL_TITANOS/` cold-call kit — the pitch, the script, and the
+`security-report` command that generates a prospect's free email-security hook
+(a domain grading C/D = spoofable = hot lead). RUNTIME-VERIFIED: 25 files
+written to the real desktop (`/mnt/c/Users/tech2/OneDrive/Desktop/`). Honest —
+packages only reachable opportunities, names unbuilt streams (grants, on-chain)
+as unbuilt, writes files only (never contacts anyone). Wired into `/next`
+end-of-cycle. 7 tests (network-free). README 4,262→4,269. Next: broaden the
+hunt (a grants mouth, a local-business lead source for the cold-call list).
+
 **Round 22, 2026-09-05 — built `email_security_report`: the first sellable
 automated deliverable (priority 5, new capability + defect fixed).** Kyle's
 model is "the system delivers, I sell and click" — so the engine needs a
