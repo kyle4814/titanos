@@ -5,6 +5,19 @@ read off a primary source during this campaign, not recalled. Where
 something is unknown it says UNKNOWN — that is a real state, not a gap
 someone forgot to fill.
 
+**Round 31, 2026-09-06 — built the SpoofGuard prototype (NLnet proposal outcome
+#3): continuous monitoring.** Delivering on the promise to Kyle that real
+working code sits behind the €30k NLnet application.
+`foundation/spoofguard_monitor.py`: snapshots a domain's email-security posture,
+diffs against the last stored snapshot (severity-ranked PASS<WARN<FAIL), and
+flags REGRESSIONS — the moment a domain becomes spoofable or silently weakens.
+JSONL snapshot store; `monitor(domain, store)` checks-diffs-persists. Honest: a
+first-ever check reports NO change (never fabricated); only a real regression
+alerts. Reuses `email_security_report`; wired as `operator_cli spoofguard-monitor
+--domain X` (reachable — applied last cycle's lesson) and RUNTIME-VERIFIED live
+(github.com baseline → no-change). 8 tests. Full suite run BEFORE push this time
+(the lesson held). README updated.
+
 **Round 30, 2026-09-06 — fixed a red push (mouth_nlnet was unreachable) +
 lesson.** Round 29 pushed `9ab3697` on the fast-verify path — and the background
 full-suite checkpoint caught it RED: `mouth_nlnet.py` was added but never wired,

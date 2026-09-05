@@ -374,22 +374,24 @@ class TestComputeSigilOnRealRepo(unittest.TestCase):
             raise unittest.SkipTest(
                 "TITAN_SKIP_REALREPO_SIGIL=1 -- real-repo sigil skipped in fast mode"
             )
-        # The two computes are genuinely independent (that is the whole
-        # point -- proving determinism across two separate real computations).
-        # Independent means they can run CONCURRENTLY: wall time drops from
-        # first+second to ~max(first, second), halving this class's cost with
-        # zero loss of what it proves. Both run at guard depth 0 in this one
-        # process, so each passes the guard and stamps depth-1 ancestry on its
-        # own child subprocesses, exactly as a sequential pair did.
-        # cls.first is the SHARED real sigil (cached for the reconcile tests to
-        # reuse); cls.second is a genuinely independent second computation, so
-        # determinism across two real runs is still proven. Run concurrently.
-        from concurrent.futures import ThreadPoolExecutor
-        with ThreadPoolExecutor(max_workers=2) as pool:
-            f1 = pool.submit(real_repo_sigil)
-            f2 = pool.submit(compute_sigil, REPO_ROOT)
-            cls.first = f1.result()
-            cls.second = f2.result()
+        # The two computes are genuinely independent (that is the whole point --
+        # proving determinism across two separate real computations). cls.first
+        # is the SHARED real sigil (cached for the reconcile tests to reuse);
+        # cls.second is a genuinely independent second computation.
+        #
+        # RUN THEM SEQUENTIALLY, NOT CONCURRENTLY. A prior version ran the pair
+        # concurrently to halve wall time -- but each compute_sigil's PROOF
+        # dimension itself spawns 8 subsystem-test subprocesses, so two
+        # concurrent computes put ~16 test-suite subprocesses on the box at once.
+        # On an 8-core machine that over-subscribes, a subprocess intermittently
+        # starves and exits non-zero, `all_tests_green` flips False, and
+        # test_real_repo_tier fails "FAILURES PRESENT" -- a FLAKY gate (green on
+        # rounds 26-30, red on 31, with no code change to blame). A flaky gate is
+        # worse than a slow one. Sequential caps concurrency at 8 subprocesses
+        # (one full compute at a time), which is deterministic. The ~226s cost is
+        # paid only by the full suite; `--fast` skips this class entirely.
+        cls.first = real_repo_sigil()
+        cls.second = compute_sigil(REPO_ROOT)
 
     def test_deterministic_across_two_runs(self):
         self.assertEqual(self.first, self.second)
