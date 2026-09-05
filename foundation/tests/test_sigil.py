@@ -16,6 +16,25 @@ from foundation.recursion_guard import check as guard_check
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
+# One real-repo compute_sigil() is the single most expensive thing in the
+# whole foundation suite (~226s -- its PROOF dimension shells out to run every
+# subsystem's test suite). Several tests need "a genuine measured sigil for
+# THIS repository"; computing it once and sharing it -- rather than each test
+# paying the full subprocess sweep again -- cut the full suite materially with
+# no loss of what any of them prove. The determinism test still computes a
+# SECOND, independent sigil, so "deterministic across two real runs" is still
+# genuinely exercised. Cached lazily so `--fast` runs (which skip every caller)
+# never trigger it at all.
+_REAL_SIGIL_CACHE = []
+
+
+def real_repo_sigil():
+    """Compute (once) and return a genuine measured Sigil for this repository.
+    Shared by every test that needs a real `current` to reconcile against."""
+    if not _REAL_SIGIL_CACHE:
+        _REAL_SIGIL_CACHE.append(compute_sigil(REPO_ROOT))
+    return _REAL_SIGIL_CACHE[0]
+
 
 def _sigil(**overrides) -> Sigil:
     base = dict(
@@ -297,6 +316,28 @@ class TestReconcileSigil(unittest.TestCase):
         changed_dims = tuple(n for n in DIMENSION_NAMES if getattr(previous, n) != getattr(current, n))
         self.assertEqual(changed_dims, ("frontier",))
 
+    def test_current_param_skips_the_recompute(self):
+        # Passing a measured `current` must reconcile WITHOUT calling
+        # compute_sigil() -- that is the whole point (avoid a second full
+        # PROOF sweep). If it recomputed, this patched compute_sigil would
+        # fire and fail the test.
+        injected = _sigil(proof=9)
+        with mock.patch.object(sigil, "compute_sigil",
+                               side_effect=AssertionError("must not recompute")):
+            rec = reconcile_sigil(REPO_ROOT, previous=_sigil(), current=injected)
+        self.assertIs(rec.current, injected)
+        self.assertEqual(rec.changed_dimensions, ("proof",))
+
+    def test_current_param_rejects_a_parsed_snapshot(self):
+        # A RecordedSigil (hand-editable) must never be accepted as measured
+        # capability -- the type gate holds even on this fast injection path.
+        recorded = parse_sigil(
+            "TIER:T3 | IRON:10 | LATTICE:7 | PROOF:10 | SIGHT:10 | "
+            "FRONTIER:10 | ORCH:10 | MEMORY:10 | REALITY:6")
+        self.assertIsInstance(recorded, RecordedSigil)
+        with self.assertRaises(TypeError):
+            reconcile_sigil(REPO_ROOT, previous=_sigil(), current=recorded)
+
 
 class TestComputeSigilOnRealRepo(unittest.TestCase):
     """Runs the real test suites via subprocess (8 subsystems x 2 full
@@ -340,9 +381,12 @@ class TestComputeSigilOnRealRepo(unittest.TestCase):
         # zero loss of what it proves. Both run at guard depth 0 in this one
         # process, so each passes the guard and stamps depth-1 ancestry on its
         # own child subprocesses, exactly as a sequential pair did.
+        # cls.first is the SHARED real sigil (cached for the reconcile tests to
+        # reuse); cls.second is a genuinely independent second computation, so
+        # determinism across two real runs is still proven. Run concurrently.
         from concurrent.futures import ThreadPoolExecutor
         with ThreadPoolExecutor(max_workers=2) as pool:
-            f1 = pool.submit(compute_sigil, REPO_ROOT)
+            f1 = pool.submit(real_repo_sigil)
             f2 = pool.submit(compute_sigil, REPO_ROOT)
             cls.first = f1.result()
             cls.second = f2.result()
@@ -365,7 +409,11 @@ class TestComputeSigilOnRealRepo(unittest.TestCase):
         self.assertGreater(self.first.total_tests, 900)
 
     def test_reconcile_against_unchanged_real_repo_reports_no_change(self):
-        rec = reconcile_sigil(REPO_ROOT, previous=self.first)
+        # Reuse the two already-computed real sigils (previous=first,
+        # current=second) instead of paying for a third full compute -- this
+        # reconciles two genuine independent computations of the unchanged
+        # repo, which is exactly what "reports no change" should prove.
+        rec = reconcile_sigil(REPO_ROOT, previous=self.first, current=self.second)
         self.assertFalse(rec.changed)
         self.assertEqual(rec.changed_dimensions, ())
         self.assertIn("no threshold crossed", rec.reason)
@@ -416,7 +464,9 @@ class TestRecordedSigilRetrieval(unittest.TestCase):
         """The whole point of the switch: the stored line can now reach
         the consumer that was always documented for it."""
         parsed = parse_sigil(self.LINE)
-        rec = reconcile_sigil(REPO_ROOT, previous=parsed)
+        # Reuse the shared real computation (kept skipped in --fast mode above)
+        # rather than paying for another full PROOF sweep.
+        rec = reconcile_sigil(REPO_ROOT, previous=parsed, current=real_repo_sigil())
         self.assertIsNotNone(rec.current)
         self.assertIsInstance(rec.changed, bool)
         # Whatever the real answer is today, it must be a real comparison,

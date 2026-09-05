@@ -582,12 +582,27 @@ class SigilReconciliation:
     reason: str
 
 
-def reconcile_sigil(repo_root: Path, previous: Optional[Sigil]) -> SigilReconciliation:
+def reconcile_sigil(repo_root: Path, previous: Optional[Sigil],
+                    current: Optional[Sigil] = None) -> SigilReconciliation:
     """Recompute and compare against `previous` (pass None on first run).
     Never mutates anything — the caller decides whether/how to persist
     a changed sigil (e.g. rewriting SIGIL.md), matching every other
-    read-only inspection module in this repository."""
-    current = compute_sigil(repo_root)
+    read-only inspection module in this repository.
+
+    `current` may be an already-measured Sigil to reconcile against, so a
+    caller that has just run `compute_sigil()` (the SIGIL.md update flow, or
+    a test sharing one real computation) does not pay to run the full,
+    subprocess-shelling PROOF dimension a second time. When None it is
+    computed from `repo_root`. It must be a real measured `Sigil` — the type
+    (not a parsed `RecordedSigil`) is what proves it is measured capability,
+    the same gate `compute_sigil()` is the sole producer for."""
+    if current is None:
+        current = compute_sigil(repo_root)
+    elif not isinstance(current, Sigil):
+        raise TypeError(
+            "reconcile_sigil(current=...) must be a measured Sigil from "
+            "compute_sigil(), never a parsed RecordedSigil -- a hand-edited "
+            "snapshot must never be mistakable for measured capability")
     if previous is None:
         return SigilReconciliation(
             previous=None, current=current, changed=True,
