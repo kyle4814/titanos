@@ -663,6 +663,29 @@ def cmd_opp_drop(args) -> int:
     return 0
 
 
+def cmd_leads(args) -> int:
+    """Triage a list of domains into ranked hot leads by email-security
+    weakness (spoofable = a provable sales hook). --domains a.com,b.com or
+    --from a file (one per line). Reads public DNS only; you make the contact."""
+    from foundation.lead_engine import triage_domains, render_lead_sheet_md
+    domains: list = []
+    if args.domains:
+        domains += [d.strip() for d in args.domains.split(",") if d.strip()]
+    if args.from_file:
+        text = Path(args.from_file).expanduser().read_text(encoding="utf-8")
+        domains += [ln.strip() for ln in text.splitlines() if ln.strip()]
+    if not domains:
+        print("no domains — pass --domains a.com,b.com or --from FILE")
+        return 2
+    md = render_lead_sheet_md(triage_domains(domains))
+    if getattr(args, "out", None):
+        Path(args.out).expanduser().write_text(md, encoding="utf-8")
+        print(f"lead sheet written -> {args.out}  ({len(domains)} domains checked)")
+    else:
+        print(md)
+    return 0
+
+
 def cmd_security_report(args) -> int:
     """Produce an automated email-security report for a domain — SPF, DMARC,
     DKIM, DNSSEC, MX, MTA-STS — from public DNS only. The first sellable,
@@ -1631,6 +1654,15 @@ def build_parser() -> "object":
     p_sec.add_argument("--domain", required=True, help="domain to check, e.g. acme.com")
     p_sec.add_argument("--out", help="write the report to this file instead of stdout")
     p_sec.set_defaults(func=cmd_security_report)
+
+    p_leads = sub.add_parser(
+        "leads", help="triage domains into ranked hot leads by email-security "
+                      "weakness (spoofable = a sellable hook)")
+    p_leads.add_argument("--domains", help="comma-separated domains")
+    p_leads.add_argument("--from", dest="from_file",
+                         help="file with one domain per line")
+    p_leads.add_argument("--out", help="write the lead sheet to this file")
+    p_leads.set_defaults(func=cmd_leads)
 
     p_opp = sub.add_parser(
         "opp-drop",
