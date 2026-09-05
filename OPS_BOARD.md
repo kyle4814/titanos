@@ -5,6 +5,23 @@ read off a primary source during this campaign, not recalled. Where
 something is unknown it says UNKNOWN — that is a real state, not a gap
 someone forgot to fill.
 
+**Round 25, 2026-09-05 — built the keystone: `telegram_approval` (async
+human-in-the-loop).** Kyle gave the greenlight and confirmed his moneyprinter
+Telegram bot is already wired — so this builds the piece that plugs in.
+`foundation/telegram_approval.py`: `request_approval(ApprovalRequest)→Decision`
+fires an Approve/Deny card for any gated action (money/credentials/legal/
+outbound/irreversible) — FAIL-CLOSED (no creds → UNAVAILABLE, no tap → TIMEOUT,
+deny → DENIED; only an explicit tap is APPROVED, and only `APPROVED.is_approved`
+is True, so a gated action never proceeds by default; the card gates, it never
+legalises). `alert_operator(headline, detail)` pings Kyle to come sharpen swords
+mid-op. Reuses `telegram_notify`'s gated socket + creds; plugs into the existing
+bot via TELEGRAM_BOT_TOKEN/CHAT_ID. Wired as `operator_cli alert`. 11 tests,
+network-free. This is the connector that makes "runs semi-autonomously, taps
+Kyle only for the gates" real. README 4,268→4,279. Next: the daemon that calls
+it, and the lead engine feeding it. NOTE — the opportunity list must keep
+growing (Kyle: "there's a LOT neither of us is aware of yet"); each cycle widens
+it, never treats it as closed.
+
 **Round 24, 2026-09-05 — refocused opp-drop + rewrote `/next` to Kyle's loop.**
 Kyle corrected the division of labour: he's the closer (his own leads + offer
 for titanos.tech), he does NOT want a cold-call kit — he wants the system to
