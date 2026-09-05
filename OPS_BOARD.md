@@ -5,6 +5,19 @@ read off a primary source during this campaign, not recalled. Where
 something is unknown it says UNKNOWN — that is a real state, not a gap
 someone forgot to fill.
 
+**Round 32, 2026-09-06 — documented the SpoofGuard prototype (`SPOOFGUARD.md`,
+NLnet proposal outcome #5).** All the prototype's capabilities are built
+(check, remediate, monitor, batch — commands `security-report`, `leads`,
+`spoofguard-monitor`) but were scattered; the credible-prototype gap for the
+€30k grant was documentation. Wrote `SPOOFGUARD.md`: what it is, what it checks
+(SPF/DMARC/DKIM/DNSSEC/MTA-STS/MX → A–D grade), the three commands with
+examples, how it works (gated public-DNS only, no data collection), and an
+honest status (working prototype + grant-funded roadmap). Makes the
+application's "a working engine already exists" claim real and coherent.
+Doc-only (no code touched) → fast-path verify per the velocity rule (sentinel
+0, no full-suite tax). This rounds out the SpoofGuard prototype behind Kyle's
+NLnet application.
+
 **Round 31, 2026-09-06 — built the SpoofGuard prototype (NLnet proposal outcome
 #3): continuous monitoring.** Delivering on the promise to Kyle that real
 working code sits behind the €30k NLnet application.
