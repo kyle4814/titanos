@@ -5,6 +5,20 @@ read off a primary source during this campaign, not recalled. Where
 something is unknown it says UNKNOWN — that is a real state, not a gap
 someone forgot to fill.
 
+**Round 24, 2026-09-05 — refocused opp-drop + rewrote `/next` to Kyle's loop.**
+Kyle corrected the division of labour: he's the closer (his own leads + offer
+for titanos.tech), he does NOT want a cold-call kit — he wants the system to
+HUNT the world for opportunities he can apply for, drop them on his desktop, and
+he applies/actions/authorises then goes back to selling; then NEXT and it hunts
+another 2–4 hours. Cut the `SELL_TITANOS` cold-call kit from opp-drop;
+START_HERE now leads with opportunities-to-apply-for ranked by deadline, one
+action per item. Rewrote `.claude/commands/next.md` to that loop: hunt broad +
+widen the net each run, extract truth (UNKNOWN never invented), drop the
+package, prove green, two-line report — the folder is the product, Kyle never
+has to talk to the system to work it. Desktop refreshed (23 files). Standing
+next-work: widen the hunt — a grants mouth, a bug-bounty source, more tender
+portals — so the folder fills with more real fish each run. README 4,269→4,268.
+
 **Round 23, 2026-09-05 — built `opp-drop`: the desktop opportunity package
 (the hunter's hand-off to the closer).** Kyle's directive: stop making him talk
 to the system — every run, drop a ready-to-work package on his desktop so he
