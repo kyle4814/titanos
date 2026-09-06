@@ -5,6 +5,21 @@ read off a primary source during this campaign, not recalled. Where
 something is unknown it says UNKNOWN — that is a real state, not a gap
 someone forgot to fill.
 
+**Round 46, 2026-09-06 — real defect found by stress-testing SpoofGuard: SPF
+`+all` was graded WARN, now correctly FAIL.** Instead of assuming "no defect",
+stress-tested the core against a dangerous edge case that hits Kyle's
+exposed-domain market: `v=spf1 +all` (and bare `v=spf1 all`, which defaults to
++all) explicitly authorises ANY host to send as the domain — the single most
+dangerous SPF config, worse than having no SPF. The checker graded it WARN
+("soft/neutral", also factually wrong — it's permissive-PASS) because the logic
+substring-matched "ends with all". Rewrote `_spf` to read the qualifier on the
+last `all` mechanism token: `-all`→PASS, `~all`/`?all`→WARN, `+all`/bare
+`all`→FAIL with an accurate message ("authorises ALL senders … worse than no
+SPF"). This makes SpoofGuard correct on exactly the misconfigured small-business
+domains it targets (someone publishes +all thinking it means "allow my mail").
+Remediation already treats SPF FAIL, so a +all domain now gets the safe ~all
+replacement. 2 regression tests. Full suite (core email_security_report).
+
 **Round 45, 2026-09-06 — PRIORITY 2 CLOSED with a definitive NO-BID, and the
 whole tender block (P1–P4) resolved for this operator's profile.** Priority 2
 kept recurring as "pull the 5 Irish notices' criteria + bid/no-bid" without ever

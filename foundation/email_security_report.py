@@ -121,12 +121,26 @@ def _spf(domain: str, fetch: FetchFn) -> Finding:
                        "No SPF record — anyone can forge email from this domain.",
                        "Publish an SPF TXT record listing your mail senders, "
                        "ending in -all (hard fail).")
-    low = spf.lower()
-    if low.rstrip().endswith("-all"):
+    # Read the qualifier on the LAST `all` mechanism (a token ending in "all").
+    # SPF qualifiers: - fail (good), ~ softfail, ? neutral, + pass (and a bare
+    # `all` with no qualifier DEFAULTS to +all = pass). Substring matching gets
+    # this wrong: `+all` and bare `all` both authorise ANY sender, which is
+    # worse than no SPF, but a naive "ends with all -> soft" read graded them
+    # WARN. They must be FAIL.
+    tokens = spf.lower().split()
+    all_tok = next((t for t in reversed(tokens) if t.endswith("all")), None)
+    if all_tok == "-all":
         return Finding("SPF", "PASS", f"Strong SPF (hard fail): {spf}", "")
-    if "~all" in low or "?all" in low or low.rstrip().endswith("all"):
+    if all_tok in ("+all", "all"):
+        return Finding("SPF", "FAIL",
+                       f"SPF explicitly authorises ALL senders "
+                       f"({all_tok}) — anyone can send as this domain; this is "
+                       f"worse than having no SPF: {spf}",
+                       "Change the SPF record's ending to -all (hard fail) so only "
+                       "your listed senders are authorised. Never use +all.")
+    if all_tok in ("~all", "?all"):
         return Finding("SPF", "WARN",
-                       f"SPF present but soft/neutral, not enforced: {spf}",
+                       f"SPF present but soft/neutral, not enforced ({all_tok}): {spf}",
                        "Change the SPF record's ending to -all so forged mail is "
                        "rejected, not just flagged.")
     return Finding("SPF", "WARN", f"SPF present, no explicit all mechanism: {spf}",

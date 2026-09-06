@@ -72,6 +72,22 @@ class TestSpoofableDomain(unittest.TestCase):
         spf = next(f for f in r.findings if f.check == "SPF")
         self.assertEqual(spf.status, "WARN")
 
+    def test_spf_plus_all_is_fail_not_warn(self):
+        # +all explicitly authorises ANY sender — worse than no SPF. Regression:
+        # a substring/"ends with all" read graded it WARN (soft). It is FAIL.
+        for rec in ("v=spf1 +all", "v=spf1 include:x +all", "v=spf1 all"):
+            r = assess_email_security("open.com", make_fetch({"open.com|TXT": [rec]}))
+            spf = next(f for f in r.findings if f.check == "SPF")
+            self.assertEqual(spf.status, "FAIL", rec)
+            self.assertIn("all senders", spf.detail.lower())
+
+    def test_spf_hardfail_still_passes_and_neutral_still_warns(self):
+        cases = {"v=spf1 -all": "PASS", "v=spf1 ~all": "WARN", "v=spf1 ?all": "WARN"}
+        for rec, want in cases.items():
+            r = assess_email_security("d.com", make_fetch({"d.com|TXT": [rec]}))
+            spf = next(f for f in r.findings if f.check == "SPF")
+            self.assertEqual(spf.status, want, rec)
+
     def test_dmarc_p_quarantine_with_sp_reject_is_not_misread_as_reject(self):
         # Live-found bug: p=quarantine; sp=reject must grade WARN (quarantine),
         # not PASS — a substring match on "p=reject" wrongly caught "sp=reject".
