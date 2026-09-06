@@ -55,7 +55,16 @@ python3 -m foundation.operator_cli spoofguard-monitor --domain acme.com
 
 # Remediation — the EXACT DNS records to publish to stop spoofing, safely
 python3 -m foundation.operator_cli remediate --domain acme.com
+
+# Client report — one self-contained HTML file (grade + exact fix) to send/show
+python3 -m foundation.operator_cli report-html --domain acme.com --out acme.html
 ```
+
+`report-html` is the deliverable a non-technical recipient actually opens: the
+grade, what is exposed, and the exact safe records, in a single self-contained
+HTML file (no external resources) that renders in any browser, in an email
+client, or on a phone. `security-report` also takes `--no-fix` to print the
+graded posture without the remediation records.
 
 The remediation generator is deliberately conservative — it detects the mail
 provider from MX and produces SPF at **softfail (~all), never hardfail (-all)**,
