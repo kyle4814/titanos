@@ -5,6 +5,35 @@ read off a primary source during this campaign, not recalled. Where
 something is unknown it says UNKNOWN — that is a real state, not a gap
 someone forgot to fill.
 
+**Round 45, 2026-09-06 — PRIORITY 2 CLOSED with a definitive NO-BID, and the
+whole tender block (P1–P4) resolved for this operator's profile.** Priority 2
+kept recurring as "pull the 5 Irish notices' criteria + bid/no-bid" without ever
+being closed. Resolved it decisively. The 5 (Fáilte rid 8915449, Oireachtas
+8943772 "Managed Security", An Post 8927838 "Security Operations Centre", Dept
+of Justice 8916237 "Managed Services PQQ", HSA 8939732 "Security Operations
+Centre (SOC)") are all government **24×7 staffed SOC / managed-security**
+contracts. **BID/NO-BID = NO-BID**, on a capability wall quoted from
+`operator_profile.json`: `staff_count=1`, `certifications=[]`, `insurance=None`,
+`corporate_references=[]`. A one-person operation with no certs, insurance or
+references cannot deliver a 24×7×365 Security Operations Centre — and no scoring
+criterion still gated in the procurement documents could change that (the full
+docs remain behind eTenders' browser download, a stated fact, not an inferred
+absence; but the verdict does not depend on them). This is honest and final:
+these are not winnable, so they stop being "pending".
+
+**Tender block status, all four priorities, definitively closed for a solo
+English-only operator with no certs/insurance/references:**
+- **P1 NZ GETS** — CLOSED round 18: 0 cyber by category; the only security
+  notices are physical guarding, each pre-qual "None" (verified).
+- **P2 Irish SOC ×5** — NO-BID (capability wall), closed this round.
+- **P3 deeper Ireland** — verified-negative rounds 16–17: no new cyber beyond
+  the 5 + DPS already assessed.
+- **P4 re-sweep** — round 42, live with the deadline fix: 424 fetched, **0
+  QUALIFIED**; 8 open notices all criteria-gated, most Dutch-language.
+The recurring tender priorities are exhausted for this profile; re-running them
+yields verified-negatives, not opportunities. The real value stays SpoofGuard +
+grants + Kyle's own leads. Doc-only.
+
 **Round 44, 2026-09-06 — verified the full SpoofGuard surface live + closed doc
 drift. Honest hold on new builds.** Priority-5 sweep: reachability clean (no
 unwired module), no open defect. Ran all four commands end-to-end against a real
