@@ -107,6 +107,47 @@ class TestSpoofableDomain(unittest.TestCase):
         self.assertIn("p=none", dmarc.detail.lower())
 
 
+class TestFalsePassGuards(unittest.TestCase):
+    """A security check must never say PASS when the domain is actually
+    spoofable. These three configs each render enforcement void but were graded
+    PASS before: two SPF records (PermError, SPF ignored), two DMARC records
+    (DMARC ignored), and p=reject with pct below 100 (most failing mail bypasses
+    the policy). A false PASS is the worst error this tool can make."""
+
+    def test_two_spf_records_is_fail(self):
+        r = assess_email_security("d.com", make_fetch(
+            {"d.com|TXT": ["v=spf1 -all", "v=spf1 include:x ~all"]}))
+        spf = next(f for f in r.findings if f.check == "SPF")
+        self.assertEqual(spf.status, "FAIL")
+        self.assertIn("multiple spf", spf.detail.lower())
+
+    def test_two_dmarc_records_is_fail(self):
+        r = assess_email_security("d.com", make_fetch(
+            {"_dmarc.d.com|TXT": ["v=DMARC1; p=reject", "v=DMARC1; p=none"]}))
+        dmarc = next(f for f in r.findings if f.check == "DMARC")
+        self.assertEqual(dmarc.status, "FAIL")
+        self.assertIn("multiple dmarc", dmarc.detail.lower())
+
+    def test_reject_with_pct_zero_is_warn_not_pass(self):
+        r = assess_email_security("d.com", make_fetch(
+            {"_dmarc.d.com|TXT": ["v=DMARC1; p=reject; pct=0"]}))
+        dmarc = next(f for f in r.findings if f.check == "DMARC")
+        self.assertEqual(dmarc.status, "WARN")
+        self.assertIn("pct=0", dmarc.detail)
+
+    def test_reject_with_pct_100_is_pass(self):
+        r = assess_email_security("d.com", make_fetch(
+            {"_dmarc.d.com|TXT": ["v=DMARC1; p=reject; pct=100"]}))
+        dmarc = next(f for f in r.findings if f.check == "DMARC")
+        self.assertEqual(dmarc.status, "PASS")
+
+    def test_reject_without_pct_defaults_to_full_enforcement(self):
+        r = assess_email_security("d.com", make_fetch(
+            {"_dmarc.d.com|TXT": ["v=DMARC1; p=reject"]}))
+        dmarc = next(f for f in r.findings if f.check == "DMARC")
+        self.assertEqual(dmarc.status, "PASS")
+
+
 class TestLookupFailureIsUnknownNotAbsent(unittest.TestCase):
     """A failed DNS read must never be scored as 'record absent'. Regression
     for a live-found defect: the discovery budget (default 5) exhausted after

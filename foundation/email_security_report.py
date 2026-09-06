@@ -114,13 +114,25 @@ class Finding:
 
 
 def _spf(domain: str, fetch: FetchFn) -> Finding:
-    spf = next((r for r in _txt_records(domain, fetch)
-                if r.lower().startswith("v=spf1")), None)
-    if spf is None:
+    spf_records = [r for r in _txt_records(domain, fetch)
+                   if r.lower().startswith("v=spf1")]
+    if not spf_records:
         return Finding("SPF", "FAIL",
                        "No SPF record — anyone can forge email from this domain.",
                        "Publish an SPF TXT record listing your mail senders, "
                        "ending in -all (hard fail).")
+    if len(spf_records) > 1:
+        # RFC 7208 §3.2: more than one v=spf1 record is a PermError, and
+        # receivers then apply NO SPF policy at all — the domain is spoofable
+        # despite "having SPF". A false PASS here is the worst error a security
+        # check can make, so this is FAIL, not a footnote.
+        return Finding("SPF", "FAIL",
+                       f"Multiple SPF records ({len(spf_records)}) — this is a "
+                       f"permanent error (PermError); receivers ignore SPF "
+                       f"entirely, so the domain is spoofable despite having SPF.",
+                       "Publish exactly ONE SPF TXT record: merge every sender "
+                       "into a single v=spf1 record ending in -all.")
+    spf = spf_records[0]
     # Read the qualifier on the LAST `all` mechanism (a token ending in "all").
     # SPF qualifiers: - fail (good), ~ softfail, ? neutral, + pass (and a bare
     # `all` with no qualifier DEFAULTS to +all = pass). Substring matching gets
@@ -147,35 +159,63 @@ def _spf(domain: str, fetch: FetchFn) -> Finding:
                    "Add a -all mechanism to the end of the SPF record.")
 
 
-def _dmarc_policy(rec: str) -> str:
-    """The value of the DMARC `p=` (domain policy) tag, lowercased, or "".
+def _dmarc_tag(rec: str, tag: str) -> str:
+    """The value of one DMARC tag (e.g. `p`, `sp`, `pct`), lowercased, or "".
     Parses the actual tag — NOT a substring match, which would read `p=reject`
     out of the `sp=reject` (subdomain policy) tag. Found live against a domain
     whose record was `p=quarantine; sp=reject`."""
     for part in rec.split(";"):
         if "=" in part:
             key, val = part.split("=", 1)
-            if key.strip().lower() == "p":
+            if key.strip().lower() == tag:
                 return val.strip().lower()
     return ""
 
 
+def _dmarc_policy(rec: str) -> str:
+    """The DMARC domain policy (`p=`), lowercased, or ""."""
+    return _dmarc_tag(rec, "p")
+
+
 def _dmarc(domain: str, fetch: FetchFn) -> Finding:
-    rec = next((r for r in _txt_records(f"_dmarc.{domain}", fetch)
-                if r.lower().startswith("v=dmarc1")), None)
-    if rec is None:
+    recs = [r for r in _txt_records(f"_dmarc.{domain}", fetch)
+            if r.lower().startswith("v=dmarc1")]
+    if not recs:
         return Finding("DMARC", "FAIL",
                        "No DMARC record — no policy telling receivers what to do "
                        "with forged mail, and no visibility of abuse.",
                        "Publish a _dmarc TXT record, start at p=none with rua "
                        "reporting, then move to p=quarantine and p=reject.")
+    if len(recs) > 1:
+        # RFC 7489 §6.6.3: when more than one DMARC record is published,
+        # receivers apply NONE of them. A domain with two DMARC records is
+        # unprotected despite "having DMARC" — a false PASS, so it is FAIL.
+        return Finding("DMARC", "FAIL",
+                       f"Multiple DMARC records ({len(recs)}) — receivers ignore "
+                       f"DMARC entirely when more than one is published, so forged "
+                       f"mail is not blocked despite DMARC being present.",
+                       "Publish exactly ONE _dmarc TXT record.")
+    rec = recs[0]
     policy = _dmarc_policy(rec)
-    if policy == "reject":
+    pct = _dmarc_tag(rec, "pct")
+    # pct defaults to 100 when absent. A pct below 100 means the policy is
+    # applied to only that share of failing mail; the rest bypasses it, so
+    # p=reject;pct=0 rejects NOTHING. Enforcement below 100% is not full.
+    weak_pct = pct.isdigit() and int(pct) < 100
+    if policy == "reject" and not weak_pct:
         return Finding("DMARC", "PASS", f"Enforcing DMARC (p=reject): {rec}", "")
-    if policy == "quarantine":
+    if policy == "reject" and weak_pct:
         return Finding("DMARC", "WARN",
-                       f"DMARC quarantining, not rejecting (p=quarantine): {rec}",
-                       "Once reports look clean, move the policy to p=reject.")
+                       f"DMARC p=reject but only pct={pct}% enforced — the other "
+                       f"{100 - int(pct)}% of failing mail bypasses the policy: {rec}",
+                       "Set pct=100 (or remove the pct tag) so the reject policy "
+                       "applies to all forged mail.")
+    if policy == "quarantine":
+        extra = f" and only pct={pct}% enforced" if weak_pct else ""
+        return Finding("DMARC", "WARN",
+                       f"DMARC quarantining, not rejecting (p=quarantine){extra}: {rec}",
+                       "Once reports look clean, move the policy to p=reject "
+                       "with pct=100.")
     return Finding("DMARC", "WARN",
                    f"DMARC in monitor-only mode (p={policy or 'none'}): {rec}",
                    "p=none only watches — move to p=quarantine then p=reject to "

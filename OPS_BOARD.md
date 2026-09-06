@@ -5,6 +5,21 @@ read off a primary source during this campaign, not recalled. Where
 something is unknown it says UNKNOWN — that is a real state, not a gap
 someone forgot to fill.
 
+**Round 47, 2026-09-06 — three FALSE-PASS defects fixed (the worst error class
+for a security tool).** Continued pressure-testing the SpoofGuard core and found
+three configs where it said PASS while the domain was actually spoofable — telling
+a business it's safe when it isn't: (1) **two SPF records** = PermError (RFC 7208),
+receivers ignore SPF entirely → was PASS, now FAIL; (2) **two DMARC records** =
+receivers ignore DMARC entirely (RFC 7489 §6.6.3) → was PASS, now FAIL; (3)
+**`p=reject; pct=0`** (and any pct<100) rejects that share of forged mail = 0%
+enforced → was PASS, now WARN with the exact bypass % quoted. Generalised the
+DMARC tag parser (`_dmarc_tag`) so pct/sp read as real tags, not substrings
+(the sp=reject fix stays intact). These are exactly the "looks configured but
+isn't" states on real domains. 5 regression tests. Full suite (core
+email_security_report). Two cycles of stress-testing → four real correctness
+fixes (r46 +all, r47 ×3) — pressure-testing the product beats declaring "no
+defect".
+
 **Round 46, 2026-09-06 — real defect found by stress-testing SpoofGuard: SPF
 `+all` was graded WARN, now correctly FAIL.** Instead of assuming "no defect",
 stress-tested the core against a dangerous edge case that hits Kyle's
