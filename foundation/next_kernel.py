@@ -64,6 +64,8 @@ class Opportunity:
     evidence_refs: tuple[str, ...] = ()
     authority: str = "O0"
     next_action: str = ""
+    lease_owner: str = ""
+    lease_until: str = ""
 
     def __post_init__(self) -> None:
         if not isinstance(self.id, str) or not self.id.strip():
