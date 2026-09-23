@@ -76,6 +76,8 @@ class ApprovalEnvelope:
             raise ApprovalError("approval expiry mismatch")
         if self.expected_effect != intent.expected_effect:
             raise ApprovalError("approval expected-effect mismatch")
+        if self.authority != intent.authority_required:
+            raise ApprovalError("approval authority does not satisfy intent requirement")
         expiry = datetime.fromisoformat(self.expires_at.replace("Z", "+00:00"))
         current = now or datetime.now(timezone.utc)
         if expiry <= current:
