@@ -166,6 +166,22 @@ class TestMemoryRecovery(unittest.TestCase):
             self.assertEqual(recovered._raw_payload(),payload)
 
 
+    def test_lock_is_released_after_failed_transaction(self):
+        with tempfile.TemporaryDirectory() as td:
+            path=Path(td)/"memory.json"
+            store=InstitutionalMemoryStore(path)
+            memory=InstitutionalMemory()
+            before=store._raw_payload()
+            payload=store._payload(memory)
+            invalid=LearningReceipt.create("worker","invalid",(),{},payload)
+            with self.assertRaises(ValueError):
+                store.save(memory,invalid)
+
+            valid=LearningReceipt.create("worker","valid",(),before,payload)
+            store.save(memory,valid)
+            self.assertEqual(len(store.ledger.read()),1)
+            self.assertTrue(store.ledger.verify())
+
     def test_duplicate_receipt_is_rejected(self):
         with tempfile.TemporaryDirectory() as td:
             store=InstitutionalMemoryStore(Path(td)/"memory.json")
