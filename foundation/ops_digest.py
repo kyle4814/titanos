@@ -635,6 +635,80 @@ def ruled_out_count() -> int:
     return len(RULED_OUT)
 
 
+def opportunities_from_locked_entries(entries):
+    """Project earned signal-spine locks into the existing phone roster.
+
+    This is deliberately conservative. A locked signal earns a place in the
+    operator surface; it does NOT earn invented money, deadlines, gates, or
+    claims. Fields the signal does not establish remain explicitly unknown.
+    Existing hand-verified OPPORTUNITIES remain untouched.
+    """
+    try:
+        from foundation.signal_spine import TargetLock, RawValueMapEntry
+    except ImportError as exc:
+        raise OpsDigestError("signal-spine projection unavailable") from exc
+
+    projected = []
+    seen = set()
+    for item in entries:
+        if not isinstance(item, tuple) or len(item) != 2:
+            raise OpsDigestError(
+                "projected entries must be (RawValueMapEntry, TargetLock) pairs")
+        entry, lock = item
+        if not isinstance(entry, RawValueMapEntry):
+            raise OpsDigestError("projection received a non-map entry")
+        if not isinstance(lock, TargetLock):
+            raise OpsDigestError("projection received a non-lock")
+        if not lock.authorises_investigation():
+            continue
+
+        key = entry.target
+        if key in seen:
+            continue
+        seen.add(key)
+
+        signals = entry.fused.signals
+        primary = signals[0]
+        observed_money = next(
+            (s.money_observed for s in signals if s.money_observed.strip()), "")
+        unknowns = list(entry.fused.unknowns)
+        if not observed_money:
+            value = "UNKNOWN — no money observed in qualifying evidence"
+            unknowns.append("commercial value not observed")
+        else:
+            value = observed_money
+
+        source_ref = primary.source_ref.strip()
+        link = source_ref or "UNKNOWN — no source reference"
+        gate = "; ".join(entry.disqualifiers) if entry.disqualifiers else (
+            "HUMAN REVIEW — qualification earned; commercial gate not inferred")
+        note = (
+            "AUTO-PROJECTED FROM VERIFIED LOCK. "
+            "Deadline, commercial value and eligibility are not inferred "
+            "unless the qualifying evidence explicitly establishes them."
+        )
+        if unknowns:
+            note += " Unknowns: " + "; ".join(dict.fromkeys(unknowns))
+
+        projected.append(Opportunity(
+            opp_id=f"SIGNAL-{entry.target}",
+            title=entry.target,
+            what=primary.claim,
+            value=value,
+            gate=gate,
+            status="PURSUE",
+            deadline="None (standing) — deadline not established",
+            link=link,
+            actions=(
+                "Open the source reference and verify the qualifying evidence.",
+                entry.next_cheapest_experiment,
+            ),
+            source_ref=f"signal_spine::{primary.signal_id}",
+            note=note,
+        ))
+    return tuple(projected)
+
+
 def live_opportunities(now: Optional[datetime] = None) -> tuple[Opportunity, ...]:
     """The roster, sorted by EFFECTIVE status (a passed deadline sinks a
     card to WATCH) then by whether a deadline presses. Deterministic for a
