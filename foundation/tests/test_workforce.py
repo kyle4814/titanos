@@ -62,6 +62,24 @@ class TestWorkforce(unittest.TestCase):
         ))
         self.assertEqual(plan.assignments[0].worker_ids, ("researcher",))
 
+    def test_router_prefers_specialization_then_health(self):
+        from foundation.specialization import SpecializationBook
+        from foundation.worker_health import WorkerHealthBook
+        from foundation.worker_router import route
+
+        registry = WorkforceRegistry().register(
+            WorkerSpec("general", "research", ("research",))
+        ).register(
+            WorkerSpec("specialist", "research", ("research", "security"))
+        )
+        health = WorkerHealthBook()
+        health.record("general", status="COMPLETED", latency_ms=100)
+        health.record("specialist", status="COMPLETED", latency_ms=200)
+        specialization = SpecializationBook()
+        specialization.learn("specialist", "security", success=True)
+        ordered = route(registry, health, specialization, ("general", "specialist"), "security")
+        self.assertEqual(ordered[0], "specialist")
+
     def test_execution_contract_is_bounded(self):
         contract = WorkerExecutionContract(
             "worker-1", "opp-1", "qualify opportunity",
