@@ -119,6 +119,29 @@ class TestNextKernel(unittest.TestCase):
         result = self.store.advance("op-1", "COMMITTED")
         self.assertEqual(result.status, "COMMITTED")
 
+    def test_transition_graph_is_forward_only_and_terminal(self):
+        expected = {
+            "DISCOVERED": {"QUALIFIED", "REJECTED", "DUPLICATE", "STALE", "BLOCKED"},
+            "QUALIFIED": {"PREPARED", "REJECTED", "EXPIRED", "STALE", "BLOCKED"},
+            "PREPARED": {"READY", "HUMAN-GATED", "REJECTED", "STALE", "BLOCKED"},
+            "READY": {"COMMITTED", "HUMAN-GATED", "REJECTED", "EXPIRED", "STALE"},
+            "COMMITTED": {"OUTCOME", "AWAITING-OUTCOME", "FAILED"},
+            "AWAITING-OUTCOME": {"OUTCOME", "SUCCEEDED", "FAILED", "STALE"},
+            "OUTCOME": {"SUCCEEDED", "FAILED"},
+        }
+        from foundation.next_kernel import FORWARD, TERMINAL
+        self.assertEqual(FORWARD, expected)
+        self.assertTrue(set(STATES) - set(FORWARD) == TERMINAL | {"HUMAN-GATED", "STALE", "BLOCKED"})
+        self.assertTrue(all(not (target in {"DISCOVERED", "QUALIFIED", "PREPARED", "READY", "COMMITTED", "OUTCOME"}
+                                 and source in {"DISCOVERED", "QUALIFIED", "PREPARED", "READY", "COMMITTED", "OUTCOME"}
+                                 and target == source)
+                          for source, targets in FORWARD.items() for target in targets))
+
+    def test_every_defined_state_has_explicit_transition_policy(self):
+        from foundation.next_kernel import FORWARD, TERMINAL
+        nonterminal = STATES - TERMINAL - {"HUMAN-GATED", "STALE", "BLOCKED"}
+        self.assertEqual(set(FORWARD), nonterminal)
+
     def test_terminal_state_cannot_be_reactivated(self):
         self.store.upsert(self.item())
         self.store.advance("op-1", "REJECTED")
