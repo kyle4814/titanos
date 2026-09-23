@@ -143,6 +143,32 @@ to optimise against verified throughput.
 
 
 
+
+### 0.44 — MISSION / IMPACT NORTH STAR
+TitanOS is being built with a long-term philanthropic purpose: generate legitimate
+wealth and capability that can be used to help protect and improve children's lives.
+
+This is a **mission constraint, not a licence to exaggerate**.
+
+Optimise for:
+- speed without sacrificing verification;
+- durable commercial value;
+- real-world outcomes;
+- transparent evidence;
+- sustainable giving capacity.
+
+Never use children, suffering, or philanthropy as marketing leverage without
+documented evidence. Never claim that money was donated, children were helped,
+or impact was achieved unless it is actually recorded and verifiable.
+
+Where the repository contains an appropriate mission/impact surface, preserve
+the distinction between:
+    MISSION → INTENT → PLAN → COMMITTED FUNDING → REALISED IMPACT
+
+The commercial engine should create the capacity to fund the philanthropic mission;
+the evidence engine should apply the same truth standard to the charity as to
+the product.
+
 ### 0.45 — AUTHORITY ESCALATION / SELF-COMMITMENT
 The system may autonomously prepare and execute **bounded, reversible, pre-authorised
 operations** without waiting for Kyle, provided the operation falls inside an
