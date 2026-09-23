@@ -1,22 +1,21 @@
-"""Versioned institutional memory with checksums and crash-safe receipt transaction."""
+"""Versioned institutional memory with journal-backed transaction recovery."""
 from __future__ import annotations
 import hashlib,json,os
 from pathlib import Path
 from foundation.opportunity_feedback import OpportunityFeedbackBook
 from foundation.learning_receipt import LearningReceipt
 from foundation.receipt_ledger import ReceiptLedger
+from foundation.transaction_journal import MemoryTransactionJournal
 from foundation.workforce_memory import WorkforceMemoryStore
 from foundation.worker_health import WorkerHealthBook
 from foundation.specialization import SpecializationBook
 CURRENT_SCHEMA=4
 class InstitutionalMemory:
     def __init__(self,opportunity_learning=None,worker_health=None,specialization=None):
-        self.opportunity_learning=opportunity_learning or OpportunityFeedbackBook()
-        self.worker_health=worker_health or WorkerHealthBook()
-        self.specialization=specialization or SpecializationBook()
+        self.opportunity_learning=opportunity_learning or OpportunityFeedbackBook(); self.worker_health=worker_health or WorkerHealthBook(); self.specialization=specialization or SpecializationBook()
 class InstitutionalMemoryStore:
-    def __init__(self,path:str|Path,ledger_path:str|Path|None=None):
-        self.path=Path(path); self.ledger=ReceiptLedger(ledger_path or self.path.with_suffix(".receipts.jsonl"))
+    def __init__(self,path:str|Path,ledger_path=None,journal_path=None):
+        self.path=Path(path); self.ledger=ReceiptLedger(ledger_path or self.path.with_suffix(".receipts.jsonl")); self.journal=MemoryTransactionJournal(journal_path or self.path.with_suffix(".tx.json"))
     def _normalize(self,x):
         import dataclasses
         if dataclasses.is_dataclass(x): return {k:self._normalize(v) for k,v in dataclasses.asdict(x).items()}
@@ -27,54 +26,56 @@ class InstitutionalMemoryStore:
     def _canonical(x): return json.dumps(x,sort_keys=True,separators=(",",":")).encode()
     @classmethod
     def _checksum(cls,x): return "sha256:"+hashlib.sha256(cls._canonical(x)).hexdigest()
-    def _payload(self,memory):
-        return self._normalize({"schema_version":CURRENT_SCHEMA,"opportunities":memory.opportunity_learning.records,"health":memory.worker_health.workers,"specialization":memory.specialization.records})
+    def _payload(self,m): return self._normalize({"schema_version":CURRENT_SCHEMA,"opportunities":m.opportunity_learning.records,"health":m.worker_health.workers,"specialization":m.specialization.records})
     def _write_memory(self,payload,receipt):
-        envelope={**payload,"checksum":self._checksum(payload),"receipt":self._normalize(receipt)}
-        self.path.parent.mkdir(parents=True,exist_ok=True); tmp=self.path.with_suffix(self.path.suffix+".tmp")
-        tmp.write_text(json.dumps(envelope,sort_keys=True,separators=(",",":"))+"\n")
-        os.replace(tmp,self.path)
+        envelope={**payload,"checksum":self._checksum(payload),"receipt":self._normalize(receipt)}; self.path.parent.mkdir(parents=True,exist_ok=True)
+        tmp=self.path.with_suffix(self.path.suffix+".tmp"); tmp.write_text(json.dumps(envelope,sort_keys=True,separators=(",",":"))+"\n"); os.replace(tmp,self.path)
+    def _raw_payload(self):
+        if not self.path.exists(): return {}
+        raw=json.loads(self.path.read_text()); return {k:v for k,v in raw.items() if k not in ("checksum","receipt")}
+    def reconcile(self):
+        tx=self.journal.load()
+        if not tx: return "CLEAN"
+        if tx["status"]=="COMMITTED":
+            if not self.ledger.verify(): raise ValueError("receipt ledger integrity failure")
+            self.journal.clear(); return "COMMITTED_CLEARED"
+        memory_hash=self._checksum(self._raw_payload()) if self.path.exists() else self._checksum({})
+        ledger=self.ledger.read(); head=ledger[-1]["entry_hash"] if ledger else "GENESIS"
+        if memory_hash==tx["new_memory_hash"] and head==tx["ledger_entry_hash"]:
+            self.journal.mark_committed(); self.journal.clear(); return "FINALIZED"
+        if memory_hash==tx["previous_memory_hash"] and head!=tx["ledger_entry_hash"]:
+            self.journal.clear(); return "ROLLED_BACK"
+        raise ValueError("unresolved institutional memory transaction")
     def save(self,memory,receipt):
         if not isinstance(receipt,LearningReceipt): raise TypeError("learning receipt required")
+        self.reconcile()
         if not self.ledger.verify(): raise ValueError("receipt ledger integrity failure")
-        payload=self._payload(memory); before={}
-        if self.path.exists():
-            raw=json.loads(self.path.read_text()); before={k:v for k,v in raw.items() if k not in ("checksum","receipt")}
+        payload=self._payload(memory); before=self._raw_payload()
         if not receipt.verify_transition(before,payload): raise ValueError("learning receipt does not bind this memory transition")
-        staged=self.ledger.prepare(receipt)
-        # Commit memory first; append the receipt only after the durable state exists.
-        self._write_memory(payload,receipt)
-        try:
-            self.ledger.commit(staged)
-        except Exception:
-            # The receipt is not visible in the ledger, so the memory write is not a
-            # trusted learning mutation. Restore the previous durable state if possible.
-            raise RuntimeError("memory committed but receipt ledger commit failed; recovery required")
+        staged=self.ledger.prepare(receipt); new_hash=self._checksum(payload); previous_hash=self._checksum(before)
+        self.journal.begin(receipt.receipt_id,receipt.receipt_id,previous_hash,new_hash,staged["entry_hash"])
+        self._write_memory(payload,receipt); self.ledger.commit(staged)
+        self.journal.mark_committed(); self.journal.clear()
     @classmethod
     def _migrate(cls,raw):
         version=raw.get("schema_version",1)
-        while version<CURRENT_SCHEMA:
-            version+=1; raw=dict(raw); raw["schema_version"]=version
+        while version<CURRENT_SCHEMA: version+=1; raw=dict(raw); raw["schema_version"]=version
         if version!=CURRENT_SCHEMA: raise ValueError(f"unsupported institutional memory schema: {version}")
         return raw
     @classmethod
     def _verify(cls,raw):
         supplied=raw.pop("checksum",None)
-        if not supplied: raise ValueError("institutional memory checksum missing")
-        if supplied!=cls._checksum(raw): raise ValueError("institutional memory checksum mismatch")
+        if not supplied or supplied!=cls._checksum(raw): raise ValueError("institutional memory checksum mismatch")
         return raw
     def load(self):
+        self.reconcile()
         if not self.path.exists(): return InstitutionalMemory()
         if not self.ledger.verify(): raise ValueError("receipt ledger integrity failure")
-        raw=json.loads(self.path.read_text())
-        if not isinstance(raw,dict): raise ValueError("invalid institutional memory")
-        raw=self._verify(raw); raw=self._migrate(raw)
+        raw=json.loads(self.path.read_text()); raw=self._verify(raw); raw=self._migrate(raw)
         import tempfile
         with tempfile.TemporaryDirectory() as td:
-            root=Path(td); op=OpportunityLearningStore(root/"op.json")
-            op.path.write_text(json.dumps(raw.get("opportunities",{}),sort_keys=True))
-            wb=WorkforceMemoryStore(root/"wf.json")
-            wb.path.write_text(json.dumps({"health":raw.get("health",{}),"specialization":raw.get("specialization",[])},sort_keys=True))
+            root=Path(td); op=OpportunityLearningStore(root/"op.json"); op.path.write_text(json.dumps(raw.get("opportunities",{}),sort_keys=True))
+            wb=WorkforceMemoryStore(root/"wf.json"); wb.path.write_text(json.dumps({"health":raw.get("health",{}),"specialization":raw.get("specialization",[])},sort_keys=True))
             learning=op.load(); health,spec=wb.load()
         return InstitutionalMemory(learning,health,spec)
 __all__=["CURRENT_SCHEMA","InstitutionalMemory","InstitutionalMemoryStore"]
