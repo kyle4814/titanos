@@ -80,7 +80,7 @@ class TestNextKernel(unittest.TestCase):
 
     def test_o0_cannot_promote_to_prepared(self):
         self.store.upsert(self.item(authority="O0"))
-        with self.assertRaises(PermissionError):
+        with self.assertRaises(ValueError):
             self.store.advance("op-1", "PREPARED")
 
     def test_o1_cannot_reach_ready(self):
@@ -326,6 +326,13 @@ class TestNextKernel(unittest.TestCase):
         self.store.upsert(self.item())
         self.assertTrue(self.path.exists())
         self.assertFalse(self.path.with_suffix(".json.tmp").exists())
+
+    def test_actionable_orders_by_deadline_then_value_then_id(self):
+        self.store.upsert(self.item(id="late", source="A", title="Late",
+                                    value=100, deadline="2026-12-01"))
+        self.store.upsert(self.item(id="early", source="B", title="Early",
+                                    value=10, deadline="2026-09-30"))
+        self.assertEqual([x.id for x in self.store.actionable()], ["early", "late"])
 
 
 if __name__ == "__main__":
