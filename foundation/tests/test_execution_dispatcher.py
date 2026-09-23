@@ -155,6 +155,49 @@ class TestExecutionDispatcher(unittest.TestCase):
             self.assertEqual(len(store.load()), 1)
             self.assertTrue(all(result == results[0] for result in results))
 
+    def test_adapter_exception_becomes_unknown_not_success(self):
+        class ExplodingAdapter(Adapter):
+            def execute(self, intent):
+                raise RuntimeError("network response lost")
+
+        result = AdapterDispatcher.from_adapters(
+            [ExplodingAdapter("stripe", "stripe:")]
+        ).execute(self.intent())
+        self.assertEqual(result.status, "UNKNOWN")
+        self.assertFalse(result.executed)
+
+    def test_unknown_or_timeout_cannot_claim_executed(self):
+        class BadAdapter(Adapter):
+            def __init__(self, status):
+                super().__init__("stripe", "stripe:")
+                self.status = status
+
+            def execute(self, intent):
+                return AdapterResult(self.status, "ambiguous", True)
+
+        for status in ("UNKNOWN", "TIMEOUT"):
+            with self.subTest(status=status):
+                with self.assertRaisesRegex(AdapterDispatchError, "executed=True"):
+                    AdapterDispatcher.from_adapters(
+                        [BadAdapter(status)]
+                    ).execute(self.intent())
+
+    def test_unknown_adapter_outcome_is_persisted(self):
+        class ExplodingAdapter(Adapter):
+            def execute(self, intent):
+                raise TimeoutError("gateway timeout")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            store = ExecutionReceiptStore(Path(tmp) / "receipts.json")
+            receipt = AdapterDispatcher.from_adapters(
+                [ExplodingAdapter("stripe", "stripe:")]
+            ).execute_approved_with_receipt(
+                self.intent(), self.intent().fingerprint(), store
+            )
+            self.assertEqual(receipt.status, "UNKNOWN")
+            self.assertFalse(receipt.executed)
+            self.assertIn("TimeoutError", receipt.evidence)
+
     def test_dispatch_executes_selected_adapter(self):
         adapter = Adapter("stripe", "stripe:", "payment link created")
         result = AdapterDispatcher.from_adapters([adapter]).execute(self.intent())
