@@ -1,10 +1,17 @@
 from __future__ import annotations
 
+import tempfile
 import unittest
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
-from foundation.execution_executor import approved_dry_run, dry_run
+from foundation.execution_executor import (
+    approved_dry_run,
+    approved_dry_run_with_receipt,
+    dry_run,
+)
 from foundation.execution_intent import ExecutionIntent, ExecutionIntentError
+from foundation.execution_receipt_store import ExecutionReceiptStore
 
 
 class TestExecutionExecutor(unittest.TestCase):
@@ -48,6 +55,25 @@ class TestExecutionExecutor(unittest.TestCase):
         intent = self.intent()
         with self.assertRaisesRegex(ExecutionIntentError, "does not match"):
             approved_dry_run(intent, "EI-not-the-approved-intent")
+
+    def test_approved_dry_run_with_receipt_persists_receipt(self):
+        intent = self.intent()
+        with tempfile.TemporaryDirectory() as tmp:
+            store = ExecutionReceiptStore(Path(tmp) / "receipts.json")
+            receipt = approved_dry_run_with_receipt(
+                intent, intent.fingerprint(), store
+            )
+            self.assertEqual(receipt.status, "APPROVED_DRY_RUN")
+            self.assertFalse(receipt.executed)
+            self.assertEqual(store.get(receipt.receipt_id), receipt)
+
+    def test_approved_dry_run_with_receipt_rejects_before_persistence(self):
+        intent = self.intent()
+        with tempfile.TemporaryDirectory() as tmp:
+            store = ExecutionReceiptStore(Path(tmp) / "receipts.json")
+            with self.assertRaisesRegex(ExecutionIntentError, "does not match"):
+                approved_dry_run_with_receipt(intent, "WRONG", store)
+            self.assertFalse(Path(tmp, "receipts.json").exists())
 
     def test_expired_intent_is_rejected(self):
         intent = self.intent(
