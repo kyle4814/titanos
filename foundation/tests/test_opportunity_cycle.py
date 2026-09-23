@@ -6,6 +6,7 @@ from pathlib import Path
 from foundation import opportunity_cycle
 from foundation.mouth_ted import MOUTH_ID as TED_MOUTH_ID
 from foundation.outcome_ledger import OutcomeLedger
+from foundation.next_kernel import OpportunityStore
 from foundation.tender_radar import MOUTH_ID as UK_MOUTH_ID
 
 
@@ -198,6 +199,49 @@ class RunCycleTests(unittest.TestCase):
         self.assertTrue(missing.is_dir())
         self.assertEqual(report.signal_count, 2)
         self.assertEqual(report.ledger_records_written, 1)  # same buyer name
+
+    # -- pipeline observations persist into the durable NEXT queue ----
+
+    def test_pipeline_observations_enter_next_queue_as_discovered_o0(self):
+        ledger, report = self._run(fetch_fns={
+            UK_MOUTH_ID: lambda: _feed(_release(buyer_name="Queue Buyer Ltd")),
+            TED_MOUTH_ID: lambda: _ted_feed(),
+        })
+
+        self.assertEqual(report.queue_new, 1)
+        queue = OpportunityStore(self.state_dir / "next_opportunities.json")
+        items = queue.load()
+        self.assertEqual(len(items), 1)
+        item = next(iter(items.values()))
+        self.assertEqual(item.source, "opportunity_pipeline")
+        self.assertEqual(item.status, "DISCOVERED")
+        self.assertEqual(item.authority, "O0")
+        self.assertTrue(item.evidence_refs)
+        self.assertIn("Queue Buyer Ltd", item.title)
+        self.assertIn("QUALIFY", item.next_action)
+
+    def test_repeated_observation_with_new_evidence_updates_without_regressing_state(self):
+        ledger = _make_ledger()
+        first = opportunity_cycle.run_cycle(
+            self.state_dir, ledger,
+            fetch_fns={UK_MOUTH_ID: lambda: _feed(_release()), TED_MOUTH_ID: lambda: _ted_feed()})
+        self.assertEqual(first.queue_new, 1)
+        queue = OpportunityStore(self.state_dir / "next_opportunities.json")
+        item = next(iter(queue.load().values()))
+        queue.advance(item.id, "QUALIFIED")
+
+        # The pipeline identity is the controlling opportunity. A second
+        # observation with another signal reference must merge evidence,
+        # not demote QUALIFIED back to DISCOVERED.
+        extra = _release(ocid="ocds-extra", buyer_name="Example Council",
+                         title="Second notice")
+        second = opportunity_cycle.run_cycle(
+            self.state_dir, ledger,
+            fetch_fns={UK_MOUTH_ID: lambda: _feed(extra), TED_MOUTH_ID: lambda: _ted_feed()})
+        self.assertEqual(second.queue_updated, 1)
+        updated = queue.load()[item.id]
+        self.assertEqual(updated.status, "QUALIFIED")
+        self.assertGreater(len(updated.evidence_refs), len(item.evidence_refs))
 
     # -- re-running does not double-count in the ledger ------------------
 
