@@ -75,6 +75,33 @@ class TestExecutionExecutor(unittest.TestCase):
                 approved_dry_run_with_receipt(intent, "WRONG", store)
             self.assertFalse(Path(tmp, "receipts.json").exists())
 
+    def test_approval_cannot_replay_against_changed_target(self):
+        original = self.intent()
+        changed = self.intent(target="stripe:customer_999")
+        with self.assertRaisesRegex(ExecutionIntentError, "does not match"):
+            approved_dry_run(changed, original.fingerprint())
+
+    def test_approval_cannot_replay_against_changed_parameters(self):
+        original = self.intent()
+        changed = self.intent(parameters={"amount": 2000, "currency": "AUD"})
+        with self.assertRaisesRegex(ExecutionIntentError, "does not match"):
+            approved_dry_run(changed, original.fingerprint())
+
+    def test_approval_cannot_replay_against_changed_policy(self):
+        original = self.intent()
+        changed = self.intent(policy_version="mothership-2")
+        with self.assertRaisesRegex(ExecutionIntentError, "does not match"):
+            approved_dry_run(changed, original.fingerprint())
+
+    def test_duplicate_receipt_is_idempotent(self):
+        intent = self.intent()
+        with tempfile.TemporaryDirectory() as tmp:
+            store = ExecutionReceiptStore(Path(tmp) / "receipts.json")
+            first = approved_dry_run_with_receipt(intent, intent.fingerprint(), store)
+            second = approved_dry_run_with_receipt(intent, intent.fingerprint(), store)
+            self.assertEqual(first, second)
+            self.assertEqual(len(store.load()), 1)
+
     def test_expired_intent_is_rejected(self):
         intent = self.intent(
             expires_at=(datetime.now(timezone.utc) - timedelta(seconds=1)).isoformat()
