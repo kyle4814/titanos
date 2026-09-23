@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import unittest
 
-from foundation.execution_approval import approval_request_for_intent
+from unittest.mock import patch
+
+from foundation.execution_approval import approval_request_for_intent, request_intent_approval
 from foundation.execution_intent import ExecutionIntent
 
 
@@ -29,6 +31,14 @@ class TestExecutionApproval(unittest.TestCase):
         self.assertIn(intent.fingerprint(), req.action)
         self.assertIn(intent.target, req.action)
         self.assertIn(intent.expected_effect, req.why)
+
+    def test_request_id_defaults_to_exact_intent_fingerprint(self):
+        intent = self.intent()
+        with patch("foundation.execution_approval.request_approval", return_value="APPROVED") as mocked:
+            result = request_intent_approval(intent)
+        self.assertEqual(result, "APPROVED")
+        request = mocked.call_args.kwargs["request_id"]
+        self.assertEqual(request, f"intent:{intent.fingerprint()}")
 
     def test_changed_parameters_change_approval_binding(self):
         first = approval_request_for_intent(self.intent())
