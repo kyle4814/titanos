@@ -202,16 +202,10 @@ def ingest_pipeline_opportunities(
             for ref in (str(signal.source_ref).strip(), f"signal:{signal.signal_id}")
             if ref
         })
-        display_party = next((
-            str(signal.evidence.get("buyer_name_safe", "")).strip()
-            for signal in observed.signals
-            if isinstance(getattr(signal, "evidence", None), dict)
-            and str(signal.evidence.get("buyer_name_safe", "")).strip()
-        ), party)
         item = Opportunity(
             id=str(observed.opportunity_id),
             source="opportunity_pipeline",
-            title=f"Observed demand: {display_party}",
+            title=f"Observed demand: {party}",
             status="DISCOVERED",
             evidence_refs=tuple(refs),
             authority="O0",
