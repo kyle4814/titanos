@@ -45,6 +45,22 @@ class TestNextKernel(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.store.load()
 
+    def test_empty_identity_fields_are_rejected(self):
+        with self.assertRaises(ValueError):
+            self.item(id="")
+        with self.assertRaises(ValueError):
+            self.item(source="")
+        with self.assertRaises(ValueError):
+            self.item(title="")
+
+    def test_invalid_value_type_is_rejected(self):
+        with self.assertRaises((TypeError, ValueError)):
+            self.item(value="not-a-number")
+
+    def test_evidence_refs_must_be_sequence_of_strings(self):
+        with self.assertRaises((TypeError, ValueError)):
+            self.item(evidence_refs=("ok", 7))
+
     def test_invalid_authority_is_rejected(self):
         with self.assertRaises(ValueError):
             self.item(authority="O9")
