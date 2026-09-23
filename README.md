@@ -25,6 +25,9 @@ homework list.
 | 🕵️ **Auditing it / suspicious of the claims** | [What's actually true](#whats-actually-true) → [REMAINING_LIMITATIONS.md](REMAINING_LIMITATIONS.md) → [failures/FAILURE_ARCHIVE.md](failures/FAILURE_ARCHIVE.md) |
 | 🏗️ **Want to understand how it's built** | [The eight subsystems](#the-eight-subsystems) |
 | 📚 **Looking for the raw source material** | [corpus/](corpus/) — 14,215 delivered files |
+| 💰 **Evaluating investment / grants** | [Investment & Opportunity Map](INVESTMENT_OPPORTUNITY_MAP.md) → [Investor Index](INVESTOR_INDEX.md) |
+| 🧭 **Want the different possible futures** | [Vision Map](VISION_MAP.md) |
+| 🌐 **Looking for the right discovery path** | [Discovery Surface](DISCOVERY_SURFACE.md) |
 
 ---
 
