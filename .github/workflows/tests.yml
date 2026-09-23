@@ -26,6 +26,7 @@ on:
       - "compiler/**"
       - "gems/**"
       - "provenance/**"
+      - "tests/**"
       - "requirements.txt"
       - "run_all_tests.sh"
       - ".github/workflows/tests.yml"
