@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from foundation.next_kernel import Opportunity, OpportunityStore, fingerprint
+from foundation.next_kernel import Opportunity, OpportunityStore, STATES, fingerprint
 
 
 class TestNextKernel(unittest.TestCase):
@@ -179,8 +179,7 @@ class TestNextKernel(unittest.TestCase):
                 self.store.advance("op-1", "QUALIFIED")
         finally:
             Path.replace = original_replace
-        self.assertTrue(tmp.exists())
-        tmp.unlink()
+        self.assertFalse(tmp.exists())
 
     def test_transition_graph_is_forward_only_and_terminal(self):
         expected = {
