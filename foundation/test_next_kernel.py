@@ -53,6 +53,16 @@ class TestNextKernel(unittest.TestCase):
         with self.assertRaises(ValueError):
             fingerprint("", "id")
 
+    def test_persisted_key_must_match_record_identity(self):
+        self.path.write_text(json.dumps({
+            "wrong-key": {
+                "id": "op-1", "source": "source", "title": "Example",
+                "status": "DISCOVERED", "authority": "O0"
+            }
+        }), encoding="utf-8")
+        with self.assertRaises(ValueError):
+            self.store.load()
+
     def test_atomic_save_leaves_no_temp_file(self):
         self.store.upsert(self.item())
         self.assertTrue(self.path.exists())
