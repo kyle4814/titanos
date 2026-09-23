@@ -381,7 +381,7 @@ Stop a NEXT cycle only when one of these is true:
 3. **Extract the truth per opportunity** — value, deadline, what's required.
    Unstated requirement = **UNKNOWN**, never invented. Every figure traceable
    to the real source page.
-4. **Drop the package:** `python3 -m foundation.operator_cli opp-drop`. Refresh
+4. **Checkpoint durable NEXT state:** `python3 -m foundation.operator_cli next-state`. Then drop the package: `python3 -m foundation.operator_cli opp-drop`. Refresh
    `TITAN_OPPORTUNITIES` — START_HERE ranks the best money with **Kyle's ONE
    action per item** (apply at this link / run this command / authorise this).
    Add every real new find. Name unbuilt streams as unbuilt — don't fake reach.
