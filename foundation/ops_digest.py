@@ -59,6 +59,7 @@ __all__ = [
     "render_portfolio_header",
     "format_phone_markdown",
     "OpsDigestError",
+    "opportunities_from_receipts",
 ]
 
 
@@ -633,6 +634,58 @@ RULED_OUT: tuple[RuledOut, ...] = (
 
 def ruled_out_count() -> int:
     return len(RULED_OUT)
+
+
+def opportunities_from_receipts(receipts):
+    """Render existing OpportunityReceipts into conservative phone cards.
+
+    This is an adapter, not a second qualification engine. Qualification,
+    ranking and authority remain in foundation/opportunity.py and the signal
+    spine. Unknown reward/deadline data stays UNKNOWN rather than being
+    inferred for presentation.
+    """
+    from foundation.opportunity import OpportunityReceipt
+
+    cards = []
+    for receipt in receipts:
+        if not isinstance(receipt, OpportunityReceipt):
+            raise OpsDigestError("receipt adapter received a non-OpportunityReceipt")
+        if not receipt.signals:
+            raise OpsDigestError(
+                f"opportunity {receipt.opportunity_id!r} has no source signals")
+
+        primary = receipt.signals[0]
+        value = (
+            receipt.reward_advertised
+            if receipt.reward_advertised.strip()
+            else "UNKNOWN — reward not observed"
+        )
+        gate = (
+            "; ".join(receipt.disqualifiers)
+            if receipt.disqualifiers
+            else "HUMAN REVIEW — discovery receipt does not authorise action"
+        )
+        note_parts = list(receipt.unknowns)
+        note_parts.append(
+            "AUTO-RENDERED FROM OPPORTUNITY RECEIPT; "
+            "deadline and eligibility are not inferred."
+        )
+        cards.append(Opportunity(
+            opp_id=receipt.opportunity_id,
+            title=receipt.target,
+            what=primary.detail,
+            value=value,
+            gate=gate,
+            status="PURSUE",
+            deadline="None (standing) — deadline not established",
+            link=primary.source_ref or "UNKNOWN — source reference missing",
+            actions=(
+                "Open the primary source and verify current scope.",
+            ),
+            source_ref=f"opportunity::{receipt.opportunity_id}",
+            note=" ".join(note_parts),
+        ))
+    return tuple(cards)
 
 
 def live_opportunities(now: Optional[datetime] = None) -> tuple[Opportunity, ...]:
