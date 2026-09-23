@@ -1,23 +1,22 @@
-"""Versioned, checksummed institutional memory with mandatory mutation receipts."""
+"""Versioned, checksummed institutional memory with mandatory receipt ledger."""
 from __future__ import annotations
 import hashlib,json,os
 from pathlib import Path
 from foundation.opportunity_feedback import OpportunityFeedbackBook
 from foundation.learning_receipt import LearningReceipt
+from foundation.receipt_ledger import ReceiptLedger
 from foundation.workforce_memory import WorkforceMemoryStore
 from foundation.worker_health import WorkerHealthBook
 from foundation.specialization import SpecializationBook
-
-CURRENT_SCHEMA=3
-
+CURRENT_SCHEMA=4
 class InstitutionalMemory:
     def __init__(self,opportunity_learning=None,worker_health=None,specialization=None):
         self.opportunity_learning=opportunity_learning or OpportunityFeedbackBook()
         self.worker_health=worker_health or WorkerHealthBook()
         self.specialization=specialization or SpecializationBook()
-
 class InstitutionalMemoryStore:
-    def __init__(self,path:str|Path): self.path=Path(path)
+    def __init__(self,path:str|Path,ledger_path:str|Path|None=None):
+        self.path=Path(path); self.ledger=ReceiptLedger(ledger_path or self.path.with_suffix(".receipts.jsonl"))
     def _normalize(self,x):
         import dataclasses
         if dataclasses.is_dataclass(x): return {k:self._normalize(v) for k,v in dataclasses.asdict(x).items()}
@@ -25,43 +24,41 @@ class InstitutionalMemoryStore:
         if isinstance(x,dict): return {str(k):self._normalize(v) for k,v in x.items()}
         return x
     @staticmethod
-    def _canonical(payload:dict)->bytes: return json.dumps(payload,sort_keys=True,separators=(",",":")).encode()
+    def _canonical(payload): return json.dumps(payload,sort_keys=True,separators=(",",":")).encode()
     @classmethod
-    def _checksum(cls,payload:dict)->str: return "sha256:"+hashlib.sha256(cls._canonical(payload)).hexdigest()
+    def _checksum(cls,payload): return "sha256:"+hashlib.sha256(cls._canonical(payload)).hexdigest()
     def _payload(self,memory):
-        return self._normalize({"schema_version":CURRENT_SCHEMA,"opportunities":memory.opportunity_learning.records,
-                                "health":memory.worker_health.workers,"specialization":memory.specialization.records})
-    def save(self,memory:InstitutionalMemory,receipt:LearningReceipt)->None:
+        return self._normalize({"schema_version":CURRENT_SCHEMA,"opportunities":memory.opportunity_learning.records,"health":memory.worker_health.workers,"specialization":memory.specialization.records})
+    def save(self,memory,receipt):
         if not isinstance(receipt,LearningReceipt): raise TypeError("learning receipt required")
-        payload=self._payload(memory)
-        current_before={}
+        if not self.ledger.verify(): raise ValueError("receipt ledger integrity failure")
+        payload=self._payload(memory); before={}
         if self.path.exists():
-            raw=json.loads(self.path.read_text()); current_before={k:v for k,v in raw.items() if k not in ("checksum","receipt")}
-        if not receipt.verify_transition(current_before,payload):
-            raise ValueError("learning receipt does not bind this memory transition")
+            raw=json.loads(self.path.read_text()); before={k:v for k,v in raw.items() if k not in ("checksum","receipt")}
+        if not receipt.verify_transition(before,payload): raise ValueError("learning receipt does not bind this memory transition")
+        self.ledger.append(receipt)
         envelope={**payload,"checksum":self._checksum(payload),"receipt":self._normalize(receipt)}
         self.path.parent.mkdir(parents=True,exist_ok=True); tmp=self.path.with_suffix(self.path.suffix+".tmp")
-        tmp.write_text(json.dumps(envelope,sort_keys=True,separators=(",",":"))+"\n"); os.replace(tmp,self.path)
-    @staticmethod
-    def _migrate(raw:dict)->dict:
-        version=raw.get("schema_version",1)
-        if version==1:
-            raw=dict(raw); raw["schema_version"]=2
-            raw.setdefault("opportunities",{}); raw.setdefault("health",{}); raw.setdefault("specialization",[])
-            version=2
-        if version==2:
-            raw=dict(raw); raw["schema_version"]=3
-            version=3
-        if version==CURRENT_SCHEMA:return raw
-        raise ValueError(f"unsupported institutional memory schema: {version}")
+        try:
+            tmp.write_text(json.dumps(envelope,sort_keys=True,separators=(",",":"))+"\n"); os.replace(tmp,self.path)
+        except Exception:
+            raise
     @classmethod
-    def _verify(cls,raw:dict)->dict:
+    def _migrate(cls,raw):
+        version=raw.get("schema_version",1)
+        while version<CURRENT_SCHEMA:
+            version+=1; raw=dict(raw); raw["schema_version"]=version
+        if version!=CURRENT_SCHEMA: raise ValueError(f"unsupported institutional memory schema: {version}")
+        return raw
+    @classmethod
+    def _verify(cls,raw):
         supplied=raw.pop("checksum",None)
         if not supplied: raise ValueError("institutional memory checksum missing")
         if supplied!=cls._checksum(raw): raise ValueError("institutional memory checksum mismatch")
         return raw
-    def load(self)->InstitutionalMemory:
+    def load(self):
         if not self.path.exists(): return InstitutionalMemory()
+        if not self.ledger.verify(): raise ValueError("receipt ledger integrity failure")
         raw=json.loads(self.path.read_text())
         if not isinstance(raw,dict): raise ValueError("invalid institutional memory")
         raw=self._verify(raw); raw=self._migrate(raw)
