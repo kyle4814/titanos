@@ -52,5 +52,5 @@ def receipt_from_result(result: ExecutionResult) -> ExecutionReceipt:
         status=result.status,
         executed=result.executed,
         recorded_at=datetime.now(timezone.utc).isoformat(),
-        evidence=result.simulated_effect,
+        evidence="\n".join(result.evidence) if result.evidence else result.simulated_effect,
     )
