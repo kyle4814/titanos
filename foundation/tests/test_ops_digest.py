@@ -112,7 +112,7 @@ class TestEveryLinkIsWellFormed(unittest.TestCase):
 class TestOrdering(unittest.TestCase):
     def test_actionable_now_sorts_ahead_of_watch(self):
         opps = live_opportunities()
-        statuses = [STATUS_ORDER.index(o.status) for o in opps]
+        statuses = [STATUS_ORDER.index(o.effective_status()) for o in opps]
         self.assertEqual(statuses, sorted(statuses))
 
     def test_a_dated_item_sorts_by_soonest_within_its_band(self):
@@ -142,7 +142,7 @@ class TestTelegramRender(unittest.TestCase):
 
     def test_every_card_carries_its_value_and_link(self):
         msgs = render_telegram_html(now=self.NOW)[1:]
-        for o, m in zip(live_opportunities(), msgs):
+        for o, m in zip(live_opportunities(self.NOW), msgs):
             self.assertIn(o.link, m)
             self.assertIn("Value:", m)
             self.assertIn("Do this:", m)
