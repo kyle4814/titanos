@@ -11,7 +11,7 @@ from dataclasses import dataclass
 
 from foundation.execution_intent import ExecutionIntent
 from foundation.execution_receipt import ExecutionReceipt
-from foundation.execution_retry import RetryDecision, classify_retry
+from foundation.execution_retry import RetryDecision, classify_reconciled_retry
 from foundation.reconciliation_dispatcher import ReconciliationDispatcher
 from foundation.reconciliation_receipt import (
     ReconciliationReceipt,
@@ -49,12 +49,7 @@ class ReconciliationCoordinator:
         )
         self.receipt_store.record(receipt)
 
-        if result.status.value == "RESOLVED_EXECUTED":
-            decision = RetryDecision.TERMINAL
-        elif result.status.value == "RESOLVED_NOT_EXECUTED":
-            decision = RetryDecision.RECONCILE_REQUIRED
-        else:
-            decision = RetryDecision.RECONCILE_REQUIRED
+        decision = classify_reconciled_retry(result)
 
         return ReconciliationCycle(
             execution_receipt=execution_receipt,
