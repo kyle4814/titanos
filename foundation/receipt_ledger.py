@@ -15,7 +15,10 @@ class ReceiptLedger:
         return {**body,"entry_hash":self._hash(body)}
     def prepare(self,receipt):
         if not isinstance(receipt,LearningReceipt): raise TypeError("LearningReceipt required")
-        rows=self.read(); previous=rows[-1]["entry_hash"] if rows else "GENESIS"
+        rows=self.read()
+        if any(row.get("receipt",{}).get("receipt_id")==receipt.receipt_id for row in rows):
+            raise ValueError("duplicate receipt id")
+        previous=rows[-1]["entry_hash"] if rows else "GENESIS"
         return self._entry(receipt,previous)
     def append(self,receipt): self.commit(self.prepare(receipt))
     def commit(self,entry):
