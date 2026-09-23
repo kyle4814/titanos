@@ -39,6 +39,20 @@ win money from it, it goes in the folder with the exact next action.
 
 ## EACH RUN
 
+### 0. FAST PATH — clear the load-bearing blocker first
+Before broad hunting, inspect the latest GitHub Actions state and local git state.
+If the current head has a failing test, broken check, or reproducible CI defect,
+repair that first and verify it. Do not start a large discovery sweep while a
+known load-bearing validation failure is unresolved.
+
+For Claude Code throughput, split **read-only reconnaissance** into parallel
+lanes (CI/repo, opportunity sources, investment/discovery surfaces, existing
+sensors) when the tools permit it. Converge before any overlapping mutation.
+Use one writer per file and never parallelise competing writes.
+
+Use the smallest relevant test while iterating; reserve the full matrix for the
+commit/promotion gate. Do not confuse a cancelled GitHub run with a passed run.
+
 1. **Orient.** Read the real state — `OPS_BOARD.md`, the current desktop folder,
    git state, `PARETO_FRONTIER.md`. Never trust a previous session's summary.
 2. **HUNT BROAD, then WIDEN.** Sweep every reachable source. Each run, also push
