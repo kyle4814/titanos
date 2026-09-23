@@ -144,13 +144,13 @@ class OpportunityStore:
             raise KeyError(opportunity_id)
         if new_status not in STATES:
             raise ValueError(f"invalid state: {new_status}")
+        current = items[opportunity_id]
         required = MIN_AUTHORITY.get(new_status)
         if required is not None and AUTHORITY_LEVEL[current.authority] < required:
             raise PermissionError(
                 f"{new_status} requires authority O{required} or higher; "
                 f"record has {current.authority}"
             )
-        current = items[opportunity_id]
         allowed = FORWARD.get(current.status, set())
         if new_status not in allowed:
             raise ValueError(f"invalid transition: {current.status} -> {new_status}")
