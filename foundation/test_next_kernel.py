@@ -90,6 +90,27 @@ class TestNextKernel(unittest.TestCase):
         with self.assertRaises(PermissionError):
             self.store.advance("op-1", "READY")
 
+    def test_new_evidence_cannot_overwrite_protected_lifecycle_fields(self):
+        existing = self.item(
+            status="QUALIFIED",
+            authority="O3",
+            next_action="protected action",
+            evidence_refs=("old",),
+        )
+        self.store.upsert(existing)
+        incoming = self.item(
+            evidence_refs=("new",),
+            status="DISCOVERED",
+            authority="O0",
+            next_action="attacker action",
+        )
+        self.assertEqual(self.store.upsert(incoming), "UPDATED")
+        item = self.store.load()["op-1"]
+        self.assertEqual(item.status, "QUALIFIED")
+        self.assertEqual(item.authority, "O3")
+        self.assertEqual(item.next_action, "protected action")
+        self.assertEqual(item.evidence_refs, ("new", "old"))
+
     def test_o3_can_reach_committed_after_valid_lifecycle(self):
         self.store.upsert(self.item(authority="O3"))
         self.store.advance("op-1", "QUALIFIED")
