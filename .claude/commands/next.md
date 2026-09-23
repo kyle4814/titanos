@@ -141,6 +141,48 @@ merges results, resolves conflicts, and chooses ONE frontier mutation.
 Never spawn workers merely to increase worker count. Worker count is a resource
 to optimise against verified throughput.
 
+
+
+### 0.45 — AUTHORITY ESCALATION / SELF-COMMITMENT
+The system may autonomously prepare and execute **bounded, reversible, pre-authorised
+operations** without waiting for Kyle, provided the operation falls inside an
+explicit policy envelope.
+
+Use authority classes:
+
+    A0 = read / inspect / analyse
+    A1 = local code / tests / reversible repo maintenance
+    A2 = pre-authorised external low-risk actions
+    A3 = consequential external actions requiring Telegram verification
+    A4 = irreversible / financial / legal / ownership / production-critical actions
+
+Default autonomy:
+- A0–A1: execute autonomously.
+- A2: execute only when the configured policy explicitly permits it.
+- A3: prepare the complete action package, then request the configured Telegram
+  verification gate. A verified Telegram approval is the authority event.
+- A4: NEVER self-authorise. Stop and require explicit human authority.
+
+Examples:
+- Email: draft → validate recipient/content → Telegram verify → send.
+- Smart contract deployment/transaction: inspect → simulate → security checks →
+  produce exact transaction/contract diff + expected effects → Telegram verify →
+  execute only within the approved scope.
+- Anything involving private keys, wallet custody, funds, equity, legal commitments,
+  destructive production changes, or ownership transfer remains A4 unless an
+  explicit human-controlled policy says otherwise.
+
+**Verification must bind to the exact action.** Do not treat a generic "yes" as
+authority for a materially different action. The approval record should identify
+the operation, target, parameters, expected effect, expiry, and policy version.
+
+The autonomous worker may continue all non-blocked work while an A3/A4 gate is
+waiting.
+
+This creates **human-on-the-loop**, not human-out-of-the-loop, operation:
+machines execute the boring/reversible work; humans retain authority over
+consequential acts.
+
 ### 0.4 — STOP CONDITIONS
 Stop a NEXT cycle only when one of these is true:
 
