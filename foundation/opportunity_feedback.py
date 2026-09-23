@@ -1,6 +1,8 @@
-"""Evidence-weighted outcome feedback for opportunity scheduling."""
+"""Evidence-weighted, time-decayed outcome feedback."""
 from __future__ import annotations
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from math import exp
 
 @dataclass(frozen=True)
 class OutcomeFeedback:
@@ -9,6 +11,7 @@ class OutcomeFeedback:
     realized_value: float
     completed: bool
     evidence_strength: float = 0.0
+    observed_at: str | None = None
 
     @property
     def value_error(self) -> float:
@@ -18,6 +21,16 @@ class OutcomeFeedback:
     def weight(self) -> float:
         return max(0.0, min(1.0, self.evidence_strength)) if self.completed else 0.0
 
+    def decayed_weight(self, now: datetime | None = None, half_life_days: float = 30.0) -> float:
+        if half_life_days <= 0:
+            raise ValueError("half_life_days must be positive")
+        if not self.observed_at:
+            return self.weight
+        now = now or datetime.now(timezone.utc)
+        observed = datetime.fromisoformat(self.observed_at)
+        age=max(0.0, (now-observed).total_seconds()/86400.0)
+        return self.weight * exp(-0.6931471805599453 * age / half_life_days)
+
 @dataclass
 class OpportunityFeedbackBook:
     records: dict[str, tuple[OutcomeFeedback, ...]] = field(default_factory=dict)
@@ -25,13 +38,13 @@ class OpportunityFeedbackBook:
     def record(self, feedback: OutcomeFeedback) -> None:
         self.records[feedback.opportunity_id] = (*self.records.get(feedback.opportunity_id, ()), feedback)
 
-    def calibration(self, opportunity_id: str) -> float:
+    def calibration(self, opportunity_id: str, *, now: datetime | None = None, half_life_days: float = 30.0) -> float:
         rows=self.records.get(opportunity_id, ())
-        weighted=sum(x.value_error*x.weight for x in rows)
-        weight=sum(x.weight for x in rows)
+        weighted=sum(x.value_error*x.decayed_weight(now,half_life_days) for x in rows)
+        weight=sum(x.decayed_weight(now,half_life_days) for x in rows)
         return weighted/weight if weight else 0.0
 
-    def adjusted_value(self, opportunity_id: str, expected_value: float) -> float:
-        return expected_value + self.calibration(opportunity_id)
+    def adjusted_value(self, opportunity_id: str, expected_value: float, *, now: datetime | None = None, half_life_days: float = 30.0) -> float:
+        return expected_value + self.calibration(opportunity_id,now=now,half_life_days=half_life_days)
 
 __all__=["OutcomeFeedback","OpportunityFeedbackBook"]
