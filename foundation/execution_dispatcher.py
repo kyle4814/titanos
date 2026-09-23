@@ -7,8 +7,9 @@ silently selecting a fallback.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field as dataclass_field
 from typing import TYPE_CHECKING, Iterable
+import threading
 
 from foundation.execution_adapter import AdapterResult, ExecutionAdapter
 from foundation.execution_executor import (
@@ -31,6 +32,7 @@ class AdapterDispatchError(ExecutionIntentError):
 @dataclass(frozen=True)
 class AdapterDispatcher:
     adapters: tuple[ExecutionAdapter, ...]
+    _execution_lock: threading.RLock = dataclass_field(default_factory=threading.RLock, init=False, repr=False, compare=False)
 
     @classmethod
     def from_adapters(cls, adapters: Iterable[ExecutionAdapter]) -> "AdapterDispatcher":
@@ -59,6 +61,15 @@ class AdapterDispatcher:
         An existing receipt for the exact fingerprint is returned without
         invoking the adapter again, making retries safe at the kernel boundary.
         """
+        with self._execution_lock:
+            return self._execute_approved_with_receipt_locked(intent, approved_fingerprint, receipt_store)
+
+    def _execute_approved_with_receipt_locked(
+        self,
+        intent: ExecutionIntent,
+        approved_fingerprint: str,
+        receipt_store: "ExecutionReceiptStore",
+    ) -> ExecutionReceipt:
         fingerprint = _validate(intent)
         if approved_fingerprint != fingerprint:
             raise ExecutionIntentError(
