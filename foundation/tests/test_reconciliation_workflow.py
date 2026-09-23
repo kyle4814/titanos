@@ -73,6 +73,12 @@ class TestReconciliationWorkflow(unittest.TestCase):
                 outcome.retry_decision,
                 RetryDecision.RETRY_POLICY_REQUIRED,
             )
+            self.assertIsNotNone(outcome.retry_proposal)
+            self.assertEqual(outcome.retry_proposal.status, "PROPOSED")
+            self.assertIn(
+                outcome.reconciliation_receipt.receipt_id,
+                outcome.retry_proposal.candidate_intent.evidence_refs,
+            )
             self.assertIsNotNone(store.get(outcome.reconciliation_receipt.receipt_id))
 
     def test_reconciliation_does_not_authorize_retry(self):
@@ -85,6 +91,20 @@ class TestReconciliationWorkflow(unittest.TestCase):
             self.assertNotEqual(
                 outcome.retry_decision,
                 RetryDecision.TERMINAL,
+            )
+            self.assertEqual(outcome.retry_proposal.status, "PROPOSED")
+
+    def test_reconciliation_proposal_is_not_an_execution_receipt(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            workflow = ReconciliationWorkflow(
+                ReconciliationDispatcher.from_adapters([Adapter()]),
+                ReconciliationReceiptStore(Path(tmp) / "reconciliation.json"),
+            )
+            outcome = workflow.reconcile(self.intent, self.execution_receipt)
+            self.assertEqual(outcome.retry_proposal.status, "PROPOSED")
+            self.assertEqual(
+                outcome.retry_proposal.original_intent_fingerprint,
+                self.intent.fingerprint(),
             )
 
 
