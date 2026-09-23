@@ -54,4 +54,18 @@ class TestMemoryRecovery(unittest.TestCase):
             store.load()
 
 
+    def test_duplicate_receipt_is_rejected(self):
+        with tempfile.TemporaryDirectory() as td:
+            store=InstitutionalMemoryStore(Path(td)/"memory.json")
+            memory=InstitutionalMemory()
+            before={}
+            payload=store._payload(memory)
+            receipt=LearningReceipt.create("worker","duplicate",(),before,payload)
+            store.save(memory,receipt)
+            with self.assertRaises(ValueError):
+                store.save(memory,receipt)
+            self.assertEqual(len(store.ledger.read()),1)
+            self.assertTrue(store.ledger.verify())
+
+
 if __name__=="__main__": unittest.main()
