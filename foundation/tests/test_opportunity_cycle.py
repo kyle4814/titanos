@@ -217,7 +217,7 @@ class RunCycleTests(unittest.TestCase):
         self.assertEqual(item.status, "DISCOVERED")
         self.assertEqual(item.authority, "O0")
         self.assertTrue(item.evidence_refs)
-        self.assertIn("Queue Buyer Ltd", item.title)
+        self.assertIn("queue buyer ltd", item.title)
         self.assertIn("QUALIFY", item.next_action)
 
     def test_repeated_observation_with_new_evidence_updates_without_regressing_state(self):
