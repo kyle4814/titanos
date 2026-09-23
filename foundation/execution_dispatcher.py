@@ -53,7 +53,7 @@ class AdapterDispatcher:
     @staticmethod
     def _execute_adapter(adapter: ExecutionAdapter, intent: ExecutionIntent) -> AdapterResult:
         try:
-            result = self._execute_adapter(adapter, intent)
+            result = adapter.execute(intent)
         except Exception as exc:
             # An adapter exception cannot prove that the external side effect
             # did not happen. Preserve that uncertainty explicitly.
@@ -111,7 +111,7 @@ class AdapterDispatcher:
             return existing
 
         adapter = self.select(intent)
-        result = adapter.execute(intent)
+        result = self._execute_adapter(adapter, intent)
         execution = ExecutionResult(
             status=result.status,
             intent_id=intent.intent_id,
