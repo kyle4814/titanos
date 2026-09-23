@@ -1,0 +1,113 @@
+"""Deterministic persistent kernel for the NEXT opportunity queue.
+
+This module is deliberately small: policy lives in the command layer; repeatable
+state transitions live here. It never performs outbound actions.
+"""
+from __future__ import annotations
+
+from dataclasses import asdict, dataclass
+from hashlib import sha256
+import json
+from pathlib import Path
+from typing import Any
+
+
+STATES = {
+    "DISCOVERED", "QUALIFIED", "PREPARED", "READY", "COMMITTED", "OUTCOME",
+    "REJECTED", "EXPIRED", "BLOCKED", "STALE", "DUPLICATE",
+    "HUMAN-GATED", "ALREADY-ACTIONED", "FAILED", "SUCCEEDED",
+    "AWAITING-OUTCOME",
+}
+
+FORWARD = {
+    "DISCOVERED": {"QUALIFIED", "REJECTED", "DUPLICATE", "STALE", "BLOCKED"},
+    "QUALIFIED": {"PREPARED", "REJECTED", "EXPIRED", "STALE", "BLOCKED"},
+    "PREPARED": {"READY", "HUMAN-GATED", "REJECTED", "STALE", "BLOCKED"},
+    "READY": {"COMMITTED", "HUMAN-GATED", "REJECTED", "EXPIRED", "STALE"},
+    "COMMITTED": {"OUTCOME", "AWAITING-OUTCOME", "FAILED"},
+    "AWAITING-OUTCOME": {"OUTCOME", "SUCCEEDED", "FAILED", "STALE"},
+    "OUTCOME": {"SUCCEEDED", "FAILED"},
+}
+
+TERMINAL = {"REJECTED", "EXPIRED", "DUPLICATE", "ALREADY-ACTIONED", "SUCCEEDED", "FAILED"}
+
+
+def fingerprint(source: str, external_id: str = "", url: str = "") -> str:
+    """Stable identity from source + external identity, with URL as fallback."""
+    key = "|".join(part.strip().lower() for part in (source, external_id or url))
+    if not source.strip() or not (external_id.strip() or url.strip()):
+        raise ValueError("source and external_id/url are required")
+    return sha256(key.encode("utf-8")).hexdigest()
+
+
+@dataclass(frozen=True)
+class Opportunity:
+    id: str
+    source: str
+    title: str
+    status: str = "DISCOVERED"
+    value: float | None = None
+    deadline: str | None = None
+    evidence_refs: tuple[str, ...] = ()
+    authority: str = "O0"
+    next_action: str = ""
+
+    def __post_init__(self) -> None:
+        if self.status not in STATES:
+            raise ValueError(f"invalid state: {self.status}")
+        if self.authority not in {"O0", "O1", "O2", "O3", "O4"}:
+            raise ValueError(f"invalid authority: {self.authority}")
+
+
+class OpportunityStore:
+    """Tiny JSON store with atomic replacement and forward-only transitions."""
+
+    def __init__(self, path: str | Path):
+        self.path = Path(path)
+
+    def load(self) -> dict[str, Opportunity]:
+        if not self.path.exists():
+            return {}
+        raw = json.loads(self.path.read_text(encoding="utf-8"))
+        return {k: Opportunity(**v) for k, v in raw.items()}
+
+    def save(self, items: dict[str, Opportunity]) -> None:
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = self.path.with_suffix(self.path.suffix + ".tmp")
+        payload = {k: asdict(v) for k, v in sorted(items.items())}
+        tmp.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        tmp.replace(self.path)
+
+    def upsert(self, item: Opportunity) -> str:
+        items = self.load()
+        if item.id in items:
+            existing = items[item.id]
+            if existing.source != item.source:
+                raise ValueError("opportunity identity collision")
+            return "DUPLICATE"
+        items[item.id] = item
+        self.save(items)
+        return "NEW"
+
+    def advance(self, opportunity_id: str, new_status: str) -> Opportunity:
+        items = self.load()
+        if opportunity_id not in items:
+            raise KeyError(opportunity_id)
+        if new_status not in STATES:
+            raise ValueError(f"invalid state: {new_status}")
+        current = items[opportunity_id]
+        allowed = FORWARD.get(current.status, set())
+        if new_status not in allowed:
+            raise ValueError(f"invalid transition: {current.status} -> {new_status}")
+        updated = Opportunity(**{**asdict(current), "status": new_status})
+        items[opportunity_id] = updated
+        self.save(items)
+        return updated
+
+    def actionable(self) -> list[Opportunity]:
+        """Return durable work candidates; terminal and stale states stay visible."""
+        return sorted(
+            (x for x in self.load().values()
+             if x.status in {"DISCOVERED", "QUALIFIED", "PREPARED", "READY", "HUMAN-GATED", "AWAITING-OUTCOME"}),
+            key=lambda x: (x.deadline is None, x.deadline or "", -(x.value or 0.0), x.id),
+        )
