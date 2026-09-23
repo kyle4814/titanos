@@ -156,15 +156,15 @@ class OpportunityStore:
             if new_status not in STATES:
                 raise ValueError(f"invalid state: {new_status}")
             current = items[opportunity_id]
-            allowed = FORWARD.get(current.status, set())
-            if new_status not in allowed:
-                raise ValueError(f"invalid transition: {current.status} -> {new_status}")
             required = MIN_AUTHORITY.get(new_status)
             if required is not None and AUTHORITY_LEVEL[current.authority] < required:
                 raise PermissionError(
                     f"{new_status} requires authority O{required} or higher; "
                     f"record has {current.authority}"
                 )
+            allowed = FORWARD.get(current.status, set())
+            if new_status not in allowed:
+                raise ValueError(f"invalid transition: {current.status} -> {new_status}")
             updated = Opportunity(**{**asdict(current), "status": new_status})
             items[opportunity_id] = updated
             self.save(items)
@@ -202,10 +202,16 @@ def ingest_pipeline_opportunities(
             for ref in (str(signal.source_ref).strip(), f"signal:{signal.signal_id}")
             if ref
         })
+        display_party = next((
+            str(signal.evidence.get("buyer_name_safe", "")).strip()
+            for signal in observed.signals
+            if isinstance(getattr(signal, "evidence", None), dict)
+            and str(signal.evidence.get("buyer_name_safe", "")).strip()
+        ), party)
         item = Opportunity(
             id=str(observed.opportunity_id),
             source="opportunity_pipeline",
-            title=f"Observed demand: {party}",
+            title=f"Observed demand: {display_party}",
             status="DISCOVERED",
             evidence_refs=tuple(refs),
             authority="O0",
