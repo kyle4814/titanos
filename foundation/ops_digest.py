@@ -60,6 +60,7 @@ __all__ = [
     "format_phone_markdown",
     "OpsDigestError",
     "opportunities_from_receipts",
+    "live_opportunities_from_receipts",
 ]
 
 
@@ -686,6 +687,14 @@ def opportunities_from_receipts(receipts):
             note=" ".join(note_parts),
         ))
     return tuple(cards)
+
+
+def live_opportunities_from_receipts(receipts) -> tuple[Opportunity, ...]:
+    """Render already-qualified opportunity receipts for the phone digest.
+
+    This adapter does not qualify, rank, or authorise opportunities.
+    """
+    return opportunities_from_receipts(receipts)
 
 
 def live_opportunities(now: Optional[datetime] = None) -> tuple[Opportunity, ...]:
