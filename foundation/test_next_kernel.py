@@ -80,7 +80,7 @@ class TestNextKernel(unittest.TestCase):
 
     def test_o0_cannot_promote_to_prepared(self):
         self.store.upsert(self.item(authority="O0"))
-        with self.assertRaises(ValueError):
+        with self.assertRaises(PermissionError):
             self.store.advance("op-1", "PREPARED")
 
     def test_o1_cannot_reach_ready(self):
@@ -240,7 +240,7 @@ class TestNextKernel(unittest.TestCase):
 
     def test_illegal_lifecycle_skip_is_rejected(self):
         self.store.upsert(self.item())
-        with self.assertRaises(ValueError):
+        with self.assertRaises(PermissionError):
             self.store.advance("op-1", "READY")
 
     def test_backward_lifecycle_transition_is_rejected(self):
