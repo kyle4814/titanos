@@ -700,13 +700,10 @@ def target_lock(entry: RawValueMapEntry) -> TargetLock:
             "multiplicity of evidence")
         return TargetLock("WATCH", tuple(reasons))
     mass = entry.gravity_profile.mass
-    if mass < LOCK_THRESHOLD:
-        return TargetLock("WATCH", (
-            f"gravity {mass} below lock threshold {LOCK_THRESHOLD}",))
-    # Name WHICH kind of evidence carried the lock. Four people asking on
-    # one project and two instruments observing different dimensions are
-    # both "independent facts", and a lock that will not say which one it
-    # stood on is a black box with a threshold in front of it.
+    # Name WHICH kind of evidence carried the pull before applying the
+    # threshold. A WATCH can still be diagnostically convergent; hiding
+    # that fact behind the numeric gate makes the receipt less useful and
+    # caused the lock-explanation regression in test_target_mapping.
     if entry.fused.convergences:
         basis = (f"{entry.fused.convergences} convergent dimension(s) "
                  f"across independent instruments")
@@ -716,6 +713,9 @@ def target_lock(entry: RawValueMapEntry) -> TargetLock:
     else:
         basis = (f"{entry.fused.independent_facts} independent fact(s) in a "
                  f"SINGLE dimension -- volume, not cross-dimensional support")
+    if mass < LOCK_THRESHOLD:
+        return TargetLock("WATCH", (
+            f"gravity {mass} below lock threshold {LOCK_THRESHOLD}; {basis}",))
     reasons.append(f"gravity {mass} from {basis}")
     reasons.append("lock recommends investigation; it does not authorise it")
     return TargetLock("LOCKED", tuple(reasons))
