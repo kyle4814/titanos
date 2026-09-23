@@ -17,6 +17,28 @@ class TestWorkforce(unittest.TestCase):
         matches = registry.match({"research", "evidence"}, domain="osint")
         self.assertEqual([w.worker_id for w in matches], ["osint-1"])
 
+
+    def test_duplicate_worker_ids_are_rejected(self):
+        registry = WorkforceRegistry().register(WorkerSpec("worker-1", "research"))
+        with self.assertRaises(ValueError):
+            registry.register(WorkerSpec("worker-1", "research"))
+
+    def test_dispatch_budget_bounds_active_workers(self):
+        from foundation.workforce_dispatcher import DispatchBudget, dispatch
+
+        registry = WorkforceRegistry().register(
+            WorkerSpec("worker-1", "research", ("research",))
+        ).register(
+            WorkerSpec("worker-2", "research", ("research",))
+        )
+        plan = plan_swarm(registry, (
+            WorkRequirement("research", ("research",), "research"),
+        ))
+        batch = dispatch(plan, DispatchBudget(max_active=1, max_per_worker=1))
+        self.assertEqual(len(batch.items), 1)
+        self.assertLessEqual(len(batch.items), 1)
+        self.assertEqual(batch.items[0].slot, 0)
+
     def test_swarm_plan_assigns_specialists(self):
         registry = WorkforceRegistry().register(
             WorkerSpec("researcher", "commercial", ("research", "evidence"))
