@@ -353,6 +353,10 @@ class OpportunityScope:
     signals: tuple[str, ...]
     geographies: tuple[str, ...]
     channels: tuple[str, ...]
+    value_mechanisms: tuple[str, ...] = OPPORTUNITY_VALUE_MECHANISMS
+    action_classes: tuple[str, ...] = OPPORTUNITY_ACTION_CLASSES
+    access_models: tuple[str, ...] = OPPORTUNITY_ACCESS_MODELS
+    coverage_axes: tuple[str, ...] = OPPORTUNITY_COVERAGE_AXES
 
     @classmethod
     def global_default(cls) -> "OpportunityScope":
@@ -363,6 +367,10 @@ class OpportunityScope:
             signals=OPPORTUNITY_SIGNALS,
             geographies=OPPORTUNITY_GEOGRAPHIES,
             channels=OPPORTUNITY_CHANNELS,
+            value_mechanisms=OPPORTUNITY_VALUE_MECHANISMS,
+            action_classes=OPPORTUNITY_ACTION_CLASSES,
+            access_models=OPPORTUNITY_ACCESS_MODELS,
+            coverage_axes=OPPORTUNITY_COVERAGE_AXES,
         )
 
     def contains_type(self, opportunity_type: str) -> bool:
@@ -391,6 +399,10 @@ class OpportunityScope:
             "signals": self.signals,
             "geographies": self.geographies,
             "channels": self.channels,
+            "value_mechanisms": self.value_mechanisms,
+            "action_classes": self.action_classes,
+            "access_models": self.access_models,
+            "coverage_axes": self.coverage_axes,
         }
 
 
