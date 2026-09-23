@@ -72,6 +72,89 @@ For Claude Code throughput:
 
 The objective is continuous useful work, not continuous testing.
 
+### 0.1 — WORK-BUDGET LAW
+A NEXT run is a **bounded autonomous work cycle**, not one tool call and not one
+test run. Spend the available execution budget on the highest-value unfinished
+frontier until a stop condition is reached.
+
+Maintain these queues mentally/statefully:
+
+    HOT   = immediately actionable money/opportunity
+    BUILD = highest-leverage engineering bottleneck
+    VERIFY = validation currently required
+    WATCH = promising but not yet actionable
+
+Prefer this order:
+
+    HOT → BUILD → VERIFY → WATCH
+
+But **VERIFY never blocks HOT** unless the verification result is required to
+avoid an unsafe or false claim.
+
+Within each cycle:
+1. harvest new evidence;
+2. deduplicate against existing state;
+3. promote only genuinely new/high-value targets;
+4. execute the smallest high-leverage engineering mutation;
+5. run the smallest relevant verification;
+6. checkpoint durable state;
+7. continue to the next frontier item.
+
+Do not spend a whole cycle polishing one opportunity, rerunning identical tests,
+or rediscovering already-known sources.
+
+### 0.2 — SENSOR COMPOUNDING
+Every discovery run must leave the sensor network better than it found it.
+
+Track:
+- sources already swept;
+- sources newly opened;
+- source failures / access barriers;
+- last-seen timestamps;
+- duplicate fingerprints;
+- stale opportunities;
+- opportunities requiring human authority;
+- opportunities already actioned or rejected.
+
+A source that repeatedly produces nothing should be deprioritised, not forgotten.
+A blocked source should become a recorded sensor state, not an infinite retry loop.
+
+### 0.3 — CLAUDE CODE THROUGHPUT LAW
+Claude Code should behave like a **bounded worker swarm**, not a committee.
+
+Parallelise:
+- independent file reads;
+- independent source discovery;
+- independent evidence extraction;
+- independent test discovery;
+- independent opportunity qualification.
+
+Serialize:
+- overlapping writes;
+- canonical state mutation;
+- commits;
+- promotion decisions.
+
+Workers return **artifacts/evidence**, not competing narratives. The coordinator
+merges results, resolves conflicts, and chooses ONE frontier mutation.
+
+Never spawn workers merely to increase worker count. Worker count is a resource
+to optimise against verified throughput.
+
+### 0.4 — STOP CONDITIONS
+Stop a NEXT cycle only when one of these is true:
+
+- a real human-authority gate is reached;
+- credentials/secrets/legal/financial/irreversible action is required;
+- the remaining work has no meaningful evidence-backed frontier;
+- a safety/access boundary requires human intervention;
+- the execution budget is exhausted;
+- the system has produced a durable checkpoint and the next action genuinely
+  depends on Kyle.
+
+**A test taking 15 minutes is NOT a stop condition.**
+
+
 1. **Orient.** Read the real state — `OPS_BOARD.md`, the current desktop folder,
    git state, `PARETO_FRONTIER.md`. Never trust a previous session's summary.
    If validation is already running, record it and keep discovery moving.
