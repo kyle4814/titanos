@@ -25,11 +25,11 @@ def approval_request_for_intent(intent: ExecutionIntent) -> ApprovalRequest:
         f"intent={intent.intent_id}; fingerprint={intent.fingerprint()}; "
         f"expires={intent.expires_at}"
     )
+    evidence = ", ".join(intent.evidence_refs)
     why = (
-        f"Evidence: {", ".join(intent.evidence_refs)}. "
+        f"Evidence: {evidence}. "
         f"Expected effect: {intent.expected_effect}. "
-        f"Parameters: {params or "(none)"}."
-    )
+        f"Parameters: {params or '(none)'}.")
     cost = f"Authority required: {intent.authority_required}; policy={intent.policy_version}"
     reversible = "yes" if intent.reversible else "NO — irreversible action"
     return ApprovalRequest(
@@ -45,7 +45,7 @@ def request_intent_approval(intent: ExecutionIntent, **kwargs) -> Decision:
 
     The approval request id is bound to the canonical intent fingerprint by
     default. This prevents concurrent approval cards from sharing the
-    generic ``titan-approval`` callback identity. A caller may still supply
+    generic titan-approval callback identity. A caller may still supply
     an explicit request_id for an externally coordinated workflow.
     """
     kwargs.setdefault("request_id", f"intent:{intent.fingerprint()}")
