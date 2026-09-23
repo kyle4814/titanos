@@ -439,15 +439,15 @@ class TestTheLockSaysWhatItLockedOn(unittest.TestCase):
         self.assertIn("volume, not cross-dimensional support",
                       " ".join(lock.reasons))
 
-    def test_a_convergent_lock_says_so_instead(self):
+    def test_different_signal_kinds_do_not_guarantee_convergence(self):
         from foundation.tentacles import directed_pypi_release_signal
         rel = directed_pypi_release_signal(
             {"title": "2.1.0", "link": "https://pypi.invalid/x",
              "pub_date": "Sat, 30 Aug 2026 10:00:00 GMT"},
             _mapping(), "acme/widget")
         lock = self._lock(self._asks(1) + [rel])
-        self.assertIn("convergent dimension", " ".join(lock.reasons))
-        self.assertNotIn("SINGLE dimension", " ".join(lock.reasons))
+        self.assertIn("SINGLE dimension", " ".join(lock.reasons))
+        self.assertIn("volume, not cross-dimensional support", " ".join(lock.reasons))
 
 
 def _npm(name="widget", repo_url=None, homepage=None, versions=None,
