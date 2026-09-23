@@ -69,6 +69,27 @@ class TestMemoryRecovery(unittest.TestCase):
             store.load()
 
 
+    def test_crash_before_memory_write_rolls_back(self):
+        from unittest.mock import patch
+
+        with tempfile.TemporaryDirectory() as td:
+            path=Path(td)/"memory.json"
+            store=InstitutionalMemoryStore(path)
+            memory=InstitutionalMemory()
+            before=store._raw_payload()
+            payload=store._payload(memory)
+            receipt=LearningReceipt.create("worker","crash-before-memory",(),before,payload)
+            with patch.object(store,"_write_memory",side_effect=RuntimeError("simulated crash")):
+                with self.assertRaises(RuntimeError):
+                    store.save(memory,receipt)
+
+            recovered=InstitutionalMemoryStore(path)
+            self.assertEqual(recovered.reconcile(),"ROLLED_BACK")
+            self.assertIsNone(recovered.journal.load())
+            self.assertEqual(recovered._raw_payload(),{})
+            self.assertEqual(len(recovered.ledger.read()),0)
+            self.assertTrue(recovered.ledger.verify())
+
     def test_crash_after_memory_write_rolls_back(self):
         from unittest.mock import patch
 
