@@ -62,6 +62,37 @@ class TestExecutionReceiptStore(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "identity collision"):
                 store.record(conflicting)
 
+    def test_record_rejects_receipt_id_not_bound_to_fingerprint(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            store = ExecutionReceiptStore(Path(tmp) / "receipts.json")
+            receipt = self.make_receipt()
+            invalid = type(receipt)(
+                receipt_id="exec:WRONG",
+                intent_id=receipt.intent_id,
+                fingerprint=receipt.fingerprint,
+                target=receipt.target,
+                action=receipt.action,
+                status=receipt.status,
+                executed=receipt.executed,
+                recorded_at=receipt.recorded_at,
+                evidence=receipt.evidence,
+            )
+            with self.assertRaisesRegex(ValueError, "identity mismatch"):
+                store.record(invalid)
+
+    def test_persisted_receipt_id_must_match_fingerprint(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "receipts.json"
+            receipt = self.make_receipt()
+            data = receipt.to_dict()
+            data["receipt_id"] = "exec:WRONG"
+            path.write_text(
+                __import__("json").dumps({data["receipt_id"]: data}),
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(ValueError, "key/id mismatch|identity mismatch"):
+                ExecutionReceiptStore(path).load()
+
     def test_malformed_persistence_is_rejected(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "receipts.json"
