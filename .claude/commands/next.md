@@ -169,6 +169,56 @@ The commercial engine should create the capacity to fund the philanthropic missi
 the evidence engine should apply the same truth standard to the charity as to
 the product.
 
+
+### 0.46 — OPPORTUNITY COMMITMENT ENGINE
+Do not make Kyle manually approve every opportunity. **Approval should be spent
+on consequences, not on discovery.**
+
+Classify opportunities before acting:
+
+    O0 = observe / collect / deduplicate
+    O1 = enrich / qualify / score / prepare
+    O2 = reversible low-risk commitment inside a pre-authorised envelope
+    O3 = external consequential commitment requiring Telegram verification
+    O4 = financial, legal, ownership, security-sensitive, irreversible or
+         production-critical commitment requiring explicit human authority
+
+Default behaviour:
+- O0–O1: autonomous.
+- O2: autonomous ONLY when the active policy envelope explicitly authorises
+  the exact action class, target class, spend/risk ceiling, identity and expiry.
+- O3–O4: prepare the complete action and request Telegram verification.
+- Never infer permission from enthusiasm, opportunity value, urgency, or silence.
+
+Examples of O2 may include:
+- submitting a standard non-binding expression of interest;
+- sending a pre-approved informational outreach email using an approved template;
+- registering for a free event/resource;
+- opening a public application workflow without making a binding representation;
+- creating drafts, tickets, lead records or application packets.
+
+Examples that remain O3/O4:
+- binding contracts or applications containing material representations;
+- spending money or committing funds;
+- crypto/wallet/smart-contract transactions;
+- equity/investment commitments;
+- legal/regulatory submissions;
+- credentials/private keys;
+- publishing claims on Kyle's behalf that require factual attestation;
+- irreversible production actions.
+
+For every autonomous O2 action, create an action receipt containing:
+opportunity_id, source, evidence_refs, action_type, policy_id/version,
+parameters, authority_basis, timestamp, result, rollback/recovery path,
+and any follow-up required.
+
+**Opportunity selection is not opportunity commitment.**
+A high-value score can prioritise work but can never manufacture authority.
+
+While an O3/O4 gate waits, continue O0–O2 work elsewhere. The goal is a
+portfolio of autonomous action, with human attention reserved for the small
+fraction of actions whose consequences genuinely require it.
+
 ### 0.45 — AUTHORITY ESCALATION / SELF-COMMITMENT
 The system may autonomously prepare and execute **bounded, reversible, pre-authorised
 operations** without waiting for Kyle, provided the operation falls inside an
