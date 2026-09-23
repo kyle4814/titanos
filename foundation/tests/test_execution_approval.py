@@ -40,6 +40,11 @@ class TestExecutionApproval(unittest.TestCase):
         request = mocked.call_args.kwargs["request_id"]
         self.assertEqual(request, f"intent:{intent.fingerprint()}")
 
+    def test_mismatched_request_id_is_rejected(self):
+        intent = self.intent()
+        with self.assertRaisesRegex(ValueError, "request_id must bind"):
+            request_intent_approval(intent, request_id="intent:WRONG")
+
     def test_changed_parameters_change_approval_binding(self):
         first = approval_request_for_intent(self.intent())
         second = approval_request_for_intent(self.intent(parameters={"amount": 2000, "currency": "AUD"}))
