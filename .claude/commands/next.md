@@ -170,6 +170,36 @@ the evidence engine should apply the same truth standard to the charity as to
 the product.
 
 
+
+### 0.47 — COMMERCIAL EXECUTION BRIDGE
+Treat the existing commercial stack as infrastructure to discover and reuse, not
+as a reason to rebuild payment systems.
+
+When an opportunity qualifies:
+1. locate the canonical existing offer;
+2. locate its approved payment/checkout path;
+3. generate the evidence-backed Gold Brick;
+4. prepare the customer-facing action;
+5. classify the authority level;
+6. execute automatically only inside the applicable policy envelope;
+7. otherwise create the exact Telegram verification request;
+8. record the outcome and receipt.
+
+Payment-link generation is an **execution capability**, not evidence of a sale.
+A generated link ≠ sent link ≠ clicked link ≠ paid invoice ≠ delivered outcome.
+
+Never expose or copy secrets, API keys, private payment credentials, or wallet
+material into the repository, receipts, prompts, or opportunity records.
+
+Prefer existing Stripe/payment infrastructure when verified. Do not invent products,
+prices, customers, payment status, or commercial traction.
+
+The commercial flywheel is:
+
+    OPPORTUNITY → EVIDENCE → GOLD BRICK → OFFER → PAYMENT → DELIVERY → OUTCOME → RECEIPT
+
+Each transition must be independently observable.
+
 ### 0.46 — OPPORTUNITY COMMITMENT ENGINE
 Do not make Kyle manually approve every opportunity. **Approval should be spent
 on consequences, not on discovery.**
