@@ -8,6 +8,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 from hashlib import sha256
 import json
+import threading
 from pathlib import Path
 from typing import Any
 
@@ -86,6 +87,7 @@ class OpportunityStore:
 
     def __init__(self, path: str | Path):
         self.path = Path(path)
+        self._mutation_lock = threading.RLock()
 
     def load(self) -> dict[str, Opportunity]:
         if not self.path.exists():
@@ -113,55 +115,62 @@ class OpportunityStore:
             if tmp.exists():
                 tmp.unlink()
 
+  
+        with self._mutation_lock:
     def upsert(self, item: Opportunity) -> str:
-        """Insert or merge an observation without regressing lifecycle state.
+            """Insert or merge an observation without regressing lifecycle state.
 
-        Repeated discovery is not a duplicate *fact* when it carries new
-        evidence. The durable queue therefore keeps the existing lifecycle
-        state/authority while unioning newly observed evidence references.
-        This makes repeated NEXT cycles compound evidence instead of either
-        double-counting or silently discarding it.
-        """
-        items = self.load()
-        if item.id in items:
-            existing = items[item.id]
-            if existing.source != item.source:
-                raise ValueError("opportunity identity collision")
-            merged_refs = tuple(sorted(set(existing.evidence_refs) | set(item.evidence_refs)))
-            if merged_refs == existing.evidence_refs:
-                return "DUPLICATE"
-            items[item.id] = Opportunity(
-                **{
-                    **asdict(existing),
-                    "evidence_refs": merged_refs,
-                }
-            )
+            Repeated discovery is not a duplicate *fact* when it carries new
+            evidence. The durable queue therefore keeps the existing lifecycle
+            state/authority while unioning newly observed evidence references.
+            This makes repeated NEXT cycles compound evidence instead of either
+            double-counting or silently discarding it.
+            """
+            items = self.load()
+            if item.id in items:
+                existing = items[item.id]
+                if existing.source != item.source:
+                    raise ValueError("opportunity identity collision")
+                merged_refs = tuple(sorted(set(existing.evidence_refs) | set(item.evidence_refs)))
+                if merged_refs == existing.evidence_refs:
+                    return "DUPLICATE"
+                items[item.id] = Opportunity(
+                    **{
+                        **asdict(existing),
+                        "evidence_refs": merged_refs,
+                    }
+                )
+                self.save(items)
+                return "UPDATED"
+            items[item.id] = item
             self.save(items)
-            return "UPDATED"
-        items[item.id] = item
-        self.save(items)
-        return "NEW"
+            return "NEW"
+
+
 
     def advance(self, opportunity_id: str, new_status: str) -> Opportunity:
-        items = self.load()
-        if opportunity_id not in items:
-            raise KeyError(opportunity_id)
-        if new_status not in STATES:
-            raise ValueError(f"invalid state: {new_status}")
-        current = items[opportunity_id]
-        required = MIN_AUTHORITY.get(new_status)
-        if required is not None and AUTHORITY_LEVEL[current.authority] < required:
-            raise PermissionError(
-                f"{new_status} requires authority O{required} or higher; "
-                f"record has {current.authority}"
-            )
-        allowed = FORWARD.get(current.status, set())
-        if new_status not in allowed:
-            raise ValueError(f"invalid transition: {current.status} -> {new_status}")
-        updated = Opportunity(**{**asdict(current), "status": new_status})
-        items[opportunity_id] = updated
-        self.save(items)
-        return updated
+        with self._mutation_lock:
+            items = self.load()
+            if opportunity_id not in items:
+                raise KeyError(opportunity_id)
+            if new_status not in STATES:
+                raise ValueError(f"invalid state: {new_status}")
+            current = items[opportunity_id]
+            required = MIN_AUTHORITY.get(new_status)
+            if required is not None and AUTHORITY_LEVEL[current.authority] < required:
+                raise PermissionError(
+                    f"{new_status} requires authority O{required} or higher; "
+                    f"record has {current.authority}"
+                )
+            allowed = FORWARD.get(current.status, set())
+            if new_status not in allowed:
+                raise ValueError(f"invalid transition: {current.status} -> {new_status}")
+            updated = Opportunity(**{**asdict(current), "status": new_status})
+            items[opportunity_id] = updated
+            self.save(items)
+            return updated
+
+
 
     def actionable(self) -> list[Opportunity]:
         """Return durable work candidates; terminal and stale states stay visible."""
