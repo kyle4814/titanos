@@ -22,4 +22,11 @@ class MemoryTransactionJournal:
         return raw
     def clear(self)->None:
         if self.path.exists(): self.path.unlink()
+
+    def abort(self, tx_id:str)->None:
+        tx=self.load()
+        if tx is None:return
+        if tx["tx_id"] != tx_id: raise ValueError("transaction id mismatch")
+        if tx["status"] != "PREPARED": raise ValueError("cannot abort committed transaction")
+        self.clear()
 __all__=["MemoryTransactionJournal"]
