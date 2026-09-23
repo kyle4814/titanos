@@ -20,11 +20,15 @@ __all__ = [
     "OPPORTUNITY_SIGNALS",
     "OPPORTUNITY_GEOGRAPHIES",
     "OPPORTUNITY_CHANNELS",
+    "OPPORTUNITY_VALUE_MECHANISMS",
+    "OPPORTUNITY_ACTION_CLASSES",
+    "OPPORTUNITY_ACCESS_MODELS",
+    "OPPORTUNITY_COVERAGE_AXES",
     "OPPORTUNITY_SCOPE",
     "OpportunityScope",
 ]
 
-OPPORTUNITY_SCOPE_VERSION: Final[str] = "global-v1"
+OPPORTUNITY_SCOPE_VERSION: Final[str] = "global-v2"
 
 # Domain -> opportunity families. Keep values stable: adapters may persist them.
 OPPORTUNITY_DOMAINS: Final[dict[str, tuple[str, ...]]] = {
@@ -143,6 +147,158 @@ OPPORTUNITY_DOMAINS: Final[dict[str, tuple[str, ...]]] = {
         "drones", "mobility", "future_energy",
     ),
 }
+
+
+# v2 expansion: domains intentionally include ordinary and specialist economic,
+# scientific, civic and asset markets so the radar is not biased toward software.
+OPPORTUNITY_DOMAINS.update({
+    "agriculture_and_food": (
+        "agriculture", "agritech", "farming", "livestock", "aquaculture",
+        "food_production", "food_distribution", "food_service", "agri_grant",
+        "farm_asset", "commodity_supply", "food_innovation",
+    ),
+    "mining_and_natural_resources": (
+        "mining", "mineral_exploration", "critical_minerals", "oil_gas",
+        "water_resource", "forestry", "fisheries", "resource_licence",
+        "resource_contract", "environmental_offset",
+    ),
+    "energy_and_utilities": (
+        "electricity", "solar", "wind", "battery", "storage", "hydrogen",
+        "grid", "utility_contract", "energy_efficiency", "energy_certificate",
+        "energy_market", "waste_to_energy",
+    ),
+    "telecom_and_networks": (
+        "telecommunications", "broadband", "fiber", "wireless", "satellite_comms",
+        "network_services", "tower", "spectrum", "connectivity_program",
+    ),
+    "transport_and_mobility": (
+        "freight", "shipping", "aviation", "rail", "public_transport",
+        "fleet", "automotive", "ev", "charging", "mobility_service",
+        "drone_service", "maritime",
+    ),
+    "hospitality_and_tourism": (
+        "hotel", "hospitality", "tourism", "travel", "tour_operator",
+        "events", "venue", "experience", "destination_program",
+    ),
+    "consumer_and_retail": (
+        "consumer_product", "retail", "brand_partnership", "distribution",
+        "franchise", "licensing", "private_label", "ecommerce",
+        "subscription", "consumer_research",
+    ),
+    "gaming_and_interactive": (
+        "game_development", "game_jam", "esports", "game_publishing",
+        "game_asset", "modding", "interactive_media", "virtual_world",
+    ),
+    "arts_culture_and_heritage": (
+        "arts_grant", "cultural_program", "museum", "heritage",
+        "public_art", "creative_residency", "cultural_exchange",
+    ),
+    "sports_and_fitness": (
+        "sports_contract", "athlete_partnership", "sponsorship_program",
+        "sports_technology", "fitness_service", "sports_event",
+    ),
+    "standards_certification_and_compliance": (
+        "standards", "certification", "accreditation", "compliance_program",
+        "audit_program", "quality_program", "regulatory_submission",
+    ),
+    "intellectual_property_and_licensing": (
+        "patent", "trademark", "copyright", "design_right", "technology_license",
+        "patent_license", "royalty", "franchise_license", "know_how",
+        "ip_acquisition",
+    ),
+    "legal_dispute_and_resolution": (
+        "legal_contract", "legal_project", "due_diligence", "arbitration",
+        "mediation", "claims", "dispute_resolution", "legal_research",
+    ),
+    "insurance_and_risk": (
+        "insurance_contract", "reinsurance", "risk_program", "claims_services",
+        "insurtech", "risk_data", "compliance_risk",
+    ),
+    "professional_expert_services": (
+        "expert_network", "expert_witness", "due_diligence_service",
+        "translation", "interpretation", "technical_writing", "copywriting",
+        "design_service", "accounting", "tax_service", "audit_service",
+        "recruiting", "staffing",
+    ),
+    "infrastructure_and_built_environment": (
+        "civil_engineering", "architecture", "engineering_design",
+        "project_management", "facilities_management", "property_management",
+        "maintenance_contract", "infrastructure_finance", "infrastructure_ppp",
+    ),
+    "space_and_aerospace": (
+        "space_launch", "satellite", "earth_observation", "space_data",
+        "aerospace", "avionics", "space_grant", "space_research",
+    ),
+    "defence_and_public_safety": (
+        "defence_procurement", "dual_use_technology", "public_safety",
+        "emergency_management", "disaster_response", "resilience_program",
+        "defence_research",
+    ),
+    "international_trade_and_development": (
+        "export_opportunity", "import_opportunity", "trade_mission",
+        "development_finance", "multilateral_grant", "international_procurement",
+        "humanitarian_aid", "refugee_program", "capacity_building",
+    ),
+    "nonprofit_and_social_enterprise": (
+        "nonprofit_contract", "social_enterprise", "impact_investment",
+        "donor_program", "fundraising_service", "volunteer_program",
+    ),
+    "information_and_media_distribution": (
+        "news", "newsletter", "podcast", "broadcast", "publishing",
+        "journalism", "information_service", "media_rights", "syndication",
+    ),
+    "platform_and_marketplace_ecosystems": (
+        "platform_listing", "marketplace_vendor", "app_store",
+        "partner_directory", "affiliate_network", "referral_network",
+        "creator_marketplace", "service_marketplace",
+    ),
+    "events_and_conferences": (
+        "conference", "expo", "trade_show", "speaker", "sponsor",
+        "exhibitor", "workshop", "meetup", "event_services",
+    ),
+    "other_and_emerging": (
+        "unclassified", "new_market", "new_program", "new_mechanism",
+        "second_order", "cross_domain", "unknown",
+    ),
+})
+
+# Value mechanisms are independent of category: an opportunity may have more
+# than one. This prevents the radar from becoming "money-only".
+OPPORTUNITY_VALUE_MECHANISMS: Final[tuple[str, ...]] = (
+    "cash_prize", "contract_revenue", "recurring_revenue", "investment",
+    "grant", "tax_credit", "rebate", "royalty", "license_income",
+    "equity", "token_reward", "bounty", "salary", "commission",
+    "referral_fee", "affiliate_revenue", "sponsorship", "credits",
+    "compute", "data_access", "distribution", "customer_access",
+    "partnership", "ip_access", "credential", "publication",
+    "reputation", "network_access", "other",
+)
+
+# What TitanOS may ultimately prepare/execute. Consequential actions still
+# pass through the existing authorization gate.
+OPPORTUNITY_ACTION_CLASSES: Final[tuple[str, ...]] = (
+    "research", "analyze", "build", "repair", "test", "submit",
+    "apply", "bid", "quote", "pitch", "propose", "contact",
+    "negotiate", "contract", "invoice", "collect", "purchase",
+    "sell", "license", "partner", "invest", "acquire", "publish",
+    "contribute", "disclose", "audit", "register", "renew", "monitor",
+)
+
+OPPORTUNITY_ACCESS_MODELS: Final[tuple[str, ...]] = (
+    "public", "open_application", "invite_only", "referral",
+    "membership", "licensed", "accredited", "credentialed",
+    "contractual", "permissioned", "authorized_security_scope",
+    "geofenced", "jurisdiction_specific", "eligibility_restricted",
+    "unknown",
+)
+
+OPPORTUNITY_COVERAGE_AXES: Final[tuple[str, ...]] = (
+    "domain", "opportunity_type", "geography", "jurisdiction", "channel",
+    "source", "language", "industry", "organization_size", "eligibility",
+    "value_mechanism", "action_class", "access_model", "deadline_window",
+    "freshness", "public_private", "new_secondary_signal", "second_order",
+    "unknown_class",
+)
 
 OPPORTUNITY_TYPES: Final[tuple[str, ...]] = tuple(
     sorted({item for values in OPPORTUNITY_DOMAINS.values() for item in values})
