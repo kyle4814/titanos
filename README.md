@@ -135,6 +135,14 @@ Six rules that explain most decisions in this codebase.
 
 ---
 
+## Explore TitanOS by problem
+
+- [Discovery & Opportunity Surface](DISCOVERY.md) — who this is for and the major product directions.
+- [Vision Map](docs/VISIONS.md) — AI verification, evidence infrastructure, governance, research, security and open-source lanes.
+- [Verification Portal](docs/VERIFICATION_PORTAL.md) — proposed interface for checking claims, evidence, uncertainty and simulations.
+- [Ecosystem Entry Points](docs/ECOSYSTEM_ENTRYPOINTS.md) — routes for developers, researchers, security teams, contributors, founders and investors.
+- [Investment & Opportunity Map](investor/OPPORTUNITY_MAP.md) — capital hypotheses and evidence gates, without inventing traction.
+
 ## Documentation map
 
 <details>
