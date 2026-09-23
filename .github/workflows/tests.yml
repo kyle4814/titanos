@@ -17,6 +17,13 @@ on:
 
 jobs:
   test:
+    # New commits supersede older validation runs. Without this gate,
+    # rapid TitanOS work creates a backlog of stale full-matrix runs,
+    # wastes CI minutes, and sends failure emails for commits that are
+    # no longer the head being evaluated.
+    concurrency:
+      group: titan-os-tests-${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
