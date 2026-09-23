@@ -665,6 +665,32 @@ def cmd_opp_drop(args) -> int:
     return 0
 
 
+
+def cmd_next_state(args) -> int:
+    """Inspect the durable NEXT opportunity queue without performing network I/O."""
+    from foundation.next_kernel import OpportunityStore
+    path = Path(args.path).expanduser() if args.path else (
+        Path.home() / ".titanos" / "next_opportunities.json"
+    )
+    store = OpportunityStore(path)
+    items = store.load()
+    actionable = store.actionable()
+    counts = {}
+    for item in items.values():
+        counts[item.status] = counts.get(item.status, 0) + 1
+    print(f"next state : {path}")
+    print(f"records    : {len(items)}")
+    print(f"actionable : {len(actionable)}")
+    print("states     : " + (
+        ", ".join(f"{k}={v}" for k, v in sorted(counts.items()))
+        if counts else "(empty)"
+    ))
+    if actionable:
+        print("frontier   :")
+        for item in actionable[:args.limit]:
+            print(f"  - {item.id} [{item.status}] {item.title}")
+    return 0
+
 def cmd_spoofguard_monitor(args) -> int:
     """SpoofGuard monitor: check a domain's email-security posture and report
     any REGRESSION since the last check (the alertable event). Persists a
@@ -1478,6 +1504,14 @@ def build_parser() -> "object":
         description="Run the procurement-hunt chain from the command line. "
                      "Dry-run by default for anything that touches the network.")
     sub = parser.add_subparsers(dest="command")
+
+    p_next = sub.add_parser(
+        "next-state",
+        help="inspect durable NEXT opportunity state (no network)",
+    )
+    p_next.add_argument("--path", default=None, help="queue JSON path")
+    p_next.add_argument("--limit", type=int, default=10)
+    p_next.set_defaults(func=cmd_next_state)
 
     p_hunt = sub.add_parser("hunt", help="run one multi-source hunt, print the ranked report")
     _add_hunt_style_args(p_hunt)
