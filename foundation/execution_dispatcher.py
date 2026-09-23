@@ -91,6 +91,7 @@ class AdapterDispatcher:
             action=intent.action,
             simulated_effect=result.effect,
             executed=result.executed,
+            evidence=result.evidence,
         )
         receipt = receipt_from_result(execution)
         receipt_store.record(receipt)
