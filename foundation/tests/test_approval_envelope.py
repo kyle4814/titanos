@@ -59,6 +59,17 @@ class TestApprovalEnvelope(unittest.TestCase):
         with self.assertRaisesRegex(ApprovalError, "fingerprint"):
             approval.validate_for(changed)
 
+    def test_insufficient_authority_is_rejected(self):
+        approval = ApprovalEnvelope.decide(
+            proposal_id="p1",
+            intent=self.intent,
+            decision="APPROVE",
+            authority="A2",
+            reviewer="kyle",
+        )
+        with self.assertRaisesRegex(ApprovalError, "authority"):
+            approval.validate_for(self.intent, datetime(2026, 9, 23, tzinfo=timezone.utc))
+
     def test_decline_is_not_authorization(self):
         approval = ApprovalEnvelope.decide(
             proposal_id="p1",
