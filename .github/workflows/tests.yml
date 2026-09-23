@@ -13,7 +13,39 @@ name: tests
 
 on:
   push:
+    paths:
+      - "schema/**"
+      - "firewall/**"
+      - "kpm/**"
+      - "magl/**"
+      - "rpa/**"
+      - "taal/**"
+      - "foundation/**"
+      - "narrative/**"
+      - "legacy/**"
+      - "compiler/**"
+      - "gems/**"
+      - "provenance/**"
+      - "requirements.txt"
+      - "run_all_tests.sh"
+      - ".github/workflows/tests.yml"
   pull_request:
+    paths:
+      - "schema/**"
+      - "firewall/**"
+      - "kpm/**"
+      - "magl/**"
+      - "rpa/**"
+      - "taal/**"
+      - "foundation/**"
+      - "narrative/**"
+      - "legacy/**"
+      - "compiler/**"
+      - "gems/**"
+      - "provenance/**"
+      - "requirements.txt"
+      - "run_all_tests.sh"
+      - ".github/workflows/tests.yml":
 
 jobs:
   test:
