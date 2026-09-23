@@ -115,17 +115,17 @@ class OpportunityStore:
             if tmp.exists():
                 tmp.unlink()
 
-  
-        with self._mutation_lock:
-    def upsert(self, item: Opportunity) -> str:
-            """Insert or merge an observation without regressing lifecycle state.
 
-            Repeated discovery is not a duplicate *fact* when it carries new
-            evidence. The durable queue therefore keeps the existing lifecycle
-            state/authority while unioning newly observed evidence references.
-            This makes repeated NEXT cycles compound evidence instead of either
-            double-counting or silently discarding it.
-            """
+    def upsert(self, item: Opportunity) -> str:
+        """Insert or merge an observation without regressing lifecycle state.
+
+        Repeated discovery is not a duplicate *fact* when it carries new
+        evidence. The durable queue therefore keeps the existing lifecycle
+        state/authority while unioning newly observed evidence references.
+        This makes repeated NEXT cycles compound evidence instead of either
+        double-counting or silently discarding it.
+        """
+        with self._mutation_lock:
             items = self.load()
             if item.id in items:
                 existing = items[item.id]
@@ -145,7 +145,6 @@ class OpportunityStore:
             items[item.id] = item
             self.save(items)
             return "NEW"
-
 
 
     def advance(self, opportunity_id: str, new_status: str) -> Opportunity:
