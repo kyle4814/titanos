@@ -27,6 +27,10 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
+      # Keep the full matrix for correctness, but don't serialize the
+      # compiler lane behind the others. A busy repository should get
+      # useful signal from every independent subsystem as early as possible.
+      max-parallel: 12
       matrix:
         subsystem:
           - schema
