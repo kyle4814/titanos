@@ -107,7 +107,11 @@ class OpportunityStore:
         tmp = self.path.with_suffix(self.path.suffix + ".tmp")
         payload = {k: asdict(v) for k, v in sorted(items.items())}
         tmp.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-        tmp.replace(self.path)
+        try:
+            tmp.replace(self.path)
+        finally:
+            if tmp.exists():
+                tmp.unlink()
 
     def upsert(self, item: Opportunity) -> str:
         """Insert or merge an observation without regressing lifecycle state.
