@@ -48,7 +48,36 @@ class AdapterDispatcher:
         return matches[0]
 
     def execute(self, intent: ExecutionIntent) -> AdapterResult:
-        return self.select(intent).execute(intent)
+        return self._execute_adapter(self.select(intent), intent)
+
+    @staticmethod
+    def _execute_adapter(adapter: ExecutionAdapter, intent: ExecutionIntent) -> AdapterResult:
+        try:
+            result = self._execute_adapter(adapter, intent)
+        except Exception as exc:
+            # An adapter exception cannot prove that the external side effect
+            # did not happen. Preserve that uncertainty explicitly.
+            return AdapterResult(
+                status="UNKNOWN",
+                effect="adapter execution raised an exception",
+                executed=False,
+                evidence=(f"{type(exc).__name__}: {exc}",),
+            )
+
+        allowed = {"EXECUTED", "FAILED", "TIMEOUT", "UNKNOWN", "PARTIAL"}
+        if result.status not in allowed:
+            raise AdapterDispatchError(
+                f"unsupported adapter result status: {result.status}"
+            )
+        if result.status == "UNKNOWN" and result.executed:
+            raise AdapterDispatchError(
+                "adapter cannot report UNKNOWN with executed=True"
+            )
+        if result.status == "TIMEOUT" and result.executed:
+            raise AdapterDispatchError(
+                "adapter cannot report TIMEOUT with executed=True"
+            )
+        return result
 
     def execute_approved_with_receipt(
         self,
