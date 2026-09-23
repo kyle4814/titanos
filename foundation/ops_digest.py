@@ -660,6 +660,8 @@ def opportunities_from_locked_entries(entries):
             raise OpsDigestError("projection received a non-map entry")
         if not isinstance(lock, TargetLock):
             raise OpsDigestError("projection received a non-lock")
+        if lock.state != "LOCKED":
+            continue
         if not lock.authorises_investigation():
             continue
 
