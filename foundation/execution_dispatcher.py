@@ -8,10 +8,18 @@ silently selecting a fallback.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Iterable
+from typing import TYPE_CHECKING, Iterable
 
 from foundation.execution_adapter import AdapterResult, ExecutionAdapter
+from foundation.execution_executor import (
+    ExecutionResult,
+    _validate,
+)
 from foundation.execution_intent import ExecutionIntent, ExecutionIntentError
+from foundation.execution_receipt import ExecutionReceipt, receipt_from_result
+
+if TYPE_CHECKING:
+    from foundation.execution_receipt_store import ExecutionReceiptStore
 
 __all__ = ["AdapterDispatcher", "AdapterDispatchError"]
 
@@ -39,3 +47,40 @@ class AdapterDispatcher:
 
     def execute(self, intent: ExecutionIntent) -> AdapterResult:
         return self.select(intent).execute(intent)
+
+    def execute_approved_with_receipt(
+        self,
+        intent: ExecutionIntent,
+        approved_fingerprint: str,
+        receipt_store: "ExecutionReceiptStore",
+    ) -> ExecutionReceipt:
+        """Execute one approved intent and durably record its normalized result.
+
+        An existing receipt for the exact fingerprint is returned without
+        invoking the adapter again, making retries safe at the kernel boundary.
+        """
+        fingerprint = _validate(intent)
+        if approved_fingerprint != fingerprint:
+            raise ExecutionIntentError(
+                "approval fingerprint does not match the exact ExecutionIntent"
+            )
+
+        receipt_id = f"exec:{fingerprint}"
+        existing = receipt_store.get(receipt_id)
+        if existing is not None:
+            return existing
+
+        adapter = self.select(intent)
+        result = adapter.execute(intent)
+        execution = ExecutionResult(
+            status=result.status,
+            intent_id=intent.intent_id,
+            fingerprint=fingerprint,
+            target=intent.target,
+            action=intent.action,
+            simulated_effect=result.effect,
+            executed=result.executed,
+        )
+        receipt = receipt_from_result(execution)
+        receipt_store.record(receipt)
+        return receipt
