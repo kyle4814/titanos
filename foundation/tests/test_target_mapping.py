@@ -307,7 +307,7 @@ class TestD6ToD11ConvergenceThroughTheSpine(unittest.TestCase):
         from foundation.tentacles import directed_pypi_release_signal
         item = dict(title=kw.pop("version", "2.1.0"),
                     link="https://pypi.invalid/p/widget/2.1.0",
-                    pub_date="Sat, 30 Aug 2026 10:00:00 GMT")
+                    pub_date=self.now.strftime("%a, %d %b %Y %H:%M:%S GMT"))
         item.update(kw.pop("item", {}))
         s = directed_pypi_release_signal(item, _mapping(target=target), target)
         if kw:
