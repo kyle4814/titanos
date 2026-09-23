@@ -45,7 +45,7 @@ on:
       - "provenance/**"
       - "requirements.txt"
       - "run_all_tests.sh"
-      - ".github/workflows/tests.yml":
+      - ".github/workflows/tests.yml"
 
 jobs:
   test:
