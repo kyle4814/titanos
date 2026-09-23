@@ -1,9 +1,7 @@
-"""Fail-safe executor boundary for canonical ExecutionIntent proposals.
+"""Fail-safe execution boundary for canonical ExecutionIntent approvals.
 
-The dry-run executor deliberately performs no external I/O and grants no
-authority. It validates that the supplied intent remains the exact immutable
-proposal, then returns a machine-readable simulation result. Real adapters
-must sit behind the same boundary and be separately authorized.
+No real external action is performed here.  The boundary requires an explicit
+approval binding before returning a simulated execution result.
 """
 
 from __future__ import annotations
@@ -13,7 +11,7 @@ from datetime import datetime, timezone
 
 from foundation.execution_intent import ExecutionIntent, ExecutionIntentError
 
-__all__ = ["ExecutionResult", "dry_run"]
+__all__ = ["ExecutionResult", "dry_run", "approved_dry_run"]
 
 
 @dataclass(frozen=True)
@@ -38,19 +36,38 @@ class ExecutionResult:
         }
 
 
-def dry_run(intent: ExecutionIntent) -> ExecutionResult:
-    """Validate and simulate an intent without performing external action."""
+def _validate(intent: ExecutionIntent) -> str:
     try:
         fingerprint = intent.fingerprint()
     except Exception as exc:
         raise ExecutionIntentError("intent could not be fingerprinted") from exc
-
     expires = datetime.fromisoformat(intent.expires_at.replace("Z", "+00:00"))
     if expires <= datetime.now(timezone.utc):
         raise ExecutionIntentError("execution intent is expired")
+    return fingerprint
 
+
+def dry_run(intent: ExecutionIntent) -> ExecutionResult:
+    """Simulate an intent without requiring or performing an action."""
     return ExecutionResult(
         status="DRY_RUN",
+        intent_id=intent.intent_id,
+        fingerprint=_validate(intent),
+        target=intent.target,
+        action=intent.action,
+        simulated_effect=intent.expected_effect,
+    )
+
+
+def approved_dry_run(intent: ExecutionIntent, approved_fingerprint: str) -> ExecutionResult:
+    """Simulate execution only when approval binds to this exact intent."""
+    fingerprint = _validate(intent)
+    if approved_fingerprint != fingerprint:
+        raise ExecutionIntentError(
+            "approval fingerprint does not match the exact ExecutionIntent"
+        )
+    return ExecutionResult(
+        status="APPROVED_DRY_RUN",
         intent_id=intent.intent_id,
         fingerprint=fingerprint,
         target=intent.target,
