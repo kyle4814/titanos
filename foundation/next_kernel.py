@@ -53,10 +53,20 @@ class Opportunity:
     next_action: str = ""
 
     def __post_init__(self) -> None:
+        if not isinstance(self.id, str) or not self.id.strip():
+            raise ValueError("id is required")
+        if not isinstance(self.source, str) or not self.source.strip():
+            raise ValueError("source is required")
+        if not isinstance(self.title, str) or not self.title.strip():
+            raise ValueError("title is required")
         if self.status not in STATES:
             raise ValueError(f"invalid state: {self.status}")
         if self.authority not in {"O0", "O1", "O2", "O3", "O4"}:
             raise ValueError(f"invalid authority: {self.authority}")
+        if self.value is not None and (isinstance(self.value, bool) or not isinstance(self.value, (int, float))):
+            raise ValueError("value must be numeric or None")
+        if not isinstance(self.evidence_refs, (tuple, list)) or not all(isinstance(x, str) for x in self.evidence_refs):
+            raise ValueError("evidence_refs must be a sequence of strings")
 
 
 class OpportunityStore:
