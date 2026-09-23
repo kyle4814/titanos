@@ -68,6 +68,7 @@ class TestExecutionDispatcher(unittest.TestCase):
             self.assertEqual(receipt.receipt_id, f"exec:{intent.fingerprint()}")
             self.assertEqual(receipt.status, "EXECUTED")
             self.assertTrue(receipt.executed)
+            self.assertEqual(receipt.evidence, "stripe:receipt")
             self.assertEqual(store.get(receipt.receipt_id), receipt)
 
     def test_existing_receipt_prevents_adapter_reexecution(self):
