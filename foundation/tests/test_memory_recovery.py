@@ -15,6 +15,21 @@ class TestMemoryRecovery(unittest.TestCase):
             s.journal.mark_committed()
             self.assertEqual(s.reconcile(),"COMMITTED_CLEARED")
             self.assertIsNone(s.journal.load())
+    def test_guarded_abort_clears_matching_prepared_transaction(self):
+        with tempfile.TemporaryDirectory() as td:
+            s=InstitutionalMemoryStore(Path(td)/"memory.json")
+            s.journal.begin("tx-1","r","old","new","head")
+            s.journal.abort("tx-1")
+            self.assertIsNone(s.journal.load())
+
+    def test_guarded_abort_rejects_wrong_transaction(self):
+        with tempfile.TemporaryDirectory() as td:
+            s=InstitutionalMemoryStore(Path(td)/"memory.json")
+            s.journal.begin("tx-1","r","old","new","head")
+            with self.assertRaises(ValueError): s.journal.abort("tx-2")
+            self.assertIsNotNone(s.journal.load())
+
+
     def test_unresolved_transaction_is_rejected(self):
         with tempfile.TemporaryDirectory() as td:
             s=InstitutionalMemoryStore(Path(td)/"memory.json")
