@@ -48,5 +48,9 @@ def request_intent_approval(intent: ExecutionIntent, **kwargs) -> Decision:
     generic titan-approval callback identity. A caller may still supply
     an explicit request_id for an externally coordinated workflow.
     """
-    kwargs.setdefault("request_id", f"intent:{intent.fingerprint()}")
+    expected_request_id = f"intent:{intent.fingerprint()}"
+    supplied_request_id = kwargs.get("request_id")
+    if supplied_request_id is not None and supplied_request_id != expected_request_id:
+        raise ValueError("request_id must bind to the exact ExecutionIntent fingerprint")
+    kwargs["request_id"] = expected_request_id
     return request_approval(approval_request_for_intent(intent), **kwargs)
