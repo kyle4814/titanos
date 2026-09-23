@@ -39,6 +39,27 @@ class TestWorkforce(unittest.TestCase):
         self.assertLessEqual(len(batch.items), 1)
         self.assertEqual(batch.items[0].slot, 0)
 
+    def test_router_combines_domain_capability_specialization_and_health(self):
+        from foundation.worker_health import WorkerHealthBook
+        from foundation.specialization import SpecializationBook
+        from foundation.worker_router import route
+
+        registry = WorkforceRegistry().register(
+            WorkerSpec("specialist", "security", ("security",))
+        ).register(
+            WorkerSpec("generalist", "security", ("security",))
+        ).register(
+            WorkerSpec("wrong-domain", "research", ("research",))
+        )
+        specialization = SpecializationBook()
+        specialization.record("specialist", "security", completed=True, evidence_count=10)
+        health = WorkerHealthBook()
+        health.record("specialist", status="COMPLETED", latency_ms=500)
+        health.record("generalist", status="COMPLETED", latency_ms=2000)
+        routed = route(registry, health, specialization,
+                       ("specialist", "generalist", "wrong-domain"), "security")
+        self.assertEqual(routed, ("specialist", "generalist"))
+
     def test_specialization_ranking_prefers_domain_experience(self):
         from foundation.specialization import SpecializationBook
 
