@@ -119,6 +119,36 @@ class TestNextKernel(unittest.TestCase):
         result = self.store.advance("op-1", "COMMITTED")
         self.assertEqual(result.status, "COMMITTED")
 
+    def test_concurrent_upserts_do_not_lose_evidence(self):
+        import threading
+
+        self.store.upsert(self.item(evidence_refs=("base",)))
+        results = []
+        errors = []
+        barrier = threading.Barrier(8)
+
+        def worker(index):
+            try:
+                barrier.wait(timeout=2)
+                results.append(self.store.upsert(
+                    self.item(evidence_refs=(f"e{index}",))
+                ))
+            except Exception as exc:
+                errors.append(exc)
+
+        threads = [threading.Thread(target=worker, args=(i,)) for i in range(8)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+
+        self.assertFalse(errors)
+        self.assertEqual(set(results), {"UPDATED"})
+        self.assertEqual(
+            self.store.load()["op-1"].evidence_refs,
+            tuple(["base"] + [f"e{i}" for i in range(8)]),
+        )
+
     def test_failed_atomic_save_preserves_previous_state(self):
         original = self.store.item if hasattr(self.store, "item") else None
         self.store.upsert(self.item(evidence_refs=("old",)))
