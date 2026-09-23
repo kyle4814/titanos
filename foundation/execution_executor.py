@@ -1,17 +1,27 @@
 """Fail-safe execution boundary for canonical ExecutionIntent approvals.
 
-No real external action is performed here.  The boundary requires an explicit
-approval binding before returning a simulated execution result.
+No real external action is performed here. The boundary requires explicit
+approval binding and can optionally persist the resulting execution receipt.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from typing import TYPE_CHECKING
 
 from foundation.execution_intent import ExecutionIntent, ExecutionIntentError
+from foundation.execution_receipt import ExecutionReceipt, receipt_from_result
 
-__all__ = ["ExecutionResult", "dry_run", "approved_dry_run"]
+if TYPE_CHECKING:
+    from foundation.execution_receipt_store import ExecutionReceiptStore
+
+__all__ = [
+    "ExecutionResult",
+    "dry_run",
+    "approved_dry_run",
+    "approved_dry_run_with_receipt",
+]
 
 
 @dataclass(frozen=True)
@@ -48,7 +58,6 @@ def _validate(intent: ExecutionIntent) -> str:
 
 
 def dry_run(intent: ExecutionIntent) -> ExecutionResult:
-    """Simulate an intent without requiring or performing an action."""
     return ExecutionResult(
         status="DRY_RUN",
         intent_id=intent.intent_id,
@@ -60,7 +69,6 @@ def dry_run(intent: ExecutionIntent) -> ExecutionResult:
 
 
 def approved_dry_run(intent: ExecutionIntent, approved_fingerprint: str) -> ExecutionResult:
-    """Simulate execution only when approval binds to this exact intent."""
     fingerprint = _validate(intent)
     if approved_fingerprint != fingerprint:
         raise ExecutionIntentError(
@@ -74,3 +82,15 @@ def approved_dry_run(intent: ExecutionIntent, approved_fingerprint: str) -> Exec
         action=intent.action,
         simulated_effect=intent.expected_effect,
     )
+
+
+def approved_dry_run_with_receipt(
+    intent: ExecutionIntent,
+    approved_fingerprint: str,
+    receipt_store: ExecutionReceiptStore,
+) -> ExecutionReceipt:
+    """Run the approved dry-run boundary and persist exactly one receipt."""
+    result = approved_dry_run(intent, approved_fingerprint)
+    receipt = receipt_from_result(result)
+    receipt_store.record(receipt)
+    return receipt
