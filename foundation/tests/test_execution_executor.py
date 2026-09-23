@@ -3,7 +3,7 @@ from __future__ import annotations
 import unittest
 from datetime import datetime, timedelta, timezone
 
-from foundation.execution_executor import dry_run
+from foundation.execution_executor import approved_dry_run, dry_run
 from foundation.execution_intent import ExecutionIntent, ExecutionIntentError
 
 
@@ -36,6 +36,18 @@ class TestExecutionExecutor(unittest.TestCase):
         self.assertEqual(result.intent_id, intent.intent_id)
         self.assertEqual(result.target, intent.target)
         self.assertEqual(result.action, intent.action)
+
+    def test_approved_dry_run_requires_exact_fingerprint(self):
+        intent = self.intent()
+        result = approved_dry_run(intent, intent.fingerprint())
+        self.assertEqual(result.status, "APPROVED_DRY_RUN")
+        self.assertEqual(result.fingerprint, intent.fingerprint())
+        self.assertFalse(result.executed)
+
+    def test_approved_dry_run_rejects_different_intent(self):
+        intent = self.intent()
+        with self.assertRaisesRegex(ExecutionIntentError, "does not match"):
+            approved_dry_run(intent, "EI-not-the-approved-intent")
 
     def test_expired_intent_is_rejected(self):
         intent = self.intent(
