@@ -79,15 +79,71 @@ class OpportunityStore:
         tmp.replace(self.path)
 
     def upsert(self, item: Opportunity) -> str:
+        """Insert or merge an observation without regressing lifecycle state.
+
+        Repeated discovery is not a duplicate *fact* when it carries new
+        evidence. The durable queue therefore keeps the existing lifecycle
+        state/authority while unioning newly observed evidence references.
+        This makes repeated NEXT cycles compound evidence instead of either
+        double-counting or silently discarding it.
+        """
         items = self.load()
         if item.id in items:
             existing = items[item.id]
             if existing.source != item.source:
                 raise ValueError("opportunity identity collision")
-            return "DUPLICATE"
+            merged_refs = tuple(sorted(set(existing.evidence_refs) | set(item.evidence_refs)))
+            if merged_refs == existing.evidence_refs:
+                return "DUPLICATE"
+            items[item.id] = Opportunity(
+                **{
+                    **asdict(existing),
+                    "evidence_refs": merged_refs,
+                }
+            )
+            self.save(items)
+            return "UPDATED"
         items[item.id] = item
         self.save(items)
         return "NEW"
+
+
+def ingest_pipeline_opportunities(
+    store: OpportunityStore,
+    opportunities: Any,
+) -> tuple[str, ...]:
+    """Persist observed pipeline opportunities into the NEXT queue.
+
+    This is an observation adapter only. It deliberately assigns O0 and
+    DISCOVERED: a signal is not qualification, commitment, money, or
+    authority. The adapter reads the pipeline's existing opportunity shape
+    without importing it, avoiding a dependency cycle.
+    """
+    results: list[str] = []
+    for observed in opportunities:
+        party = str(observed.controlling_party).strip()
+        if not party:
+            continue
+        refs = sorted({
+            ref
+            for signal in observed.signals
+            for ref in (str(signal.source_ref).strip(), f"signal:{signal.signal_id}")
+            if ref
+        })
+        item = Opportunity(
+            id=str(observed.opportunity_id),
+            source="opportunity_pipeline",
+            title=f"Observed demand: {party}",
+            status="DISCOVERED",
+            evidence_refs=tuple(refs),
+            authority="O0",
+            next_action=(
+                "QUALIFY: verify eligibility, value, deadline, and actionability "
+                "from primary evidence"
+            ),
+        )
+        results.append(store.upsert(item))
+    return tuple(results)
 
     def advance(self, opportunity_id: str, new_status: str) -> Opportunity:
         items = self.load()
