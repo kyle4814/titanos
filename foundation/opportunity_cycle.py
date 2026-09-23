@@ -130,6 +130,7 @@ from foundation.communication_gate import CommunicationDenied
 from foundation.discovery_authorization import UnboundedDiscoveryObjective
 from foundation.mouth_ted import MOUTH_ID as _TED_MOUTH_ID, sweep as _ted_sweep
 from foundation.opportunity_pipeline import PipelineReport, run_pipeline
+from foundation.next_kernel import OpportunityStore, ingest_pipeline_opportunities
 from foundation.outcome_ledger import OutcomeLedger
 from foundation.signal_spine import CanonicalSignal
 from foundation.tender_radar import MOUTH_ID as _UK_MOUTH_ID, sweep as _uk_sweep
@@ -228,6 +229,8 @@ class OpportunityCycleReport:
     qualified: int = 0
     contracts: int = 0
     cash: int = 0
+    queue_new: int = 0
+    queue_updated: int = 0
     source_results: tuple = ()
 
     def show_the_math(self) -> str:
@@ -237,7 +240,8 @@ class OpportunityCycleReport:
             f"controlling_parties={self.controlling_party_count} "
             f"ledger_records={self.ledger_records_written} "
             f"qualified={self.qualified} contracts={self.contracts} "
-            f"cash={self.cash}",
+            f"cash={self.cash} queue_new={self.queue_new} "
+            f"queue_updated={self.queue_updated}",
         ]
         for source_result in self.source_results:
             lines.append(source_result.show_the_math())
@@ -423,6 +427,14 @@ def run_cycle(
     pipeline_report: PipelineReport = run_pipeline(
         tuple(merged_signals), ledger, now=now)
 
+    # Close the missing persistence arrow:
+    # DISCOVERED signal -> collapsed pipeline opportunity -> durable NEXT queue.
+    # This is O0 observation only; no qualification or commitment is inferred.
+    queue = OpportunityStore(state_dir / "next_opportunities.json")
+    queue_results = ingest_pipeline_opportunities(queue, pipeline_report.opportunities)
+    queue_new = queue_results.count("NEW")
+    queue_updated = queue_results.count("UPDATED")
+
     return OpportunityCycleReport(
         sweep_status=sweep_status,
         sweep_error=sweep_error,
@@ -434,6 +446,8 @@ def run_cycle(
         qualified=pipeline_report.qualified,
         contracts=pipeline_report.contracts,
         cash=pipeline_report.cash,
+        queue_new=queue_new,
+        queue_updated=queue_updated,
         source_results=tuple(source_results),
     )
 
