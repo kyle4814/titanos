@@ -107,6 +107,28 @@ class OpportunityStore:
         self.save(items)
         return "NEW"
 
+    def advance(self, opportunity_id: str, new_status: str) -> Opportunity:
+        items = self.load()
+        if opportunity_id not in items:
+            raise KeyError(opportunity_id)
+        if new_status not in STATES:
+            raise ValueError(f"invalid state: {new_status}")
+        current = items[opportunity_id]
+        allowed = FORWARD.get(current.status, set())
+        if new_status not in allowed:
+            raise ValueError(f"invalid transition: {current.status} -> {new_status}")
+        updated = Opportunity(**{**asdict(current), "status": new_status})
+        items[opportunity_id] = updated
+        self.save(items)
+        return updated
+
+    def actionable(self) -> list[Opportunity]:
+        """Return durable work candidates; terminal and stale states stay visible."""
+        return sorted(
+            (x for x in self.load().values()
+             if x.status in {"DISCOVERED", "QUALIFIED", "PREPARED", "READY", "HUMAN-GATED", "AWAITING-OUTCOME"}),
+            key=lambda x: (x.deadline is None, x.deadline or "", -(x.value or 0.0), x.id),
+        )
 
 def ingest_pipeline_opportunities(
     store: OpportunityStore,
@@ -144,26 +166,3 @@ def ingest_pipeline_opportunities(
         )
         results.append(store.upsert(item))
     return tuple(results)
-
-    def advance(self, opportunity_id: str, new_status: str) -> Opportunity:
-        items = self.load()
-        if opportunity_id not in items:
-            raise KeyError(opportunity_id)
-        if new_status not in STATES:
-            raise ValueError(f"invalid state: {new_status}")
-        current = items[opportunity_id]
-        allowed = FORWARD.get(current.status, set())
-        if new_status not in allowed:
-            raise ValueError(f"invalid transition: {current.status} -> {new_status}")
-        updated = Opportunity(**{**asdict(current), "status": new_status})
-        items[opportunity_id] = updated
-        self.save(items)
-        return updated
-
-    def actionable(self) -> list[Opportunity]:
-        """Return durable work candidates; terminal and stale states stay visible."""
-        return sorted(
-            (x for x in self.load().values()
-             if x.status in {"DISCOVERED", "QUALIFIED", "PREPARED", "READY", "HUMAN-GATED", "AWAITING-OUTCOME"}),
-            key=lambda x: (x.deadline is None, x.deadline or "", -(x.value or 0.0), x.id),
-        )
