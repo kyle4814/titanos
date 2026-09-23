@@ -29,6 +29,55 @@ class TestNextKernel(unittest.TestCase):
             self.store.upsert(replacement)
         self.assertEqual(self.store.load()["op-1"].title, "Example")
 
+    def test_pipeline_ingestion_always_enters_o0_discovered(self):
+        from foundation.next_kernel import ingest_pipeline_opportunities
+
+        class Signal:
+            source_ref = "primary:1"
+            signal_id = "sig-1"
+
+        class Observed:
+            opportunity_id = "external-1"
+            controlling_party = "Example Party"
+            signals = [Signal()]
+
+        results = ingest_pipeline_opportunities(self.store, [Observed()])
+        self.assertEqual(results, ("NEW",))
+        item = self.store.load()["external-1"]
+        self.assertEqual(item.status, "DISCOVERED")
+        self.assertEqual(item.authority, "O0")
+        self.assertIn("primary:1", item.evidence_refs)
+
+    def test_pipeline_ingestion_does_not_promote_existing_authority(self):
+        from foundation.next_kernel import ingest_pipeline_opportunities
+
+        class Signal:
+            source_ref = "primary:2"
+            signal_id = "sig-2"
+
+        class Observed:
+            opportunity_id = "external-2"
+            controlling_party = "Example Party"
+            signals = [Signal()]
+
+        self.store.upsert(self.item(id="external-2", authority="O3", status="QUALIFIED"))
+        result = ingest_pipeline_opportunities(self.store, [Observed()])
+        self.assertEqual(result, ("DUPLICATE",))
+        item = self.store.load()["external-2"]
+        self.assertEqual(item.authority, "O3")
+        self.assertEqual(item.status, "QUALIFIED")
+
+    def test_pipeline_ingestion_rejects_blank_controlling_party_without_mutation(self):
+        from foundation.next_kernel import ingest_pipeline_opportunities
+
+        class Observed:
+            opportunity_id = "blank-party"
+            controlling_party = "   "
+            signals = []
+
+        self.assertEqual(ingest_pipeline_opportunities(self.store, [Observed()]), ())
+        self.assertEqual(self.store.load(), {})
+
     def test_o0_cannot_promote_to_prepared(self):
         self.store.upsert(self.item(authority="O0"))
         with self.assertRaises(PermissionError):
