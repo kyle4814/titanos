@@ -53,6 +53,29 @@ class TestNextKernel(unittest.TestCase):
         with self.assertRaises(ValueError):
             fingerprint("", "id")
 
+    def test_malformed_top_level_state_is_rejected(self):
+        for raw in ("[]", '"string"', "null", "123"):
+            self.path.write_text(raw, encoding="utf-8")
+            with self.assertRaises((ValueError, TypeError, AttributeError)):
+                self.store.load()
+
+    def test_malformed_evidence_type_is_rejected(self):
+        self.path.write_text(json.dumps({
+            "op-1": {
+                "id": "op-1", "source": "source", "title": "Example",
+                "status": "DISCOVERED", "authority": "O0",
+                "evidence_refs": "not-a-sequence"
+            }
+        }), encoding="utf-8")
+        with self.assertRaises((TypeError, ValueError)):
+            self.store.load()
+
+    def test_duplicate_semantic_record_is_not_created_by_upsert(self):
+        self.store.upsert(self.item(evidence_refs=("e1",)))
+        result = self.store.upsert(self.item(evidence_refs=("e1",)))
+        self.assertEqual(result, "DUPLICATE")
+        self.assertEqual(len(self.store.load()), 1)
+
     def test_persisted_key_must_match_record_identity(self):
         self.path.write_text(json.dumps({
             "wrong-key": {
