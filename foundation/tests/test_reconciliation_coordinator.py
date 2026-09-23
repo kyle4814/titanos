@@ -28,6 +28,47 @@ class Adapter:
 
 
 class TestReconciliationCoordinator(unittest.TestCase):
+    def test_reconciled_non_execution_requires_retry_policy(self):
+        intent = ExecutionIntent(
+            intent_id="EI-2",
+            target="provider:item",
+            action="CREATE",
+            parameters={"x": 2},
+            evidence_refs=("OPP-2",),
+            expected_effect="create item",
+            authority_required="A3",
+            reversible=True,
+            expires_at="2099-01-01T00:00:00+00:00",
+            policy_version="test-1",
+        )
+        execution = ExecutionReceipt(
+            receipt_id=f"exec:{intent.fingerprint()}",
+            intent_id=intent.intent_id,
+            fingerprint=intent.fingerprint(),
+            target=intent.target,
+            action=intent.action,
+            status="UNKNOWN",
+            executed=False,
+            recorded_at="2026-09-23T00:00:00+00:00",
+            evidence="timeout",
+        )
+
+        class AbsentAdapter(Adapter):
+            def reconcile(self, intent, receipt):
+                return ReconciliationResult(
+                    ReconciliationStatus.RESOLVED_NOT_EXECUTED,
+                    ("provider:absent",),
+                )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            store = ReconciliationReceiptStore(Path(tmp) / "reconciliation.json")
+            cycle = ReconciliationCoordinator(
+                ReconciliationDispatcher.from_adapters([AbsentAdapter()]), store
+            ).run(intent, execution)
+            self.assertEqual(
+                cycle.retry_decision, RetryDecision.RETRY_POLICY_REQUIRED
+            )
+
     def test_cycle_persists_evidence_and_stops_retry(self):
         intent = ExecutionIntent(
             intent_id="EI-1",
