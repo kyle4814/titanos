@@ -226,6 +226,47 @@ A paid invoice is not evidence of customer success.
 When the private execution plane reports a real outcome, feed the receipt back into
 the public evidence loop without leaking credentials or private customer data.
 
+
+### 0.47 — OPPORTUNITY QUEUE / COMPOUNDING LOOP
+Every NEXT cycle must treat opportunities as durable state, not chat output.
+
+For every discovered opportunity:
+1. fingerprint it deterministically (source + external ID/URL + relevant scope);
+2. deduplicate against prior records;
+3. attach evidence and freshness;
+4. score fit/value/cost/risk/reversibility;
+5. assign O0/O1/O2/O3/O4 authority;
+6. persist the state;
+7. execute the highest-authority action permitted by policy;
+8. record the result and next state.
+
+Canonical lifecycle:
+
+    DISCOVERED → QUALIFIED → PREPARED → READY → COMMITTED → OUTCOME
+                         ↘ REJECTED / EXPIRED / BLOCKED
+
+Never silently discard a candidate.
+
+Use explicit states for:
+- duplicate
+- stale
+- inaccessible
+- human-gated
+- already-actioned
+- failed
+- succeeded
+- awaiting-outcome
+
+Prioritise opportunities by **expected verified value / execution cost**, with
+risk, deadline, reversibility and dependency unlocks as constraints.
+
+Do not optimise for the number of opportunities found.
+Optimise for the number of **new, evidence-backed, actionable opportunities
+that progress toward a measurable outcome**.
+
+A successful action must feed its receipt/outcome back into the queue so future
+NEXT cycles learn from what actually happened.
+
 ### 0.46 — OPPORTUNITY COMMITMENT ENGINE
 Do not make Kyle manually approve every opportunity. **Approval should be spent
 on consequences, not on discovery.**
