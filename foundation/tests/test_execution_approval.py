@@ -40,6 +40,31 @@ class TestExecutionApproval(unittest.TestCase):
         request = mocked.call_args.kwargs["request_id"]
         self.assertEqual(request, f"intent:{intent.fingerprint()}")
 
+    def test_approval_round_trip_binds_sender_and_decision_to_exact_intent(self):
+        intent = self.intent()
+        sent = []
+
+        def sender(request_id, card_text):
+            sent.append((request_id, card_text))
+
+        def decision_source(request_id):
+            self.assertEqual(request_id, f"intent:{intent.fingerprint()}")
+            return "approve"
+
+        with patch("foundation.execution_approval.authorize_communication", return_value=True):
+            result = request_intent_approval(
+                intent,
+                sender=sender,
+                decision_source=decision_source,
+            )
+
+        self.assertEqual(result.value, "APPROVED")
+        self.assertEqual(len(sent), 1)
+        request_id, card = sent[0]
+        self.assertEqual(request_id, f"intent:{intent.fingerprint()}")
+        self.assertIn(intent.fingerprint(), card)
+        self.assertIn(intent.target, card)
+
     def test_mismatched_request_id_is_rejected(self):
         intent = self.intent()
         with self.assertRaisesRegex(ValueError, "request_id must bind"):
