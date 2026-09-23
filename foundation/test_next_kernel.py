@@ -142,6 +142,17 @@ class TestNextKernel(unittest.TestCase):
         nonterminal = STATES - TERMINAL - {"HUMAN-GATED", "STALE", "BLOCKED"}
         self.assertEqual(set(FORWARD), nonterminal)
 
+    def test_illegal_lifecycle_skip_is_rejected(self):
+        self.store.upsert(self.item())
+        with self.assertRaises(ValueError):
+            self.store.advance("op-1", "READY")
+
+    def test_backward_lifecycle_transition_is_rejected(self):
+        self.store.upsert(self.item())
+        self.store.advance("op-1", "QUALIFIED")
+        with self.assertRaises(ValueError):
+            self.store.advance("op-1", "DISCOVERED")
+
     def test_terminal_state_cannot_be_reactivated(self):
         self.store.upsert(self.item())
         self.store.advance("op-1", "REJECTED")
