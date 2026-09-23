@@ -2,11 +2,15 @@ from __future__ import annotations
 
 import tempfile
 import unittest
+import threading
+import tempfile
+from pathlib import Path
 from pathlib import Path
 
 from foundation.execution_adapter import AdapterResult
 from foundation.execution_dispatcher import AdapterDispatchError, AdapterDispatcher
 from foundation.execution_intent import ExecutionIntent
+from foundation.execution_receipt_store import ExecutionReceiptStore
 from foundation.execution_receipt_store import ExecutionReceiptStore
 
 
@@ -110,6 +114,48 @@ class TestExecutionDispatcher(unittest.TestCase):
                     intent, "WRONG", store
                 )
             self.assertEqual(calls, [])
+
+    def test_concurrent_same_approval_persists_one_receipt_and_executes_once(self):
+        class CountingAdapter(Adapter):
+            def __init__(self):
+                super().__init__("stripe", "stripe:")
+                self.calls = 0
+                self.lock = threading.Lock()
+
+            def execute(self, intent):
+                with self.lock:
+                    self.calls += 1
+                return super().execute(intent)
+
+        adapter = CountingAdapter()
+        dispatcher = AdapterDispatcher.from_adapters([adapter])
+        intent = self.intent()
+        with tempfile.TemporaryDirectory() as tmp:
+            store = ExecutionReceiptStore(Path(tmp) / "receipts.json")
+            results = []
+            errors = []
+
+            def worker():
+                try:
+                    results.append(
+                        dispatcher.execute_approved_with_receipt(
+                            intent, intent.fingerprint(), store
+                        )
+                    )
+                except Exception as exc:
+                    errors.append(exc)
+
+            threads = [threading.Thread(target=worker) for _ in range(8)]
+            for thread in threads:
+                thread.start()
+            for thread in threads:
+                thread.join()
+
+            self.assertFalse(errors)
+            self.assertEqual(len(results), 8)
+            self.assertEqual(adapter.calls, 1)
+            self.assertEqual(len(store.load()), 1)
+            self.assertTrue(all(result == results[0] for result in results))
 
     def test_dispatch_executes_selected_adapter(self):
         adapter = Adapter("stripe", "stripe:", "payment link created")
