@@ -69,6 +69,37 @@ class TestMemoryRecovery(unittest.TestCase):
             store.load()
 
 
+    def test_eight_process_writers_leave_one_valid_transaction(self):
+        import multiprocessing
+
+        def worker(path, result_queue, index):
+            store=InstitutionalMemoryStore(path)
+            memory=InstitutionalMemory()
+            before=store._raw_payload()
+            payload=store._payload(memory)
+            receipt=LearningReceipt.create("worker",f"stress-{index}",(),before,payload)
+            try:
+                store.save(memory,receipt)
+                result_queue.put("saved")
+            except ValueError:
+                result_queue.put("rejected")
+
+        with tempfile.TemporaryDirectory() as td:
+            path=Path(td)/"memory.json"
+            queue=multiprocessing.Queue()
+            processes=[multiprocessing.Process(target=worker,args=(path,queue,i)) for i in range(8)]
+            for process in processes: process.start()
+            for process in processes: process.join()
+
+            results=[queue.get() for _ in processes]
+            self.assertEqual(results.count("saved"),1)
+            self.assertEqual(results.count("rejected"),7)
+            store=InstitutionalMemoryStore(path)
+            self.assertTrue(store.ledger.verify())
+            self.assertEqual(len(store.ledger.read()),1)
+            self.assertIsNone(store.journal.load())
+            store.load()
+
     def test_crash_before_memory_write_rolls_back(self):
         from unittest.mock import patch
 
