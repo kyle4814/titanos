@@ -91,6 +91,29 @@ class TestMemoryRecovery(unittest.TestCase):
             self.assertTrue(recovered.ledger.verify())
 
 
+    def test_crash_after_ledger_commit_finalizes(self):
+        from unittest.mock import patch
+
+        with tempfile.TemporaryDirectory() as td:
+            path=Path(td)/"memory.json"
+            store=InstitutionalMemoryStore(path)
+            memory=InstitutionalMemory()
+            before=store._raw_payload()
+            payload=store._payload(memory)
+            receipt=LearningReceipt.create("worker","crash-after-ledger",(),before,payload)
+            original_mark=store.journal.mark_committed
+            with patch.object(store.journal,"mark_committed",side_effect=RuntimeError("simulated crash")):
+                with self.assertRaises(RuntimeError):
+                    store.save(memory,receipt)
+
+            recovered=InstitutionalMemoryStore(path)
+            self.assertEqual(recovered.reconcile(),"FINALIZED")
+            self.assertIsNone(recovered.journal.load())
+            self.assertEqual(len(recovered.ledger.read()),1)
+            self.assertTrue(recovered.ledger.verify())
+            self.assertEqual(recovered._raw_payload(),payload)
+
+
     def test_duplicate_receipt_is_rejected(self):
         with tempfile.TemporaryDirectory() as td:
             store=InstitutionalMemoryStore(Path(td)/"memory.json")
