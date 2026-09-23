@@ -29,6 +29,25 @@ class TestNextKernel(unittest.TestCase):
             self.store.upsert(replacement)
         self.assertEqual(self.store.load()["op-1"].title, "Example")
 
+    def test_o0_cannot_promote_to_prepared(self):
+        self.store.upsert(self.item(authority="O0"))
+        with self.assertRaises(PermissionError):
+            self.store.advance("op-1", "PREPARED")
+
+    def test_o1_cannot_commit(self):
+        self.store.upsert(self.item(authority="O1"))
+        self.store.advance("op-1", "QUALIFIED")
+        with self.assertRaises(PermissionError):
+            self.store.advance("op-1", "PREPARED")
+
+    def test_o3_can_reach_committed_after_valid_lifecycle(self):
+        self.store.upsert(self.item(authority="O3"))
+        self.store.advance("op-1", "QUALIFIED")
+        self.store.advance("op-1", "PREPARED")
+        self.store.advance("op-1", "READY")
+        result = self.store.advance("op-1", "COMMITTED")
+        self.assertEqual(result.status, "COMMITTED")
+
     def test_terminal_state_cannot_be_reactivated(self):
         self.store.upsert(self.item())
         self.store.advance("op-1", "REJECTED")
