@@ -59,7 +59,6 @@ __all__ = [
     "render_portfolio_header",
     "format_phone_markdown",
     "OpsDigestError",
-    "opportunities_from_locked_entries",
 ]
 
 
