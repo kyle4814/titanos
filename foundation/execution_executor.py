@@ -33,6 +33,7 @@ class ExecutionResult:
     action: str
     simulated_effect: str
     executed: bool = False
+    evidence: tuple[str, ...] = ()
 
     def to_dict(self) -> dict:
         return {
@@ -43,6 +44,7 @@ class ExecutionResult:
             "action": self.action,
             "simulated_effect": self.simulated_effect,
             "executed": self.executed,
+            "evidence": list(self.evidence),
         }
 
 
