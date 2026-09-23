@@ -21,4 +21,37 @@ class TestMemoryRecovery(unittest.TestCase):
             s.journal.begin("t","r","old","new","head")
             with self.assertRaises(ValueError): s.reconcile()
 
+    def test_concurrent_writers_serialize_transaction(self):
+        import multiprocessing
+
+        def worker(path, result_queue):
+            store=InstitutionalMemoryStore(path)
+            memory=InstitutionalMemory()
+            before={}
+            payload=store._payload(memory)
+            receipt=LearningReceipt.create("worker","concurrent-save",(),before,payload)
+            try:
+                store.save(memory,receipt)
+                result_queue.put("saved")
+            except ValueError:
+                result_queue.put("rejected")
+
+        with tempfile.TemporaryDirectory() as td:
+            path=Path(td)/"memory.json"
+            queue=multiprocessing.Queue()
+            processes=[multiprocessing.Process(target=worker,args=(path,queue)) for _ in range(2)]
+            for process in processes: process.start()
+            for process in processes: process.join()
+
+            results=[queue.get() for _ in processes]
+            self.assertEqual(results.count("saved"),1)
+            self.assertEqual(results.count("rejected"),1)
+
+            store=InstitutionalMemoryStore(path)
+            self.assertTrue(store.ledger.verify())
+            self.assertEqual(len(store.ledger.read()),1)
+            self.assertIsNone(store.journal.load())
+            store.load()
+
+
 if __name__=="__main__": unittest.main()
