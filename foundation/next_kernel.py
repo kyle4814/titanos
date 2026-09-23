@@ -31,6 +31,18 @@ FORWARD = {
 
 TERMINAL = {"REJECTED", "EXPIRED", "DUPLICATE", "ALREADY-ACTIONED", "SUCCEEDED", "FAILED"}
 
+# Reaching these states is a stronger authority claim than observation alone.
+# The kernel therefore refuses to promote a record beyond its current
+# authority envelope; a higher-authority action must update the record through
+# an explicit, policy-controlled boundary before the transition is possible.
+MIN_AUTHORITY = {
+    "PREPARED": 1,
+    "READY": 2,
+    "COMMITTED": 3,
+    "OUTCOME": 3,
+}
+AUTHORITY_LEVEL = {"O0": 0, "O1": 1, "O2": 2, "O3": 3, "O4": 4}
+
 
 def fingerprint(source: str, external_id: str = "", url: str = "") -> str:
     """Stable identity from source + external identity, with URL as fallback."""
@@ -132,6 +144,12 @@ class OpportunityStore:
             raise KeyError(opportunity_id)
         if new_status not in STATES:
             raise ValueError(f"invalid state: {new_status}")
+        required = MIN_AUTHORITY.get(new_status)
+        if required is not None and AUTHORITY_LEVEL[current.authority] < required:
+            raise PermissionError(
+                f"{new_status} requires authority O{required} or higher; "
+                f"record has {current.authority}"
+            )
         current = items[opportunity_id]
         allowed = FORWARD.get(current.status, set())
         if new_status not in allowed:
