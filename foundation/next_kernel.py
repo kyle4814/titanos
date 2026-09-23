@@ -69,7 +69,11 @@ class OpportunityStore:
         if not self.path.exists():
             return {}
         raw = json.loads(self.path.read_text(encoding="utf-8"))
-        return {k: Opportunity(**v) for k, v in raw.items()}
+        items = {k: Opportunity(**v) for k, v in raw.items()}
+        for key, item in items.items():
+            if key != item.id:
+                raise ValueError("persisted opportunity key/id mismatch")
+        return items
 
     def save(self, items: dict[str, Opportunity]) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
