@@ -39,6 +39,15 @@ class TestWorkforce(unittest.TestCase):
         self.assertLessEqual(len(batch.items), 1)
         self.assertEqual(batch.items[0].slot, 0)
 
+    def test_specialization_ranking_prefers_domain_experience(self):
+        from foundation.specialization import SpecializationBook
+
+        book = SpecializationBook()
+        book.record("generalist", "security", completed=True, evidence_count=1)
+        book.record("specialist", "security", completed=True, evidence_count=10)
+        book.record("specialist", "security", completed=True, evidence_count=10)
+        self.assertEqual(book.rank(("generalist", "specialist"), "security"), ("specialist", "generalist"))
+
     def test_health_ranking_prefers_successful_fast_worker(self):
         from foundation.worker_health import WorkerHealthBook
 
