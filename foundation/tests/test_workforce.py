@@ -39,6 +39,15 @@ class TestWorkforce(unittest.TestCase):
         self.assertLessEqual(len(batch.items), 1)
         self.assertEqual(batch.items[0].slot, 0)
 
+    def test_health_ranking_prefers_successful_fast_worker(self):
+        from foundation.worker_health import WorkerHealthBook
+
+        health = WorkerHealthBook()
+        health.record("slow", status="COMPLETED", latency_ms=2000)
+        health.record("fast", status="COMPLETED", latency_ms=500)
+        health.record("unreliable", status="FAILED", latency_ms=500)
+        self.assertEqual(health.rank(("slow", "fast", "unreliable")), ("fast", "slow", "unreliable"))
+
     def test_dispatch_never_duplicates_active_worker(self):
         from foundation.workforce_dispatcher import DispatchBudget, dispatch
 
