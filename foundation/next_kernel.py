@@ -80,6 +80,7 @@ class Opportunity:
             raise ValueError("value must be numeric or None")
         if not isinstance(self.evidence_refs, (tuple, list)) or not all(isinstance(x, str) for x in self.evidence_refs):
             raise ValueError("evidence_refs must be a sequence of strings")
+        object.__setattr__(self, "evidence_refs", tuple(self.evidence_refs))
 
 
 class OpportunityStore:
@@ -155,15 +156,15 @@ class OpportunityStore:
             if new_status not in STATES:
                 raise ValueError(f"invalid state: {new_status}")
             current = items[opportunity_id]
+            allowed = FORWARD.get(current.status, set())
+            if new_status not in allowed:
+                raise ValueError(f"invalid transition: {current.status} -> {new_status}")
             required = MIN_AUTHORITY.get(new_status)
             if required is not None and AUTHORITY_LEVEL[current.authority] < required:
                 raise PermissionError(
                     f"{new_status} requires authority O{required} or higher; "
                     f"record has {current.authority}"
                 )
-            allowed = FORWARD.get(current.status, set())
-            if new_status not in allowed:
-                raise ValueError(f"invalid transition: {current.status} -> {new_status}")
             updated = Opportunity(**{**asdict(current), "status": new_status})
             items[opportunity_id] = updated
             self.save(items)
@@ -213,5 +214,10 @@ def ingest_pipeline_opportunities(
                 "from primary evidence"
             ),
         )
-        results.append(store.upsert(item))
+        try:
+            results.append(store.upsert(item))
+        except ValueError as exc:
+            if str(exc) != "opportunity identity collision":
+                raise
+            results.append("DUPLICATE")
     return tuple(results)
