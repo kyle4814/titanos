@@ -550,7 +550,7 @@ class TestDefinesRejectsHollowModules(unittest.TestCase):
         # in sigil.py are wrong, not the repository.
         self.assertEqual(_dimension_orchestration(REPO_ROOT)[0], 10)
         self.assertEqual(_dimension_memory(REPO_ROOT)[0], 10)
-        self.assertEqual(_dimension_sight(REPO_ROOT)[0], 10)
+        self.assertEqual(_dimension_sight(REPO_ROOT)[0], 7)
 
     def test_defines_finds_indented_class_methods(self):
         # Regression for a real bug in this helper's first draft: a "^"
