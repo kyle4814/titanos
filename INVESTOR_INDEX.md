@@ -23,6 +23,9 @@ Read these before making any investment claim:
 - [Investment plan](investor/INVESTMENT_PLAN.md)
 - [Due diligence index](investor/DUE_DILIGENCE.md)
 - [Milestone model](investor/MILESTONES.md)
+- [Opportunity map](investor/OPPORTUNITY_MAP.md)
+- [Vision map](docs/VISIONS.md)
+- [Verification portal direction](docs/VERIFICATION_PORTAL.md)
 
 ## Evidence rule
 
