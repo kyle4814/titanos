@@ -149,6 +149,40 @@ class TestNextKernel(unittest.TestCase):
             tuple(["base"] + [f"e{i}" for i in range(8)]),
         )
 
+    def test_concurrent_upsert_and_advance_preserve_state(self):
+        import threading
+
+        self.store.upsert(self.item(authority="O3", evidence_refs=("base",)))
+        errors = []
+        barrier = threading.Barrier(9)
+
+        def upsert_worker(index):
+            try:
+                barrier.wait(timeout=2)
+                self.store.upsert(self.item(evidence_refs=(f"race-{index}",)))
+            except Exception as exc:
+                errors.append(exc)
+
+        def advance_worker():
+            try:
+                barrier.wait(timeout=2)
+                self.store.advance("op-1", "QUALIFIED")
+            except Exception as exc:
+                errors.append(exc)
+
+        threads = [threading.Thread(target=upsert_worker, args=(i,)) for i in range(8)]
+        threads.append(threading.Thread(target=advance_worker))
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+
+        self.assertFalse(errors)
+        item = self.store.load()["op-1"]
+        self.assertEqual(item.status, "QUALIFIED")
+        self.assertEqual(item.authority, "O3")
+        self.assertEqual(item.evidence_refs, tuple(["base"] + [f"race-{i}" for i in range(8)]))
+
     def test_failed_atomic_save_preserves_previous_state(self):
         original = self.store.item if hasattr(self.store, "item") else None
         self.store.upsert(self.item(evidence_refs=("old",)))
