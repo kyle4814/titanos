@@ -68,10 +68,15 @@ class OpportunityStore:
     def load(self) -> dict[str, Opportunity]:
         if not self.path.exists():
             return {}
-        raw = json.loads(self.path.read_text(encoding="utf-8"))
+        try:
+            raw = json.loads(self.path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise ValueError("invalid persisted NEXT state") from exc
+        if not isinstance(raw, dict):
+            raise ValueError("persisted NEXT state must be an object")
         items = {k: Opportunity(**v) for k, v in raw.items()}
         for key, item in items.items():
-            if key != item.id:
+            if not isinstance(key, str) or key != item.id:
                 raise ValueError("persisted opportunity key/id mismatch")
         return items
 
