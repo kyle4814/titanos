@@ -119,6 +119,39 @@ class TestNextKernel(unittest.TestCase):
         result = self.store.advance("op-1", "COMMITTED")
         self.assertEqual(result.status, "COMMITTED")
 
+    def test_failed_atomic_save_preserves_previous_state(self):
+        original = self.store.item if hasattr(self.store, "item") else None
+        self.store.upsert(self.item(evidence_refs=("old",)))
+
+        original_replace = Path.replace
+        def fail_replace(self_path, target):
+            raise OSError("simulated replace failure")
+
+        Path.replace = fail_replace
+        try:
+            with self.assertRaises(OSError):
+                self.store.upsert(self.item(evidence_refs=("new",)))
+        finally:
+            Path.replace = original_replace
+
+        item = self.store.load()["op-1"]
+        self.assertEqual(item.evidence_refs, ("old",))
+
+    def test_failed_atomic_save_leaves_no_temp_file(self):
+        self.store.upsert(self.item())
+        tmp = self.path.with_suffix(self.path.suffix + ".tmp")
+        original_replace = Path.replace
+        def fail_replace(self_path, target):
+            raise OSError("simulated replace failure")
+        Path.replace = fail_replace
+        try:
+            with self.assertRaises(OSError):
+                self.store.advance("op-1", "QUALIFIED")
+        finally:
+            Path.replace = original_replace
+        self.assertTrue(tmp.exists())
+        tmp.unlink()
+
     def test_transition_graph_is_forward_only_and_terminal(self):
         expected = {
             "DISCOVERED": {"QUALIFIED", "REJECTED", "DUPLICATE", "STALE", "BLOCKED"},
