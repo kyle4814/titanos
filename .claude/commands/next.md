@@ -200,6 +200,32 @@ The commercial flywheel is:
 
 Each transition must be independently observable.
 
+
+### 0.47 — EXISTING COMMERCIAL PLANE
+Treat the existing private TitanOS commercial infrastructure as an **already-built
+execution plane** when it is available to the local operator environment. Do not
+rebuild or duplicate Stripe, payment-link generation, delivery, customer workflow,
+or other commercial infrastructure merely because it is not present in this public
+repository.
+
+The public repo is the evidence/engineering surface. The private commercial system
+may be the execution surface.
+
+When an opportunity is qualified:
+    DISCOVER → QUALIFY → GOLD BRICK → ROUTE → PREPARE PAYMENT/DELIVERY → AUTHORISE → EXECUTE → RECEIPT
+
+Claude may use already-configured commercial tooling only within its existing
+credential and authority boundaries. Never expose secrets, assume missing access,
+or claim a payment/customer/outcome occurred without a receipt.
+
+A payment link is an execution instrument, not evidence of a sale.
+A sent email is not evidence of a response.
+A submitted opportunity is not evidence of an award.
+A paid invoice is not evidence of customer success.
+
+When the private execution plane reports a real outcome, feed the receipt back into
+the public evidence loop without leaking credentials or private customer data.
+
 ### 0.46 — OPPORTUNITY COMMITMENT ENGINE
 Do not make Kyle manually approve every opportunity. **Approval should be spent
 on consequences, not on discovery.**
