@@ -22,10 +22,6 @@ class ExecutionReceiptStore:
         self._mutation_lock = threading.RLock()
 
     def load(self) -> dict[str, ExecutionReceipt]:
-        if not isinstance(receipt.receipt_id, str) or receipt.receipt_id != f"exec:{receipt.fingerprint}":
-            raise ValueError("execution receipt identity mismatch")
-        if not isinstance(receipt.fingerprint, str) or not receipt.fingerprint:
-            raise ValueError("execution receipt fingerprint is required")
         if not self.path.exists():
             return {}
         try:
@@ -61,6 +57,10 @@ class ExecutionReceiptStore:
                 tmp.unlink()
 
     def record(self, receipt: ExecutionReceipt) -> str:
+        if not isinstance(receipt.receipt_id, str) or receipt.receipt_id != f"exec:{receipt.fingerprint}":
+            raise ValueError("execution receipt identity mismatch")
+        if not isinstance(receipt.fingerprint, str) or not receipt.fingerprint:
+            raise ValueError("execution receipt fingerprint is required")
         with self._mutation_lock:
             items = self.load()
             existing = items.get(receipt.receipt_id)
