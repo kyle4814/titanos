@@ -39,22 +39,42 @@ win money from it, it goes in the folder with the exact next action.
 
 ## EACH RUN
 
-### 0. FAST PATH — clear the load-bearing blocker first
-Before broad hunting, inspect the latest GitHub Actions state and local git state.
-If the current head has a failing test, broken check, or reproducible CI defect,
-repair that first and verify it. Do not start a large discovery sweep while a
-known load-bearing validation failure is unresolved.
+### 0. FAST PATH — discovery is not a test hostage
+**NEXT is an operating command, not a CI command.** Do not stop a useful hunt
+just because a test is running.
 
-For Claude Code throughput, split **read-only reconnaissance** into parallel
-lanes (CI/repo, opportunity sources, investment/discovery surfaces, existing
-sensors) when the tools permit it. Converge before any overlapping mutation.
-Use one writer per file and never parallelise competing writes.
+Run three conceptual lanes:
 
-Use the smallest relevant test while iterating; reserve the full matrix for the
-commit/promotion gate. Do not confuse a cancelled GitHub run with a passed run.
+    DISCOVER  ||  RECON  ||  VALIDATE
+
+**DISCOVER** is the money/opportunity hunt. Keep it moving while validation runs.
+
+**RECON** is read-only repo/OSINT/investment/sensor inspection. Parallelise it
+where tools permit; converge before overlapping mutations.
+
+**VALIDATE** is isolated. Use the smallest relevant local/fast test while
+iterating. Full matrix + sentinel are promotion gates, not prerequisites for
+ordinary discovery.
+
+Only interrupt DISCOVER when there is a **load-bearing blocker** that makes the
+current work unsafe or invalid. A merely red or queued CI run is not permission
+to sit idle.
+
+For Claude Code throughput:
+- parallelise independent READS;
+- never parallelise competing WRITES;
+- keep one canonical writer per file/state surface;
+- checkpoint durable discoveries before long validation;
+- batch related mutations into one coherent change;
+- validate the changed surface first;
+- run the full matrix only at promotion/commit boundaries;
+- never treat CANCELLED as PASS.
+
+The objective is continuous useful work, not continuous testing.
 
 1. **Orient.** Read the real state — `OPS_BOARD.md`, the current desktop folder,
    git state, `PARETO_FRONTIER.md`. Never trust a previous session's summary.
+   If validation is already running, record it and keep discovery moving.
 2. **HUNT BROAD, then WIDEN.** Sweep every reachable source. Each run, also push
    into at least one NEW source/stream (another tender portal, a grants source,
    a bounty source) so the net gets wider over time. Swarm it with parallel
@@ -67,11 +87,13 @@ commit/promotion gate. Do not confuse a cancelled GitHub run with a passed run.
    `TITAN_OPPORTUNITIES` — START_HERE ranks the best money with **Kyle's ONE
    action per item** (apply at this link / run this command / authorise this).
    Add every real new find. Name unbuilt streams as unbuilt — don't fake reach.
-5. **Prove it green.** `./run_all_tests.sh` (full) before any commit; `--fast`
-   for the dev loop only. README count drift → `foundation.autonomy_loop.
-   run_one_cycle` on a clean tree. Commit + push only when full-green AND
-   `sentinel.pulse_sweep` = 0. Verify the push landed (COMMITTED ≠ PUSHED ≠
-   REMOTE_VERIFIED).
+5. **Validate separately.** Run the smallest relevant test for the changed
+   surface during the loop. Keep hunting while CI/full validation runs.
+   Before promotion, run `./run_all_tests.sh`; `--fast` is the dev loop.
+   README count drift → `foundation.autonomy_loop.run_one_cycle` on a clean
+   tree. Commit + push only at the promotion boundary when full-green AND
+   `sentinel.pulse_sweep` = 0. Verify the push landed
+   (COMMITTED ≠ PUSHED ≠ REMOTE_VERIFIED).
 6. **Two-line report:** what's new in the folder, and what to action first.
 
 ## THE HAND-OFF IS THE PRODUCT
