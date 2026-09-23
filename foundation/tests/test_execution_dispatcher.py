@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import tempfile
 import unittest
+from pathlib import Path
 
 from foundation.execution_adapter import AdapterResult
 from foundation.execution_dispatcher import AdapterDispatchError, AdapterDispatcher
 from foundation.execution_intent import ExecutionIntent
+from foundation.execution_receipt_store import ExecutionReceiptStore
 
 
 class Adapter:
@@ -52,6 +55,61 @@ class TestExecutionDispatcher(unittest.TestCase):
         ])
         with self.assertRaisesRegex(AdapterDispatchError, "ambiguous"):
             dispatcher.select(self.intent())
+
+    def test_approved_execution_persists_adapter_result_as_receipt(self):
+        intent = self.intent()
+        adapter = Adapter("stripe", "stripe:", "payment link created")
+        with tempfile.TemporaryDirectory() as tmp:
+            store = ExecutionReceiptStore(Path(tmp) / "receipts.json")
+            receipt = AdapterDispatcher.from_adapters([adapter]).execute_approved_with_receipt(
+                intent, intent.fingerprint(), store
+            )
+            self.assertEqual(receipt.receipt_id, f"exec:{intent.fingerprint()}")
+            self.assertEqual(receipt.status, "EXECUTED")
+            self.assertTrue(receipt.executed)
+            self.assertEqual(store.get(receipt.receipt_id), receipt)
+
+    def test_existing_receipt_prevents_adapter_reexecution(self):
+        intent = self.intent()
+        calls = []
+        adapter = Adapter("stripe", "stripe:")
+        original_execute = adapter.execute
+
+        def tracked_execute(value):
+            calls.append(value.intent_id)
+            return original_execute(value)
+
+        adapter.execute = tracked_execute
+        with tempfile.TemporaryDirectory() as tmp:
+            store = ExecutionReceiptStore(Path(tmp) / "receipts.json")
+            dispatcher = AdapterDispatcher.from_adapters([adapter])
+            first = dispatcher.execute_approved_with_receipt(
+                intent, intent.fingerprint(), store
+            )
+            second = dispatcher.execute_approved_with_receipt(
+                intent, intent.fingerprint(), store
+            )
+            self.assertEqual(first, second)
+            self.assertEqual(calls, [intent.intent_id])
+
+    def test_approved_execution_rejects_wrong_fingerprint_before_adapter(self):
+        intent = self.intent()
+        calls = []
+        adapter = Adapter("stripe", "stripe:")
+        original_execute = adapter.execute
+
+        def tracked_execute(value):
+            calls.append(value.intent_id)
+            return original_execute(value)
+
+        adapter.execute = tracked_execute
+        with tempfile.TemporaryDirectory() as tmp:
+            store = ExecutionReceiptStore(Path(tmp) / "receipts.json")
+            with self.assertRaisesRegex(Exception, "does not match"):
+                AdapterDispatcher.from_adapters([adapter]).execute_approved_with_receipt(
+                    intent, "WRONG", store
+                )
+            self.assertEqual(calls, [])
 
     def test_dispatch_executes_selected_adapter(self):
         adapter = Adapter("stripe", "stripe:", "payment link created")
