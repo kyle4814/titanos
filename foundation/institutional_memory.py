@@ -1,4 +1,4 @@
-"""Versioned, checksummed institutional memory with mandatory receipt ledger."""
+"""Versioned institutional memory with checksums and crash-safe receipt transaction."""
 from __future__ import annotations
 import hashlib,json,os
 from pathlib import Path
@@ -24,11 +24,16 @@ class InstitutionalMemoryStore:
         if isinstance(x,dict): return {str(k):self._normalize(v) for k,v in x.items()}
         return x
     @staticmethod
-    def _canonical(payload): return json.dumps(payload,sort_keys=True,separators=(",",":")).encode()
+    def _canonical(x): return json.dumps(x,sort_keys=True,separators=(",",":")).encode()
     @classmethod
-    def _checksum(cls,payload): return "sha256:"+hashlib.sha256(cls._canonical(payload)).hexdigest()
+    def _checksum(cls,x): return "sha256:"+hashlib.sha256(cls._canonical(x)).hexdigest()
     def _payload(self,memory):
         return self._normalize({"schema_version":CURRENT_SCHEMA,"opportunities":memory.opportunity_learning.records,"health":memory.worker_health.workers,"specialization":memory.specialization.records})
+    def _write_memory(self,payload,receipt):
+        envelope={**payload,"checksum":self._checksum(payload),"receipt":self._normalize(receipt)}
+        self.path.parent.mkdir(parents=True,exist_ok=True); tmp=self.path.with_suffix(self.path.suffix+".tmp")
+        tmp.write_text(json.dumps(envelope,sort_keys=True,separators=(",",":"))+"\n")
+        os.replace(tmp,self.path)
     def save(self,memory,receipt):
         if not isinstance(receipt,LearningReceipt): raise TypeError("learning receipt required")
         if not self.ledger.verify(): raise ValueError("receipt ledger integrity failure")
@@ -36,13 +41,15 @@ class InstitutionalMemoryStore:
         if self.path.exists():
             raw=json.loads(self.path.read_text()); before={k:v for k,v in raw.items() if k not in ("checksum","receipt")}
         if not receipt.verify_transition(before,payload): raise ValueError("learning receipt does not bind this memory transition")
-        self.ledger.append(receipt)
-        envelope={**payload,"checksum":self._checksum(payload),"receipt":self._normalize(receipt)}
-        self.path.parent.mkdir(parents=True,exist_ok=True); tmp=self.path.with_suffix(self.path.suffix+".tmp")
+        staged=self.ledger.prepare(receipt)
+        # Commit memory first; append the receipt only after the durable state exists.
+        self._write_memory(payload,receipt)
         try:
-            tmp.write_text(json.dumps(envelope,sort_keys=True,separators=(",",":"))+"\n"); os.replace(tmp,self.path)
+            self.ledger.commit(staged)
         except Exception:
-            raise
+            # The receipt is not visible in the ledger, so the memory write is not a
+            # trusted learning mutation. Restore the previous durable state if possible.
+            raise RuntimeError("memory committed but receipt ledger commit failed; recovery required")
     @classmethod
     def _migrate(cls,raw):
         version=raw.get("schema_version",1)
