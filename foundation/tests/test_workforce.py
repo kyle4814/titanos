@@ -39,6 +39,27 @@ class TestWorkforce(unittest.TestCase):
         self.assertLessEqual(len(batch.items), 1)
         self.assertEqual(batch.items[0].slot, 0)
 
+    def test_router_uses_unified_specialization_then_health_tiebreak(self):
+        from foundation.worker_health import WorkerHealthBook
+        from foundation.specialization import SpecializationBook
+        from foundation.worker_router import route
+
+        registry = WorkforceRegistry().register(
+            WorkerSpec("expert-slow", "security", ("security",))
+        ).register(
+            WorkerSpec("expert-fast", "security", ("security",))
+        )
+        specialization = SpecializationBook()
+        specialization.record("expert-slow", "security", completed=True, evidence_count=20)
+        specialization.record("expert-fast", "security", completed=True, evidence_count=20)
+        health = WorkerHealthBook()
+        health.record("expert-slow", status="COMPLETED", latency_ms=2000)
+        health.record("expert-fast", status="COMPLETED", latency_ms=500)
+        self.assertEqual(
+            route(registry, health, specialization, ("expert-slow", "expert-fast"), "security"),
+            ("expert-fast", "expert-slow"),
+        )
+
     def test_router_combines_domain_capability_specialization_and_health(self):
         from foundation.worker_health import WorkerHealthBook
         from foundation.specialization import SpecializationBook
