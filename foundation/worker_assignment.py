@@ -65,6 +65,34 @@ class AssignmentRefused(ValueError):
     pass
 
 
+def persist_assignment_outcome(
+    store: InstitutionalMemoryStore,
+    assignment: WorkerAssignment,
+    outcome: str,
+    *,
+    evidence_count: int = 0,
+    observed_at: Optional[str] = None,
+) -> AssignmentOutcome:
+    """Apply an assignment outcome and persist the transition with a learning receipt."""
+    memory = store.load()
+    before = store._payload(memory)
+    result = record_assignment_outcome(
+        assignment, outcome, memory.worker_health, memory.specialization,
+        evidence_count=evidence_count,
+    )
+    after = store._payload(memory)
+    receipt = LearningReceipt.create(
+        assignment.worker_id,
+        "assignment_outcome",
+        (assignment.opportunity_id, assignment.domain, outcome),
+        before,
+        after,
+        observed_at=observed_at,
+    )
+    store.save(memory, receipt)
+    return result
+
+
 def route_opportunity(
     opportunity: OpportunityReceipt,
     worker_ids: tuple[str, ...],
