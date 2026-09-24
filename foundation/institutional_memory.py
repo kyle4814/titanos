@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib,json,os
 from pathlib import Path
 from foundation.opportunity_feedback import OpportunityFeedbackBook
+from foundation.learning_store import OpportunityLearningStore
 from foundation.learning_receipt import LearningReceipt
 from foundation.receipt_ledger import ReceiptLedger
 from foundation.transaction_journal import MemoryTransactionJournal
