@@ -91,5 +91,28 @@ def route_opportunity(
     return WorkerAssignment(opportunity.opportunity_id, ranked[0], domain.strip(), mission)
 
 
+def route_with_learning(
+    opportunity: OpportunityReceipt,
+    worker_ids: tuple[str, ...],
+    domain: str,
+    specialization: SpecializationBook,
+    health: WorkerHealthBook,
+    feedback,
+    *,
+    expected_value: float,
+    next_cheapest_experiment: str,
+    what_would_disprove_value: str,
+    now: Optional[datetime] = None,
+) -> tuple[WorkerAssignment, float]:
+    """Rank an opportunity using observed value calibration, then apply the normal evidence gate."""
+    adjusted = feedback.adjusted_value(
+        opportunity.opportunity_id, expected_value, now=now)
+    assignment = route_opportunity(
+        opportunity, worker_ids, domain, specialization, health,
+        next_cheapest_experiment=next_cheapest_experiment,
+        what_would_disprove_value=what_would_disprove_value, now=now)
+    return assignment, adjusted
+
+
 __all__ = ["WorkerAssignment", "AssignmentOutcome", "AssignmentRefused",
-           "route_opportunity", "record_assignment_outcome", "persist_assignment_outcome"]
+           "route_opportunity", "record_assignment_outcome", "persist_assignment_outcome", "route_with_learning"]
