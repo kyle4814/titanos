@@ -167,10 +167,17 @@ class OpportunityStore:
                     f"{new_status} requires authority O{required} or higher; "
                     f"record has {current.authority}"
                 )
-            if new_status == "QUALIFIED" and not current.evidence_refs:
-                raise PermissionError(
-                    "QUALIFIED requires at least one persisted evidence reference"
+            if new_status == "QUALIFIED":
+                qualification_refs = tuple(
+                    ref for ref in current.evidence_refs
+                    if ref.startswith("qualification:")
+                    and len(ref) == len("qualification:") + 64
+                    and all(ch in "0123456789abcdef" for ch in ref[len("qualification:"):])
                 )
+                if not qualification_refs:
+                    raise PermissionError(
+                        "QUALIFIED requires a canonical qualification evidence ref"
+                    )
             allowed = FORWARD.get(current.status, set())
             if new_status not in allowed:
                 raise ValueError(f"invalid transition: {current.status} -> {new_status}")
