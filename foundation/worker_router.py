@@ -13,10 +13,18 @@ def route(
     specialization: SpecializationBook,
     worker_ids: tuple[str, ...],
     domain: str,
+    min_authority: str = "O0",
 ) -> tuple[str, ...]:
+    levels = {"O0": 0, "O1": 1, "O2": 2, "O3": 3, "O4": 4}
+    if min_authority not in levels:
+        raise ValueError("invalid minimum authority")
     eligible = []
     for wid in worker_ids:
         worker = registry.get(wid)
+        if worker.domain != domain:
+            continue
+        if levels[worker.authority_ceiling] < levels[min_authority]:
+            continue
         if domain not in worker.capabilities and "*" not in worker.capabilities:
             continue
         eligible.append(wid)
