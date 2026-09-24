@@ -122,6 +122,26 @@ def persist_opportunity_outcome(
     return feedback
 
 
+def plan_from_persisted_learning(
+    store: InstitutionalMemoryStore,
+    registry: WorkforceRegistry,
+    health: WorkerHealthBook,
+    specialization: SpecializationBook,
+    opportunities: tuple[tuple[str, str, set[str]], ...],
+    priorities: tuple[OpportunityPriority, ...],
+    max_active: int,
+    *,
+    now: Optional[datetime] = None,
+) -> BatchPlan:
+    """Reload institutional memory, recalibrate priorities, and build the next bounded batch."""
+    memory = store.load()
+    learned = prioritize_with_learning(priorities, memory.opportunity_learning, now=now)
+    return plan_batch(registry, health, specialization, opportunities, max_active) if not learned else dispatch_learned_batch(
+        registry, health, specialization, opportunities, learned, memory.opportunity_learning,
+        max_active, now=now,
+    )
+
+
 def route_opportunity(
     opportunity: OpportunityReceipt,
     worker_ids: tuple[str, ...],
@@ -244,4 +264,4 @@ def select_retry_worker(
 
 
 __all__ = ["WorkerAssignment", "AssignmentOutcome", "AssignmentRefused",
-           "route_opportunity", "record_assignment_outcome", "persist_assignment_outcome", "persist_opportunity_outcome", "route_with_learning", "prioritize_with_learning", "match_opportunity_workers", "dispatch_learned_batch", "select_retry_worker"]
+           "route_opportunity", "record_assignment_outcome", "persist_assignment_outcome", "persist_opportunity_outcome", "plan_from_persisted_learning", "route_with_learning", "prioritize_with_learning", "match_opportunity_workers", "dispatch_learned_batch", "select_retry_worker"]
