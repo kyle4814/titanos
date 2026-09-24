@@ -4,7 +4,7 @@ Plans a bounded set of opportunities without assigning one worker to multiple
 simultaneous jobs. Ordering is deterministic; eligibility remains mandatory.
 """
 from __future__ import annotations
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from foundation.swarm_planner import PlannedAssignment, plan_assignment
 from foundation.worker_health import WorkerHealthBook
 from foundation.specialization import SpecializationBook
@@ -14,6 +14,35 @@ from foundation.workforce_registry import WorkforceRegistry
 class BatchPlan:
     assignments: tuple[PlannedAssignment, ...]
     deferred: tuple[str, ...]
+
+@dataclass
+class ActiveBatch:
+    """In-memory capacity lease for a planned batch; completion releases slots."""
+    plan: BatchPlan
+    active: dict[str, str] = field(default_factory=dict)
+
+    def start(self, opportunity_id: str) -> str:
+        for a in self.plan.assignments:
+            if a.opportunity_id == opportunity_id:
+                if opportunity_id in self.active:
+                    raise ValueError("opportunity already active")
+                worker = a.workers[0]
+                if worker in self.active.values():
+                    raise ValueError("worker already active")
+                self.active[opportunity_id] = worker
+                return worker
+        raise KeyError(opportunity_id)
+
+    def complete(self, opportunity_id: str) -> str:
+        try:
+            return self.active.pop(opportunity_id)
+        except KeyError as exc:
+            raise KeyError(f"opportunity is not active: {opportunity_id}") from exc
+
+    @property
+    def capacity_used(self) -> int:
+        return len(self.active)
+
 
 def plan_batch(registry: WorkforceRegistry, health: WorkerHealthBook,
                specialization: SpecializationBook,
