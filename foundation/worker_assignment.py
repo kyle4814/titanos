@@ -13,6 +13,8 @@ from foundation.specialization import SpecializationBook
 from foundation.worker_health import WorkerHealthBook
 from foundation.opportunity_feedback import OutcomeFeedback
 from foundation.priority_scheduler import OpportunityPriority, prioritize
+from foundation.batch_planner import BatchPlan, plan_batch
+from foundation.workforce_registry import WorkforceRegistry
 from foundation.learning_receipt import LearningReceipt
 from foundation.institutional_memory import InstitutionalMemory, InstitutionalMemoryStore
 
@@ -151,5 +153,23 @@ def match_opportunity_workers(
     return tuple((item.opportunity_id, ranked[i % len(ranked)]) for i, item in enumerate(ordered))
 
 
+def dispatch_learned_batch(
+    registry: WorkforceRegistry,
+    health: WorkerHealthBook,
+    specialization: SpecializationBook,
+    opportunities: tuple[tuple[str, str, set[str]], ...],
+    priorities: tuple[OpportunityPriority, ...],
+    feedback,
+    max_active: int,
+    *,
+    now: Optional[datetime] = None,
+) -> BatchPlan:
+    """Plan a bounded batch using learned opportunity ordering and existing swarm controls."""
+    ordered = prioritize_with_learning(priorities, feedback, now=now)
+    order = {item.opportunity_id: i for i, item in enumerate(ordered)}
+    ranked = tuple(sorted(opportunities, key=lambda item: (order.get(item[0], len(order)), item[0])))
+    return plan_batch(registry, health, specialization, ranked, max_active)
+
+
 __all__ = ["WorkerAssignment", "AssignmentOutcome", "AssignmentRefused",
-           "route_opportunity", "record_assignment_outcome", "persist_assignment_outcome", "route_with_learning", "prioritize_with_learning", "match_opportunity_workers"]
+           "route_opportunity", "record_assignment_outcome", "persist_assignment_outcome", "route_with_learning", "prioritize_with_learning", "match_opportunity_workers", "dispatch_learned_batch"]
