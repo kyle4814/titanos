@@ -171,5 +171,20 @@ def dispatch_learned_batch(
     return plan_batch(registry, health, specialization, ranked, max_active)
 
 
+def select_retry_worker(
+    failed_worker_id: str,
+    worker_ids: tuple[str, ...],
+    domain: str,
+    specialization: SpecializationBook,
+    health: WorkerHealthBook,
+) -> str:
+    """Select the best healthy alternative specialist for a retry."""
+    alternatives = tuple(w for w in worker_ids if w != failed_worker_id)
+    ranked = specialization.rank_with_health(alternatives, domain, health)
+    if not ranked:
+        raise AssignmentRefused("no healthy alternative worker")
+    return ranked[0]
+
+
 __all__ = ["WorkerAssignment", "AssignmentOutcome", "AssignmentRefused",
-           "route_opportunity", "record_assignment_outcome", "persist_assignment_outcome", "route_with_learning", "prioritize_with_learning", "match_opportunity_workers", "dispatch_learned_batch"]
+           "route_opportunity", "record_assignment_outcome", "persist_assignment_outcome", "route_with_learning", "prioritize_with_learning", "match_opportunity_workers", "dispatch_learned_batch", "select_retry_worker"]
