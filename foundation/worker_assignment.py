@@ -12,6 +12,7 @@ from foundation.opportunity import OpportunityReceipt, InvestigationMission, han
 from foundation.specialization import SpecializationBook
 from foundation.worker_health import WorkerHealthBook
 from foundation.opportunity_feedback import OutcomeFeedback
+from foundation.priority_scheduler import OpportunityPriority, prioritize
 from foundation.learning_receipt import LearningReceipt
 from foundation.institutional_memory import InstitutionalMemory, InstitutionalMemoryStore
 
@@ -114,5 +115,23 @@ def route_with_learning(
     return assignment, adjusted
 
 
+def prioritize_with_learning(
+    priorities: tuple[OpportunityPriority, ...],
+    feedback,
+    *,
+    now: Optional[datetime] = None,
+) -> tuple[OpportunityPriority, ...]:
+    """Re-score known opportunities with observed value calibration before scheduling."""
+    adjusted = tuple(
+        __import__("dataclasses").replace(
+            item,
+            expected_value=feedback.adjusted_value(
+                item.opportunity_id, item.expected_value, now=now),
+        )
+        for item in priorities
+    )
+    return prioritize(adjusted)
+
+
 __all__ = ["WorkerAssignment", "AssignmentOutcome", "AssignmentRefused",
-           "route_opportunity", "record_assignment_outcome", "persist_assignment_outcome", "route_with_learning"]
+           "route_opportunity", "record_assignment_outcome", "persist_assignment_outcome", "route_with_learning", "prioritize_with_learning"]
