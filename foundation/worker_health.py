@@ -1,7 +1,6 @@
-"""Worker health telemetry and deterministic scheduling signals."""
+"""Worker health telemetry, quarantine, and deterministic scheduling signals."""
 from __future__ import annotations
 from dataclasses import dataclass, field
-from time import monotonic
 
 @dataclass(frozen=True)
 class WorkerHealth:
@@ -13,6 +12,7 @@ class WorkerHealth:
     heartbeats: int = 0
     missed_heartbeats: int = 0
     retries: int = 0
+    quarantined: bool = False
 
     @property
     def throughput(self) -> float:
@@ -36,20 +36,36 @@ class WorkerHealthBook:
     def record(self, worker_id: str, *, status: str, latency_ms: float = 0.0,
                heartbeat: bool = False, missed_heartbeat: bool = False,
                retry: bool = False) -> WorkerHealth:
-        h=self.workers.get(worker_id, WorkerHealth(worker_id))
-        h=WorkerHealth(
-            worker_id, h.completed + (status=="COMPLETED"),
-            h.failed + (status=="FAILED"), h.escalated + (status=="ESCALATED"),
+        h = self.workers.get(worker_id, WorkerHealth(worker_id))
+        h = WorkerHealth(
+            worker_id, h.completed + (status == "COMPLETED"),
+            h.failed + (status == "FAILED"), h.escalated + (status == "ESCALATED"),
             h.total_latency_ms + max(0.0, latency_ms),
             h.heartbeats + heartbeat, h.missed_heartbeats + missed_heartbeat,
-            h.retries + retry)
-        self.workers[worker_id]=h
+            h.retries + retry, h.quarantined)
+        self.workers[worker_id] = h
         return h
 
-    def rank(self, worker_ids: tuple[str, ...]) -> tuple[str, ...]:
-        return tuple(sorted(worker_ids, key=lambda wid: (
-            -self.workers.get(wid, WorkerHealth(wid)).throughput,
-            self.workers.get(wid, WorkerHealth(wid)).failure_rate,
-            wid)))
+    def quarantine(self, worker_id: str) -> WorkerHealth:
+        h = self.workers.get(worker_id, WorkerHealth(worker_id))
+        updated = WorkerHealth(h.worker_id, h.completed, h.failed, h.escalated,
+                               h.total_latency_ms, h.heartbeats,
+                               h.missed_heartbeats, h.retries, True)
+        self.workers[worker_id] = updated
+        return updated
 
-__all__=["WorkerHealth","WorkerHealthBook"]
+    def recover(self, worker_id: str) -> WorkerHealth:
+        h = self.workers.get(worker_id, WorkerHealth(worker_id))
+        updated = WorkerHealth(h.worker_id, h.completed, h.failed, h.escalated,
+                               h.total_latency_ms, h.heartbeats,
+                               h.missed_heartbeats, h.retries, False)
+        self.workers[worker_id] = updated
+        return updated
+
+    def rank(self, worker_ids: tuple[str, ...]) -> tuple[str, ...]:
+        eligible = tuple(wid for wid in worker_ids if not self.workers.get(wid, WorkerHealth(wid)).quarantined)
+        return tuple(sorted(eligible, key=lambda wid: (
+            -self.workers[wid].throughput if wid in self.workers else 0.0,
+            self.workers.get(wid, WorkerHealth(wid)).failure_rate, wid)))
+
+__all__ = ["WorkerHealth", "WorkerHealthBook"]
