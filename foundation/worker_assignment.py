@@ -11,6 +11,9 @@ from typing import Optional
 from foundation.opportunity import OpportunityReceipt, InvestigationMission, handoff
 from foundation.specialization import SpecializationBook
 from foundation.worker_health import WorkerHealthBook
+from foundation.opportunity_feedback import OutcomeFeedback
+from foundation.learning_receipt import LearningReceipt
+from foundation.institutional_memory import InstitutionalMemory, InstitutionalMemoryStore
 
 
 @dataclass(frozen=True)
@@ -89,4 +92,4 @@ def route_opportunity(
 
 
 __all__ = ["WorkerAssignment", "AssignmentOutcome", "AssignmentRefused",
-           "route_opportunity", "record_assignment_outcome"]
+           "route_opportunity", "record_assignment_outcome", "persist_assignment_outcome"]
