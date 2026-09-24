@@ -89,7 +89,19 @@ class TestNextKernel(unittest.TestCase):
             self.store.advance("op-1", "QUALIFIED")
 
     def test_o1_can_promote_to_qualified_with_evidence(self):
-        self.store.upsert(self.item(authority="O1", evidence_refs=("qualification:1",)))
+        from foundation.qualification import assess
+        from foundation.tests.test_qualification import (
+            _notice_with_empty_criteria, _real_operator_profile,
+        )
+        qualification = assess(
+            __import__("foundation.eligibility", fromlist=["assess_eligibility"])
+            .assess_eligibility(_notice_with_empty_criteria()),
+            _real_operator_profile(),
+        )
+        self.store.upsert(self.item(
+            authority="O1",
+            evidence_refs=(qualification.evidence_ref(),),
+        ))
         result = self.store.advance("op-1", "QUALIFIED")
         self.assertEqual(result.status, "QUALIFIED")
         self.assertEqual(result.authority, "O1")
