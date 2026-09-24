@@ -167,6 +167,10 @@ class OpportunityStore:
                     f"{new_status} requires authority O{required} or higher; "
                     f"record has {current.authority}"
                 )
+            if new_status == "QUALIFIED" and not current.evidence_refs:
+                raise PermissionError(
+                    "QUALIFIED requires at least one persisted evidence reference"
+                )
             allowed = FORWARD.get(current.status, set())
             if new_status not in allowed:
                 raise ValueError(f"invalid transition: {current.status} -> {new_status}")
