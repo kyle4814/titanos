@@ -177,6 +177,27 @@ class TestWorkforce(unittest.TestCase):
         ordered = route(registry, health, specialization, ("general", "specialist"), "security")
         self.assertEqual(ordered[0], "specialist")
 
+    def test_retry_policy_retries_transient_failure_within_budget(self):
+        from foundation.retry_policy import decide_retry
+
+        decision = decide_retry("FAILED", "connection reset by peer", 1, 3)
+        self.assertTrue(decision.retry)
+        self.assertEqual(decision.next_attempt, 2)
+
+    def test_retry_policy_refuses_permanent_failure_and_exhausted_budget(self):
+        from foundation.retry_policy import decide_retry
+
+        permanent = decide_retry("FAILED", "invalid authorization", 1, 3)
+        exhausted = decide_retry("FAILED", "timeout", 3, 3)
+        self.assertFalse(permanent.retry)
+        self.assertFalse(exhausted.retry)
+
+    def test_retry_policy_never_retries_blocked_or_escalated_results(self):
+        from foundation.retry_policy import decide_retry
+
+        self.assertFalse(decide_retry("BLOCKED", "timeout", 1, 3).retry)
+        self.assertFalse(decide_retry("ESCALATED", "timeout", 1, 3).retry)
+
     def test_execution_contract_is_bounded(self):
         contract = WorkerExecutionContract(
             "worker-1", "opp-1", "qualify opportunity",
