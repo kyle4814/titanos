@@ -58,6 +58,40 @@ class ActiveBatch:
         return len(self.active)
 
 
+@dataclass(frozen=True)
+class RetryPolicy:
+    max_attempts: int = 3
+    base_backoff: int = 1
+    max_backoff: int = 16
+
+    def delay(self, attempt: int) -> int:
+        if attempt < 1 or self.max_attempts < 1 or self.base_backoff < 1 or self.max_backoff < 1:
+            raise ValueError("invalid retry policy")
+        if attempt > self.max_attempts:
+            return 0
+        return min(self.max_backoff, self.base_backoff * (2 ** (attempt - 1)))
+
+@dataclass
+class RetryQueue:
+    policy: RetryPolicy = field(default_factory=RetryPolicy)
+    attempts: dict[str, int] = field(default_factory=dict)
+    ready_at: dict[str, int] = field(default_factory=dict)
+
+    def schedule(self, opportunity_id: str, now: int) -> bool:
+        attempt = self.attempts.get(opportunity_id, 0) + 1
+        if attempt > self.policy.max_attempts:
+            return False
+        self.attempts[opportunity_id] = attempt
+        self.ready_at[opportunity_id] = now + self.policy.delay(attempt)
+        return True
+
+    def ready(self, now: int) -> tuple[str, ...]:
+        return tuple(sorted(oid for oid, tick in self.ready_at.items() if tick <= now))
+
+    def release(self, opportunity_id: str) -> None:
+        self.ready_at.pop(opportunity_id, None)
+
+
 def plan_batch(registry: WorkforceRegistry, health: WorkerHealthBook,
                specialization: SpecializationBook,
                opportunities: tuple[tuple[str,str,set[str]], ...],
@@ -79,4 +113,4 @@ def plan_batch(registry: WorkforceRegistry, health: WorkerHealthBook,
         used.add(available[0])
     return BatchPlan(tuple(planned),tuple(deferred))
 
-__all__=["BatchPlan","plan_batch"]
+__all__=["BatchPlan","ActiveBatch","RetryPolicy","RetryQueue","plan_batch"]
