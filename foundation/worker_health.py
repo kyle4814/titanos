@@ -49,24 +49,17 @@ class WorkerHealthBook:
         if quarantine_after < 1 or probation_successes < 1:
             raise ValueError("quarantine_after and probation_successes must be positive")
         h = self.record(worker_id, status="FAILED", latency_ms=latency_ms, retry=True)
-        if h.quarantined:
-            return self.quarantine(worker_id, probation_successes=probation_successes)
-        return self.quarantine(worker_id, probation_successes=probation_successes) if h.retries >= quarantine_after else h
+        return self.quarantine(worker_id, probation_successes=probation_successes) if h.quarantined or h.retries >= quarantine_after else h
 
     def record_success(self, worker_id: str, *, latency_ms: float = 0.0,
                        probation_successes: int = 2) -> WorkerHealth:
         if probation_successes < 1: raise ValueError("probation_successes must be positive")
         h = self.record(worker_id, status="COMPLETED", latency_ms=latency_ms)
-        if not h.quarantined:
-            return h
+        if not h.quarantined: return h
         remaining = max(0, h.probation_remaining - 1)
         updated = WorkerHealth(h.worker_id, h.completed, h.failed, h.escalated,
             h.total_latency_ms, h.heartbeats, h.missed_heartbeats, h.retries,
             remaining > 0, remaining)
-        if remaining == 0:
-            updated = WorkerHealth(updated.worker_id, updated.completed, updated.failed,
-                updated.escalated, updated.total_latency_ms, updated.heartbeats,
-                updated.missed_heartbeats, updated.retries, False, 0)
         self.workers[worker_id] = updated
         return updated
 
@@ -74,8 +67,7 @@ class WorkerHealthBook:
         if probation_successes < 1: raise ValueError("probation_successes must be positive")
         h = self.workers.get(worker_id, WorkerHealth(worker_id))
         updated = WorkerHealth(h.worker_id, h.completed, h.failed, h.escalated,
-            h.total_latency_ms, h.heartbeats, h.missed_heartbeats, h.retries, True,
-            probation_successes)
+            h.total_latency_ms, h.heartbeats, h.missed_heartbeats, h.retries, True, probation_successes)
         self.workers[worker_id] = updated
         return updated
 
@@ -87,9 +79,9 @@ class WorkerHealthBook:
         return updated
 
     def rank(self, worker_ids: tuple[str, ...]) -> tuple[str, ...]:
-        eligible = tuple(wid for wid in worker_ids
-                         if not self.workers.get(wid, WorkerHealth(wid)).quarantined)
+        eligible = tuple(wid for wid in worker_ids if not self.workers.get(wid, WorkerHealth(wid)).quarantined)
         return tuple(sorted(eligible, key=lambda wid: (
+            self.workers[wid].probation_remaining > 0 if wid in self.workers else False,
             -self.workers[wid].throughput if wid in self.workers else 0.0,
             self.workers.get(wid, WorkerHealth(wid)).failure_rate, wid)))
 
