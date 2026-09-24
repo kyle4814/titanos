@@ -88,6 +88,13 @@ class TestNextKernel(unittest.TestCase):
         with self.assertRaises(PermissionError):
             self.store.advance("op-1", "QUALIFIED")
 
+    def test_o1_cannot_promote_with_arbitrary_evidence_ref(self):
+        self.store.upsert(self.item(
+            authority="O1", evidence_refs=("qualification:not-a-real-ref",)
+        ))
+        with self.assertRaises(PermissionError):
+            self.store.advance("op-1", "QUALIFIED")
+
     def test_o1_can_promote_to_qualified_with_evidence(self):
         from foundation.qualification import assess
         from foundation.tests.test_qualification import (
