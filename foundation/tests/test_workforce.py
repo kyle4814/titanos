@@ -99,6 +99,27 @@ class TestWorkforce(unittest.TestCase):
         health.record("unreliable", status="FAILED", latency_ms=500)
         self.assertEqual(health.rank(("slow", "fast", "unreliable")), ("fast", "slow", "unreliable"))
 
+    def test_dispatch_fills_available_capacity_fairly_before_queueing(self):
+        from foundation.workforce_dispatcher import DispatchBudget, dispatch
+
+        registry = WorkforceRegistry().register(
+            WorkerSpec("worker-a", "research", ("research",))
+        ).register(
+            WorkerSpec("worker-b", "research", ("research",))
+        ).register(
+            WorkerSpec("worker-c", "research", ("research",))
+        )
+        plan = plan_swarm(registry, (
+            WorkRequirement("a", ("research",), "research"),
+            WorkRequirement("b", ("research",), "research"),
+            WorkRequirement("c", ("research",), "research"),
+        ))
+        batch = dispatch(plan, DispatchBudget(max_active=2, max_per_worker=1))
+        self.assertEqual(len(batch.items), 2)
+        self.assertEqual(len(batch.queued), 1)
+        self.assertEqual([item.slot for item in batch.items], [0, 1])
+        self.assertEqual([item.worker_id for item in batch.items], ["worker-a", "worker-b"])
+
     def test_dispatch_never_duplicates_active_worker(self):
         from foundation.workforce_dispatcher import DispatchBudget, dispatch
 
