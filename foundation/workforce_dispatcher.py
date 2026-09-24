@@ -14,9 +14,10 @@ from foundation.worker_execution_contract import WorkerExecutionContract
 class DispatchBudget:
     max_active: int = 8
     max_per_worker: int = 1
+    max_queue: int = 128
     def __post_init__(self) -> None:
-        if self.max_active <= 0 or self.max_per_worker <= 0:
-            raise ValueError("dispatch limits must be positive")
+        if self.max_active <= 0 or self.max_per_worker <= 0 or self.max_queue < 0:
+            raise ValueError("dispatch limits must be positive and max_queue non-negative")
 
 @dataclass(frozen=True)
 class DispatchItem:
@@ -28,6 +29,7 @@ class DispatchItem:
 class DispatchBatch:
     items: tuple[DispatchItem, ...]
     queued: tuple[DispatchItem, ...]
+    dropped: tuple[DispatchItem, ...] = ()
 
 def dispatch(plan: SwarmPlan, budget: DispatchBudget) -> DispatchBatch:
     items: list[DispatchItem] = []
@@ -39,8 +41,11 @@ def dispatch(plan: SwarmPlan, budget: DispatchBudget) -> DispatchBatch:
             seen[worker_id] = count + 1
             target = items if len(items) < budget.max_active and count < budget.max_per_worker else queued
             target.append(DispatchItem(worker_id, assignment.requirement, len(items) if target is items else -1))
+    # Apply bounded backpressure after active capacity is exhausted.
+    dropped = tuple(queued[budget.max_queue:])
+    queued = queued[:budget.max_queue]
     # Re-number active slots deterministically.
     active = tuple(DispatchItem(x.worker_id, x.requirement, i) for i, x in enumerate(items))
-    return DispatchBatch(active, tuple(queued))
+    return DispatchBatch(active, tuple(queued), dropped)
 
 __all__ = ["DispatchBudget", "DispatchItem", "DispatchBatch", "dispatch"]
