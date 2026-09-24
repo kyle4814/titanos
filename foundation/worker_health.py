@@ -45,10 +45,13 @@ class WorkerHealthBook:
         return h
 
     def record_retry_failure(self, worker_id: str, *, quarantine_after: int = 3,
-                             latency_ms: float = 0.0) -> WorkerHealth:
-        if quarantine_after < 1: raise ValueError("quarantine_after must be positive")
+                             latency_ms: float = 0.0, probation_successes: int = 2) -> WorkerHealth:
+        if quarantine_after < 1 or probation_successes < 1:
+            raise ValueError("quarantine_after and probation_successes must be positive")
         h = self.record(worker_id, status="FAILED", latency_ms=latency_ms, retry=True)
-        return self.quarantine(worker_id) if h.retries >= quarantine_after else h
+        if h.quarantined:
+            return self.quarantine(worker_id, probation_successes=probation_successes)
+        return self.quarantine(worker_id, probation_successes=probation_successes) if h.retries >= quarantine_after else h
 
     def record_success(self, worker_id: str, *, latency_ms: float = 0.0,
                        probation_successes: int = 2) -> WorkerHealth:
