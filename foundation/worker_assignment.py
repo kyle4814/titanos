@@ -93,6 +93,35 @@ def persist_assignment_outcome(
     return result
 
 
+def persist_opportunity_outcome(
+    store: InstitutionalMemoryStore,
+    opportunity_id: str,
+    expected_value: float,
+    realized_value: float,
+    completed: bool,
+    evidence_strength: float = 0.0,
+    *,
+    observed_at: Optional[str] = None,
+) -> OutcomeFeedback:
+    """Persist outcome feedback as a receipt-bound institutional-memory transition."""
+    memory = store.load()
+    before = store._payload(memory)
+    feedback = OutcomeFeedback(
+        opportunity_id, expected_value, realized_value, completed,
+        evidence_strength, observed_at,
+    )
+    memory.opportunity_learning.record(feedback)
+    after = store._payload(memory)
+    receipt = LearningReceipt.create(
+        "opportunity:" + opportunity_id,
+        "opportunity_outcome",
+        (opportunity_id, str(expected_value), str(realized_value), str(completed)),
+        before, after, observed_at=observed_at,
+    )
+    store.save(memory, receipt)
+    return feedback
+
+
 def route_opportunity(
     opportunity: OpportunityReceipt,
     worker_ids: tuple[str, ...],
@@ -215,4 +244,4 @@ def select_retry_worker(
 
 
 __all__ = ["WorkerAssignment", "AssignmentOutcome", "AssignmentRefused",
-           "route_opportunity", "record_assignment_outcome", "persist_assignment_outcome", "route_with_learning", "prioritize_with_learning", "match_opportunity_workers", "dispatch_learned_batch", "select_retry_worker"]
+           "route_opportunity", "record_assignment_outcome", "persist_assignment_outcome", "persist_opportunity_outcome", "route_with_learning", "prioritize_with_learning", "match_opportunity_workers", "dispatch_learned_batch", "select_retry_worker"]
