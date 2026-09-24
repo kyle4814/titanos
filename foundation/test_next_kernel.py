@@ -78,6 +78,11 @@ class TestNextKernel(unittest.TestCase):
         self.assertEqual(ingest_pipeline_opportunities(self.store, [Observed()]), ())
         self.assertEqual(self.store.load(), {})
 
+    def test_o0_cannot_promote_to_qualified(self):
+        self.store.upsert(self.item(authority="O0"))
+        with self.assertRaises(PermissionError):
+            self.store.advance("op-1", "QUALIFIED")
+
     def test_o0_cannot_promote_to_prepared(self):
         self.store.upsert(self.item(authority="O0"))
         with self.assertRaises(PermissionError):
