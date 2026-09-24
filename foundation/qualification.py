@@ -85,7 +85,9 @@ WHAT THIS DOES NOT DO
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
+import hashlib
+import json
 from typing import Dict, FrozenSet, Optional, Tuple
 
 from foundation.eligibility import CodedRequirement, EligibilityAssessment
@@ -316,6 +318,24 @@ class QualificationResult:
                     "a blocking clause must be the verbatim evidence of "
                     "one of this result's own BARRIER factors -- never a "
                     "fabricated or unrelated string")
+
+    def evidence_ref(self) -> str:
+        """Return the canonical immutable evidence identity for this result.
+
+        The ref is derived from the complete qualification result, not from
+        a caller-supplied label. It is suitable for binding a NEXT record to
+        the exact qualification result that justified promotion.
+        """
+        payload = {
+            "publication_number": self.publication_number,
+            "operator_name": self.operator_name,
+            "band": self.band,
+            "factors": [asdict(f) for f in self.factors],
+            "blocking_clauses": list(self.blocking_clauses),
+            "note": self.note,
+        }
+        canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+        return "qualification:" + hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
     def factor(self, dimension: str) -> QualificationFactor:
         for f in self.factors:
