@@ -133,5 +133,23 @@ def prioritize_with_learning(
     return prioritize(adjusted)
 
 
+def match_opportunity_workers(
+    priorities: tuple[OpportunityPriority, ...],
+    worker_ids: tuple[str, ...],
+    domain: str,
+    specialization: SpecializationBook,
+    health: WorkerHealthBook,
+    feedback,
+    *,
+    now: Optional[datetime] = None,
+) -> tuple[tuple[str, str], ...]:
+    """Return deterministic opportunity→worker matches from learned value and skill."""
+    ordered = prioritize_with_learning(priorities, feedback, now=now)
+    ranked = specialization.rank_with_health(worker_ids, domain, health)
+    if not ranked:
+        return ()
+    return tuple((item.opportunity_id, ranked[i % len(ranked)]) for i, item in enumerate(ordered))
+
+
 __all__ = ["WorkerAssignment", "AssignmentOutcome", "AssignmentRefused",
-           "route_opportunity", "record_assignment_outcome", "persist_assignment_outcome", "route_with_learning", "prioritize_with_learning"]
+           "route_opportunity", "record_assignment_outcome", "persist_assignment_outcome", "route_with_learning", "prioritize_with_learning", "match_opportunity_workers"]
