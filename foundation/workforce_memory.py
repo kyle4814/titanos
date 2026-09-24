@@ -16,14 +16,21 @@ class WorkforceMemoryStore:
         tmp.write_text(json.dumps(payload,sort_keys=True,separators=(",",":"))+"\n")
         os.replace(tmp,self.path)
 
+    def record_outcome(self, health: WorkerHealthBook, specialization: SpecializationBook,
+                       worker_id: str, domain: str, *, outcome: str,
+                       evidence_count: int = 0)->Specialization:
+        learned = specialization.record_outcome(worker_id, domain, outcome=outcome,
+                                                 evidence_count=evidence_count)
+        self.save(health, specialization)
+        return learned
+
     def load(self)->tuple[WorkerHealthBook,SpecializationBook]:
         if not self.path.exists(): return WorkerHealthBook(),SpecializationBook()
         raw=json.loads(self.path.read_text())
         if not isinstance(raw,dict) or not isinstance(raw.get("health",{}),dict) or not isinstance(raw.get("specialization",[]),list):
             raise ValueError("invalid workforce memory")
         h=WorkerHealthBook()
-        for wid,row in raw["health"].items():
-            h.workers[wid]=WorkerHealth(**row)
+        for wid,row in raw["health"].items(): h.workers[wid]=WorkerHealth(**row)
         s=SpecializationBook()
         for row in raw["specialization"]:
             item=Specialization(**row); s.records[(item.worker_id,item.domain)]=item
