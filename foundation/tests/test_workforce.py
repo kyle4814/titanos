@@ -177,6 +177,41 @@ class TestWorkforce(unittest.TestCase):
         ordered = route(registry, health, specialization, ("general", "specialist"), "security")
         self.assertEqual(ordered[0], "specialist")
 
+    def test_worker_outcome_closes_feedback_loop_into_health_and_specialization(self):
+        from foundation.worker_feedback import apply_worker_feedback
+        from foundation.worker_health import WorkerHealthBook
+        from foundation.specialization import SpecializationBook
+        from foundation.worker_result import WorkerResult
+
+        health = WorkerHealthBook()
+        specialization = SpecializationBook()
+        result = WorkerResult(
+            "worker-1", "opp-1", "COMPLETED", "validated",
+            evidence_refs=("ev-1", "ev-2"), receipt_ref="receipt-1"
+        )
+        feedback = apply_worker_feedback(
+            result, "security", health, specialization, latency_ms=750
+        )
+        self.assertEqual(feedback.evidence_count, 2)
+        self.assertEqual(health.workers["worker-1"].completed, 1)
+        self.assertEqual(specialization.records[("worker-1", "security")].evidence_count, 2)
+        self.assertEqual(specialization.rank(("worker-1",), "security"), ("worker-1",))
+
+    def test_failed_worker_outcome_teaches_failure_without_false_success(self):
+        from foundation.worker_feedback import apply_worker_feedback
+        from foundation.worker_health import WorkerHealthBook
+        from foundation.specialization import SpecializationBook
+        from foundation.worker_result import WorkerResult
+
+        health = WorkerHealthBook()
+        specialization = SpecializationBook()
+        result = WorkerResult("worker-1", "opp-1", "FAILED", "timeout", error="timeout")
+        apply_worker_feedback(result, "security", health, specialization, latency_ms=1000, retry=True)
+        record = specialization.records[("worker-1", "security")]
+        self.assertEqual(record.completed, 0)
+        self.assertEqual(record.failed, 1)
+        self.assertEqual(health.workers["worker-1"].retries, 1)
+
     def test_retry_policy_retries_transient_failure_within_budget(self):
         from foundation.retry_policy import decide_retry
 
