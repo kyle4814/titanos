@@ -53,6 +53,19 @@ class ActiveBatch:
             health.record(worker, status="FAILED")
         return worker
 
+
+    def schedule_timeout(self, opportunity_id: str, retry_queue: RetryQueue, now: int, *, quarantine_after: int = 3) -> tuple[str, bool]:
+        worker = self.active.get(opportunity_id)
+        if worker is None:
+            raise KeyError(f"opportunity is not active: {opportunity_id}")
+        worker = self.complete(opportunity_id)
+        accepted = retry_queue.schedule(opportunity_id, now)
+        return worker, accepted
+
+    def ready_retries(self, retry_queue: RetryQueue, now: int, health: WorkerHealthBook) -> tuple[str, ...]:
+        return tuple(oid for oid in retry_queue.ready(now)
+                     if not health.workers.get(oid, WorkerHealthBook().workers.get(oid, None)) or not health.workers[oid].quarantined)
+
     @property
     def capacity_used(self) -> int:
         return len(self.active)
