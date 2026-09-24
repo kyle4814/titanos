@@ -4,6 +4,11 @@
 how the system works.** When it disagrees with the live repository, the
 repository wins (§3), and this file gets corrected with a dated entry in §21.
 
+**The binding laws live in `TITANOS_V12_CONSTITUTION.md` (Frontier 02).**
+This file is the map and the living state. Where the two overlap (§2, §3,
+§9, §16, §18, §19), the constitution's text governs and these sections are
+summaries.
+
 Created 2026-09-24, V12 Frontier 01. Operator: Kyle. Primary executor: Claude
 Code. Strategic/adversarial control: ChatGPT, via the operator.
 
@@ -119,6 +124,8 @@ from another document.
 | Relationship of the separate `titan` repo (F-007) to TITANOS.TECH | `failures/FAILURE_ARCHIVE.md` F-007 records a rotated secret for `api.titanos.tech/internal/orders` in the `titan` repo's history. That suggests, but does not prove, that `titan` is (part of) the private plane | Access (F13) |
 | NLnet outcome | External, pending | NLnet response |
 | Real-world yield of any mouth/radar output | No outcome ledger on this host | Outcome recorded via `outcome_ledger.py` |
+| Whether any `ApprovalEnvelope` / O2 policy envelope has ever been issued | No durable state on this host; `approval_envelope.py` is imported only by `authorization_gate.py`, which has no production importer | Inspect the operator's state (Kyle) |
+| Current `SIGIL.md` values (`T3 … REALITY:6`, dated 2026-09-01) | `compute_sigil()` cannot run here (no PyYAML) | Provisioned env |
 
 ## 6. Current active engineering work
 
@@ -277,7 +284,7 @@ evidence and current state.
 | # | Frontier | Purpose / intended outcome | Depends on | Evidence required | Current state |
 |---|---|---|---|---|---|
 | 01 | V12 Turbo — test infrastructure | Fast advisory verification + untouched authoritative gate | 05 (a trustworthy baseline) | Before/after timing receipts; full suite unchanged | PARTIAL: `--fast`, parallel runner exist; no impact analysis; baseline §9 |
-| 02 | North star / execution constitution | One strategic control document tied to live state | — | This file, committed | **This commit** (plan). The constitution itself = `CLAUDE.md` + `CLAUDE_CODE_OPERATING_CONTRACT.md` + 19 doctrine files; consolidation PLANNED |
+| 02 | North star / execution constitution | One binding constitution; plan = map + state | 01 (plan) | Constitution committed, cross-referenced, contradictions recorded | **BUILT (docs)**: `TITANOS_V12_CONSTITUTION.md`. Most laws are PROCESS_ONLY (constitution Art. XVII) |
 | 03 | Public ↔ private architecture | Explicit, code-checkable boundary | 13 (access) | Interface spec derived from both repos | BLOCKED: private access NOT YET CONNECTED |
 | 04 | Qualification / NEXT closure | QUALIFIED reachable only with persisted, evidence-bound qualification at O1, from a production caller | — | Committed tests + a production caller + split-brain path fixed | PARTIAL: uncommitted work (§6); no production caller; state-path split |
 | 05 | Foundation baseline restoration | CI green on master again; local == CI | Env provisioning (HUMAN for host packages) | Green CI run on a named commit | **FAILING**: CI foundation red at HEAD; last green 2026-09-06. Locally, 76 non-yaml failures (§4), including a committed SyntaxError |
@@ -515,7 +522,8 @@ V12 is launched only when **all** of these hold, each with a cited receipt:
 
 | Item | State |
 |---|---|
-| Frontier 01 / 02 (this plan) | Plan committed; Turbo implementation not started |
+| Frontier 01 | Plan committed (`99baed42`); Turbo implementation not started |
+| Frontier 02 | Constitution committed (see §21); laws mostly PROCESS_ONLY |
 | Recommended next move | **05+01 opening:** (a) fix the `claude_code_adapter.py` SyntaxError (needs no environment); (b) provision a CI-equivalent env (Python 3.12 + PyYAML; host install = HUMAN DECISION); (c) triage the 76 non-yaml foundation failures by root cause; (d) green baseline + CI receipt; (e) only then Turbo optimization |
 | Parallel, independent | Land or park the uncommitted 04 work (Kyle/executor decision: it is in-progress work, not this frontier's) |
 | Blocked on Kyle | Private repo access (F13); `gh` auth for CI logs (optional); scheduling (F23); F-007 remediation |
@@ -525,3 +533,27 @@ V12 is launched only when **all** of these hold, each with a cited receipt:
 | Date | Frontier | Change | Evidence |
 |---|---|---|---|
 | 2026-09-24 | 01 | Created. Consolidated from live repo inspection plus `CLAUDE.md`, the operating contract, `HUMAN_DECISIONS.md`, `NEXT_MOVE.md`, `PARETO_FRONTIER.md`, investor docs and ops docs. Recorded CI red at HEAD (last green 2026-09-06), host missing PyYAML, 76 non-yaml foundation failures including a committed SyntaxError, full-suite baseline 23m26s, private repo not connected | §4, §9 |
+| 2026-09-24 | 02 | Added `TITANOS_V12_CONSTITUTION.md` as the binding law. The plan now defers to it for overlapping sections. Added §22 contradiction ledger and two unknowns. Crosswalk for the operator's condensed 15-item frontier list recorded in constitution Art. XIII. Frontier 02 row → BUILT (docs) | constitution; §22 |
+
+## 22. Contradiction ledger
+
+Material contradictions found in Frontiers 01–02. These are **recorded, not
+silently harmonized.** Each names the source that wins and the frontier
+that owns the fix.
+
+| # | Claim (where) | Reality (evidence) | Authoritative | Owner |
+|---|---|---|---|---|
+| C1 | "CI is green" (`README.md:76`) | CI failed at `4f0282c5`; no green master run since `c0a52300` (2026-09-06) | CI | F05 / F26 |
+| C2 | "4,366 tests… green" (`README.md:75`); "all twelve suites pass" (`CLAUDE.md`, Standing facts, 2026-09-01) | Local full run FAIL (3,579 executed); CI red | Test run + CI | F05 |
+| C3 | "No ledger anywhere hash-chains its records" (`CLAUDE.md`, Durability) | `outcome_ledger.py` (`previous_hash`, lines 185, 325) and `receipt_ledger.py` chain their records | Code | F06 |
+| C4 | "No GitHub remote" (`TITANOS_LAYER0_RECURSIVE_PARETO_FRONTIER.md`, `TITANOS_LIVING_PARETO_FRONTIER_ARCHITECTURE.md`) | `origin` = `kyle4814/titanos`, public | git + GitHub API | F16 |
+| C5 | "Zero network connections / no fetcher exists" (`HUMAN_DECISIONS.md` #12, `TITANOS_COMMUNICATION_SWITCH_001.md` invariant) | `fetch_feed()` makes real requests; two gated sockets. `CLAUDE.md` already records the correction | Code | F16 |
+| C6 | "Nothing here is blocking correctness — tests pass either way"; "Last compiled 2026-08-25" (`HUMAN_DECISIONS.md:4,9`) | Tests fail; the file has sections dated 2026-09-04 | Test run; file content | F16 |
+| C7 | Cron recipes at `/home/tech2/cosmic-library` (`HUMAN_LAUNCH_CHECKLIST.md`, `HUMAN_DECISIONS.md`) | Repo lives at `/home/userland/titanos`; no `crontab` on this host | Filesystem | F23 |
+| C8 | FRONTIER-024/025 CLOSED but listed under Active (`PARETO_FRONTIER.md`) | Status field says CLOSED | The entry's own status | F16 |
+| C9 | O2 permits autonomous templated outreach (`.claude/commands/next.md` §0.46) vs "external communications representing the founder" as a human gate (operating contract; V12 F02) | No issued envelope observed; `next_kernel` does not verify grants | **Resolved in law:** constitution Art. VI.4 (O2 external action only inside an issued envelope; otherwise human-gated) | F09 |
+| C10 | NEXT authority treated as a controlled level (`next.md`, `next_kernel.MIN_AUTHORITY`) | `Opportunity.authority` is a caller-supplied field; no grant verification | Code | F09 (constitution Art. VI.2) |
+| C11 | Frontier numbering: operator's condensed 15-item list (F02 prompt) vs committed 30-map (§10) | Different numbers for the same frontiers | Committed §10; crosswalk in constitution Art. XIII | — |
+| C12 | `REMAINING_LIMITATIONS.md`, `CAPABILITY_MATRIX.md`, `FINAL_SYSTEM_RECEIPT.json` (generated 2026-08-31 at `8dc05cd`) | Many commits later; CI red; not regenerated | Recompute via `launch_report` once env is provisioned | F20 |
+| C13 | Test counts in ≥7 documents (1,135 … 4,366) | One run: 3,579 executed | `run_all_tests.sh` | F16 |
+| C14 | `pyproject.toml` author name vs the operator name given in V12 prompts | Differ | HUMAN: legal and author identity (also open: operator profile facts, `HUMAN_DECISIONS.md` 2026-09-04) | HUMAN |

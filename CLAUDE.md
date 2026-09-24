@@ -20,6 +20,16 @@
 @TITANOS_MONK_DEMONBLADE_PRINCIPLE.md
 @TITANOS_COMMUNICATION_SWITCH_001.md
 
+**V12 campaign (2026-09-24).** Before any V12 frontier, read
+`TITANOS_V12_CONSTITUTION.md` (binding law: claim law, Turbo vs
+authoritative verification, authority, public/private boundary, failure
+law, no-drift contract) and `TITANOS_V12_MASTER_PLAN.md` (campaign map,
+living verified state, contradiction ledger §22). They are deliberately
+not `@`-imported (Tier 3, per the Memory Irrelevance Protocol). Where they
+conflict with this file, see constitution "Precedence"; several claims
+below are recorded in the master plan §22 as CONTRADICTED or STALE, not
+silently corrected.
+
 Monk-Demonblade Principle (next doctrine file after Launch Sequence
 001): names, but does not newly enforce, the capability/authority
 separation this repo's code already has — Demonblade proposes/attacks,

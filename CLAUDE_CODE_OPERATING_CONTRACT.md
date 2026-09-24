@@ -1,5 +1,8 @@
 # TitanOS — Claude Code Operating Contract
 
+Subordinate to `TITANOS_V12_CONSTITUTION.md` (V12 binding law) for all V12
+work. This file keeps the executor loop and work-chunk rules.
+
 ## Primary agenda
 
 When returning to TitanOS with Claude Code, optimise for **verified engineering throughput**.
