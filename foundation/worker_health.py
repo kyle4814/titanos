@@ -46,6 +46,21 @@ class WorkerHealthBook:
         self.workers[worker_id] = h
         return h
 
+    def record_retry_failure(self, worker_id: str, *, quarantine_after: int = 3,
+                             latency_ms: float = 0.0) -> WorkerHealth:
+        if quarantine_after < 1:
+            raise ValueError("quarantine_after must be positive")
+        h = self.record(worker_id, status="FAILED", latency_ms=latency_ms, retry=True)
+        if h.retries >= quarantine_after:
+            return self.quarantine(worker_id)
+        return h
+
+    def record_success(self, worker_id: str, *, latency_ms: float = 0.0) -> WorkerHealth:
+        h = self.record(worker_id, status="COMPLETED", latency_ms=latency_ms)
+        if h.quarantined:
+            return self.recover(worker_id)
+        return h
+
     def quarantine(self, worker_id: str) -> WorkerHealth:
         h = self.workers.get(worker_id, WorkerHealth(worker_id))
         updated = WorkerHealth(h.worker_id, h.completed, h.failed, h.escalated,
