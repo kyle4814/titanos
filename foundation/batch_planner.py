@@ -39,6 +39,20 @@ class ActiveBatch:
         except KeyError as exc:
             raise KeyError(f"opportunity is not active: {opportunity_id}") from exc
 
+
+    def heartbeat(self, opportunity_id: str, worker_id: str) -> bool:
+        if self.active.get(opportunity_id) != worker_id:
+            raise ValueError("heartbeat does not match active worker")
+        return True
+
+    def timeout(self, opportunity_id: str, health: WorkerHealthBook, *, retry: bool = True) -> str:
+        worker = self.complete(opportunity_id)
+        if retry:
+            health.record_retry_failure(worker)
+        else:
+            health.record(worker, status="FAILED")
+        return worker
+
     @property
     def capacity_used(self) -> int:
         return len(self.active)
