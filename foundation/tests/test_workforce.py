@@ -120,6 +120,22 @@ class TestWorkforce(unittest.TestCase):
         self.assertEqual([item.slot for item in batch.items], [0, 1])
         self.assertEqual([item.worker_id for item in batch.items], ["worker-a", "worker-b"])
 
+    def test_dispatch_applies_queue_backpressure_without_touching_active(self):
+        from foundation.workforce_dispatcher import DispatchBudget, dispatch
+
+        registry = WorkforceRegistry()
+        for worker_id in ("a", "b", "c", "d"):
+            registry = registry.register(WorkerSpec(worker_id, "research", ("research",)))
+        plan = plan_swarm(registry, tuple(
+            WorkRequirement(name, ("research",), "research")
+            for name in ("r1", "r2", "r3", "r4")
+        ))
+        batch = dispatch(plan, DispatchBudget(max_active=1, max_per_worker=1, max_queue=1))
+        self.assertEqual(len(batch.items), 1)
+        self.assertEqual(len(batch.queued), 1)
+        self.assertEqual(len(batch.dropped), 2)
+        self.assertEqual(batch.items[0].worker_id, "a")
+
     def test_dispatch_never_duplicates_active_worker(self):
         from foundation.workforce_dispatcher import DispatchBudget, dispatch
 
