@@ -83,6 +83,17 @@ class TestNextKernel(unittest.TestCase):
         with self.assertRaises(PermissionError):
             self.store.advance("op-1", "QUALIFIED")
 
+    def test_o1_cannot_promote_to_qualified_without_evidence(self):
+        self.store.upsert(self.item(authority="O1"))
+        with self.assertRaises(PermissionError):
+            self.store.advance("op-1", "QUALIFIED")
+
+    def test_o1_can_promote_to_qualified_with_evidence(self):
+        self.store.upsert(self.item(authority="O1", evidence_refs=("qualification:1",)))
+        result = self.store.advance("op-1", "QUALIFIED")
+        self.assertEqual(result.status, "QUALIFIED")
+        self.assertEqual(result.authority, "O1")
+
     def test_o0_cannot_promote_to_prepared(self):
         self.store.upsert(self.item(authority="O0"))
         with self.assertRaises(PermissionError):
