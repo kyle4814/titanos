@@ -69,6 +69,20 @@ class ActiveBatch:
             or not health.workers[retry_queue.workers[oid]].quarantined
         )
 
+    def reassign_retry(self, opportunity_id: str, worker_id: str, retry_queue: "RetryQueue", health: WorkerHealthBook, now: int) -> str:
+        """Consume a ready retry and lease it to a healthy alternative worker."""
+        if opportunity_id not in retry_queue.ready(now):
+            raise ValueError("retry is not ready")
+        if health.workers.get(worker_id) and health.workers[worker_id].quarantined:
+            raise ValueError("worker is quarantined")
+        if opportunity_id in self.active:
+            raise ValueError("opportunity already active")
+        if worker_id in self.active.values():
+            raise ValueError("worker already active")
+        self.active[opportunity_id] = worker_id
+        retry_queue.release(opportunity_id)
+        return worker_id
+
     @property
     def capacity_used(self) -> int:
         return len(self.active)
