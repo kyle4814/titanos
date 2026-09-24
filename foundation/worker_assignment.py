@@ -136,10 +136,12 @@ def plan_from_persisted_learning(
     """Reload institutional memory, recalibrate priorities, and build the next bounded batch."""
     memory = store.load()
     learned = prioritize_with_learning(priorities, memory.opportunity_learning, now=now)
-    return plan_batch(registry, health, specialization, opportunities, max_active) if not learned else dispatch_learned_batch(
-        registry, health, specialization, opportunities, learned, memory.opportunity_learning,
-        max_active, now=now,
-    )
+    order = {item.opportunity_id: i for i, item in enumerate(learned)}
+    ranked = tuple(sorted(
+        opportunities,
+        key=lambda item: (order.get(item[0], len(order)), item[0]),
+    ))
+    return plan_batch(registry, health, specialization, ranked, max_active)
 
 
 def route_opportunity(
