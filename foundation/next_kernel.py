@@ -37,6 +37,9 @@ TERMINAL = {"REJECTED", "EXPIRED", "DUPLICATE", "ALREADY-ACTIONED", "SUCCEEDED",
 # authority envelope; a higher-authority action must update the record through
 # an explicit, policy-controlled boundary before the transition is possible.
 MIN_AUTHORITY = {
+    # Qualification is the first transition beyond raw observation: O0 is
+    # discovery only; an explicit qualification claim requires O1 evidence.
+    "QUALIFIED": 1,
     "PREPARED": 1,
     "READY": 2,
     "COMMITTED": 3,
