@@ -59,12 +59,15 @@ class ActiveBatch:
         if worker is None:
             raise KeyError(f"opportunity is not active: {opportunity_id}")
         worker = self.complete(opportunity_id)
-        accepted = retry_queue.schedule(opportunity_id, now)
+        accepted = retry_queue.schedule(opportunity_id, now, worker)
         return worker, accepted
 
     def ready_retries(self, retry_queue: RetryQueue, now: int, health: WorkerHealthBook) -> tuple[str, ...]:
-        return tuple(oid for oid in retry_queue.ready(now)
-                     if not health.workers.get(oid, WorkerHealthBook().workers.get(oid, None)) or not health.workers[oid].quarantined)
+        return tuple(
+            oid for oid in retry_queue.ready(now)
+            if retry_queue.workers.get(oid) is None
+            or not health.workers[retry_queue.workers[oid]].quarantined
+        )
 
     @property
     def capacity_used(self) -> int:
@@ -89,13 +92,16 @@ class RetryQueue:
     policy: RetryPolicy = field(default_factory=RetryPolicy)
     attempts: dict[str, int] = field(default_factory=dict)
     ready_at: dict[str, int] = field(default_factory=dict)
+    workers: dict[str, str] = field(default_factory=dict)
 
-    def schedule(self, opportunity_id: str, now: int) -> bool:
+    def schedule(self, opportunity_id: str, now: int, worker_id: str | None = None) -> bool:
         attempt = self.attempts.get(opportunity_id, 0) + 1
         if attempt > self.policy.max_attempts:
             return False
         self.attempts[opportunity_id] = attempt
         self.ready_at[opportunity_id] = now + self.policy.delay(attempt)
+        if worker_id is not None:
+            self.workers[opportunity_id] = worker_id
         return True
 
     def ready(self, now: int) -> tuple[str, ...]:
@@ -103,6 +109,7 @@ class RetryQueue:
 
     def release(self, opportunity_id: str) -> None:
         self.ready_at.pop(opportunity_id, None)
+        self.workers.pop(opportunity_id, None)
 
 
 def plan_batch(registry: WorkforceRegistry, health: WorkerHealthBook,
