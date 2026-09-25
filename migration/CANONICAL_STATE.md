@@ -114,10 +114,27 @@ Captured: 2026-09-25. Source HEAD before the migration commit:
   3920 / 15F + 17E / 1 skipped, 32 distinct — same set, 0 new.
   **Foundation still RED.** Gate 08 (replay) and the cross-process
   receipt-file limitation: the *execution* is now exactly-once across
-  processes; `receipts.json` itself still has no OS-level lock (the claim
-  makes concurrent writers for one fingerprint impossible, so the
-  remaining exposure is two different fingerprints racing the JSON rewrite
-  — untested, recorded).
+  processes; the two-fingerprint JSON-rewrite exposure was then reproduced
+  and closed by `ff576e56` (flock in `record()`). Remaining in this area:
+  claim-then-crash-before-record leaves a fingerprint claimed with no
+  receipt — intended fail-closed, needs a human reconciliation path
+  (HUMAN DECISION 5).
+- `ff576e56` fix: hold a cross-process lock while recording an execution
+  receipt. Demonblade on the recorded UNKNOWN "two different fingerprints
+  racing the receipts.json rewrite": 8 processes × 8 fingerprints with no
+  injected delay lost nothing (3×8) — luck; with a 200 ms gap between
+  `load()` and `save()` inside `record()`: **8 executions, 8 callers
+  holding receipts, 2 receipts on disk** (3/3 trials) plus `.tmp`
+  FileNotFoundError collisions. Lost receipts left claimed fingerprints
+  with no evidence (permanent `ExecutionClaimed`). `record()` now holds an
+  exclusive flock on `<path>.lock` (the `InstitutionalMemoryStore._lock`
+  pattern); `load()` lock-free (atomic replace). Regression
+  `test_receipt_store_cross_process.py` (3, spawn; all fail before).
+  Adjacent 134/134. Probes after: 0 lost; same-fingerprint still exactly
+  once. CI run `36197110594`: 12/12 jobs, 0 cancelled, 11 green,
+  foundation 3923 / 15F + 17E / 1 skipped, 32 distinct — same set, 0 new.
+  **Foundation still RED.** The receipts.json cross-process UNKNOWN is now
+  CLOSED (VERIFIED locally + CI-executed, fixture adapter).
 - Security surface audit 2026-09-26 (evidence class STATIC_INSPECTION +
   LOCAL + CI): `untrusted_text` has 15 production consumers, all mouths /
   eligibility / opportunity sanitisers producing `.safe` display/record
@@ -148,8 +165,8 @@ Captured: 2026-09-25. Source HEAD before the migration commit:
   11/12 green, `foundation` red (15F+20E, 35 distinct tests); `77cb0cc0`
   run `36192409688` = 11/12 green, `foundation` red (15F+17E, 32
   distinct); `f06050e4` run `36194505196` = same, 3915 tests; `352fdf67`
-  run `36195787798` = same, 3920 tests. Last fully green run remains
-  `c0a52300`, 2026-09-06.
+  run `36195787798` = same, 3920 tests; `ff576e56` run `36197110594` =
+  same, 3923 tests. Last fully green run remains `c0a52300`, 2026-09-06.
 
 ## DEPLOYMENT STATE — none observed
 
