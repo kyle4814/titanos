@@ -1,0 +1,1366 @@
+{
+ "category_legend": {
+  "A": "pre-existing on clean HEAD",
+  "B": "introduced by the uncommitted qualification/NEXT work (none observed)",
+  "C": "environment/tooling",
+  "D": "test/fixture contract",
+  "E": "unresolved"
+ },
+ "command": "python3 -m unittest discover -s <suite> -v --durations 0 per suite; 11 light suites concurrent, foundation isolated (same discovery as run_all_tests.sh)",
+ "environment": {
+  "ci_differences": [
+   "aarch64 vs CI x86_64",
+   "proot syscall translation (filesystem and subprocess heavy tests much slower)",
+   "runs executed from git worktrees, not the primary checkout"
+  ],
+  "dependencies": {
+   "PyYAML": "6.0.3 (libyaml) from requirements.txt"
+  },
+  "host": "UserLAnd proot on Android, Ubuntu 26.04, aarch64, 8 cores",
+  "python": "3.12.14 (uv-managed, python-build-standalone)"
+ },
+ "evidence_class": "LOCAL (CI-parity environment, not CI)",
+ "experiment": "EXP-002",
+ "not_claimed": [
+  "CI green",
+  "repository green",
+  "authoritative after-run (after-run is --fast)",
+  "speed improvement (no performance change was made)"
+ ],
+ "runs": {
+  "after": {
+   "commit": "7031430f",
+   "foundation_failures": [
+    {
+     "category": "E",
+     "cause_class": "CONTRACT_DRIFT",
+     "disposition": "OPEN: tests disagree whether an absent store is {} or the empty-memory payload",
+     "kind": "ERROR",
+     "signature": "ValueError: learning receipt does not bind this memory transition",
+     "test": "tests.test_assignment_memory_receipt.AssignmentMemoryReceiptTests.test_assignment_outcome_binds_and_persists_to_memory"
+    },
+    {
+     "category": "E",
+     "cause_class": "UNKNOWN",
+     "disposition": "OPEN: O0 record -> PREPARED refused by MIN_AUTHORITY; authority semantics, not changed (stop condition)",
+     "kind": "ERROR",
+     "signature": "PermissionError: PREPARED requires authority O1 or higher; record has O0",
+     "test": "tests.test_authority_result.TestAuthorityResult.test_completed_can_prepare_but_not_commit"
+    },
+    {
+     "category": "E",
+     "cause_class": "CONTRACT_DRIFT",
+     "disposition": "OPEN: tests disagree whether an absent store is {} or the empty-memory payload",
+     "kind": "ERROR",
+     "signature": "ValueError: learning receipt does not bind this memory transition",
+     "test": "tests.test_calibration_once.CalibrationOnceTests.test_persisted_calibration_is_applied_once"
+    },
+    {
+     "category": "D",
+     "cause_class": "TEST_DEFECT",
+     "disposition": "OPEN: test targets an API that was never built or was removed; owner of the contract unknown",
+     "kind": "ERROR",
+     "signature": "ModuleNotFoundError: No module named 'foundation.evidence_admission'",
+     "test": "unittest.loader._FailedTest.tests.test_evidence_admission"
+    },
+    {
+     "category": "E",
+     "cause_class": "CONTRACT_DRIFT",
+     "disposition": "OPEN: tests disagree whether an absent store is {} or the empty-memory payload",
+     "kind": "ERROR",
+     "signature": "TypeError: InstitutionalMemoryStore.save() missing 1 required positional argument: 'receipt'",
+     "test": "tests.test_institutional_memory.TestInstitutionalMemory.test_round_trip_preserves_all_learning_domains"
+    },
+    {
+     "category": "E",
+     "cause_class": "CONTRACT_DRIFT",
+     "disposition": "OPEN: tests disagree whether an absent store is {} or the empty-memory payload",
+     "kind": "ERROR",
+     "signature": "ValueError: learning receipt does not bind this memory transition",
+     "test": "tests.test_institutional_memory_concurrency.InstitutionalMemoryConcurrencyTests.test_concurrent_learners_preserve_valid_memory_and_receipts"
+    },
+    {
+     "category": "E",
+     "cause_class": "CONTRACT_DRIFT",
+     "disposition": "OPEN: tests disagree whether an absent store is {} or the empty-memory payload",
+     "kind": "ERROR",
+     "signature": "ValueError: learning receipt does not bind this memory transition",
+     "test": "tests.test_institutional_memory_failure_recovery.FailureRecoveryTests.test_interruption_after_memory_write_is_reconciled"
+    },
+    {
+     "category": "E",
+     "cause_class": "CONTRACT_DRIFT",
+     "disposition": "OPEN: tests disagree whether an absent store is {} or the empty-memory payload",
+     "kind": "ERROR",
+     "signature": "ValueError: learning receipt does not bind this memory transition",
+     "test": "tests.test_institutional_memory_failure_recovery.FailureRecoveryTests.test_interruption_before_memory_write_rolls_back_journal"
+    },
+    {
+     "category": "E",
+     "cause_class": "CONTRACT_DRIFT",
+     "disposition": "OPEN: tests disagree whether an absent store is {} or the empty-memory payload",
+     "kind": "ERROR",
+     "signature": "TypeError: InstitutionalMemoryStore.save() missing 1 required positional argument: 'receipt'",
+     "test": "tests.test_institutional_memory_integrity.TestInstitutionalMemoryIntegrity.test_checksum_round_trip"
+    },
+    {
+     "category": "E",
+     "cause_class": "CONTRACT_DRIFT",
+     "disposition": "OPEN: tests disagree whether an absent store is {} or the empty-memory payload",
+     "kind": "ERROR",
+     "signature": "TypeError: InstitutionalMemoryStore.save() missing 1 required positional argument: 'receipt'",
+     "test": "tests.test_institutional_memory_integrity.TestInstitutionalMemoryIntegrity.test_tampering_is_rejected"
+    },
+    {
+     "category": "E",
+     "cause_class": "CONTRACT_DRIFT",
+     "disposition": "OPEN: tests disagree whether an absent store is {} or the empty-memory payload",
+     "kind": "ERROR",
+     "signature": "TypeError: InstitutionalMemoryStore.save() missing 1 required positional argument: 'receipt'",
+     "test": "tests.test_institutional_memory_schema.TestInstitutionalMemorySchema.test_new_writes_include_schema"
+    },
+    {
+     "category": "E",
+     "cause_class": "CONTRACT_DRIFT",
+     "disposition": "OPEN: tests disagree whether an absent store is {} or the empty-memory payload",
+     "kind": "ERROR",
+     "signature": "ValueError: institutional memory checksum mismatch",
+     "test": "tests.test_institutional_memory_schema.TestInstitutionalMemorySchema.test_v1_migrates"
+    },
+    {
+     "category": "E",
+     "cause_class": "UNKNOWN",
+     "disposition": "OPEN: behavioural contract drift across a same-day commit burst; tests contradict each other",
+     "kind": "ERROR",
+     "signature": "IndexError: tuple index out of range",
+     "test": "tests.test_learned_batch_dispatch.LearnedBatchDispatchTests.test_learned_order_flows_into_bounded_batch"
+    },
+    {
+     "category": "E",
+     "cause_class": "CONTRACT_DRIFT",
+     "disposition": "OPEN: tests disagree whether an absent store is {} or the empty-memory payload",
+     "kind": "ERROR",
+     "signature": "ValueError: unresolved institutional memory transaction",
+     "test": "tests.test_memory_recovery.TestMemoryRecovery.test_crash_after_memory_write_rolls_back"
+    },
+    {
+     "category": "E",
+     "cause_class": "CONTRACT_DRIFT",
+     "disposition": "OPEN: tests disagree whether an absent store is {} or the empty-memory payload",
+     "kind": "ERROR",
+     "signature": "ValueError: learning receipt does not bind this memory transition",
+     "test": "tests.test_opportunity_outcome_persistence.OpportunityOutcomePersistenceTests.test_feedback_is_receipt_bound_and_reloaded"
+    },
+    {
+     "category": "D",
+     "cause_class": "TEST_DEFECT",
+     "disposition": "OPEN: test targets an API that was never built or was removed; owner of the contract unknown",
+     "kind": "ERROR",
+     "signature": "TypeError: persist_assignment_outcome() got an unexpected keyword argument 'expected_value'",
+     "test": "tests.test_persisted_assignment_outcome.PersistedAssignmentOutcomeTests.test_outcome_updates_feedback_and_survives_reload"
+    },
+    {
+     "category": "E",
+     "cause_class": "CONTRACT_DRIFT",
+     "disposition": "OPEN: tests disagree whether an absent store is {} or the empty-memory payload",
+     "kind": "ERROR",
+     "signature": "ValueError: learning receipt does not bind this memory transition",
+     "test": "tests.test_persisted_learning_dispatch.PersistedLearningDispatchTests.test_reloaded_feedback_changes_next_batch_order"
+    },
+    {
+     "category": "E",
+     "cause_class": "UNKNOWN",
+     "disposition": "OPEN: behavioural contract drift across a same-day commit burst; tests contradict each other",
+     "kind": "ERROR",
+     "signature": "KeyError: 'w1'",
+     "test": "tests.test_retry_worker_awareness.RetryWorkerAwareTests.test_healthy_retry_is_ready"
+    },
+    {
+     "category": "E",
+     "cause_class": "UNKNOWN",
+     "disposition": "OPEN: behavioural contract drift across a same-day commit burst; tests contradict each other",
+     "kind": "ERROR",
+     "signature": "LookupError: no eligible worker for opportunity",
+     "test": "tests.test_swarm_planner.TestSwarmPlanner.test_planner_routes_eligible_workers"
+    },
+    {
+     "category": "E",
+     "cause_class": "CONTRACT_DRIFT",
+     "disposition": "OPEN: tests disagree whether an absent store is {} or the empty-memory payload",
+     "kind": "ERROR",
+     "signature": "ValueError: learning receipt does not bind this memory transition",
+     "test": "tests.test_transaction_conservation.TransactionConservationTests.test_each_failure_phase_conserves_receipt_and_memory_invariants(phase='WRITE')"
+    },
+    {
+     "category": "E",
+     "cause_class": "CONTRACT_DRIFT",
+     "disposition": "OPEN: tests disagree whether an absent store is {} or the empty-memory payload",
+     "kind": "ERROR",
+     "signature": "ValueError: learning receipt does not bind this memory transition",
+     "test": "tests.test_transaction_conservation.TransactionConservationTests.test_each_failure_phase_conserves_receipt_and_memory_invariants(phase='COMMIT')"
+    },
+    {
+     "category": "E",
+     "cause_class": "CONTRACT_DRIFT",
+     "disposition": "OPEN: tests disagree whether an absent store is {} or the empty-memory payload",
+     "kind": "ERROR",
+     "signature": "ValueError: learning receipt does not bind this memory transition",
+     "test": "tests.test_transaction_conservation.TransactionConservationTests.test_each_failure_phase_conserves_receipt_and_memory_invariants(phase='MARK')"
+    },
+    {
+     "category": "E",
+     "cause_class": "CONTRACT_DRIFT",
+     "disposition": "OPEN: tests disagree whether an absent store is {} or the empty-memory payload",
+     "kind": "ERROR",
+     "signature": "ValueError: learning receipt does not bind this memory transition",
+     "test": "tests.test_transaction_phase_matrix.TransactionPhaseMatrixTests.test_all_transaction_phases(phase='WRITE')"
+    },
+    {
+     "category": "E",
+     "cause_class": "CONTRACT_DRIFT",
+     "disposition": "OPEN: tests disagree whether an absent store is {} or the empty-memory payload",
+     "kind": "ERROR",
+     "signature": "ValueError: learning receipt does not bind this memory transition",
+     "test": "tests.test_transaction_phase_matrix.TransactionPhaseMatrixTests.test_all_transaction_phases(phase='COMMIT')"
+    },
+    {
+     "category": "E",
+     "cause_class": "CONTRACT_DRIFT",
+     "disposition": "OPEN: tests disagree whether an absent store is {} or the empty-memory payload",
+     "kind": "ERROR",
+     "signature": "ValueError: learning receipt does not bind this memory transition",
+     "test": "tests.test_transaction_phase_matrix.TransactionPhaseMatrixTests.test_all_transaction_phases(phase='MARK')"
+    },
+    {
+     "category": "E",
+     "cause_class": "CONTRACT_DRIFT",
+     "disposition": "OPEN: tests disagree whether an absent store is {} or the empty-memory payload",
+     "kind": "ERROR",
+     "signature": "ValueError: learning receipt does not bind this memory transition",
+     "test": "tests.test_transaction_replay_idempotency.ReplayIdempotencyTests.test_replaying_same_receipt_does_not_append_duplicate"
+    },
+    {
+     "category": "E",
+     "cause_class": "UNKNOWN",
+     "disposition": "OPEN: O0 record -> PREPARED refused by MIN_AUTHORITY; authority semantics, not changed (stop condition)",
+     "kind": "ERROR",
+     "signature": "PermissionError: PREPARED requires authority O1 or higher; record has O0",
+     "test": "tests.test_transactional_worker.TestTransactionalWorker.test_finish_records_completed"
+    },
+    {
+     "category": "D",
+     "cause_class": "TEST_DEFECT",
+     "disposition": "OPEN: test targets an API that was never built or was removed; owner of the contract unknown",
+     "kind": "ERROR",
+     "signature": "NameError: name 'assign_worker' is not defined",
+     "test": "tests.test_worker_assignment.WorkerAssignmentTests.test_assignment_refuses_non_investigate"
+    },
+    {
+     "category": "D",
+     "cause_class": "TEST_DEFECT",
+     "disposition": "OPEN: test targets an API that was never built or was removed; owner of the contract unknown",
+     "kind": "ERROR",
+     "signature": "NameError: name 'assign_worker' is not defined",
+     "test": "tests.test_worker_assignment.WorkerAssignmentTests.test_ready_opportunity_can_be_assigned_with_provenance"
+    },
+    {
+     "category": "E",
+     "cause_class": "UNKNOWN",
+     "disposition": "OPEN: behavioural contract drift across a same-day commit burst; tests contradict each other",
+     "kind": "ERROR",
+     "signature": "foundation.opportunity.HandoffRefused: ranking says WATCH, not INVESTIGATE; the radar does not authorise its own hunt",
+     "test": "tests.test_worker_assignment_routing.WorkerAssignmentRoutingTests.test_gate_refuses_non_investigate_opportunity"
+    },
+    {
+     "category": "E",
+     "cause_class": "UNKNOWN",
+     "disposition": "OPEN: behavioural contract drift across a same-day commit burst; tests contradict each other",
+     "kind": "ERROR",
+     "signature": "AttributeError: 'SpecializationBook' object has no attribute 'learn'",
+     "test": "tests.test_workforce.TestWorkforce.test_router_prefers_specialization_then_health"
+    },
+    {
+     "category": "E",
+     "cause_class": "UNKNOWN",
+     "disposition": "OPEN: behavioural contract drift across a same-day commit burst; tests contradict each other",
+     "kind": "FAIL",
+     "signature": "AssertionError: 0 != 1",
+     "test": "tests.test_batch_planner.TestBatchPlanner.test_capacity_defers_excess"
+    },
+    {
+     "category": "E",
+     "cause_class": "UNKNOWN",
+     "disposition": "OPEN: behavioural contract drift across a same-day commit burst; tests contradict each other",
+     "kind": "FAIL",
+     "signature": "AssertionError: 0 != 2",
+     "test": "tests.test_batch_planner.TestBatchPlanner.test_no_worker_is_double_booked"
+    },
+    {
+     "category": "E",
+     "cause_class": "UNKNOWN",
+     "disposition": "OPEN: behavioural contract drift across a same-day commit burst; tests contradict each other",
+     "kind": "FAIL",
+     "signature": "AssertionError: Tuples differ: ('b', 'a') != ('a', 'b')",
+     "test": "tests.test_feedback_scheduler.TestFeedbackScheduler.test_realized_value_changes_order"
+    },
+    {
+     "category": "E",
+     "cause_class": "CONTRACT_DRIFT",
+     "disposition": "OPEN: tests disagree whether an absent store is {} or the empty-memory payload",
+     "kind": "FAIL",
+     "signature": "AssertionError: 7 != 1",
+     "test": "tests.test_memory_recovery.TestMemoryRecovery.test_eight_process_writers_leave_one_valid_transaction"
+    },
+    {
+     "category": "E",
+     "cause_class": "CONTRACT_DRIFT",
+     "disposition": "OPEN: tests disagree whether an absent store is {} or the empty-memory payload",
+     "kind": "FAIL",
+     "signature": "AssertionError: ValueError not raised",
+     "test": "tests.test_memory_recovery.TestMemoryRecovery.test_lock_is_released_after_failed_transaction"
+    },
+    {
+     "category": "E",
+     "cause_class": "UNKNOWN",
+     "disposition": "OPEN: behavioural contract drift across a same-day commit burst; tests contradict each other",
+     "kind": "FAIL",
+     "signature": "AssertionError: 'reusable_adapter_overlap=4' not found in ('reusable_adapter_overlap=5', 'available_breadth=1', 'evidence_ready_adapters=1', 'freshness_declared_adapters=1', 'effort_proxy=1')",
+     "test": "tests.test_opportunity_gap_priority.TestOpportunityGapPriority.test_reuse_can_increase_engineering_priority"
+    },
+    {
+     "category": "E",
+     "cause_class": "UNKNOWN",
+     "disposition": "OPEN: behavioural contract drift across a same-day commit burst; tests contradict each other",
+     "kind": "FAIL",
+     "signature": "AssertionError: Tuples differ: ('healthy',) != ('healthy', 'probation')",
+     "test": "tests.test_probation_routing.ProbationRoutingTests.test_healthy_worker_precedes_probationary_worker"
+    },
+    {
+     "category": "E",
+     "cause_class": "UNKNOWN",
+     "disposition": "OPEN: new modules lack a reachability intent classification; not investigated this frontier",
+     "kind": "FAIL",
+     "signature": "AssertionError: Lists differ: ['adapter_execution_gateway', 'authorizati[524 chars]rce'] != []",
+     "test": "tests.test_reachability.TestEveryUnreachableModuleIsClassified.test_every_real_unreachable_module_has_an_intent"
+    },
+    {
+     "category": "E",
+     "cause_class": "CONTRACT_DRIFT",
+     "disposition": "OPEN: 'shift' as change-over-time vs persistent miscalibration is ambiguous",
+     "kind": "FAIL",
+     "signature": "AssertionError: True is not false",
+     "test": "tests.test_regime_recovery.TestRegimeRecovery.test_shift_blocks_recovery"
+    },
+    {
+     "category": "E",
+     "cause_class": "UNKNOWN",
+     "disposition": "OPEN: behavioural contract drift across a same-day commit burst; tests contradict each other",
+     "kind": "FAIL",
+     "signature": "AssertionError: True is not false",
+     "test": "tests.test_retry_isolation.RetryIsolationTests.test_success_releases_quarantine"
+    },
+    {
+     "category": "E",
+     "cause_class": "UNKNOWN",
+     "disposition": "OPEN: behavioural contract drift across a same-day commit burst; tests contradict each other",
+     "kind": "FAIL",
+     "signature": "AssertionError: True is not false",
+     "test": "tests.test_retry_queue.RetryQueueTests.test_exponential_backoff_is_bounded"
+    },
+    {
+     "category": "C",
+     "cause_class": "ENVIRONMENT_DEFECT",
+     "disposition": "HARNESS ARTIFACT: sigil reads repo_root/.git/config; in a git worktree .git is a file",
+     "kind": "FAIL",
+     "signature": "AssertionError: False is not true : remote_configured=no, real_run_recorded_locally=yes",
+     "test": "tests.test_sigil.TestDimensionExternalIntegration.test_real_repo_is_actually_proven"
+    },
+    {
+     "category": "E",
+     "cause_class": "UNKNOWN",
+     "disposition": "OPEN: behavioural contract drift across a same-day commit burst; tests contradict each other",
+     "kind": "FAIL",
+     "signature": "AssertionError: 1 != 2",
+     "test": "tests.test_worker_probation.WorkerProbationTests.test_recovery_does_not_bypass_probation"
+    },
+    {
+     "category": "E",
+     "cause_class": "UNKNOWN",
+     "disposition": "OPEN: behavioural contract drift across a same-day commit burst; tests contradict each other",
+     "kind": "FAIL",
+     "signature": "AssertionError: 1 != 2",
+     "test": "tests.test_workforce.TestWorkforce.test_dispatch_fills_available_capacity_fairly_before_queueing"
+    },
+    {
+     "category": "E",
+     "cause_class": "UNKNOWN",
+     "disposition": "OPEN: behavioural contract drift across a same-day commit burst; tests contradict each other",
+     "kind": "FAIL",
+     "signature": "AssertionError: Tuples differ: ('fast', 'unreliable', 'slow') != ('fast', 'slow', 'unreliable')",
+     "test": "tests.test_workforce.TestWorkforce.test_health_ranking_prefers_successful_fast_worker"
+    },
+    {
+     "category": "E",
+     "cause_class": "UNKNOWN",
+     "disposition": "OPEN: behavioural contract drift across a same-day commit burst; tests contradict each other",
+     "kind": "FAIL",
+     "signature": "AssertionError: Tuples differ: ('w2', 'w4') != ('w4',)",
+     "test": "tests.test_workforce_dispatcher.DispatcherBackpressureTests.test_queue_capacity_is_hard_bounded"
+    }
+   ],
+   "mode": "ADVISORY (--fast: TITAN_SKIP_REALREPO_SIGIL=1 skips the real-repo sigil class)",
+   "suites": {
+    "compiler": {
+     "rc": 0,
+     "result": "OK (skipped=4)",
+     "sys_s": 20.982,
+     "tests_ran": 41,
+     "user_s": 132.716,
+     "wall_s": 316.29
+    },
+    "firewall": {
+     "rc": 0,
+     "result": "OK",
+     "sys_s": 0.186,
+     "tests_ran": 36,
+     "user_s": 0.45,
+     "wall_s": 4.004
+    },
+    "foundation": {
+     "rc": 1,
+     "result": "FAILED (failures=16, errors=31, skipped=3)",
+     "sys_s": 1262.84,
+     "tests_ran": 3802,
+     "user_s": 1782.654,
+     "wall_s": 10428.396
+    },
+    "gems/claim_ledger": {
+     "rc": 0,
+     "result": "OK",
+     "sys_s": 0.146,
+     "tests_ran": 14,
+     "user_s": 0.394,
+     "wall_s": 15.164
+    },
+    "kpm": {
+     "rc": 0,
+     "result": "OK",
+     "sys_s": 0.307,
+     "tests_ran": 106,
+     "user_s": 2.738,
+     "wall_s": 10.229
+    },
+    "legacy": {
+     "rc": 0,
+     "result": "OK",
+     "sys_s": 0.16,
+     "tests_ran": 7,
+     "user_s": 0.659,
+     "wall_s": 15.167
+    },
+    "magl": {
+     "rc": 0,
+     "result": "OK",
+     "sys_s": 0.297,
+     "tests_ran": 80,
+     "user_s": 2.786,
+     "wall_s": 13.151
+    },
+    "narrative": {
+     "rc": 0,
+     "result": "OK",
+     "sys_s": 0.345,
+     "tests_ran": 92,
+     "user_s": 1.409,
+     "wall_s": 13.304
+    },
+    "provenance": {
+     "rc": 0,
+     "result": "OK (skipped=5)",
+     "sys_s": 0.162,
+     "tests_ran": 12,
+     "user_s": 0.412,
+     "wall_s": 16.338
+    },
+    "rpa": {
+     "rc": 0,
+     "result": "OK",
+     "sys_s": 0.468,
+     "tests_ran": 213,
+     "user_s": 8.762,
+     "wall_s": 28.117
+    },
+    "schema": {
+     "rc": 0,
+     "result": "OK",
+     "sys_s": 0.299,
+     "tests_ran": 67,
+     "user_s": 2.053,
+     "wall_s": 7.891
+    },
+    "taal": {
+     "rc": 0,
+     "result": "OK",
+     "sys_s": 0.456,
+     "tests_ran": 203,
+     "user_s": 9.703,
+     "wall_s": 28.037
+    }
+   },
+   "worktree_clean": true
+  },
+  "baseline": {
+   "commit": "7b7aad88",
+   "foundation_failures": [
+    {
+     "category": "A",
+     "cause_class": "CONTRACT_DRIFT",
+     "disposition": "FIXED 7031430f (committed tests ran ahead of implementation that existed only as uncommitted work)",
+     "kind": "ERROR",
+     "signature": "PermissionError: QUALIFIED requires authority O1 or higher; record has O0",
+     "still_failing_after": false,
+     "test": "test_next_kernel.TestNextKernel.test_backward_lifecycle_transition_is_rejected"
+    },
+    {
+     "category": "A",
+     "cause_class": "CONTRACT_DRIFT",
+     "disposition": "FIXED 7031430f (committed tests ran ahead of implementation that existed only as uncommitted work)",
+     "kind": "ERROR",
+     "signature": "PermissionError: QUALIFIED requires a canonical qualification evidence ref",
+     "still_failing_after": false,
+     "test": "test_next_kernel.TestNextKernel.test_o1_cannot_reach_ready"
+    },
+    {
+     "category": "A",
+     "cause_class": "CONTRACT_DRIFT",
+     "disposition": "FIXED 7031430f (committed tests ran ahead of implementation that existed only as uncommitted work)",
+     "kind": "ERROR",
+     "signature": "PermissionError: QUALIFIED requires a canonical qualification evidence ref",
+     "still_failing_after": false,
+     "test": "test_next_kernel.TestNextKernel.test_o3_can_reach_committed_after_valid_lifecycle"
+    },
+    {
+     "category": "A",
+     "cause_class": "PRODUCT_DEFECT",
+     "disposition": "FIXED 8cdcae9b (import cycle); unmasked idempotency defect FIXED 9dffdfd7",
+     "kind": "ERROR",
+     "signature": "ImportError: cannot import name 'ExecutionResult' from partially initialized module 'foundation.execution_executor' (most likely due to a circular import) (foundation/execution_executor.py)",
+     "still_failing_after": false,
+     "test": "unittest.loader._FailedTest.tests.test_adapter_execution_gateway"
+    },
+    {
+     "category": "E",
+     "cause_class": "CONTRACT_DRIFT",
+     "disposition": "OPEN: tests disagree whether an absent store is {} or the empty-memory payload",
+     "kind": "ERROR",
+     "signature": "ValueError: learning receipt does not bind this memory transition",
+     "still_failing_after": true,
+     "test": "tests.test_assignment_memory_receipt.AssignmentMemoryReceiptTests.test_assignment_outcome_binds_and_persists_to_memory"
+    },
+    {
+     "category": "A",
+     "cause_class": "CONTRACT_DRIFT",
+     "disposition": "FIXED c2106c83 (callers aligned to OpportunityStore.load()[id] / Opportunity.id)",
+     "kind": "ERROR",
+     "signature": "AttributeError: 'OpportunityStore' object has no attribute 'get'",
+     "still_failing_after": true,
+     "test": "tests.test_authority_result.TestAuthorityResult.test_completed_can_prepare_but_not_commit"
+    },
+    {
+     "category": "A",
+     "cause_class": "CONTRACT_DRIFT",
+     "disposition": "FIXED c2106c83 (callers aligned to OpportunityStore.load()[id] / Opportunity.id)",
+     "kind": "ERROR",
+     "signature": "AttributeError: 'OpportunityStore' object has no attribute 'get'",
+     "still_failing_after": false,
+     "test": "tests.test_authority_result.TestAuthorityResult.test_escalation_enters_human_gate"
+    },
+    {
+     "category": "E",
+     "cause_class": "CONTRACT_DRIFT",
+     "disposition": "OPEN: tests disagree whether an absent store is {} or the empty-memory payload",
+     "kind": "ERROR",
+     "signature": "ValueError: learning receipt does not bind this memory transition",
+     "still_failing_after": true,
+     "test": "tests.test_calibration_once.CalibrationOnceTests.test_persisted_calibration_is_applied_once"
+    },
+    {
+     "category": "A",
+     "cause_class": "PRODUCT_DEFECT",
+     "disposition": "FIXED 6d0955c3",
+     "kind": "ERROR",
+     "signature": "SyntaxError: unterminated string literal (detected at line 21)",
+     "still_failing_after": false,
+     "test": "unittest.loader._FailedTest.tests.test_claude_code_adapter"
+    },
+    {
+     "category": "A",
+     "cause_class": "CONTRACT_DRIFT",
+     "disposition": "FIXED c2106c83 (callers aligned to OpportunityStore.load()[id] / Opportunity.id)",
+     "kind": "ERROR",
+     "signature": "AttributeError: 'OpportunityStore' object has no attribute 'get'",
+     "still_failing_after": false,
+     "test": "tests.test_dispatcher_recovery.TestDispatcherRecovery.test_stale_active_is_removed_and_duplicates_are_collapsed"
+    },
+    {
+     "category": "D",
+     "cause_class": "TEST_DEFECT",
+     "disposition": "OPEN: test targets an API that was never built or was removed; owner of the contract unknown",
+     "kind": "ERROR",
+     "signature": "ModuleNotFoundError: No module named 'foundation.evidence_admission'",
+     "still_failing_after": true,
+     "test": "unittest.loader._FailedTest.tests.test_evidence_admission"
+    },
+    {
+     "category": "A",
+     "cause_class": "PRODUCT_DEFECT",
+     "disposition": "FIXED 8cdcae9b (import cycle); unmasked idempotency defect FIXED 9dffdfd7",
+     "kind": "ERROR",
+     "signature": "ImportError: cannot import name 'ExecutionResult' from partially initialized module 'foundation.execution_executor' (most likely due to a circular import) (foundation/execution_executor.py)",
+     "still_failing_after": false,
+     "test": "unittest.loader._FailedTest.tests.test_execution_adapter"
+    },
+    {
+     "category": "D",
+     "cause_class": "TEST_DEFECT",
+     "disposition": "FIXED 04be92ab (patched gate in wrong module)",
+     "kind": "ERROR",
+     "signature": "AttributeError: <module 'foundation.execution_approval' from 'foundation/execution_approval.py'> does not have the attribute 'authorize_communication'",
+     "still_failing_after": false,
+     "test": "tests.test_execution_approval.TestExecutionApproval.test_approval_round_trip_binds_sender_and_decision_to_exact_intent"
+    },
+    {
+     "category": "A",
+     "cause_class": "PRODUCT_DEFECT",
+     "disposition": "FIXED 8cdcae9b (import cycle); unmasked idempotency defect FIXED 9dffdfd7",
+     "kind": "ERROR",
+     "signature": "ImportError: cannot import name 'ExecutionResult' from partially initialized module 'foundation.execution_executor' (most likely due to a circular import) (foundation/execution_executor.py)",
+     "still_failing_after": false,
+     "test": "unittest.loader._FailedTest.tests.test_execution_dispatcher"
+    },
+    {
+     "category": "A",
+     "cause_class": "PRODUCT_DEFECT",
+     "disposition": "FIXED 8cdcae9b (import cycle); unmasked idempotency defect FIXED 9dffdfd7",
+     "kind": "ERROR",
+     "signature": "ImportError: cannot import name 'ExecutionResult' from partially initialized module 'foundation.execution_executor' (most likely due to a circular import) (foundation/execution_executor.py)",
+     "still_failing_after": false,
+     "test": "unittest.loader._FailedTest.tests.test_execution_executor"
+    },
+    {
+     "category": "A",
+     "cause_class": "PRODUCT_DEFECT",
+     "disposition": "FIXED 8cdcae9b (import cycle); unmasked idempotency defect FIXED 9dffdfd7",
+     "kind": "ERROR",
+     "signature": "ImportError: cannot import name 'ExecutionResult' from partially initialized module 'foundation.execution_executor' (most likely due to a circular import) (foundation/execution_executor.py)",
+     "still_failing_after": false,
+     "test": "unittest.loader._FailedTest.tests.test_execution_receipt"
+    },
+    {
+     "category": "A",
+     "cause_class": "PRODUCT_DEFECT",
+     "disposition": "FIXED 8cdcae9b (import cycle); unmasked idempotency defect FIXED 9dffdfd7",
+     "kind": "ERROR",
+     "signature": "ImportError: cannot import name 'ExecutionResult' from partially initialized module 'foundation.execution_executor' (most likely due to a circular import) (foundation/execution_executor.py)",
+     "still_failing_after": false,
+     "test": "unittest.loader._FailedTest.tests.test_execution_receipt_store"
+    },
+    {
+     "category": "A",
+     "cause_class": "PRODUCT_DEFECT",
+     "disposition": "FIXED 8cdcae9b (import cycle); unmasked idempotency defect FIXED 9dffdfd7",
+     "kind": "ERROR",
+     "signature": "ImportError: cannot import name 'ExecutionReceipt' from partially initialized module 'foundation.execution_receipt' (most likely due to a circular import) (foundation/execution_receipt.py)",
+     "still_failing_after": false,
+     "test": "unittest.loader._FailedTest.tests.test_execution_reconciliation"
+    },
+    {
+     "category": "A",
+     "cause_class": "PRODUCT_DEFECT",
+     "disposition": "FIXED 8cdcae9b (import cycle); unmasked idempotency defect FIXED 9dffdfd7",
+     "kind": "ERROR",
+     "signature": "ImportError: cannot import name 'ExecutionReceipt' from partially initialized module 'foundation.execution_receipt' (most likely due to a circular import) (foundation/execution_receipt.py)",
+     "still_failing_after": false,
+     "test": "unittest.loader._FailedTest.tests.test_execution_retry"
+    },
+    {
+     "category": "E",
+     "cause_class": "CONTRACT_DRIFT",
+     "disposition": "OPEN: tests disagree whether an absent store is {} or the empty-memory payload",
+     "kind": "ERROR",
+     "signature": "TypeError: InstitutionalMemoryStore.save() missing 1 required positional argument: 'receipt'",
+     "still_failing_after": true,
+     "test": "tests.test_institutional_memory.TestInstitutionalMemory.test_round_trip_preserves_all_learning_domains"
+    },
+    {
+     "category": "E",
+     "cause_class": "CONTRACT_DRIFT",
+     "disposition": "OPEN: tests disagree whether an absent store is {} or the empty-memory payload",
+     "kind": "ERROR",
+     "signature": "ValueError: learning receipt does not bind this memory transition",
+     "still_failing_after": true,
+     "test": "tests.test_institutional_memory_concurrency.InstitutionalMemoryConcurrencyTests.test_concurrent_learners_preserve_valid_memory_and_receipts"
+    },
+    {
+     "category": "E",
+     "cause_class": "CONTRACT_DRIFT",
+     "disposition": "OPEN: tests disagree whether an absent store is {} or the empty-memory payload",
+     "kind": "ERROR",
+     "signature": "ValueError: learning receipt does not bind this memory transition",
+     "still_failing_after": true,
+     "test": "tests.test_institutional_memory_failure_recovery.FailureRecoveryTests.test_interruption_after_memory_write_is_reconciled"
+    },
+    {
+     "category": "E",
+     "cause_class": "CONTRACT_DRIFT",
+     "disposition": "OPEN: tests disagree whether an absent store is {} or the empty-memory payload",
+     "kind": "ERROR",
+     "signature": "ValueError: learning receipt does not bind this memory transition",
+     "still_failing_after": true,
+     "test": "tests.test_institutional_memory_failure_recovery.FailureRecoveryTests.test_interruption_before_memory_write_rolls_back_journal"
+    },
+    {
+     "category": "E",
+     "cause_class": "CONTRACT_DRIFT",
+     "disposition": "OPEN: tests disagree whether an absent store is {} or the empty-memory payload",
+     "kind": "ERROR",
+     "signature": "TypeError: InstitutionalMemoryStore.save() missing 1 required positional argument: 'receipt'",
+     "still_failing_after": true,
+     "test": "tests.test_institutional_memory_integrity.TestInstitutionalMemoryIntegrity.test_checksum_round_trip"
+    },
+    {
+     "category": "E",
+     "cause_class": "CONTRACT_DRIFT",
+     "disposition": "OPEN: tests disagree whether an absent store is {} or the empty-memory payload",
+     "kind": "ERROR",
+     "signature": "TypeError: InstitutionalMemoryStore.save() missing 1 required positional argument: 'receipt'",
+     "still_failing_after": true,
+     "test": "tests.test_institutional_memory_integrity.TestInstitutionalMemoryIntegrity.test_tampering_is_rejected"
+    },
+    {
+     "category": "E",
+     "cause_class": "CONTRACT_DRIFT",
+     "disposition": "OPEN: tests disagree whether an absent store is {} or the empty-memory payload",
+     "kind": "ERROR",
+     "signature": "TypeError: InstitutionalMemoryStore.save() missing 1 required positional argument: 'receipt'",
+     "still_failing_after": true,
+     "test": "tests.test_institutional_memory_schema.TestInstitutionalMemorySchema.test_new_writes_include_schema"
+    },
+    {
+     "category": "E",
+     "cause_class": "CONTRACT_DRIFT",
+     "disposition": "OPEN: tests disagree whether an absent store is {} or the empty-memory payload",
+     "kind": "ERROR",
+     "signature": "ValueError: institutional memory checksum mismatch",
+     "still_failing_after": true,
+     "test": "tests.test_institutional_memory_schema.TestInstitutionalMemorySchema.test_v1_migrates"
+    },
+    {
+     "category": "E",
+     "cause_class": "UNKNOWN",
+     "disposition": "OPEN: behavioural contract drift across a same-day commit burst; tests contradict each other",
+     "kind": "ERROR",
+     "signature": "IndexError: tuple index out of range",
+     "still_failing_after": true,
+     "test": "tests.test_learned_batch_dispatch.LearnedBatchDispatchTests.test_learned_order_flows_into_bounded_batch"
+    },
+    {
+     "category": "E",
+     "cause_class": "CONTRACT_DRIFT",
+     "disposition": "OPEN: tests disagree whether an absent store is {} or the empty-memory payload",
+     "kind": "ERROR",
+     "signature": "ValueError: institutional memory checksum mismatch",
+     "still_failing_after": false,
+     "test": "tests.test_memory_recovery.TestMemoryRecovery.test_concurrent_writers_serialize_transaction"
+    },
+    {
+     "category": "E",
+     "cause_class": "CONTRACT_DRIFT",
+     "disposition": "OPEN: tests disagree whether an absent store is {} or the empty-memory payload",
+     "kind": "ERROR",
+     "signature": "ValueError: unresolved institutional memory transaction",
+     "still_failing_after": true,
+     "test": "tests.test_memory_recovery.TestMemoryRecovery.test_crash_after_memory_write_rolls_back"
+    },
+    {
+     "category": "A",
+     "cause_class": "CONTRACT_DRIFT",
+     "disposition": "FIXED 7031430f (committed tests ran ahead of implementation that existed only as uncommitted work)",
+     "kind": "ERROR",
+     "signature": "PermissionError: QUALIFIED requires authority O1 or higher; record has O0",
+     "still_failing_after": false,
+     "test": "tests.test_next_queue_integration.NextQueueIntegrationTests.test_repeated_evidence_compounds_without_regressing_lifecycle"
+    },
+    {
+     "category": "A",
+     "cause_class": "CONTRACT_DRIFT",
+     "disposition": "FIXED 7031430f (committed tests ran ahead of implementation that existed only as uncommitted work)",
+     "kind": "ERROR",
+     "signature": "PermissionError: QUALIFIED requires authority O1 or higher; record has O0",
+     "still_failing_after": false,
+     "test": "tests.test_opportunity_cycle.RunCycleTests.test_repeated_observation_with_new_evidence_updates_without_regressing_state"
+    },
+    {
+     "category": "E",
+     "cause_class": "CONTRACT_DRIFT",
+     "disposition": "OPEN: tests disagree whether an absent store is {} or the empty-memory payload",
+     "kind": "ERROR",
+     "signature": "ValueError: learning receipt does not bind this memory transition",
+     "still_failing_after": true,
+     "test": "tests.test_opportunity_outcome_persistence.OpportunityOutcomePersistenceTests.test_feedback_is_receipt_bound_and_reloaded"
+    },
+    {
+     "category": "D",
+     "cause_class": "TEST_DEFECT",
+     "disposition": "OPEN: test targets an API that was never built or was removed; owner of the contract unknown",
+     "kind": "ERROR",
+     "signature": "TypeError: persist_assignment_outcome() got an unexpected keyword argument 'expected_value'",
+     "still_failing_after": true,
+     "test": "tests.test_persisted_assignment_outcome.PersistedAssignmentOutcomeTests.test_outcome_updates_feedback_and_survives_reload"
+    },
+    {
+     "category": "E",
+     "cause_class": "CONTRACT_DRIFT",
+     "disposition": "OPEN: tests disagree whether an absent store is {} or the empty-memory payload",
+     "kind": "ERROR",
+     "signature": "ValueError: learning receipt does not bind this memory transition",
+     "still_failing_after": true,
+     "test": "tests.test_persisted_learning_dispatch.PersistedLearningDispatchTests.test_reloaded_feedback_changes_next_batch_order"
+    },
+    {
+     "category": "A",
+     "cause_class": "PRODUCT_DEFECT",
+     "disposition": "FIXED 2c14aa2e (checksum included receipt; specialization serialised in a shape the loader rejects)",
+     "kind": "ERROR",
+     "signature": "ValueError: institutional memory checksum mismatch",
+     "still_failing_after": false,
+     "test": "tests.test_receipt_bound_memory.TestReceiptBoundMemory.test_write_requires_and_persists_receipt"
+    },
+    {
+     "category": "D",
+     "cause_class": "TEST_DEFECT",
+     "disposition": "FIXED 2215708c (missing import json)",
+     "kind": "ERROR",
+     "signature": "NameError: name 'json' is not defined. Did you forget to import 'json'",
+     "still_failing_after": false,
+     "test": "tests.test_receipt_ledger.TestReceiptLedger.test_tampering_breaks_chain"
+    },
+    {
+     "category": "A",
+     "cause_class": "PRODUCT_DEFECT",
+     "disposition": "FIXED 8cdcae9b (import cycle); unmasked idempotency defect FIXED 9dffdfd7",
+     "kind": "ERROR",
+     "signature": "ImportError: cannot import name 'ExecutionReceipt' from partially initialized module 'foundation.execution_receipt' (most likely due to a circular import) (foundation/execution_receipt.py)",
+     "still_failing_after": false,
+     "test": "unittest.loader._FailedTest.tests.test_reconciliation_coordinator"
+    },
+    {
+     "category": "A",
+     "cause_class": "PRODUCT_DEFECT",
+     "disposition": "FIXED 8cdcae9b (import cycle); unmasked idempotency defect FIXED 9dffdfd7",
+     "kind": "ERROR",
+     "signature": "ImportError: cannot import name 'ExecutionReceipt' from partially initialized module 'foundation.execution_receipt' (most likely due to a circular import) (foundation/execution_receipt.py)",
+     "still_failing_after": false,
+     "test": "unittest.loader._FailedTest.tests.test_reconciliation_dispatcher"
+    },
+    {
+     "category": "A",
+     "cause_class": "PRODUCT_DEFECT",
+     "disposition": "FIXED 8cdcae9b (import cycle); unmasked idempotency defect FIXED 9dffdfd7",
+     "kind": "ERROR",
+     "signature": "ImportError: cannot import name 'ExecutionReceipt' from partially initialized module 'foundation.execution_receipt' (most likely due to a circular import) (foundation/execution_receipt.py)",
+     "still_failing_after": false,
+     "test": "unittest.loader._FailedTest.tests.test_reconciliation_receipt_store"
+    },
+    {
+     "category": "A",
+     "cause_class": "PRODUCT_DEFECT",
+     "disposition": "FIXED 8cdcae9b (import cycle); unmasked idempotency defect FIXED 9dffdfd7",
+     "kind": "ERROR",
+     "signature": "ImportError: cannot import name 'ExecutionReceipt' from partially initialized module 'foundation.execution_receipt' (most likely due to a circular import) (foundation/execution_receipt.py)",
+     "still_failing_after": false,
+     "test": "unittest.loader._FailedTest.tests.test_reconciliation_workflow"
+    },
+    {
+     "category": "D",
+     "cause_class": "TEST_DEFECT",
+     "disposition": "FIXED 2215708c (stale import after fcc600e4 rename)",
+     "kind": "ERROR",
+     "signature": "ImportError: cannot import name 'apply_regime_flags' from 'foundation.regime_scheduler' (foundation/regime_scheduler.py)",
+     "still_failing_after": false,
+     "test": "unittest.loader._FailedTest.tests.test_regime_scheduler"
+    },
+    {
+     "category": "A",
+     "cause_class": "PRODUCT_DEFECT",
+     "disposition": "FIXED 8cdcae9b (import cycle); unmasked idempotency defect FIXED 9dffdfd7",
+     "kind": "ERROR",
+     "signature": "ImportError: cannot import name 'ExecutionReceipt' from partially initialized module 'foundation.execution_receipt' (most likely due to a circular import) (foundation/execution_receipt.py)",
+     "still_failing_after": false,
+     "test": "unittest.loader._FailedTest.tests.test_retry_proposal"
+    },
+    {
+     "category": "E",
+     "cause_class": "UNKNOWN",
+     "disposition": "OPEN: behavioural contract drift across a same-day commit burst; tests contradict each other",
+     "kind": "ERROR",
+     "signature": "KeyError: 'w1'",
+     "still_failing_after": true,
+     "test": "tests.test_retry_worker_awareness.RetryWorkerAwareTests.test_healthy_retry_is_ready"
+    },
+    {
+     "category": "E",
+     "cause_class": "UNKNOWN",
+     "disposition": "OPEN: behavioural contract drift across a same-day commit burst; tests contradict each other",
+     "kind": "ERROR",
+     "signature": "LookupError: no eligible worker for opportunity",
+     "still_failing_after": true,
+     "test": "tests.test_swarm_planner.TestSwarmPlanner.test_planner_routes_eligible_workers"
+    },
+    {
+     "category": "E",
+     "cause_class": "CONTRACT_DRIFT",
+     "disposition": "OPEN: tests disagree whether an absent store is {} or the empty-memory payload",
+     "kind": "ERROR",
+     "signature": "ValueError: learning receipt does not bind this memory transition",
+     "still_failing_after": true,
+     "test": "tests.test_transaction_conservation.TransactionConservationTests.test_each_failure_phase_conserves_receipt_and_memory_invariants(phase='WRITE')"
+    },
+    {
+     "category": "E",
+     "cause_class": "CONTRACT_DRIFT",
+     "disposition": "OPEN: tests disagree whether an absent store is {} or the empty-memory payload",
+     "kind": "ERROR",
+     "signature": "ValueError: learning receipt does not bind this memory transition",
+     "still_failing_after": true,
+     "test": "tests.test_transaction_conservation.TransactionConservationTests.test_each_failure_phase_conserves_receipt_and_memory_invariants(phase='COMMIT')"
+    },
+    {
+     "category": "E",
+     "cause_class": "CONTRACT_DRIFT",
+     "disposition": "OPEN: tests disagree whether an absent store is {} or the empty-memory payload",
+     "kind": "ERROR",
+     "signature": "ValueError: learning receipt does not bind this memory transition",
+     "still_failing_after": true,
+     "test": "tests.test_transaction_conservation.TransactionConservationTests.test_each_failure_phase_conserves_receipt_and_memory_invariants(phase='MARK')"
+    },
+    {
+     "category": "E",
+     "cause_class": "CONTRACT_DRIFT",
+     "disposition": "OPEN: tests disagree whether an absent store is {} or the empty-memory payload",
+     "kind": "ERROR",
+     "signature": "ValueError: learning receipt does not bind this memory transition",
+     "still_failing_after": true,
+     "test": "tests.test_transaction_phase_matrix.TransactionPhaseMatrixTests.test_all_transaction_phases(phase='WRITE')"
+    },
+    {
+     "category": "E",
+     "cause_class": "CONTRACT_DRIFT",
+     "disposition": "OPEN: tests disagree whether an absent store is {} or the empty-memory payload",
+     "kind": "ERROR",
+     "signature": "ValueError: learning receipt does not bind this memory transition",
+     "still_failing_after": true,
+     "test": "tests.test_transaction_phase_matrix.TransactionPhaseMatrixTests.test_all_transaction_phases(phase='COMMIT')"
+    },
+    {
+     "category": "E",
+     "cause_class": "CONTRACT_DRIFT",
+     "disposition": "OPEN: tests disagree whether an absent store is {} or the empty-memory payload",
+     "kind": "ERROR",
+     "signature": "ValueError: learning receipt does not bind this memory transition",
+     "still_failing_after": true,
+     "test": "tests.test_transaction_phase_matrix.TransactionPhaseMatrixTests.test_all_transaction_phases(phase='MARK')"
+    },
+    {
+     "category": "E",
+     "cause_class": "CONTRACT_DRIFT",
+     "disposition": "OPEN: tests disagree whether an absent store is {} or the empty-memory payload",
+     "kind": "ERROR",
+     "signature": "ValueError: learning receipt does not bind this memory transition",
+     "still_failing_after": true,
+     "test": "tests.test_transaction_replay_idempotency.ReplayIdempotencyTests.test_replaying_same_receipt_does_not_append_duplicate"
+    },
+    {
+     "category": "A",
+     "cause_class": "CONTRACT_DRIFT",
+     "disposition": "FIXED c2106c83 (callers aligned to OpportunityStore.load()[id] / Opportunity.id)",
+     "kind": "ERROR",
+     "signature": "AttributeError: 'OpportunityStore' object has no attribute 'get'",
+     "still_failing_after": true,
+     "test": "tests.test_transactional_worker.TestTransactionalWorker.test_finish_records_completed"
+    },
+    {
+     "category": "A",
+     "cause_class": "CONTRACT_DRIFT",
+     "disposition": "FIXED c2106c83 (callers aligned to OpportunityStore.load()[id] / Opportunity.id)",
+     "kind": "ERROR",
+     "signature": "AttributeError: 'OpportunityStore' object has no attribute 'get'",
+     "still_failing_after": false,
+     "test": "tests.test_transactional_worker.TestTransactionalWorker.test_start_updates_lease_and_swarm"
+    },
+    {
+     "category": "D",
+     "cause_class": "TEST_DEFECT",
+     "disposition": "OPEN: test targets an API that was never built or was removed; owner of the contract unknown",
+     "kind": "ERROR",
+     "signature": "NameError: name 'assign_worker' is not defined",
+     "still_failing_after": true,
+     "test": "tests.test_worker_assignment.WorkerAssignmentTests.test_assignment_refuses_non_investigate"
+    },
+    {
+     "category": "D",
+     "cause_class": "TEST_DEFECT",
+     "disposition": "OPEN: test targets an API that was never built or was removed; owner of the contract unknown",
+     "kind": "ERROR",
+     "signature": "NameError: name 'assign_worker' is not defined",
+     "still_failing_after": true,
+     "test": "tests.test_worker_assignment.WorkerAssignmentTests.test_ready_opportunity_can_be_assigned_with_provenance"
+    },
+    {
+     "category": "E",
+     "cause_class": "UNKNOWN",
+     "disposition": "OPEN: behavioural contract drift across a same-day commit burst; tests contradict each other",
+     "kind": "ERROR",
+     "signature": "foundation.opportunity.HandoffRefused: ranking says WATCH, not INVESTIGATE; the radar does not authorise its own hunt",
+     "still_failing_after": true,
+     "test": "tests.test_worker_assignment_routing.WorkerAssignmentRoutingTests.test_gate_refuses_non_investigate_opportunity"
+    },
+    {
+     "category": "D",
+     "cause_class": "TEST_DEFECT",
+     "disposition": "FIXED c2106c83 (import from nonexistent foundation.worker_dispatcher)",
+     "kind": "ERROR",
+     "signature": "ModuleNotFoundError: No module named 'foundation.worker_dispatcher'",
+     "still_failing_after": false,
+     "test": "unittest.loader._FailedTest.tests.test_worker_cycle"
+    },
+    {
+     "category": "A",
+     "cause_class": "CONTRACT_DRIFT",
+     "disposition": "FIXED c2106c83 (callers aligned to OpportunityStore.load()[id] / Opportunity.id)",
+     "kind": "ERROR",
+     "signature": "AttributeError: 'OpportunityStore' object has no attribute 'get'",
+     "still_failing_after": false,
+     "test": "tests.test_worker_heartbeat.TestHeartbeat.test_owner_can_renew"
+    },
+    {
+     "category": "A",
+     "cause_class": "CONTRACT_DRIFT",
+     "disposition": "FIXED c2106c83 (callers aligned to OpportunityStore.load()[id] / Opportunity.id)",
+     "kind": "ERROR",
+     "signature": "AttributeError: 'OpportunityStore' object has no attribute 'get'",
+     "still_failing_after": false,
+     "test": "tests.test_worker_lifecycle.TestWorkerLifecycle.test_completed_worker_records_evidence_and_releases"
+    },
+    {
+     "category": "A",
+     "cause_class": "CONTRACT_DRIFT",
+     "disposition": "FIXED c2106c83 (callers aligned to OpportunityStore.load()[id] / Opportunity.id)",
+     "kind": "ERROR",
+     "signature": "AttributeError: 'OpportunityStore' object has no attribute 'get'",
+     "still_failing_after": false,
+     "test": "tests.test_worker_lifecycle.TestWorkerLifecycle.test_wrong_worker_rejected"
+    },
+    {
+     "category": "A",
+     "cause_class": "CONTRACT_DRIFT",
+     "disposition": "FIXED c2106c83 (callers aligned to OpportunityStore.load()[id] / Opportunity.id)",
+     "kind": "ERROR",
+     "signature": "AttributeError: 'Opportunity' object has no attribute 'opportunity_id'",
+     "still_failing_after": false,
+     "test": "tests.test_worker_watchdog.TestWatchdog.test_recovers_expired_and_preserves_healthy"
+    },
+    {
+     "category": "E",
+     "cause_class": "UNKNOWN",
+     "disposition": "OPEN: behavioural contract drift across a same-day commit burst; tests contradict each other",
+     "kind": "ERROR",
+     "signature": "AttributeError: 'SpecializationBook' object has no attribute 'learn'",
+     "still_failing_after": true,
+     "test": "tests.test_workforce.TestWorkforce.test_router_prefers_specialization_then_health"
+    },
+    {
+     "category": "A",
+     "cause_class": "CONTRACT_DRIFT",
+     "disposition": "FIXED 7031430f (committed tests ran ahead of implementation that existed only as uncommitted work)",
+     "kind": "FAIL",
+     "signature": "AssertionError: [PermissionError('QUALIFIED requires a canonical qualification evidence ref')] is not false",
+     "still_failing_after": false,
+     "test": "test_next_kernel.TestNextKernel.test_concurrent_upsert_and_advance_preserve_state"
+    },
+    {
+     "category": "E",
+     "cause_class": "UNKNOWN",
+     "disposition": "OPEN: behavioural contract drift across a same-day commit burst; tests contradict each other",
+     "kind": "FAIL",
+     "signature": "AssertionError: 0 != 1",
+     "still_failing_after": true,
+     "test": "tests.test_batch_planner.TestBatchPlanner.test_capacity_defers_excess"
+    },
+    {
+     "category": "E",
+     "cause_class": "UNKNOWN",
+     "disposition": "OPEN: behavioural contract drift across a same-day commit burst; tests contradict each other",
+     "kind": "FAIL",
+     "signature": "AssertionError: 0 != 2",
+     "still_failing_after": true,
+     "test": "tests.test_batch_planner.TestBatchPlanner.test_no_worker_is_double_booked"
+    },
+    {
+     "category": "E",
+     "cause_class": "UNKNOWN",
+     "disposition": "OPEN: behavioural contract drift across a same-day commit burst; tests contradict each other",
+     "kind": "FAIL",
+     "signature": "AssertionError: Tuples differ: ('b', 'a') != ('a', 'b')",
+     "still_failing_after": true,
+     "test": "tests.test_feedback_scheduler.TestFeedbackScheduler.test_realized_value_changes_order"
+    },
+    {
+     "category": "E",
+     "cause_class": "CONTRACT_DRIFT",
+     "disposition": "OPEN: tests disagree whether an absent store is {} or the empty-memory payload",
+     "kind": "FAIL",
+     "signature": "AssertionError: 8 != 1",
+     "still_failing_after": true,
+     "test": "tests.test_memory_recovery.TestMemoryRecovery.test_eight_process_writers_leave_one_valid_transaction"
+    },
+    {
+     "category": "E",
+     "cause_class": "CONTRACT_DRIFT",
+     "disposition": "OPEN: tests disagree whether an absent store is {} or the empty-memory payload",
+     "kind": "FAIL",
+     "signature": "AssertionError: ValueError not raised",
+     "still_failing_after": true,
+     "test": "tests.test_memory_recovery.TestMemoryRecovery.test_lock_is_released_after_failed_transaction"
+    },
+    {
+     "category": "E",
+     "cause_class": "UNKNOWN",
+     "disposition": "OPEN: behavioural contract drift across a same-day commit burst; tests contradict each other",
+     "kind": "FAIL",
+     "signature": "AssertionError: 'reusable_adapter_overlap=4' not found in ('reusable_adapter_overlap=5', 'available_breadth=1', 'evidence_ready_adapters=1', 'freshness_declared_adapters=1', 'effort_proxy=1')",
+     "still_failing_after": true,
+     "test": "tests.test_opportunity_gap_priority.TestOpportunityGapPriority.test_reuse_can_increase_engineering_priority"
+    },
+    {
+     "category": "E",
+     "cause_class": "UNKNOWN",
+     "disposition": "OPEN: behavioural contract drift across a same-day commit burst; tests contradict each other",
+     "kind": "FAIL",
+     "signature": "AssertionError: Tuples differ: ('healthy',) != ('healthy', 'probation')",
+     "still_failing_after": true,
+     "test": "tests.test_probation_routing.ProbationRoutingTests.test_healthy_worker_precedes_probationary_worker"
+    },
+    {
+     "category": "E",
+     "cause_class": "UNKNOWN",
+     "disposition": "OPEN: new modules lack a reachability intent classification; not investigated this frontier",
+     "kind": "FAIL",
+     "signature": "AssertionError: Lists differ: ['adapter_execution_gateway', 'authorizati[524 chars]rce'] != []",
+     "still_failing_after": true,
+     "test": "tests.test_reachability.TestEveryUnreachableModuleIsClassified.test_every_real_unreachable_module_has_an_intent"
+    },
+    {
+     "category": "E",
+     "cause_class": "CONTRACT_DRIFT",
+     "disposition": "OPEN: 'shift' as change-over-time vs persistent miscalibration is ambiguous",
+     "kind": "FAIL",
+     "signature": "AssertionError: True is not false",
+     "still_failing_after": true,
+     "test": "tests.test_regime_recovery.TestRegimeRecovery.test_shift_blocks_recovery"
+    },
+    {
+     "category": "E",
+     "cause_class": "UNKNOWN",
+     "disposition": "OPEN: behavioural contract drift across a same-day commit burst; tests contradict each other",
+     "kind": "FAIL",
+     "signature": "AssertionError: True is not false",
+     "still_failing_after": true,
+     "test": "tests.test_retry_isolation.RetryIsolationTests.test_success_releases_quarantine"
+    },
+    {
+     "category": "E",
+     "cause_class": "UNKNOWN",
+     "disposition": "OPEN: behavioural contract drift across a same-day commit burst; tests contradict each other",
+     "kind": "FAIL",
+     "signature": "AssertionError: True is not false",
+     "still_failing_after": true,
+     "test": "tests.test_retry_queue.RetryQueueTests.test_exponential_backoff_is_bounded"
+    },
+    {
+     "category": "A",
+     "cause_class": "PRODUCT_DEFECT",
+     "disposition": "FIXED 6d0955c3 (sentinel reported the adapter SyntaxError)",
+     "kind": "FAIL",
+     "signature": "AssertionError: Lists differ: [Finding(observation='syntax error: unterm[391 chars]ED')] != []",
+     "still_failing_after": false,
+     "test": "tests.test_sentinel.TestPulseSweepOnRealRepo.test_no_python_syntax_errors_in_this_repo"
+    },
+    {
+     "category": "C",
+     "cause_class": "PERFORMANCE_PATHOLOGY",
+     "disposition": "OPEN: nested foundation run exceeded 600s PROOF timeout on this host (proot/aarch64)",
+     "kind": "FAIL",
+     "signature": "AssertionError: False is not true : 797 tests, TIMED OUT after 600s: foundation (not a test failure)",
+     "still_failing_after": false,
+     "test": "tests.test_sigil.TestComputeSigilOnRealRepo.test_real_repo_tier_reflects_the_real_network_tradeoff"
+    },
+    {
+     "category": "C",
+     "cause_class": "ENVIRONMENT_DEFECT",
+     "disposition": "HARNESS ARTIFACT: sigil reads repo_root/.git/config; in a git worktree .git is a file",
+     "kind": "FAIL",
+     "signature": "AssertionError: False is not true : remote_configured=no, real_run_recorded_locally=yes",
+     "still_failing_after": true,
+     "test": "tests.test_sigil.TestDimensionExternalIntegration.test_real_repo_is_actually_proven"
+    },
+    {
+     "category": "A",
+     "cause_class": "PRODUCT_DEFECT",
+     "disposition": "FIXED 8d38f972 (recover_expired called twice)",
+     "kind": "FAIL",
+     "signature": "AssertionError: Tuples differ: ('o1',) != ()",
+     "still_failing_after": false,
+     "test": "tests.test_swarm_recovery.TestSwarmRecovery.test_expired_active_work_returns_to_queue"
+    },
+    {
+     "category": "E",
+     "cause_class": "UNKNOWN",
+     "disposition": "OPEN: behavioural contract drift across a same-day commit burst; tests contradict each other",
+     "kind": "FAIL",
+     "signature": "AssertionError: 1 != 2",
+     "still_failing_after": true,
+     "test": "tests.test_worker_probation.WorkerProbationTests.test_recovery_does_not_bypass_probation"
+    },
+    {
+     "category": "E",
+     "cause_class": "UNKNOWN",
+     "disposition": "OPEN: behavioural contract drift across a same-day commit burst; tests contradict each other",
+     "kind": "FAIL",
+     "signature": "AssertionError: 1 != 2",
+     "still_failing_after": true,
+     "test": "tests.test_workforce.TestWorkforce.test_dispatch_fills_available_capacity_fairly_before_queueing"
+    },
+    {
+     "category": "E",
+     "cause_class": "UNKNOWN",
+     "disposition": "OPEN: behavioural contract drift across a same-day commit burst; tests contradict each other",
+     "kind": "FAIL",
+     "signature": "AssertionError: Tuples differ: ('fast', 'unreliable', 'slow') != ('fast', 'slow', 'unreliable')",
+     "still_failing_after": true,
+     "test": "tests.test_workforce.TestWorkforce.test_health_ranking_prefers_successful_fast_worker"
+    },
+    {
+     "category": "E",
+     "cause_class": "UNKNOWN",
+     "disposition": "OPEN: behavioural contract drift across a same-day commit burst; tests contradict each other",
+     "kind": "FAIL",
+     "signature": "AssertionError: Tuples differ: ('w2', 'w4') != ('w4',)",
+     "still_failing_after": true,
+     "test": "tests.test_workforce_dispatcher.DispatcherBackpressureTests.test_queue_capacity_is_hard_bounded"
+    }
+   ],
+   "mode": "AUTHORITATIVE-EQUIVALENT (full, no --fast); local only",
+   "suites": {
+    "compiler": {
+     "rc": 0,
+     "result": "OK (skipped=4)",
+     "sys_s": 7.598,
+     "tests_ran": 41,
+     "user_s": 44.402,
+     "wall_s": 96.293
+    },
+    "firewall": {
+     "rc": 0,
+     "result": "OK",
+     "sys_s": 0.217,
+     "tests_ran": 36,
+     "user_s": 1.053,
+     "wall_s": 8.098
+    },
+    "foundation": {
+     "rc": 1,
+     "result": "FAILED (failures=20, errors=63, skipped=1)",
+     "sys_s": 1315.612,
+     "tests_ran": 3751,
+     "user_s": 2010.566,
+     "wall_s": 11114.868
+    },
+    "gems/claim_ledger": {
+     "rc": 0,
+     "result": "OK",
+     "sys_s": 0.122,
+     "tests_ran": 14,
+     "user_s": 0.465,
+     "wall_s": 13.61
+    },
+    "kpm": {
+     "rc": 0,
+     "result": "OK",
+     "sys_s": 0.387,
+     "tests_ran": 106,
+     "user_s": 3.501,
+     "wall_s": 13.598
+    },
+    "legacy": {
+     "rc": 0,
+     "result": "OK",
+     "sys_s": 0.22,
+     "tests_ran": 7,
+     "user_s": 1.243,
+     "wall_s": 13.233
+    },
+    "magl": {
+     "rc": 0,
+     "result": "OK",
+     "sys_s": 0.267,
+     "tests_ran": 80,
+     "user_s": 3.428,
+     "wall_s": 13.294
+    },
+    "narrative": {
+     "rc": 0,
+     "result": "OK",
+     "sys_s": 0.367,
+     "tests_ran": 92,
+     "user_s": 2.022,
+     "wall_s": 15.023
+    },
+    "provenance": {
+     "rc": 0,
+     "result": "OK (skipped=5)",
+     "sys_s": 0.151,
+     "tests_ran": 12,
+     "user_s": 0.418,
+     "wall_s": 15.256
+    },
+    "rpa": {
+     "rc": 0,
+     "result": "OK",
+     "sys_s": 0.63,
+     "tests_ran": 213,
+     "user_s": 9.049,
+     "wall_s": 23.669
+    },
+    "schema": {
+     "rc": 0,
+     "result": "OK",
+     "sys_s": 0.337,
+     "tests_ran": 67,
+     "user_s": 2.572,
+     "wall_s": 11.859
+    },
+    "taal": {
+     "rc": 0,
+     "result": "OK",
+     "sys_s": 0.403,
+     "tests_ran": 203,
+     "user_s": 10.21,
+     "wall_s": 28.016
+    }
+   },
+   "worktree_clean": true
+  }
+ },
+ "title": "V12 Frontier 03 foundation baseline restoration"
+}

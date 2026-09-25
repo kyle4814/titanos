@@ -111,6 +111,17 @@ from another document.
 | Commercial outcome | 0 customers, 0 revenue, 0 contracts, per the repo's own statement | `README.md:81`, `CAPABILITY_MATRIX.md`, `FINAL_LAUNCH_REPORT.md` |
 | Only real external submission | NLnet application `2026-11-076`, €30,000, submitted 2026-09-06, outcome PENDING | `NLNET_SUBMISSION_RECEIPT.md` |
 
+**Frontier 03 update (2026-09-25).** Full detail: `experiments/EXP-002/`.
+
+| Fact | Value | Evidence |
+|---|---|---|
+| CI-parity local env | Python 3.12.14 + PyYAML 6.0.3 in `~/.venvs/titanos-ci312` (outside repo; aarch64/proot, not x86 CI) | EXP-002 |
+| Clean `7b7aad88`, full run | 11 light suites OK; `foundation` 3,751 tests, 20 F + 63 E, 11,115 s | EXP-002 `RESULTS.json` |
+| `7031430f`, `--fast` (ADVISORY) | 11 light suites OK; `foundation` 3,802 tests, 16 F + 31 E; **0 new failures** | same |
+| Six qualification→NEXT files | Committed `7031430f` on operator instruction; fixed 6 failures on master | same |
+| Time concentration | 62 tests = 97% of `foundation` test time; secret-scanner file reads dominate `compute_manifest()` (175 s here) | same |
+| CI on these commits | **NOT RUN** (not pushed) | — |
+
 ## 5. Current unknowns
 
 | Unknown | Why it is unknown | What resolves it |
@@ -524,6 +535,7 @@ V12 is launched only when **all** of these hold, each with a cited receipt:
 |---|---|
 | Frontier 01 | Plan committed (`99baed42`); Turbo implementation not started |
 | Frontier 02 | Constitution committed (see §21); laws mostly PROCESS_ONLY |
+| Frontier 05 (executed as "Frontier 03" by operator numbering) | 9 root-cause commits `6d0955c3`..`7031430f`; ~40 foundation tests left, blocked on ambiguous contracts or decisions (`failures/FAILURE_ARCHIVE.md` F-020); not pushed; CI unverified |
 | Recommended next move | **05+01 opening:** (a) fix the `claude_code_adapter.py` SyntaxError (needs no environment); (b) provision a CI-equivalent env (Python 3.12 + PyYAML; host install = HUMAN DECISION); (c) triage the 76 non-yaml foundation failures by root cause; (d) green baseline + CI receipt; (e) only then Turbo optimization |
 | Parallel, independent | Land or park the uncommitted 04 work (Kyle/executor decision: it is in-progress work, not this frontier's) |
 | Blocked on Kyle | Private repo access (F13); `gh` auth for CI logs (optional); scheduling (F23); F-007 remediation |
@@ -534,6 +546,7 @@ V12 is launched only when **all** of these hold, each with a cited receipt:
 |---|---|---|---|
 | 2026-09-24 | 01 | Created. Consolidated from live repo inspection plus `CLAUDE.md`, the operating contract, `HUMAN_DECISIONS.md`, `NEXT_MOVE.md`, `PARETO_FRONTIER.md`, investor docs and ops docs. Recorded CI red at HEAD (last green 2026-09-06), host missing PyYAML, 76 non-yaml foundation failures including a committed SyntaxError, full-suite baseline 23m26s, private repo not connected | §4, §9 |
 | 2026-09-24 | 02 | Added `TITANOS_V12_CONSTITUTION.md` as the binding law. The plan now defers to it for overlapping sections. Added §22 contradiction ledger and two unknowns. Crosswalk for the operator's condensed 15-item frontier list recorded in constitution Art. XIII. Frontier 02 row → BUILT (docs) | constitution; §22 |
+| 2026-09-25 | 03 (canonical F05) | Baseline restoration: CI-parity env, clean-HEAD full baseline, 9 root-cause commits, advisory after-run (83 → 47 foundation failures, 0 new), failure archive Generation 003, EXP-002 receipt. §4 update, §20 row | EXP-002 |
 
 ## 22. Contradiction ledger
 

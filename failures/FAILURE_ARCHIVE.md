@@ -1,9 +1,10 @@
 # TitanOS — Failure Archive
 
-**Generation:** 002
+**Generation:** 003
 **Status:** OPEN — this archive is never closed
 **Scope:** Generation 001 covers 2026-08-19 → 2026-08-24 (F-001…F-010).
 Generation 002 covers 2026-08-28 → 2026-08-29 (F-011…F-014).
+Generation 003 covers 2026-09-25 (F-015…F-020, V12 Frontier 03).
 
 **Gap disclosed rather than hidden:** this file went unwritten between
 2026-08-25 and 2026-08-29 while the repository kept producing real,
@@ -553,3 +554,92 @@ exported name). The risk is maintenance, not behaviour: lines 260–331 are
 unreachable, including a `_BUDGET_LEDGER` no live function reads, so a
 future fix applied to the first copy would silently do nothing. This is
 the budget half of the only network gate in the repository.
+
+---
+
+## Generation 003 — V12 Frontier 03 (2026-09-25)
+
+**Scope.** Everything below was found by reproducing the `foundation` suite
+on a clean HEAD in a CI-parity environment (Python 3.12.14 + PyYAML 6.0.3).
+The machine-readable record, with every failing test, its signature,
+class and disposition, is `experiments/EXP-002/RESULTS.json`. The narrative
+is `experiments/EXP-002/FINDINGS.md`. Local evidence only, not CI.
+
+**The cross-cutting failure.** The last green CI on `master` was
+`c0a52300` (2026-09-06). Every module in the workforce, swarm,
+institutional-memory and execution-receipt layers was created after that,
+in a dense 2026-09-23/24 commit burst, and CI never passed on any of it.
+Local runs on this host could not have caught it either, because the host
+Python had no PyYAML, so 8 of 12 suites died on import. "Red CI" was the
+only signal, and it was the one nobody could read here (no `gh` auth).
+
+## F-015 — A committed module that could not be parsed
+
+**Status:** FIXED `6d0955c3` · **Severity:** high · **Found by:** `ast.parse`, confirmed by `test_sentinel`
+
+`foundation/claude_code_adapter.py:21`: `"\n".join(` had its escape
+turned into a real newline, which terminated the string literal. The
+sentinel's `check_python_syntax` reports exactly this, but the sentinel
+imports `yaml` and so never ran on the machine that produced the commit.
+
+## F-016 — Import cycle hid 17 test modules, and a double-execution defect behind them
+
+**Status:** FIXED `8cdcae9b`, `9dffdfd7` · **Severity:** high
+
+`execution_receipt` imported `ExecutionResult` from `execution_executor`
+at module load, and `execution_executor` imported `execution_receipt` at
+module load (from `dc68e9e4`). Every execution/reconciliation/retry test
+module failed at import. Once the cycle was broken (type-only import),
+the unmasked tests showed that `AdapterExecutionGateway.execute_approved()`
+**re-ran the adapter** for an intent that already had a receipt. For a
+payment-link adapter that is a second real side effect, before the store
+rejected the receipt as a collision. `ExecutionDispatcher` already
+implemented the right contract (return the recorded receipt); the gateway
+and `approved_dry_run_with_receipt` now do too. The regression test counts
+adapter calls and was mutation-checked.
+
+## F-017 — Five modules called a method that never existed
+
+**Status:** FIXED `c2106c83` · **Severity:** medium
+
+`authority_result`, `dispatcher_recovery`, `transactional_worker`,
+`worker_lifecycle` and `worker_watchdog` (and five tests) called
+`OpportunityStore.get()` and read `Opportunity.opportunity_id`.
+`git log -S` shows neither ever existed. Aligned to the existing
+`load()[id]` / `.id`.
+
+## F-018 — Expired swarm work was never requeued
+
+**Status:** FIXED `8d38f972` · **Severity:** medium
+
+`swarm_recovery.reconcile_swarm()` called `recover_expired()` twice. The
+first call cleared the leases, so the second (whose result was used)
+always returned nothing.
+
+## F-019 — Institutional memory could not reload what it saved
+
+**Status:** FIXED `2c14aa2e` · **Severity:** high
+
+`_write_memory` checksums the payload and stores the receipt beside it.
+`_verify` removed only the checksum before recomputing, so the receipt was
+hashed in and **every reload after any save failed**. Separately,
+specialization was serialised as a dict keyed by stringified tuples, while
+the loader requires a list. Both were mutation-checked in
+`test_receipt_bound_memory`.
+
+## F-020 — Open: tests that disagree with each other
+
+**Status:** OPEN · **Severity:** medium · **Not repaired, by design**
+
+About 40 `foundation` tests still fail because their contracts contradict
+each other or depend on a decision, not because the fix is unknown:
+- authority for O0 → PREPARED;
+- the institutional-memory empty-state convention;
+- workforce probation/retry semantics;
+- tests for `assign_worker`, a richer `persist_assignment_outcome`, and
+  the deleted `evidence_admission`;
+- `regime_recovery`'s meaning of "shift".
+
+Patching any of them would have meant choosing semantics the evidence does
+not establish. The list, with signatures, is in `RESULTS.json` under
+`runs.after.foundation_failures`.
