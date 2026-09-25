@@ -9,8 +9,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from typing import TYPE_CHECKING
 
-from foundation.execution_executor import ExecutionResult
+if TYPE_CHECKING:
+    # Type-only: execution_executor imports this module at load time to build
+    # receipts, so a runtime import here is circular (introduced dc68e9e4).
+    from foundation.execution_executor import ExecutionResult
 
 __all__ = ["ExecutionReceipt", "receipt_from_result"]
 
