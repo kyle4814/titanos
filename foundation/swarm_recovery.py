@@ -9,8 +9,9 @@ from foundation.swarm_state import SwarmState, SwarmStateStore
 def reconcile_swarm(store: OpportunityStore, swarm_store: SwarmStateStore,
                     state: SwarmState, *, now=None) -> SwarmState:
     """Return expired active work to the queue and persist the repaired state."""
-    recover_expired(store, now=now)
-    recovered_ids = {o.opportunity_id for o in recover_expired(store, now=now)}
+    # One call: recover_expired() clears the leases it recovers, so a second
+    # call always returned nothing and expired work was never requeued.
+    recovered_ids = {o.id for o in recover_expired(store, now=now)}
     if not recovered_ids:
         return state
     active = tuple(x for x in state.active if x not in recovered_ids)

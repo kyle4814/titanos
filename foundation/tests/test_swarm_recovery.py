@@ -18,6 +18,6 @@ class TestSwarmRecovery(unittest.TestCase):
             repaired=reconcile_swarm(s,ss,state,now=future)
             self.assertEqual(repaired.active,())
             self.assertEqual(repaired.queued,("o1",))
-            self.assertFalse(s.get("o1").lease_owner)
+            self.assertFalse(s.load()["o1"].lease_owner)
 
 if __name__=="__main__": unittest.main()
