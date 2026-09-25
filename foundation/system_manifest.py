@@ -69,13 +69,16 @@ _DURABLE_LEDGERS = (
 )
 
 
-def _git(root: Path, *args: str) -> str:
+def _git(root: Path, *args: str) -> Optional[str]:
+    """stdout on success; None when git failed, timed out or is absent.
+    "" means git succeeded and printed nothing -- for `status` that is a
+    clean tree, so a failure must never be collapsed into it."""
     try:
         r = subprocess.run(["git", *args], cwd=root, capture_output=True,
                            text=True, timeout=15)
-        return r.stdout.strip() if r.returncode == 0 else ""
+        return r.stdout.strip() if r.returncode == 0 else None
     except (OSError, subprocess.SubprocessError):
-        return ""
+        return None
 
 
 class _NoStateClaims(Exception):
@@ -96,7 +99,7 @@ class SystemManifest:
 
     computed_at: str
     repo_revision: str
-    worktree_clean: bool
+    worktree_clean: Optional[bool]
     config_digest: str
     doctrine_files: int
     tracked_files: int
@@ -132,7 +135,11 @@ def compute_manifest(repo_root: Path = REPO_ROOT) -> SystemManifest:
 
     revision = _git(repo_root, "rev-parse", "--short", "HEAD") or "UNKNOWN"
     status = _git(repo_root, "status", "--porcelain")
-    clean = status == ""
+    # UNKNOWN does not equal true: a failed or timed-out `git status` is
+    # not evidence of a clean tree.
+    clean = None if status is None else status == ""
+    if clean is None:
+        notes.append("worktree state UNKNOWN: git status failed or timed out")
 
     config_parts = []
     for name in _CONFIG_FILES:
@@ -244,7 +251,7 @@ def compute_manifest(repo_root: Path = REPO_ROOT) -> SystemManifest:
             if "STATE_CLAIMS: NONE" in nm:
                 raise _NoStateClaims
             cited = set(re.findall(r"\b([0-9a-f]{7,40})\b", nm))
-            head = _git(repo_root, "rev-parse", "HEAD")
+            head = _git(repo_root, "rev-parse", "HEAD") or ""
             known = {c for c in cited
                      if _git(repo_root, "cat-file", "-t", c) == "commit"}
             if known:
@@ -289,7 +296,8 @@ def format_manifest(m: SystemManifest) -> str:
         "TITANOS SYSTEM MANIFEST (computed, not stored)",
         f"  computed_at      {m.computed_at}",
         f"  repo_revision    {m.repo_revision}"
-        f"{'' if m.worktree_clean else '  (WORKTREE DIRTY)'}",
+        + ("  (WORKTREE UNKNOWN)" if m.worktree_clean is None
+           else "" if m.worktree_clean else "  (WORKTREE DIRTY)"),
         f"  config_digest    {m.config_digest}  "
         f"({m.doctrine_files} doctrine files + CLAUDE.md)",
         f"  state_digest     {m.digest()}",

@@ -8,9 +8,11 @@ These tests exist to keep this one honest.
 """
 
 import json
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from foundation.system_manifest import (
     REPO_ROOT, SystemManifest, compute_manifest, format_manifest,
@@ -125,6 +127,61 @@ class TestItSurvivesAnEmptyRepository(unittest.TestCase):
     def test_format_works_on_an_empty_repository(self):
         with tempfile.TemporaryDirectory() as d:
             self.assertIn("SYSTEM MANIFEST", format_manifest(compute_manifest(Path(d))))
+
+
+_REAL_RUN = subprocess.run
+
+
+def _fake_git(fail_args, exc=None):
+    """subprocess.run stand-in: the git call whose args start with
+    `fail_args` raises `exc` (or exits 128); `cat-file` claims every hash
+    is a commit; everything else runs for real."""
+    def run(cmd, *a, **kw):
+        if cmd[:1] == ["git"] and cmd[1:1 + len(fail_args)] == list(fail_args):
+            if exc is not None:
+                raise exc
+            return subprocess.CompletedProcess(cmd, 128, "", "fatal")
+        if cmd[:3] == ["git", "cat-file", "-t"]:
+            return subprocess.CompletedProcess(cmd, 0, "commit\n", "")
+        return _REAL_RUN(cmd, *a, **kw)
+    return run
+
+
+class TestGitFailureIsUnknownNotClean(unittest.TestCase):
+    """UNKNOWN does not equal true. A failed or timed-out `git status`
+    used to collapse into "" and so into worktree_clean=True -- a
+    directory that is not a repository at all was reported clean in the
+    same manifest that called its revision UNKNOWN."""
+
+    def test_a_non_repository_is_unknown_not_clean(self):
+        with tempfile.TemporaryDirectory() as d:
+            m = compute_manifest(Path(d))
+            self.assertIsNone(m.worktree_clean)
+            self.assertTrue(any("UNKNOWN" in n for n in m.notes), m.notes)
+            # Clean renders as no suffix at all; UNKNOWN must be explicit.
+            rev_line = next(l for l in format_manifest(m).splitlines()
+                            if "repo_revision" in l)
+            self.assertTrue(rev_line.endswith("(WORKTREE UNKNOWN)"), rev_line)
+
+    def test_a_status_timeout_is_unknown_not_clean(self):
+        timeout = subprocess.TimeoutExpired(["git", "status"], 15)
+        with tempfile.TemporaryDirectory() as d, mock.patch(
+                "foundation.system_manifest.subprocess.run",
+                side_effect=_fake_git(("status",), timeout)):
+            m = compute_manifest(Path(d))
+        self.assertIsNone(m.worktree_clean)
+        self.assertIsNot(m.worktree_clean, True)
+        self.assertTrue(any("git status failed or timed out" in n
+                            for n in m.notes), m.notes)
+
+    def test_a_failed_head_lookup_does_not_crash_the_next_move_check(self):
+        with tempfile.TemporaryDirectory() as d:
+            (Path(d) / "NEXT_MOVE.md").write_text("Built at abc1234.\n")
+            with mock.patch("foundation.system_manifest.subprocess.run",
+                            side_effect=_fake_git(("rev-parse", "HEAD"))):
+                m = compute_manifest(Path(d))
+        self.assertEqual(m.next_move_recorded_in, "NEXT_MOVE.md")
+        self.assertTrue(m.next_move_stale)
 
 
 if __name__ == "__main__":
