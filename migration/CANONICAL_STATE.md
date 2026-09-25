@@ -168,6 +168,23 @@ Captured: 2026-09-25. Source HEAD before the migration commit:
   `~/.titanos_env` carries `TELEGRAM_DM_ID` (name only) — the natural
   `expected_sender` binding for the private poller (`callback_query.from.id`
   == DM id); the value/policy remains Kyle's.
+- `78bb0ee8` fix: route workers by domain and capabilities as two axes.
+  Root of the IndexError trio + swarm/batch planner failures: `route()`
+  (worker_router, since creation 2227773f 07:49) re-filtered with
+  `domain in capabilities`, contradicting `WorkforceRegistry.match`'s
+  two-axis contract (1e1cf93b 06:55) that every consumer test from 07:50
+  onward was written against (11 fixtures in 6 red files; 0 tests relied
+  on the clause). Clause removed; domain-equality and authority checks
+  intact. Regression `test_worker_router_two_axis.py` (4; 2 fail before).
+  Cluster 17 → 11 locally; CI run `36202437356`: 12/12 jobs, 11 green,
+  foundation 3938 / 13F + 9E / 1 skipped, **28 → 22 distinct**, exactly
+  the six, 0 new. **Foundation still RED.** Classification of the
+  remaining 22: H1 ×4, H2 ×1, authority O0→PREPARED ×2 (H), EXP-002
+  same-day contract drift ×12 (probation/retry/workforce capacity/
+  feedback order/gap priority/regime), `route_opportunity` leaks
+  `HandoffRefused` where the gate contract is `AssignmentRefused` ×1
+  (proven; next 1-line frontier), reachability intents ×1 (24 modules,
+  engineering), sigil real-repo ×1 (derivative of the floor).
 - Security surface audit 2026-09-26 (evidence class STATIC_INSPECTION +
   LOCAL + CI): `untrusted_text` has 15 production consumers, all mouths /
   eligibility / opportunity sanitisers producing `.safe` display/record
@@ -200,8 +217,9 @@ Captured: 2026-09-25. Source HEAD before the migration commit:
   distinct); `f06050e4` run `36194505196` = same, 3915 tests; `352fdf67`
   run `36195787798` = same, 3920 tests; `ff576e56` run `36197110594` =
   same, 3923 tests; `a0880da0` run `36198759847` = same, 3934 tests;
-  `097fb9c2` run `36199728136` = 15F+13E, 28 distinct. Last fully green
-  run remains `c0a52300`, 2026-09-06.
+  `097fb9c2` run `36199728136` = 15F+13E, 28 distinct; `78bb0ee8` run
+  `36202437356` = 13F+9E, 22 distinct. Last fully green run remains
+  `c0a52300`, 2026-09-06.
 
 ## DEPLOYMENT STATE — none observed
 
@@ -292,6 +310,15 @@ gateway path VERIFIED locally + CI-executed; legacy paths unsigned) |
    no-op transition should be refused is a contract decision (other
    tests save an unchanged `InstitutionalMemory()` and expect success).
 4. Telegram reply poller with sender binding + nonce + expiry (after 3)
+
+## NEXT (one) — revised 2026-09-26 after 78bb0ee8
+Floor 22. Next proven engineering lever: `route_opportunity` must raise
+`AssignmentRefused` (its documented gate contract, asserted by
+test_worker_assignment_routing:48, test_assignment_outcomes:24,
+test_retry_routing:22) instead of leaking `HandoffRefused` — one
+exception translation, fail-first exists. Then reachability intents (24
+modules, evidence per caller graph). Decisions unchanged: H1 ×4, H2,
+H3, H5; EXP-002 drift ×12 needs the author's intended contract. Earlier:
 
 ## NEXT (one) — revised 2026-09-26 after 097fb9c2
 Floor 28. Every remaining item is a decision: H1 (v1-migrate vs
