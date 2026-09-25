@@ -50,22 +50,33 @@ _GENERATED = ("FINAL_SYSTEM_RECEIPT.json", "CAPABILITY_MATRIX.md",
               "REMAINING_LIMITATIONS.md")
 
 
-def _dirty_paths(repo_root: Path) -> list[str]:
+def _dirty_paths(repo_root: Path) -> Optional[list[str]]:
+    """Modified paths, or None when git failed, timed out or is absent.
+    [] means measured and clean; a failure must never be collapsed into
+    it, or an unmeasured tree satisfies WORKTREE_CLEAN."""
     import subprocess
     try:
         out = subprocess.run(["git", "status", "--porcelain"], cwd=repo_root,
                              capture_output=True, text=True, timeout=15)
     except (OSError, subprocess.SubprocessError):
-        return []
+        return None
+    if out.returncode != 0:
+        return None
     return [ln[3:].strip() for ln in out.stdout.splitlines() if ln.strip()]
 
 
-def _clean_ignoring_own_output(repo_root: Path) -> bool:
-    return not [p for p in _dirty_paths(repo_root) if p not in _GENERATED]
+def _clean_ignoring_own_output(repo_root: Path) -> Optional[bool]:
+    dirty = _dirty_paths(repo_root)
+    if dirty is None:
+        return None
+    return not [p for p in dirty if p not in _GENERATED]
 
 
 def _worktree_evidence(repo_root: Path) -> str:
-    other = [p for p in _dirty_paths(repo_root) if p not in _GENERATED]
+    dirty = _dirty_paths(repo_root)
+    if dirty is None:
+        return "not measured: git status failed or timed out"
+    other = [p for p in dirty if p not in _GENERATED]
     if not other:
         return ("clean apart from this generator's own output, which is "
                 "excluded by construction")
@@ -95,7 +106,7 @@ class LaunchAssessment:
     generated_at: str
     revision: str
     state_digest: str
-    worktree_clean: bool
+    worktree_clean: Optional[bool]
     tests_run: Optional[int]
     tests_failed: Optional[int]
     autonomy_ratio: float
@@ -171,7 +182,8 @@ def assess(repo_root: Path = REPO_ROOT, *,
         # action is worse than no criterion. Every OTHER modified file
         # still counts.
         Criterion("WORKTREE_CLEAN",
-                  "MET" if _clean_ignoring_own_output(repo_root) else "UNMET",
+                  {True: "MET", False: "UNMET", None: "NOT_MEASURED"}[
+                      _clean_ignoring_own_output(repo_root)],
                   _worktree_evidence(repo_root)),
         Criterion("PULSE_CLEAN", "MET" if m.pulse_findings == 0 else "UNMET",
                   f"sentinel.pulse_sweep() -> {m.pulse_findings} finding(s)"),

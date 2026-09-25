@@ -136,6 +136,36 @@ class TestTheCleanlinessCheckIsNotSelfReferential(unittest.TestCase):
             lr._dirty_paths = original
 
 
+class TestAnUnmeasuredWorktreeIsNotClean(unittest.TestCase):
+    """A failed `git status` used to yield [] -- "nothing dirty" -- so a
+    directory that is not a repository at all satisfied WORKTREE_CLEAN.
+    Not measured is NOT_MEASURED, never MET."""
+
+    def _worktree(self, a):
+        return next(c for c in a.criteria if c.name == "WORKTREE_CLEAN")
+
+    def test_a_non_repository_is_not_measured_not_met(self):
+        with tempfile.TemporaryDirectory() as d:
+            self.assertIsNone(_clean_ignoring_own_output(Path(d)))
+            c = self._worktree(assess(Path(d)))
+        self.assertEqual(c.state, "NOT_MEASURED")
+        self.assertTrue(c.is_blocking())
+        self.assertIn("not measured", c.evidence)
+
+    def test_a_git_status_timeout_is_not_measured_not_met(self):
+        import subprocess
+        from unittest import mock
+        real = subprocess.run
+
+        def run(cmd, *a, **kw):
+            if cmd[:2] == ["git", "status"]:
+                raise subprocess.TimeoutExpired(cmd, 15)
+            return real(cmd, *a, **kw)
+
+        with mock.patch("subprocess.run", side_effect=run):
+            self.assertIsNone(_clean_ignoring_own_output(REPO_ROOT))
+
+
 class TestWritingArtifacts(unittest.TestCase):
 
     def test_it_writes_exactly_the_declared_files_and_no_others(self):
