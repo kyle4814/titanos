@@ -1,4 +1,4 @@
-import tempfile,unittest
+import json,tempfile,unittest
 from pathlib import Path
 from foundation.learning_receipt import LearningReceipt
 from foundation.receipt_ledger import ReceiptLedger
