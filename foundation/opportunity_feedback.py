@@ -13,6 +13,18 @@ class OutcomeFeedback:
     evidence_strength: float = 0.0
     observed_at: str | None = None
 
+    def __post_init__(self) -> None:
+        # Hold the declared types. The learning-store loader reads these back
+        # with float()/bool(), so a record created with ints (10, 15) was
+        # persisted as ints and reloaded as floats (10.0, 15.0): equal in
+        # Python, different bytes in canonical JSON, so a learning receipt
+        # built from a reloaded memory could never bind against the file it
+        # was loaded from (2026-09-26, CI run 36188217313).
+        object.__setattr__(self, "expected_value", float(self.expected_value))
+        object.__setattr__(self, "realized_value", float(self.realized_value))
+        object.__setattr__(self, "evidence_strength", float(self.evidence_strength))
+        object.__setattr__(self, "completed", bool(self.completed))
+
     @property
     def value_error(self) -> float:
         return self.realized_value - self.expected_value

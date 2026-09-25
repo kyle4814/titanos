@@ -39,10 +39,16 @@ class TestMemoryRecovery(unittest.TestCase):
     def test_concurrent_writers_serialize_transaction(self):
         import multiprocessing
 
-        def worker(path, result_queue):
+        from foundation.opportunity_feedback import OutcomeFeedback
+
+        # Both writers start from the same pre-race snapshot and each makes
+        # a real change, so the loser is rejected because its `before` is
+        # stale -- the serialization invariant -- not because `{}` happened
+        # to differ from the written file.
+        def worker(path, result_queue, before):
             store=InstitutionalMemoryStore(path)
             memory=InstitutionalMemory()
-            before={}
+            memory.opportunity_learning.record(OutcomeFeedback("race",10,15,True,1.0,"2026-09-24T00:00:00+00:00"))
             payload=store._payload(memory)
             receipt=LearningReceipt.create("worker","concurrent-save",(),before,payload)
             try:
@@ -53,8 +59,9 @@ class TestMemoryRecovery(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as td:
             path=Path(td)/"memory.json"
+            before=InstitutionalMemoryStore(path)._raw_payload()
             queue=multiprocessing.Queue()
-            processes=[multiprocessing.Process(target=worker,args=(path,queue)) for _ in range(2)]
+            processes=[multiprocessing.Process(target=worker,args=(path,queue,before)) for _ in range(2)]
             for process in processes: process.start()
             for process in processes: process.join()
 
@@ -117,7 +124,10 @@ class TestMemoryRecovery(unittest.TestCase):
             recovered=InstitutionalMemoryStore(path)
             self.assertEqual(recovered.reconcile(),"ROLLED_BACK")
             self.assertIsNone(recovered.journal.load())
-            self.assertEqual(recovered._raw_payload(),{})
+            # Rollback of a first write leaves no memory file behind. (Was
+            # `_raw_payload() == {}`, an encoding artefact: an absent store now
+            # reads as the canonical empty payload, same as load().)
+            self.assertFalse(path.exists())
             self.assertEqual(len(recovered.ledger.read()),0)
             self.assertTrue(recovered.ledger.verify())
 
@@ -186,7 +196,7 @@ class TestMemoryRecovery(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             store=InstitutionalMemoryStore(Path(td)/"memory.json")
             memory=InstitutionalMemory()
-            before={}
+            before=store._raw_payload()
             payload=store._payload(memory)
             receipt=LearningReceipt.create("worker","duplicate",(),before,payload)
             store.save(memory,receipt)

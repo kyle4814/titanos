@@ -43,7 +43,14 @@ class InstitutionalMemoryStore:
         envelope={**payload,"checksum":self._checksum(payload),"receipt":self._normalize(receipt)}; self.path.parent.mkdir(parents=True,exist_ok=True)
         tmp=self.path.with_suffix(self.path.suffix+".tmp"); tmp.write_text(json.dumps(envelope,sort_keys=True,separators=(",",":"))+"\n"); os.replace(tmp,self.path)
     def _raw_payload(self):
-        if not self.path.exists(): return {}
+        # An absent store IS the empty memory. load() returns
+        # InstitutionalMemory() for a missing file, so every producer derives
+        # a receipt's `before` from _payload(load()); the persisted-state view
+        # must be that same canonical, schema-versioned payload -- never {},
+        # which is not a payload at all. Two encodings of one state made the
+        # first write into a fresh store impossible (14 identical binding
+        # errors, CI run 36188217313; EXP-002 left this open).
+        if not self.path.exists(): return self._payload(InstitutionalMemory())
         raw=json.loads(self.path.read_text()); return {k:v for k,v in raw.items() if k not in ("checksum","receipt")}
     def reconcile(self):
         tx=self.journal.load()
@@ -51,7 +58,7 @@ class InstitutionalMemoryStore:
         if tx["status"]=="COMMITTED":
             if not self.ledger.verify():raise ValueError("receipt ledger integrity failure")
             self.journal.clear();return "COMMITTED_CLEARED"
-        memory_hash=self._checksum(self._raw_payload()) if self.path.exists() else self._checksum({})
+        memory_hash=self._checksum(self._raw_payload())
         ledger=self.ledger.read(); head=ledger[-1]["entry_hash"] if ledger else "GENESIS"
         if memory_hash==tx["new_memory_hash"] and head==tx["ledger_entry_hash"]:
             self.journal.mark_committed();self.journal.clear();return "FINALIZED"

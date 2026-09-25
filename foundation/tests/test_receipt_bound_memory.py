@@ -8,7 +8,10 @@ class TestReceiptBoundMemory(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             p=Path(td)/"m.json"; store=InstitutionalMemoryStore(p); memory=InstitutionalMemory()
             payload=store._payload(memory)
-            receipt=LearningReceipt.create("human:kyle","initial_memory",(),{},payload,"2026-09-24T00:00:00+00:00")
+            # `before` is the store's own persisted-state view (an absent
+            # store reads as the canonical empty payload, same as load()),
+            # not a hand-written `{}`.
+            receipt=LearningReceipt.create("human:kyle","initial_memory",(),store._raw_payload(),payload,"2026-09-24T00:00:00+00:00")
             store.save(memory,receipt)
             raw=json.loads(p.read_text())
             self.assertEqual(raw["receipt"]["receipt_id"],receipt.receipt_id)
