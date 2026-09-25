@@ -34,6 +34,12 @@ class AdapterExecutionGateway:
                 "approval fingerprint does not match the exact ExecutionIntent"
             )
 
+        # Same idempotency contract as ExecutionDispatcher: never re-execute an
+        # intent that already has a receipt; return the recorded one.
+        existing = self.receipt_store.get(f"exec:{fingerprint}")
+        if existing is not None:
+            return existing
+
         result: AdapterResult = self.dispatcher.execute(intent)
         receipt = ExecutionReceipt(
             receipt_id=f"exec:{fingerprint}",

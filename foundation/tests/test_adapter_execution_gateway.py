@@ -73,6 +73,35 @@ class TestAdapterExecutionGateway(unittest.TestCase):
             self.assertEqual(first.receipt_id, second.receipt_id)
             self.assertEqual(len(gateway.receipt_store.load()), 1)
 
+    def test_duplicate_execution_never_reruns_the_adapter(self):
+        # The adapter is the side effect (e.g. a payment link). A replayed
+        # approval must return the recorded receipt, not act a second time.
+        calls = []
+
+        class CountingAdapter(Adapter):
+            def execute(self, intent):
+                calls.append(intent.intent_id)
+                return super().execute(intent)
+
+        intent = self.intent()
+        with tempfile.TemporaryDirectory() as tmp:
+            gateway = AdapterExecutionGateway(
+                AdapterDispatcher.from_adapters([CountingAdapter()]),
+                ExecutionReceiptStore(Path(tmp) / "receipts.json"),
+            )
+            first = gateway.execute_approved(intent, intent.fingerprint())
+            second = gateway.execute_approved(intent, intent.fingerprint())
+            self.assertEqual(first, second)
+            self.assertEqual(calls, ["EI-GATEWAY-1"])
+
+    def test_duplicate_still_requires_the_exact_approval(self):
+        intent = self.intent()
+        with tempfile.TemporaryDirectory() as tmp:
+            gateway = self.gateway(tmp)
+            gateway.execute_approved(intent, intent.fingerprint())
+            with self.assertRaisesRegex(ExecutionIntentError, "does not match"):
+                gateway.execute_approved(intent, "WRONG")
+
 
 if __name__ == "__main__":
     unittest.main()

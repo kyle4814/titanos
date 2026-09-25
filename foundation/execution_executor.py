@@ -93,6 +93,13 @@ def approved_dry_run_with_receipt(
 ) -> ExecutionReceipt:
     """Run the approved dry-run boundary and persist exactly one receipt."""
     result = approved_dry_run(intent, approved_fingerprint)
+    # Same idempotency contract as ExecutionDispatcher: an intent that already
+    # has a receipt returns that receipt rather than minting a second one
+    # whose fresh `recorded_at` the store would (correctly) reject as a
+    # collision.
+    existing = receipt_store.get(f"exec:{result.fingerprint}")
+    if existing is not None:
+        return existing
     receipt = receipt_from_result(result)
     receipt_store.record(receipt)
     return receipt
