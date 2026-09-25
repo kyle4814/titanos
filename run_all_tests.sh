@@ -88,8 +88,11 @@ for s in "${SUITES[@]}"; do
 done
 printf -- "----------------------------------\n"
 [ "$FAST" = "1" ] && echo "(--fast: real-repo sigil class skipped -- not for pre-commit)"
+# A --fast run skipped a real proof, so its verdict is ADVISORY and must
+# never match release.sh's `PASS*` gate (V12 constitution Art. V).
+tag=""; [ "$FAST" = "1" ] && tag="ADVISORY "
 if [ -z "$failed" ]; then
-  echo "PASS  $total tests, ${#SUITES[@]} suites, 0 failures"; exit 0
+  echo "${tag}PASS  $total tests, ${#SUITES[@]} suites, 0 failures"; exit 0
 else
-  echo "FAIL  $total tests; failing suites:$failed"; exit 1
+  echo "${tag}FAIL  $total tests; failing suites:$failed"; exit 1
 fi
