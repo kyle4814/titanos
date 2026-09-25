@@ -61,6 +61,27 @@ Captured: 2026-09-25. Source HEAD before the migration commit:
   12/12 jobs, 0 cancelled, 11 green, foundation 3908 / 15F + 20E /
   1 skipped, identical failing set to local. By name vs run
   36188217313: 7 fixed, 0 new, 35 remain. **Foundation still RED.**
+- `77cb0cc0` fix: finalize a memory transaction interrupted before the
+  ledger commit (frontier 3(b)). Protocol from source: journal PREPARED
+  (prev/new/staged-entry hashes) -> atomic memory write (payload + receipt
+  verbatim) -> ledger.commit -> mark_committed -> clear; the staged entry
+  is never persisted. A crash between memory write and ledger commit left
+  memory=new, head unchanged, and `reconcile()` raised "unresolved" —
+  the store then refused every load/save. Rollback impossible (previous
+  payload retained nowhere); finalization deterministic: rebuild the entry
+  from the persisted receipt + current head via `ledger.prepare()`, commit
+  only if its hash equals the journal's, else still unresolved (fail
+  closed). No-op case keeps ROLLED_BACK. Regression:
+  `test_institutional_memory_commit_recovery.py` (2). CI run
+  `36192409688`: 12/12 jobs, 0 cancelled, 11 green, foundation
+  3910 / 15F + 17E / 1 skipped; vs run 36190914186: 3 fixed (exactly the
+  targeted three), 0 new, 32 distinct remain. **Foundation still RED.**
+- Newly evidenced, not fixed: `test_institutional_memory_concurrency` is
+  flaky at HEAD independent of any change (3/6 in a clean worktree at
+  `dacca4cc`): `worker_assignment.persist_*` loads outside the save lock,
+  so a concurrent learner's stale `before` is (correctly) refused and the
+  test expects both learners to succeed without retry. Read-modify-write
+  race in the producer.
 - Not run on the PC: `run_all_tests.sh`.
 
 ## TEST STATE — local only, NOT CI
@@ -78,8 +99,9 @@ Captured: 2026-09-25. Source HEAD before the migration commit:
   with `fb6bb85b` (run `36185034221`, self-cancelled 11/12). See the
   2026-09-26 update above: `8559e537` run `36188217313` = 11/12 suites
   green, `foundation` red (16F+30E); `e8c80b31` run `36190914186` =
-  11/12 green, `foundation` red (15F+20E, 35 distinct tests). Last fully
-  green run remains `c0a52300`, 2026-09-06.
+  11/12 green, `foundation` red (15F+20E, 35 distinct tests); `77cb0cc0`
+  run `36192409688` = 11/12 green, `foundation` red (15F+17E, 32
+  distinct). Last fully green run remains `c0a52300`, 2026-09-06.
 
 ## DEPLOYMENT STATE — none observed
 
@@ -153,22 +175,26 @@ gateway path VERIFIED locally + CI-executed; legacy paths unsigned) |
 ## PARETO FRONTIER
 1. ~~Gateway receipt provenance~~ DONE `0a6c6d24`
 2. ~~Push -> CI receipt~~ DONE `8559e537` / run `36188217313` (RED)
-3. Foundation red on CI: 35 tests remain after `e8c80b31` (job
-   `108255536522` log). Clusters, from the tracebacks: (a) 4× tests call
+3. Foundation red on CI: 32 tests remain after `77cb0cc0` (job
+   `108260379034` log). (a) 4× tests call
    `InstitutionalMemoryStore.save(memory)` without a receipt — tests for
-   a pre-receipt API; (b) 3× `reconcile()` raises "unresolved" for a crash
-   after the memory write but before the ledger commit when the payload
-   changed — a real recovery gap, unmasked by the binding fix; (c)
-   workforce / batch planner / probation / retry / swarm planner (~15,
-   IndexError + contradictory expectations per EXP-002); (d) authority
-   O0→PREPARED (2, a semantics decision); (e) `assign_worker` /
+   a pre-receipt API; (b) ~~reconcile COMMIT-phase gap~~ DONE `77cb0cc0`;
+   (c) workforce / batch planner / probation / retry / swarm planner
+   (~15, IndexError + contradictory expectations per EXP-002); (d)
+   authority O0→PREPARED (2, a semantics decision); (e) `assign_worker` /
    `persist_assignment_outcome(expected_value=)` never built (3);
    (f) reachability intent, regime_recovery, sigil real-repo tier,
-   feedback_scheduler order, opportunity_gap_priority (1 each).
+   feedback_scheduler order, opportunity_gap_priority (1 each);
+   (g) NEW: `persist_*` read-modify-write race (flaky
+   `test_institutional_memory_concurrency`; also the mechanism behind
+   `test_eight_process_writers` 8≠1).
 4. Telegram reply poller with sender binding + nonce + expiry (after 3)
 
 ## NEXT (one)
-Frontier 3(b): make `InstitutionalMemoryStore.reconcile()` resolve a
-crash between memory write and ledger commit (3 tests, one mechanism,
-and it is a data-integrity gap in the only durable learning store).
-Then 3(a), which is a test-contract decision, not code.
+Frontier 3(g): `worker_assignment.persist_opportunity_outcome` /
+`persist_assignment_outcome` load the memory outside the store's lock,
+so concurrent learners race and the loser is refused with no retry —
+the only remaining *production* defect in the durable learning path
+(everything else in the floor is a test-contract or never-built-API
+question). One mechanism, two known tests, and it is what makes the
+store's serialization guarantee unusable from the real producer.
