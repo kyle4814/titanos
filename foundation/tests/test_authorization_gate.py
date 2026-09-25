@@ -3,9 +3,18 @@ from __future__ import annotations
 from datetime import datetime, timezone
 import unittest
 
-from foundation.approval_envelope import ApprovalEnvelope, ApprovalError
+from foundation.approval_envelope import ApprovalEnvelope, ApprovalError, ConsumedIds
 from foundation.authorization_gate import AuthorizationError, AuthorizationGate
 from foundation.execution_intent import ExecutionIntent
+
+KEY = b"k" * 32  # test-only approval key
+
+def _ledger():
+    """A fresh on-disk replay ledger (ConsumedIds refuses process-local state)."""
+    import tempfile as _t
+    from pathlib import Path as _P
+    return ConsumedIds(_P(_t.mkdtemp()) / "consumed.db")
+
 
 
 class TestAuthorizationGate(unittest.TestCase):
@@ -31,13 +40,14 @@ class TestAuthorizationGate(unittest.TestCase):
             authority=authority,
             reviewer="kyle",
             decided_at="2026-09-23T12:00:00+00:00",
-        )
+        ).signed(KEY)
 
     def test_approve_issues_bound_permit(self):
         permit = AuthorizationGate.issue(
             self.intent,
             self.approval(),
-            now=datetime(2026, 9, 23, tzinfo=timezone.utc),
+            key=KEY, consumed=_ledger(),
+            now=datetime(2026, 9, 23, 13, tzinfo=timezone.utc),
         )
         self.assertEqual(permit.intent_fingerprint, self.intent.fingerprint())
         self.assertEqual(permit.target, self.intent.target)
@@ -49,7 +59,8 @@ class TestAuthorizationGate(unittest.TestCase):
             AuthorizationGate.issue(
                 self.intent,
                 self.approval("DECLINE"),
-                now=datetime(2026, 9, 23, tzinfo=timezone.utc),
+                key=KEY, consumed=_ledger(),
+            now=datetime(2026, 9, 23, 13, tzinfo=timezone.utc),
             )
 
     def test_review_cannot_issue_permit(self):
@@ -57,7 +68,8 @@ class TestAuthorizationGate(unittest.TestCase):
             AuthorizationGate.issue(
                 self.intent,
                 self.approval("REVIEW"),
-                now=datetime(2026, 9, 23, tzinfo=timezone.utc),
+                key=KEY, consumed=_ledger(),
+            now=datetime(2026, 9, 23, 13, tzinfo=timezone.utc),
             )
 
     def test_changed_intent_cannot_reuse_permit(self):
@@ -78,7 +90,8 @@ class TestAuthorizationGate(unittest.TestCase):
             AuthorizationGate.issue(
                 changed,
                 approval,
-                now=datetime(2026, 9, 23, tzinfo=timezone.utc),
+                key=KEY, consumed=_ledger(),
+            now=datetime(2026, 9, 23, 13, tzinfo=timezone.utc),
             )
 
     def test_insufficient_authority_cannot_issue_permit(self):
@@ -86,7 +99,8 @@ class TestAuthorizationGate(unittest.TestCase):
             AuthorizationGate.issue(
                 self.intent,
                 self.approval(authority="A2"),
-                now=datetime(2026, 9, 23, tzinfo=timezone.utc),
+                key=KEY, consumed=_ledger(),
+            now=datetime(2026, 9, 23, 13, tzinfo=timezone.utc),
             )
 
 

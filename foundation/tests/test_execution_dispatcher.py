@@ -62,7 +62,7 @@ class TestExecutionDispatcher(unittest.TestCase):
         adapter = Adapter("stripe", "stripe:", "payment link created")
         with tempfile.TemporaryDirectory() as tmp:
             store = ExecutionReceiptStore(Path(tmp) / "receipts.json")
-            receipt = AdapterDispatcher.from_adapters([adapter]).execute_approved_with_receipt(
+            receipt = AdapterDispatcher.from_adapters([adapter])._execute_approved_with_receipt(
                 intent, intent.fingerprint(), store
             )
             self.assertEqual(receipt.receipt_id, f"exec:{intent.fingerprint()}")
@@ -85,10 +85,10 @@ class TestExecutionDispatcher(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             store = ExecutionReceiptStore(Path(tmp) / "receipts.json")
             dispatcher = AdapterDispatcher.from_adapters([adapter])
-            first = dispatcher.execute_approved_with_receipt(
+            first = dispatcher._execute_approved_with_receipt(
                 intent, intent.fingerprint(), store
             )
-            second = dispatcher.execute_approved_with_receipt(
+            second = dispatcher._execute_approved_with_receipt(
                 intent, intent.fingerprint(), store
             )
             self.assertEqual(first, second)
@@ -108,7 +108,7 @@ class TestExecutionDispatcher(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             store = ExecutionReceiptStore(Path(tmp) / "receipts.json")
             with self.assertRaisesRegex(Exception, "does not match"):
-                AdapterDispatcher.from_adapters([adapter]).execute_approved_with_receipt(
+                AdapterDispatcher.from_adapters([adapter])._execute_approved_with_receipt(
                     intent, "WRONG", store
                 )
             self.assertEqual(calls, [])
@@ -136,7 +136,7 @@ class TestExecutionDispatcher(unittest.TestCase):
             def worker():
                 try:
                     results.append(
-                        dispatcher.execute_approved_with_receipt(
+                        dispatcher._execute_approved_with_receipt(
                             intent, intent.fingerprint(), store
                         )
                     )
@@ -162,7 +162,7 @@ class TestExecutionDispatcher(unittest.TestCase):
 
         result = AdapterDispatcher.from_adapters(
             [ExplodingAdapter("stripe", "stripe:")]
-        ).execute(self.intent())
+        )._execute(self.intent())
         self.assertEqual(result.status, "UNKNOWN")
         self.assertFalse(result.executed)
 
@@ -180,7 +180,7 @@ class TestExecutionDispatcher(unittest.TestCase):
                 with self.assertRaisesRegex(AdapterDispatchError, "executed=True"):
                     AdapterDispatcher.from_adapters(
                         [BadAdapter(status)]
-                    ).execute(self.intent())
+                    )._execute(self.intent())
 
     def test_unknown_adapter_outcome_is_persisted(self):
         class ExplodingAdapter(Adapter):
@@ -191,7 +191,7 @@ class TestExecutionDispatcher(unittest.TestCase):
             store = ExecutionReceiptStore(Path(tmp) / "receipts.json")
             receipt = AdapterDispatcher.from_adapters(
                 [ExplodingAdapter("stripe", "stripe:")]
-            ).execute_approved_with_receipt(
+            )._execute_approved_with_receipt(
                 self.intent(), self.intent().fingerprint(), store
             )
             self.assertEqual(receipt.status, "UNKNOWN")
@@ -200,7 +200,7 @@ class TestExecutionDispatcher(unittest.TestCase):
 
     def test_dispatch_executes_selected_adapter(self):
         adapter = Adapter("stripe", "stripe:", "payment link created")
-        result = AdapterDispatcher.from_adapters([adapter]).execute(self.intent())
+        result = AdapterDispatcher.from_adapters([adapter])._execute(self.intent())
         self.assertEqual(result.effect, "payment link created")
         self.assertTrue(result.executed)
 
