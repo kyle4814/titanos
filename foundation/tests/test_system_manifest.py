@@ -48,9 +48,13 @@ class TestItIsComputedNotStored(unittest.TestCase):
 
 
 class TestItReportsRealNumbers(unittest.TestCase):
+    # One computation shared by read-only assertions (V12 Frontier 04): the
+    # manifest is a frozen snapshot of an unchanged repository, and none of
+    # these tests mutates it. Tests about computing it twice live above.
 
-    def setUp(self):
-        self.m = compute_manifest(REPO_ROOT)
+    @classmethod
+    def setUpClass(cls):
+        cls.m = compute_manifest(REPO_ROOT)
 
     def test_it_finds_the_real_test_inventory(self):
         self.assertGreater(self.m.test_functions, 1000)

@@ -94,20 +94,28 @@ class TestConsolidate(unittest.TestCase):
 
 
 class TestPulseSweepOnRealRepo(unittest.TestCase):
-    """Runs against the real repository root — a genuine, not synthetic, check."""
+    """Runs against the real repository root — a genuine, not synthetic, check.
+
+    The four real-repo assertions share one sweep (V12 Frontier 04): each
+    only reads the frozen HealthReport of an unchanged repository, so four
+    identical ~90 s sweeps proved nothing a single sweep does not."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.real_report = pulse_sweep(REPO_ROOT)
 
     def test_returns_health_report(self):
-        report = pulse_sweep(REPO_ROOT)
+        report = self.real_report
         self.assertIsInstance(report.findings, tuple)
         self.assertGreaterEqual(report.raw_finding_count, 0)
 
     def test_no_python_syntax_errors_in_this_repo(self):
-        report = pulse_sweep(REPO_ROOT)
+        report = self.real_report
         syntax_findings = [f for f in report.findings if "syntax error" in f.observation]
         self.assertEqual(syntax_findings, [], f"unexpected syntax errors: {syntax_findings}")
 
     def test_claude_md_imports_all_resolve(self):
-        report = pulse_sweep(REPO_ROOT)
+        report = self.real_report
         missing = [f for f in report.findings if "@-imports a missing file" in f.observation]
         self.assertEqual(missing, [], f"broken @-imports: {missing}")
 
@@ -120,7 +128,7 @@ class TestPulseSweepOnRealRepo(unittest.TestCase):
         # detection behaviour is proven against a synthetic repo instead
         # (test_check_surfaces_a_missing_build_report below), which does
         # not go stale every time this repository's own state improves.
-        report = pulse_sweep(REPO_ROOT)
+        report = self.real_report
         missing_names = {
             f.evidence_location.rsplit("/", 1)[-1]
             for f in report.findings

@@ -86,9 +86,12 @@ class TestCriterionVocabulary(unittest.TestCase):
 
 
 class TestAgainstTheRealRepository(unittest.TestCase):
+    # One assessment shared by read-only assertions (V12 Frontier 04):
+    # LaunchAssessment is frozen and no test here mutates or re-derives it.
 
-    def setUp(self):
-        self.a = assess(REPO_ROOT, tests_run=2690, tests_failed=0)
+    @classmethod
+    def setUpClass(cls):
+        cls.a = assess(REPO_ROOT, tests_run=2690, tests_failed=0)
 
     def test_it_reports_the_real_autonomy_ratio_without_rounding_it_up(self):
         self.assertGreaterEqual(self.a.autonomy_ratio, 0.0)

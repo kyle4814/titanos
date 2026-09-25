@@ -112,6 +112,38 @@ _EXCLUDED_DIRS = {".git", "__pycache__", "node_modules", "corpus",
                   "build", "dist"}
 
 
+def iter_files_pruned(root: Path, pattern: str,
+                      excluded_dirs=frozenset(_EXCLUDED_DIRS)):
+    """Every entry under `root` whose name matches `pattern`, excluding any
+    path with a component in `excluded_dirs` -- the same set
+    `root.rglob(pattern)` + a `path.parts` exclusion filter produces, but
+    the walk never *enters* an excluded directory.
+
+    WHY: `rglob` descends into `corpus/` (14k files) and `.git/` only for
+    the caller to discard every path found there. Under proot that
+    traversal alone cost ~5-8 s per call, repeated by several checks per
+    pulse sweep and by every real-repo test that sweeps (V12 Frontier 04,
+    measured). Equivalence to rglob+filter -- symlinked dirs not followed,
+    symlinked and broken-symlink files included, hidden entries included
+    -- is pinned by `foundation/tests/test_iter_files_pruned.py` on the
+    real repository and a synthetic tree.
+
+    Deterministic order: directories and files are visited sorted, which
+    `rglob` never guaranteed. The `parts` filter is kept so an excluded
+    name *above* `root` still excludes, exactly as before."""
+    import fnmatch
+    import os
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames[:] = sorted(d for d in dirnames if d not in excluded_dirs)
+        # rglob also yields matching *directories* (symlinked ones included,
+        # without descending into them); so does this, to stay identical.
+        for name in sorted(dirnames + filenames):
+            if fnmatch.fnmatchcase(name, pattern):
+                path = Path(dirpath) / name
+                if not any(part in excluded_dirs for part in path.parts):
+                    yield path
+
+
 @dataclass(frozen=True)
 class Finding:
     """One Level-1 observation. `finding does not equal authorization` —
@@ -315,9 +347,7 @@ def check_ci_matrix_coverage(repo_root: Path) -> list[Finding]:
         (repo_root / str(s)).resolve() for s in matrix if isinstance(s, str)
     ]
     findings: list[Finding] = []
-    for path in sorted(repo_root.rglob("test_*.py")):
-        if any(part in _EXCLUDED_DIRS for part in path.parts):
-            continue
+    for path in sorted(iter_files_pruned(repo_root, "test_*.py")):
         resolved = path.resolve()
         if not any(
             resolved == prefix or prefix in resolved.parents
@@ -425,9 +455,7 @@ def check_local_runner_matches_ci(repo_root: Path) -> list[Finding]:
 
 def check_python_syntax(repo_root: Path) -> list[Finding]:
     findings: list[Finding] = []
-    for path in repo_root.rglob("*.py"):
-        if any(part in _EXCLUDED_DIRS for part in path.parts):
-            continue
+    for path in iter_files_pruned(repo_root, "*.py"):
         try:
             ast.parse(path.read_text(), filename=str(path))
         except SyntaxError as exc:
@@ -684,9 +712,7 @@ def count_real_tests(repo_root: Path) -> int:
     hourly pulse (no subprocess), unlike sigil.py's PROOF dimension which
     genuinely executes the suites and costs ~40s."""
     total = 0
-    for path in repo_root.rglob("test_*.py"):
-        if any(part in _EXCLUDED_DIRS for part in path.parts):
-            continue
+    for path in iter_files_pruned(repo_root, "test_*.py"):
         try:
             total += len(_TEST_DEF_PATTERN.findall(path.read_text(encoding="utf-8")))
         except OSError:

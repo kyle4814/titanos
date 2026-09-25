@@ -34,10 +34,25 @@ class TestDiscoveryWritesNothing(unittest.TestCase):
         self.assertEqual(before, after)
 
 
+_REAL_REPO_CAPABILITIES = None
+
+
+def _real_repo_capabilities():
+    """One discovery of the real repository, shared by the read-only tests
+    below (V12 Frontier 04). `discover_capabilities` returns a tuple of
+    frozen Capability records and is deterministic for an unchanged tree;
+    these tests only read it. Tests about discovery itself -- that it
+    writes nothing, that regeneration is stable -- still call it directly."""
+    global _REAL_REPO_CAPABILITIES
+    if _REAL_REPO_CAPABILITIES is None:
+        _REAL_REPO_CAPABILITIES = discover_capabilities(REPO_ROOT)
+    return _REAL_REPO_CAPABILITIES
+
+
 class TestStateVocabulary(unittest.TestCase):
 
     def test_every_state_is_one_of_the_declared_values(self):
-        caps = discover_capabilities(REPO_ROOT)
+        caps = _real_repo_capabilities()
         self.assertTrue(caps, "expected at least one discovered capability")
         for cap in caps:
             self.assertIn(cap.state, ALL_STATES,
@@ -66,7 +81,7 @@ class TestEntrypointIsNotUnwired(unittest.TestCase):
     they were the same one."""
 
     def test_cron_pulse_is_not_reported_as_unwired(self):
-        caps = {c.capability_id: c for c in discover_capabilities(REPO_ROOT)}
+        caps = {c.capability_id: c for c in _real_repo_capabilities()}
         cron = caps.get("foundation/cron_pulse.py")
         self.assertIsNotNone(cron, "foundation/cron_pulse.py not discovered")
         self.assertTrue(cron.entrypoint, "cron_pulse.py must have a __main__")
@@ -78,7 +93,7 @@ class TestEntrypointIsNotUnwired(unittest.TestCase):
         """The distinction must not become a blanket excuse. A tested
         module with no importer AND no __main__ is genuinely unreachable
         and must keep saying so."""
-        caps = {c.capability_id: c for c in discover_capabilities(REPO_ROOT)}
+        caps = {c.capability_id: c for c in _real_repo_capabilities()}
         gate = caps.get("foundation/hells_gate.py")
         self.assertIsNotNone(gate)
         self.assertFalse(gate.entrypoint)
@@ -114,7 +129,7 @@ class TestImplementedUnwiredIsNotVerified(unittest.TestCase):
         production caller anywhere in this repository -- documented as
         such in this repo's own CLAUDE.md ('the rest ... have no
         production caller'). It must classify as IMPLEMENTED_UNWIRED."""
-        caps = {c.capability_id: c for c in discover_capabilities(REPO_ROOT)}
+        caps = {c.capability_id: c for c in _real_repo_capabilities()}
         cap = caps.get("foundation/hells_gate.py")
         self.assertIsNotNone(cap, "expected foundation/hells_gate.py to be discovered")
         self.assertTrue(cap.has_tests, "hells_gate.py should have real tests")
@@ -129,7 +144,7 @@ class TestImplementedUnwiredIsNotVerified(unittest.TestCase):
         (`foundation/situation_analysis.py`, `foundation/sentinel_worker.py`)
         -- the mirror-image case, so this file cannot be accused of
         always answering IMPLEMENTED_UNWIRED regardless of the evidence."""
-        caps = {c.capability_id: c for c in discover_capabilities(REPO_ROOT)}
+        caps = {c.capability_id: c for c in _real_repo_capabilities()}
         cap = caps.get("foundation/crystal.py")
         self.assertIsNotNone(cap)
         self.assertTrue(cap.has_tests)
@@ -142,7 +157,7 @@ class TestImplementedUnwiredIsNotVerified(unittest.TestCase):
         ('twelve gate/switch modules exist ... exactly one is load-bearing
         on a real action'). If this count collapsed to a handful, the
         importer-resolution logic would be under-matching real imports."""
-        caps = discover_capabilities(REPO_ROOT)
+        caps = _real_repo_capabilities()
         unwired = [c for c in caps if c.state == STATE_IMPLEMENTED_UNWIRED]
         self.assertGreater(len(unwired), 10,
                            "expected many IMPLEMENTED_UNWIRED modules, "
@@ -155,12 +170,12 @@ class TestCoverageExceedsOldManifest(unittest.TestCase):
         """The old hand-typed manifest listed exactly 10 entries. The
         real repository, computed, has substantially more -- that gap
         IS the defect this module exists to fix."""
-        caps = discover_capabilities(REPO_ROOT)
+        caps = _real_repo_capabilities()
         self.assertGreater(len(caps), 10)
 
     def test_compiler_and_gems_are_discovered(self):
         """The two subsystems the old manifest omitted entirely."""
-        ids = {c.capability_id for c in discover_capabilities(REPO_ROOT)
+        ids = {c.capability_id for c in _real_repo_capabilities()
                if c.kind == "SUBSYSTEM"}
         self.assertIn("compiler", ids)
         self.assertIn("gems", ids)
@@ -168,7 +183,7 @@ class TestCoverageExceedsOldManifest(unittest.TestCase):
     def test_foundation_modules_are_individually_tracked(self):
         """Roughly 20+ substantial foundation/*.py modules were built
         since the old manifest's as_of date and appeared nowhere in it."""
-        module_ids = {c.capability_id for c in discover_capabilities(REPO_ROOT)
+        module_ids = {c.capability_id for c in _real_repo_capabilities()
                      if c.kind == "MODULE"}
         self.assertGreater(len(module_ids), 20)
         self.assertIn("foundation/crystal.py", module_ids)

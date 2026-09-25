@@ -337,10 +337,10 @@ def _function_bodies_are_all_stubs(trees: list) -> Optional[bool]:
 # ---------------------------------------------------------------------
 
 def _iter_py_files(root: Path, repo_root: Path):
-    for p in root.rglob("*.py"):
-        if any(part in _EXCLUDED_DIR_PARTS for part in p.parts):
-            continue
-        yield p
+    # Same set as rglob("*.py") minus excluded parts, without walking into
+    # corpus/ or .git/ (see sentinel.iter_files_pruned).
+    from foundation.sentinel import iter_files_pruned
+    yield from iter_files_pruned(root, "*.py", frozenset(_EXCLUDED_DIR_PARTS))
 
 
 def _is_test_path(p: Path) -> bool:
