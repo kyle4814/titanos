@@ -54,8 +54,17 @@ jobs:
     # rapid TitanOS work creates a backlog of stale full-matrix runs,
     # wastes CI minutes, and sends failure emails for commits that are
     # no longer the head being evaluated.
+    #
+    # The group MUST include matrix.subsystem. A job-level concurrency
+    # group is evaluated once per matrix job, so without it all twelve
+    # jobs of one run share a single group and cancel-in-progress makes
+    # them cancel each other -- 11/12 died within a second on every run
+    # from e4c9500b (2026-09-23) to 0a6c6d24 (2026-09-26), leaving one
+    # arbitrary survivor and no full-matrix signal. Verified from the job
+    # annotation: "Canceling since a higher priority waiting request for
+    # titan-os-tests-tests-refs/heads/master exists".
     concurrency:
-      group: titan-os-tests-${{ github.workflow }}-${{ github.ref }}
+      group: titan-os-tests-${{ github.workflow }}-${{ github.ref }}-${{ matrix.subsystem }}
       cancel-in-progress: true
     runs-on: ubuntu-latest
     strategy:
