@@ -94,17 +94,30 @@ becomes camouflage for the gap" — is applied here rather than repeated.
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, FrozenSet
+from pathlib import Path
+from typing import Any, FrozenSet, Optional
 
 __all__ = [
     "CAPABILITY_ID", "COMMUNICATION_SCOPES",
     "CommunicationSwitch", "CommunicationDecision",
     "evaluate", "authorize_communication", "CommunicationDenied",
+    "CommunicationPaused", "PAUSE_FILENAME", "is_paused",
 ]
 
 CAPABILITY_ID = "EXTERNAL_COMMUNICATION"
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+
+# GLOBAL PAUSE. Every socket in this repository re-derives through
+# authorize_communication() (fetch_feed via authorize_discovery, and
+# telegram_notify directly), so one check there stops all outbound
+# traffic. Same convention as `.autonomy_stop` / `.hunt_stop`: a local
+# file only an operator on this machine can create or remove. No code
+# here deletes it, and no argument, env var or message can override it.
+PAUSE_FILENAME = ".titan_pause"
 
 # Declared future boundaries only — none active, none implemented.
 # READ_URL / READ_API: a bounded, one-way, read-only retrieval (per
@@ -124,6 +137,26 @@ class CommunicationDenied(Exception):
     when required evidence is missing. Loud on purpose, same reasoning
     as publication_gate.py::PublicationRefused — a caller that ignores
     this exception has to do so explicitly, not by accident."""
+
+
+class CommunicationPaused(CommunicationDenied):
+    """The global pause file is present. A subclass of CommunicationDenied
+    so every existing caller that already fails closed on a denial fails
+    closed on a pause too, with no new except-clause required."""
+
+
+def is_paused(repo_root: Optional[Path] = None) -> bool:
+    """True when `<repo_root>/.titan_pause` exists. Fail-closed: if the
+    path cannot be checked for any reason other than plain absence, the
+    answer is PAUSED, never running."""
+    path = Path(repo_root if repo_root is not None else REPO_ROOT) / PAUSE_FILENAME
+    try:
+        os.stat(path)
+    except (FileNotFoundError, NotADirectoryError):
+        return False
+    except OSError:
+        return True
+    return True
 
 
 @dataclass(frozen=True)
@@ -258,6 +291,13 @@ def authorize_communication(switch: CommunicationSwitch) -> bool:
     function still answers "is the switch open," not "did anything walk
     through it"; what changed is that something now walks through it.
     """
+    # The pause outranks any switch, however fully authorized.
+    if is_paused():
+        raise CommunicationPaused(
+            f"external communication (scope='{switch.requested_scope}') "
+            f"is PAUSED: {REPO_ROOT / PAUSE_FILENAME} is present. An "
+            f"operator removes that file to resume."
+        )
     decision = evaluate(switch)
     if not decision.action_permitted:
         raise CommunicationDenied(

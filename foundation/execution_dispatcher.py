@@ -11,6 +11,7 @@ from dataclasses import dataclass, field as dataclass_field
 from typing import TYPE_CHECKING, Iterable
 import threading
 
+from foundation import communication_gate
 from foundation.execution_adapter import AdapterResult, ExecutionAdapter
 from foundation.execution_executor import (
     ExecutionResult,
@@ -22,11 +23,17 @@ from foundation.execution_receipt import ExecutionReceipt, receipt_from_result
 if TYPE_CHECKING:
     from foundation.execution_receipt_store import ExecutionReceiptStore
 
-__all__ = ["AdapterDispatcher", "AdapterDispatchError"]
+__all__ = ["AdapterDispatcher", "AdapterDispatchError", "ExecutionPaused"]
 
 
 class AdapterDispatchError(ExecutionIntentError):
     """Raised when an intent cannot be routed unambiguously."""
+
+
+class ExecutionPaused(AdapterDispatchError):
+    """The global pause (`communication_gate.PAUSE_FILENAME`) is present.
+    Raised before any adapter runs and before any receipt is recorded, so a
+    paused attempt leaves nothing behind that would block it after resume."""
 
 
 @dataclass(frozen=True)
@@ -52,6 +59,13 @@ class AdapterDispatcher:
 
     @staticmethod
     def _execute_adapter(adapter: ExecutionAdapter, intent: ExecutionIntent) -> AdapterResult:
+        # Every adapter invocation in this repository passes through here, so
+        # the global pause is enforced once, ahead of any approval, however
+        # valid.
+        if communication_gate.is_paused():
+            raise ExecutionPaused(
+                f"execution of {intent.action} on {intent.target} is PAUSED: "
+                f"{communication_gate.PAUSE_FILENAME} is present")
         try:
             result = adapter.execute(intent)
         except Exception as exc:

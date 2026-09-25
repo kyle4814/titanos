@@ -70,6 +70,7 @@ import yaml
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))
 
+from foundation.communication_gate import PAUSE_FILENAME, is_paused  # noqa: E402
 from foundation.sentinel import pulse_sweep, count_real_tests  # noqa: E402
 
 __all__ = [
@@ -252,6 +253,9 @@ def _run_one_cycle_uncounted(repo_root: Path) -> CycleResult:
 
     if stop_file.exists():
         return CycleResult("STOPPED_KILL_SWITCH", f"{stop_file} present", now)
+    if is_paused(repo_root):
+        return CycleResult("STOPPED_KILL_SWITCH",
+                           f"{repo_root / PAUSE_FILENAME} present (global pause)", now)
 
     if not _is_clean(repo_root):
         return CycleResult(

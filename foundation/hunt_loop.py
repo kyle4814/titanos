@@ -67,6 +67,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Callable, Mapping, Optional, Sequence
 
+from foundation.communication_gate import PAUSE_FILENAME, is_paused
 from foundation.hunt import HuntEntry, HuntReport, hunt, hunt_multi
 from foundation.qualification import OperatorProfile
 from foundation.relevance import CapabilityProfile
@@ -386,10 +387,11 @@ def run_one_hunt_cycle(
     stop_file = repo_root / HUNT_STOP_FILENAME
     log_path = log_path or _default_log_path(repo_root)
 
-    if stop_file.exists():
+    if stop_file.exists() or is_paused(repo_root):
         result = HuntCycleResult(
             action="STOPPED_KILL_SWITCH", occurred_at=occurred_at, query=query,
-            detail=f"{stop_file} present",
+            detail=(f"{stop_file} present" if stop_file.exists()
+                    else f"{repo_root / PAUSE_FILENAME} present (global pause)"),
         )
         _append_cycle_record(log_path, result)
         return result

@@ -36,6 +36,8 @@ foundation/authority_runtime_tick_log.jsonl
 # the first look like a dirty working tree to the very check meant to
 # catch real ambiguity.
 .autonomy_stop
+# Global pause (foundation/communication_gate.py): same reasoning.
+.titan_pause
 foundation/autonomy_loop_log.jsonl
 foundation/outcome_ledger.jsonl
 
