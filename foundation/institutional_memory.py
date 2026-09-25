@@ -64,7 +64,29 @@ class InstitutionalMemoryStore:
             self.journal.mark_committed();self.journal.clear();return "FINALIZED"
         if memory_hash==tx["previous_memory_hash"] and head!=tx["ledger_entry_hash"]:
             self.journal.clear();return "ROLLED_BACK"
+        if memory_hash==tx["new_memory_hash"] and head!=tx["ledger_entry_hash"]:
+            # Crash after the memory write, before the ledger commit. The
+            # previous payload is retained nowhere, so rollback is impossible;
+            # but the receipt was persisted verbatim in the memory envelope and
+            # the journal holds the staged entry's hash, so the entry can be
+            # rebuilt against the current head and is committed only if it
+            # reproduces that hash exactly. Anything else stays unresolved.
+            entry=self._staged_entry_from_memory(tx)
+            if entry is not None:
+                self.ledger.commit(entry);self.journal.mark_committed();self.journal.clear();return "FINALIZED"
         raise ValueError("unresolved institutional memory transaction")
+    def _staged_entry_from_memory(self,tx):
+        """Rebuild the ledger entry a PREPARED transaction staged, from the
+        receipt persisted beside the memory payload. Returns None unless the
+        rebuilt entry's hash equals the journal's ledger_entry_hash."""
+        if not self.path.exists():return None
+        rec=json.loads(self.path.read_text()).get("receipt")
+        if not isinstance(rec,dict) or rec.get("receipt_id")!=tx["receipt_id"]:return None
+        try:
+            receipt=LearningReceipt(**{**rec,"input_evidence":tuple(rec.get("input_evidence",()))})
+            entry=self.ledger.prepare(receipt)
+        except (TypeError,ValueError):return None
+        return entry if entry["entry_hash"]==tx["ledger_entry_hash"] else None
     def save(self,memory,receipt):
         lock=self._lock()
         try:
