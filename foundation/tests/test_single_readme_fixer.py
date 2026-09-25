@@ -140,7 +140,11 @@ class TestOnlyOneReadmeFixer(unittest.TestCase):
             for node in ast.walk(tree):
                 if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                     body = ast.unparse(node)
-                    if "def test_" in body and "rglob" in body:
+                    # iter_files_pruned is sentinel's rglob-equivalent walker
+                    # (pinned by test_iter_files_pruned); a counter built on
+                    # either one is a counter.
+                    if "def test_" in body and ("rglob" in body
+                                                or "iter_files_pruned" in body):
                         counters.add(rel)
         self.assertEqual(
             counters, {AUTHORISED_COUNTER},
