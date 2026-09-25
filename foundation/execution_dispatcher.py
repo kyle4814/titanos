@@ -54,7 +54,22 @@ class AdapterDispatcher:
             raise AdapterDispatchError(f"ambiguous execution adapters: {names}")
         return matches[0]
 
-    def execute(self, intent: ExecutionIntent) -> AdapterResult:
+    # The gateway (AdapterExecutionGateway.execute_permitted) is the only
+    # public route to an adapter. These two names used to run an adapter with
+    # no permit at all (execute) or with a caller-computable fingerprint
+    # (execute_approved_with_receipt). They are kept only so a stale caller
+    # fails closed with a pointer, instead of silently executing.
+    def execute(self, *_args, **_kwargs):
+        raise AdapterDispatchError(
+            "AdapterDispatcher.execute is not a public execution route; "
+            "use AdapterExecutionGateway.execute_permitted with an ExecutionPermit")
+
+    def execute_approved_with_receipt(self, *_args, **_kwargs):
+        raise AdapterDispatchError(
+            "AdapterDispatcher.execute_approved_with_receipt is not a public "
+            "execution route; use AdapterExecutionGateway.execute_permitted")
+
+    def _execute(self, intent: ExecutionIntent) -> AdapterResult:
         return self._execute_adapter(self.select(intent), intent)
 
     @staticmethod
@@ -93,7 +108,7 @@ class AdapterDispatcher:
             )
         return result
 
-    def execute_approved_with_receipt(
+    def _execute_approved_with_receipt(
         self,
         intent: ExecutionIntent,
         approved_fingerprint: str,
