@@ -38,7 +38,7 @@ class InstitutionalMemoryStore:
     def _canonical(x): return json.dumps(x,sort_keys=True,separators=(",",":")).encode()
     @classmethod
     def _checksum(cls,x): return "sha256:"+hashlib.sha256(cls._canonical(x)).hexdigest()
-    def _payload(self,m): return self._normalize({"schema_version":CURRENT_SCHEMA,"opportunities":m.opportunity_learning.records,"health":m.worker_health.workers,"specialization":m.specialization.records})
+    def _payload(self,m): return self._normalize({"schema_version":CURRENT_SCHEMA,"opportunities":m.opportunity_learning.records,"health":m.worker_health.workers,"specialization":tuple(v for _,v in sorted(m.specialization.records.items()))})
     def _write_memory(self,payload,receipt):
         envelope={**payload,"checksum":self._checksum(payload),"receipt":self._normalize(receipt)}; self.path.parent.mkdir(parents=True,exist_ok=True)
         tmp=self.path.with_suffix(self.path.suffix+".tmp"); tmp.write_text(json.dumps(envelope,sort_keys=True,separators=(",",":"))+"\n"); os.replace(tmp,self.path)
@@ -93,6 +93,9 @@ class InstitutionalMemoryStore:
     @classmethod
     def _verify(cls,raw):
         supplied=raw.pop("checksum",None)
+        # The checksum covers the memory payload only; the binding receipt is
+        # stored beside it (see _write_memory / _raw_payload), not inside it.
+        raw.pop("receipt",None)
         if not supplied or supplied!=cls._checksum(raw):raise ValueError("institutional memory checksum mismatch")
         return raw
 __all__=["CURRENT_SCHEMA","InstitutionalMemory","InstitutionalMemoryStore"]
