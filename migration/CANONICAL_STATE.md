@@ -45,7 +45,23 @@ Captured: 2026-09-25. Source HEAD before the migration commit:
   the EXP-002 / `failures/FAILURE_ARCHIVE.md` baseline record; none is a
   provenance/gateway/receipt/approval/Ring 0/pause/dispatcher test.
   **CI is RED, not green.** Gate 14 moves UNKNOWN -> MEASURED(RED).
-- Not run on the PC: full `foundation` suite locally, `run_all_tests.sh`.
+- `e8c80b31` fix: restore learning receipt transition binding. The 14
+  "learning receipt does not bind this memory transition" errors had two
+  causes: (1) an absent store was `{}` to the validator but the empty-memory
+  payload to every producer (`_raw_payload()` now returns the canonical
+  empty payload; `reconcile()` uses the same view); (2) `OutcomeFeedback`
+  ints were written as ints and reloaded as floats, so receipts built from
+  a reloaded memory never bound (`__post_init__` holds declared types).
+  Regression tests: `test_institutional_memory_empty_state.py` (4).
+  Re-triage of EXP-002 category E for this cluster: genuine production
+  defect (the only production writer could never make a first write),
+  not baseline. **Full foundation now run on the PC** (CI's command):
+  3908 tests, 15F + 20E, 491 s — collection == CI (+4 new tests); the
+  phone's 4752 was host-specific. CI run `36190914186` on `e8c80b31`:
+  12/12 jobs, 0 cancelled, 11 green, foundation 3908 / 15F + 20E /
+  1 skipped, identical failing set to local. By name vs run
+  36188217313: 7 fixed, 0 new, 35 remain. **Foundation still RED.**
+- Not run on the PC: `run_all_tests.sh`.
 
 ## TEST STATE — local only, NOT CI
 - Last COMPLETED full run: HEAD `28e623ff`, 2026-09-25 12:04–15:08Z,
@@ -61,8 +77,9 @@ Captured: 2026-09-25. Source HEAD before the migration commit:
 - At capture the 23 local commits had never been pushed. They were pushed
   with `fb6bb85b` (run `36185034221`, self-cancelled 11/12). See the
   2026-09-26 update above: `8559e537` run `36188217313` = 11/12 suites
-  green, `foundation` red at the documented baseline. Last fully green
-  run remains `c0a52300`, 2026-09-06.
+  green, `foundation` red (16F+30E); `e8c80b31` run `36190914186` =
+  11/12 green, `foundation` red (15F+20E, 35 distinct tests). Last fully
+  green run remains `c0a52300`, 2026-09-06.
 
 ## DEPLOYMENT STATE — none observed
 
@@ -136,14 +153,22 @@ gateway path VERIFIED locally + CI-executed; legacy paths unsigned) |
 ## PARETO FRONTIER
 1. ~~Gateway receipt provenance~~ DONE `0a6c6d24`
 2. ~~Push -> CI receipt~~ DONE `8559e537` / run `36188217313` (RED)
-3. Foundation red on CI: 42 baseline tests (institutional-memory
-   learning-receipt binding x14, workforce/swarm/planner routing,
-   reachability intent, sigil real-repo tier). Full list: job
-   `108246734780` log. This is the next blocker — CI cannot gate anything
-   while its floor is red.
+3. Foundation red on CI: 35 tests remain after `e8c80b31` (job
+   `108255536522` log). Clusters, from the tracebacks: (a) 4× tests call
+   `InstitutionalMemoryStore.save(memory)` without a receipt — tests for
+   a pre-receipt API; (b) 3× `reconcile()` raises "unresolved" for a crash
+   after the memory write but before the ledger commit when the payload
+   changed — a real recovery gap, unmasked by the binding fix; (c)
+   workforce / batch planner / probation / retry / swarm planner (~15,
+   IndexError + contradictory expectations per EXP-002); (d) authority
+   O0→PREPARED (2, a semantics decision); (e) `assign_worker` /
+   `persist_assignment_outcome(expected_value=)` never built (3);
+   (f) reachability intent, regime_recovery, sigil real-repo tier,
+   feedback_scheduler order, opportunity_gap_priority (1 each).
 4. Telegram reply poller with sender binding + nonce + expiry (after 3)
 
 ## NEXT (one)
-Triage the 42 foundation failures on CI (run `36188217313`) against
-EXP-002 dispositions and fix or quarantine them until `foundation` is
-green on GitHub. Nothing else can be CI-gated until then.
+Frontier 3(b): make `InstitutionalMemoryStore.reconcile()` resolve a
+crash between memory write and ledger commit (3 tests, one mechanism,
+and it is a data-integrity gap in the only durable learning store).
+Then 3(a), which is a test-contract decision, not code.
