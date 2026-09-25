@@ -18,8 +18,7 @@ class ClaudeCodeInvocation:
 def build_invocation(item: DispatchItem, contract: WorkerExecutionContract) -> ClaudeCodeInvocation:
     if item.worker_id != contract.worker_id:
         raise ValueError("dispatch worker and contract worker mismatch")
-    prompt = "
-".join((
+    prompt = "\n".join((
         "TITANOS WORK ORDER",
         f"WORKER: {contract.worker_id}",
         f"OPPORTUNITY: {contract.opportunity_id}",
