@@ -23,6 +23,30 @@ Captured: 2026-09-25. Source HEAD before the migration commit:
 - git identity: none on the phone host; commits are authored
   `kyle4814 <tech2scale@gmail.com>` via `git -c user.name=... -c user.email=...`
 
+## UPDATE 2026-09-26 (PC host) — receipt provenance closed, CI unblocked
+- `0a6c6d24` fix: gateway trusts an existing execution receipt only with
+  Ring 0 provenance (`ExecutionReceipt.sign/verify`, domain "receipt-v1",
+  fail-closed `ReceiptIntegrityError`, same-fingerprint execution serialised
+  under `dispatcher._execution_lock`). Local: 24/24 new + 125/125 relevant.
+  Frontier 1 below is CLOSED for `execute_permitted`; the legacy unsigned
+  paths (`receipt_from_result`, `approved_dry_run_with_receipt`,
+  `_execute_approved_with_receipt`, reconciliation receipts) are untouched
+  and still have no production caller.
+- `8559e537` fix: prevent matrix jobs from self-cancelling. Root cause of
+  every cancelled run since `e4c9500b` (2026-09-23): job-level concurrency
+  group keyed on workflow+ref only, shared by all 12 matrix jobs,
+  `cancel-in-progress: true` -> 11/12 cancelled within 1 s. Group now
+  includes `matrix.subsystem`.
+- **First full-matrix CI result since 2026-09-06:** run `36188217313`,
+  SHA `8559e537`, 12/12 jobs executed, 0 cancelled. 11 suites PASS
+  (schema, firewall, kpm, magl, rpa, taal, narrative, legacy, compiler,
+  gems/claim_ledger, provenance). **`foundation` FAIL**: 3904 tests,
+  16 failures + 30 errors (42 distinct tests), 315 s. All 42 names are in
+  the EXP-002 / `failures/FAILURE_ARCHIVE.md` baseline record; none is a
+  provenance/gateway/receipt/approval/Ring 0/pause/dispatcher test.
+  **CI is RED, not green.** Gate 14 moves UNKNOWN -> MEASURED(RED).
+- Not run on the PC: full `foundation` suite locally, `run_all_tests.sh`.
+
 ## TEST STATE — local only, NOT CI
 - Last COMPLETED full run: HEAD `28e623ff`, 2026-09-25 12:04–15:08Z,
   4752 tests, 11/12 suites OK, `foundation` FAIL (21F + 39E).
@@ -33,9 +57,12 @@ Captured: 2026-09-25. Source HEAD before the migration commit:
   written, no process alive at capture). Result: **UNKNOWN**.
 - `foundation` alone takes ~2.9 h on the phone host.
 
-## CI STATE — UNKNOWN
-- The 23 local commits had never been pushed at capture. Last green on
-  GitHub: 2026-09-06 (per master plan). Local green is not CI green.
+## CI STATE — MEASURED, RED (was UNKNOWN at capture)
+- At capture the 23 local commits had never been pushed. They were pushed
+  with `fb6bb85b` (run `36185034221`, self-cancelled 11/12). See the
+  2026-09-26 update above: `8559e537` run `36188217313` = 11/12 suites
+  green, `foundation` red at the documented baseline. Last fully green
+  run remains `c0a52300`, 2026-09-06.
 
 ## DEPLOYMENT STATE — none observed
 
@@ -69,9 +96,12 @@ Captured: 2026-09-25. Source HEAD before the migration commit:
   consumed in SQLite (PRIMARY KEY, BEGIN IMMEDIATE) -> MAC'd single-use
   permit -> gateway -> private dispatcher -> adapter. Boot requires
   `TITANOS_RING0_SECRET`, no fallback.
-- OPEN: gateway trusts any pre-existing `exec:<fp>` receipt in its store
-  (dry-run or planted receipt short-circuits execution). HMAC is
-  symmetric. No key provisioning on any host (`TITANOS_RING0_SECRET` unset).
+- CLOSED (0a6c6d24): gateway verifies Ring 0 provenance on any existing
+  `exec:<fp>` receipt before trusting it; planted/tampered/legacy-unsigned
+  receipts raise `ReceiptIntegrityError` (no silent accept, no blind
+  re-execute). Still OPEN: HMAC is symmetric; no key provisioning on any
+  host (`TITANOS_RING0_SECRET` unset); receipts.json has no cross-process
+  file lock.
 
 ## SECURITY / INJECTION / SECRETS
 - Sockets: exactly 2 (mouth_common, telegram_notify), both gated; pinned by test.
@@ -91,8 +121,10 @@ private repos (TITANOS.TECH, business, bot, `titan`) NOT CONNECTED
 01 source integrity VERIFIED(local) | 02 secrets VERIFIED(scan) |
 03 authority PARTIAL | 04 pause VERIFIED(local) | 05 injection PARTIAL |
 06 tool args UNKNOWN | 07 approver identity NOT BUILT | 08 replay PARTIAL |
-09 outcome verification PARTIAL | 10 receipts PARTIAL | 11 recovery UNKNOWN |
-12 red team PARTIAL | 13 integrations BLOCKED | 14 CI UNKNOWN |
+09 outcome verification PARTIAL | 10 receipts PARTIAL (provenance on the
+gateway path VERIFIED locally + CI-executed; legacy paths unsigned) |
+11 recovery UNKNOWN | 12 red team PARTIAL | 13 integrations BLOCKED |
+14 CI MEASURED(RED) — matrix runs, foundation fails at baseline |
 15 human control PARTIAL (local pause only). **Not production ready.**
 
 ## FAILED ASSUMPTIONS (disproven)
@@ -102,10 +134,16 @@ private repos (TITANOS.TECH, business, bot, `titan`) NOT CONNECTED
 - "approved_fingerprint proves approval" — caller can compute it
 
 ## PARETO FRONTIER
-1. Gateway must not return a receipt it did not produce (receipt provenance)
-2. Push -> CI receipt (the first CI run on the 23 commits)
-3. Telegram reply poller with sender binding + nonce + expiry (after 1)
+1. ~~Gateway receipt provenance~~ DONE `0a6c6d24`
+2. ~~Push -> CI receipt~~ DONE `8559e537` / run `36188217313` (RED)
+3. Foundation red on CI: 42 baseline tests (institutional-memory
+   learning-receipt binding x14, workforce/swarm/planner routing,
+   reachability intent, sigil real-repo tier). Full list: job
+   `108246734780` log. This is the next blocker — CI cannot gate anything
+   while its floor is red.
+4. Telegram reply poller with sender binding + nonce + expiry (after 3)
 
 ## NEXT (one)
-On the PC: verify clone SHA, run the suite once in a clean venv, read CI
-for the pushed HEAD. Then frontier 1 (receipt provenance at the gateway).
+Triage the 42 foundation failures on CI (run `36188217313`) against
+EXP-002 dispositions and fix or quarantine them until `foundation` is
+green on GitHub. Nothing else can be CI-gated until then.
