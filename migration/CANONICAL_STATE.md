@@ -99,6 +99,35 @@ Captured: 2026-09-25. Source HEAD before the migration commit:
   0 new. **Foundation still RED.** The durable learning path now has no
   known production defect; the remaining 32 are test-contract /
   never-built-API / semantics decisions.
+- `352fdf67` fix: claim execution per fingerprint across processes before
+  the adapter runs. Reproduced: 4 processes, one intent, 4 distinct valid
+  permits → **4 adapter executions**, 1 receipt, 3 "identity collision"
+  errors after the fact (the gateway's lock was a thread lock). Now the
+  caller claims `exec:<fingerprint>` in `ConsumedIds` (existing SQLite
+  single-use ledger) after consuming its permit and before the adapter;
+  losers get the winner's authentic receipt or `ExecutionClaimed` (fail
+  closed, never a second execution); `ConsumptionUnavailable` propagates as
+  infrastructure. After: 4×3 and 8×2 process trials → 1 execution, 1
+  receipt every time. Regression `test_gateway_cross_process_execution.py`
+  (5, spawn-based; passes on CI ubuntu). Adjacent 120/120. CI run
+  `36195787798`: 12/12 jobs, 0 cancelled, 11 green, foundation
+  3920 / 15F + 17E / 1 skipped, 32 distinct — same set, 0 new.
+  **Foundation still RED.** Gate 08 (replay) and the cross-process
+  receipt-file limitation: the *execution* is now exactly-once across
+  processes; `receipts.json` itself still has no OS-level lock (the claim
+  makes concurrent writers for one fingerprint impossible, so the
+  remaining exposure is two different fingerprints racing the JSON rewrite
+  — untested, recorded).
+- Security surface audit 2026-09-26 (evidence class STATIC_INSPECTION +
+  LOCAL + CI): `untrusted_text` has 15 production consumers, all mouths /
+  eligibility / opportunity sanitisers producing `.safe` display/record
+  strings; **no exec/subprocess/tool-argument sink consumes them** — the
+  "tool-argument allowlist" gate has no surface yet (moot until an LLM
+  tool-call path is built; must be built gated). Telegram inbound: NOT
+  BUILT by construction (`request_approval` returns UNAVAILABLE when no
+  `decision_source`; production path has none) — fail-closed, no sender
+  binding / nonce / expiry exists; `alert_operator` and `send_card` are
+  outbound only. `TITANOS_RING0_SECRET`: still unprovisioned; boot refuses.
 - Not run on the PC: `run_all_tests.sh`.
 
 ## TEST STATE — local only, NOT CI
@@ -118,8 +147,9 @@ Captured: 2026-09-25. Source HEAD before the migration commit:
   green, `foundation` red (16F+30E); `e8c80b31` run `36190914186` =
   11/12 green, `foundation` red (15F+20E, 35 distinct tests); `77cb0cc0`
   run `36192409688` = 11/12 green, `foundation` red (15F+17E, 32
-  distinct); `f06050e4` run `36194505196` = same, 3915 tests. Last fully
-  green run remains `c0a52300`, 2026-09-06.
+  distinct); `f06050e4` run `36194505196` = same, 3915 tests; `352fdf67`
+  run `36195787798` = same, 3920 tests. Last fully green run remains
+  `c0a52300`, 2026-09-06.
 
 ## DEPLOYMENT STATE — none observed
 
@@ -211,7 +241,14 @@ gateway path VERIFIED locally + CI-executed; legacy paths unsigned) |
    tests save an unchanged `InstitutionalMemory()` and expect success).
 4. Telegram reply poller with sender binding + nonce + expiry (after 3)
 
-## NEXT (one)
+## NEXT (one) — revised 2026-09-26 after 352fdf67
+Frontier 4 (Telegram inbound approval poller) is the next *capability*
+lever but is gated twice: on `TITANOS_RING0_SECRET` provisioning (human)
+and on a design for sender binding + nonce + expiry that does not exist
+in the repo yet. Until Kyle provisions the secret, the highest-leverage
+*engineering* move is the design receipt for that poller (no code), then
+the two decisions below. Previous NEXT text kept for the decision list:
+
 The 32 remaining foundation failures are all decisions, not defects —
 (a) 4 tests using a pre-receipt `save(memory)` API, (c) ~15 workforce /
 planner / probation / retry tests with contradictory expectations
