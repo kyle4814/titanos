@@ -25,8 +25,11 @@ def route(
             continue
         if levels[worker.authority_ceiling] < levels[min_authority]:
             continue
-        if domain not in worker.capabilities and "*" not in worker.capabilities:
-            continue
+        # Domain and capabilities are two axes (WorkforceRegistry.match):
+        # domain equality is checked above; capability matching belongs to
+        # the registry's required-capabilities set, not to the domain name.
+        # A `domain in capabilities` filter here dropped every worker whose
+        # capabilities did not restate its domain (2026-09-26).
         eligible.append(wid)
 
     def score(wid: str) -> tuple[float, float, float, float, str]:
