@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Optional
 
-from foundation.opportunity import OpportunityReceipt, InvestigationMission, handoff
+from foundation.opportunity import HandoffRefused, OpportunityReceipt, InvestigationMission, handoff
 from foundation.specialization import SpecializationBook
 from foundation.worker_health import WorkerHealthBook
 from foundation.opportunity_feedback import OutcomeFeedback
@@ -197,12 +197,18 @@ def route_opportunity(
     if not domain.strip():
         raise AssignmentRefused("domain is required")
 
-    mission = handoff(
-        opportunity,
-        next_cheapest_experiment=next_cheapest_experiment,
-        what_would_disprove_value=what_would_disprove_value,
-        now=now,
-    )
+    try:
+        mission = handoff(
+            opportunity,
+            next_cheapest_experiment=next_cheapest_experiment,
+            what_would_disprove_value=what_would_disprove_value,
+            now=now,
+        )
+    except HandoffRefused as exc:
+        # The opportunity gate's refusal is an assignment refusal at this
+        # boundary (the public contract every caller and test asserts); the
+        # gate's own reason stays attached as the cause.
+        raise AssignmentRefused(str(exc)) from exc
     ranked = specialization.rank_with_health(worker_ids, domain, health)
     if not ranked:
         raise AssignmentRefused("no eligible workers")

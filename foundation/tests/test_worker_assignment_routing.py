@@ -58,5 +58,22 @@ class WorkerAssignmentRoutingTests(unittest.TestCase):
             )
 
 
+
+    def test_gate_refusal_keeps_the_handoff_reason_as_cause(self):
+        from foundation.opportunity import HandoffRefused
+        with self.assertRaises(AssignmentRefused) as ctx:
+            route_opportunity(
+                OpportunityReceipt(
+                    "OPP-watch", "owner/repo", "2026-09-24T00:00:00+00:00",
+                    (SignalEvidence("DEMAND", "request", "THIRD_PARTY", "x"),),
+                ),
+                ("worker",), "security", SpecializationBook(),
+                WorkerHealthBook(),
+                next_cheapest_experiment="test",
+                what_would_disprove_value="failure",
+            )
+        self.assertIsInstance(ctx.exception.__cause__, HandoffRefused)
+        self.assertIn("INVESTIGATE", str(ctx.exception))
+
 if __name__ == "__main__":
     unittest.main()
