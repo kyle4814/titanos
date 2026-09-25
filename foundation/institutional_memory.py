@@ -11,6 +11,11 @@ from foundation.workforce_memory import WorkforceMemoryStore
 from foundation.worker_health import WorkerHealthBook
 from foundation.specialization import SpecializationBook
 CURRENT_SCHEMA=4
+class StaleMemoryTransition(ValueError):
+    """The receipt's `before` is not the persisted state: another writer
+    committed in between. Raised before anything durable is written, so a
+    caller may reload and reapply. Still a ValueError for every existing
+    caller and test."""
 class InstitutionalMemory:
     def __init__(self,opportunity_learning=None,worker_health=None,specialization=None):
         self.opportunity_learning=opportunity_learning or OpportunityFeedbackBook(); self.worker_health=worker_health or WorkerHealthBook(); self.specialization=specialization or SpecializationBook()
@@ -94,7 +99,7 @@ class InstitutionalMemoryStore:
             self.reconcile()
             if not self.ledger.verify():raise ValueError("receipt ledger integrity failure")
             payload=self._payload(memory);before=self._raw_payload()
-            if not receipt.verify_transition(before,payload):raise ValueError("learning receipt does not bind this memory transition")
+            if not receipt.verify_transition(before,payload):raise StaleMemoryTransition("learning receipt does not bind this memory transition")
             staged=self.ledger.prepare(receipt);new_hash=self._checksum(payload);previous_hash=self._checksum(before)
             self.journal.begin(receipt.receipt_id,receipt.receipt_id,previous_hash,new_hash,staged["entry_hash"])
             self._write_memory(payload,receipt);self.ledger.commit(staged);self.journal.mark_committed();self.journal.clear()
@@ -127,4 +132,4 @@ class InstitutionalMemoryStore:
         raw.pop("receipt",None)
         if not supplied or supplied!=cls._checksum(raw):raise ValueError("institutional memory checksum mismatch")
         return raw
-__all__=["CURRENT_SCHEMA","InstitutionalMemory","InstitutionalMemoryStore"]
+__all__=["CURRENT_SCHEMA","InstitutionalMemory","InstitutionalMemoryStore","StaleMemoryTransition"]

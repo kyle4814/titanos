@@ -16,7 +16,9 @@ from foundation.priority_scheduler import OpportunityPriority, prioritize
 from foundation.batch_planner import BatchPlan, plan_batch
 from foundation.workforce_registry import WorkforceRegistry
 from foundation.learning_receipt import LearningReceipt
-from foundation.institutional_memory import InstitutionalMemory, InstitutionalMemoryStore
+from foundation.institutional_memory import (
+    InstitutionalMemory, InstitutionalMemoryStore, StaleMemoryTransition,
+)
 
 
 @dataclass(frozen=True)
@@ -65,6 +67,46 @@ class AssignmentRefused(ValueError):
     pass
 
 
+class LearningConflict(RuntimeError):
+    """A learning transition kept losing to concurrent writers for
+    MAX_LEARNING_ATTEMPTS reloads. Nothing was applied. The caller decides
+    whether to try again later; the store's stale-write refusal stands."""
+
+
+# Bounded, like ConsumedIds.MAX_ATTEMPTS: a conflict is a domain result to
+# resolve by reloading, not a reason to spin forever.
+MAX_LEARNING_ATTEMPTS = 8
+
+
+def _persist_learning(store, mutate, actor, mutation, input_evidence, observed_at):
+    """load -> mutate -> save, reloading and reapplying on a stale transition.
+
+    `InstitutionalMemoryStore.save()` refuses a receipt whose `before` is no
+    longer the persisted state, and does so before any durable write, so a
+    refused attempt applied nothing and can be rebuilt from the latest
+    state. Each attempt mints a fresh receipt bound to the state it actually
+    saw; a concurrent learner's outcome is therefore never overwritten and
+    ours is never lost or applied twice. Any other store error propagates
+    unchanged on the first attempt."""
+    last: Optional[StaleMemoryTransition] = None
+    for _ in range(MAX_LEARNING_ATTEMPTS):
+        memory = store.load()
+        before = store._payload(memory)
+        result = mutate(memory)
+        after = store._payload(memory)
+        receipt = LearningReceipt.create(actor, mutation, input_evidence, before, after,
+                                         observed_at=observed_at)
+        try:
+            store.save(memory, receipt)
+        except StaleMemoryTransition as exc:
+            last = exc
+            continue
+        return result
+    raise LearningConflict(
+        f"{mutation} for {actor} lost to concurrent writers {MAX_LEARNING_ATTEMPTS} times; "
+        "nothing was applied") from last
+
+
 def persist_assignment_outcome(
     store: InstitutionalMemoryStore,
     assignment: WorkerAssignment,
@@ -74,23 +116,17 @@ def persist_assignment_outcome(
     observed_at: Optional[str] = None,
 ) -> AssignmentOutcome:
     """Apply an assignment outcome and persist the transition with a learning receipt."""
-    memory = store.load()
-    before = store._payload(memory)
-    result = record_assignment_outcome(
-        assignment, outcome, memory.worker_health, memory.specialization,
-        evidence_count=evidence_count,
-    )
-    after = store._payload(memory)
-    receipt = LearningReceipt.create(
+    return _persist_learning(
+        store,
+        lambda memory: record_assignment_outcome(
+            assignment, outcome, memory.worker_health, memory.specialization,
+            evidence_count=evidence_count,
+        ),
         assignment.worker_id,
         "assignment_outcome",
         (assignment.opportunity_id, assignment.domain, outcome),
-        before,
-        after,
-        observed_at=observed_at,
+        observed_at,
     )
-    store.save(memory, receipt)
-    return result
 
 
 def persist_opportunity_outcome(
@@ -104,22 +140,22 @@ def persist_opportunity_outcome(
     observed_at: Optional[str] = None,
 ) -> OutcomeFeedback:
     """Persist outcome feedback as a receipt-bound institutional-memory transition."""
-    memory = store.load()
-    before = store._payload(memory)
     feedback = OutcomeFeedback(
         opportunity_id, expected_value, realized_value, completed,
         evidence_strength, observed_at,
     )
-    memory.opportunity_learning.record(feedback)
-    after = store._payload(memory)
-    receipt = LearningReceipt.create(
+
+    def mutate(memory):
+        memory.opportunity_learning.record(feedback)
+        return feedback
+
+    return _persist_learning(
+        store, mutate,
         "opportunity:" + opportunity_id,
         "opportunity_outcome",
         (opportunity_id, str(expected_value), str(realized_value), str(completed)),
-        before, after, observed_at=observed_at,
+        observed_at,
     )
-    store.save(memory, receipt)
-    return feedback
 
 
 def plan_from_persisted_learning(
@@ -266,4 +302,5 @@ def select_retry_worker(
 
 
 __all__ = ["WorkerAssignment", "AssignmentOutcome", "AssignmentRefused",
+           "LearningConflict", "MAX_LEARNING_ATTEMPTS",
            "route_opportunity", "record_assignment_outcome", "persist_assignment_outcome", "persist_opportunity_outcome", "plan_from_persisted_learning", "route_with_learning", "prioritize_with_learning", "match_opportunity_workers", "dispatch_learned_batch", "select_retry_worker"]
