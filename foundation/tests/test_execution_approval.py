@@ -47,15 +47,16 @@ class TestExecutionApproval(unittest.TestCase):
         def sender(request_id, card_text):
             sent.append((request_id, card_text))
 
-        def decision_source(request_id):
+        def decision_source(request_id, nonce):
             self.assertEqual(request_id, f"intent:{intent.fingerprint()}")
-            return "approve"
+            return {"decision": "approve", "nonce": nonce, "sender": "kyle"}
 
         with patch("foundation.telegram_approval.authorize_communication", return_value=True):
             result = request_intent_approval(
                 intent,
                 sender=sender,
                 decision_source=decision_source,
+                expected_sender="kyle",
             )
 
         self.assertEqual(result.value, "APPROVED")

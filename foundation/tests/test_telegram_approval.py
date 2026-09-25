@@ -41,31 +41,33 @@ class TestApprovalRequest(unittest.TestCase):
 class TestDecisions(unittest.TestCase):
     def test_approve_tap_is_approved(self):
         d = request_approval(_req(), sender=lambda rid, t: None,
-                             decision_source=lambda rid: "approve")
+                             decision_source=lambda rid, n: {"decision": "approve", "nonce": n, "sender": "kyle"},
+                             expected_sender="kyle")
         self.assertEqual(d, Decision.APPROVED)
         self.assertTrue(d.is_approved)
 
     def test_deny_is_not_approved(self):
         d = request_approval(_req(), sender=lambda rid, t: None,
-                             decision_source=lambda rid: "deny")
+                             decision_source=lambda rid, n: {"decision": "deny", "nonce": n, "sender": "kyle"})
         self.assertEqual(d, Decision.DENIED)
         self.assertFalse(d.is_approved)
 
     def test_no_tap_times_out_and_is_not_approved(self):
         d = request_approval(_req(), sender=lambda rid, t: None,
-                             decision_source=lambda rid: None)
+                             decision_source=lambda rid, n: None)
         self.assertEqual(d, Decision.TIMEOUT)
         self.assertFalse(d.is_approved)
 
     def test_unrecognised_response_is_not_approved(self):
         d = request_approval(_req(), sender=lambda rid, t: None,
-                             decision_source=lambda rid: "maybe")
+                             decision_source=lambda rid, n: {"decision": "maybe", "nonce": n, "sender": "kyle"})
         self.assertFalse(d.is_approved)
 
     def test_the_card_actually_gets_sent(self):
         sent = {}
         request_approval(_req(), sender=lambda rid, t: sent.update({"t": t}),
-                         decision_source=lambda rid: "approve")
+                         decision_source=lambda rid, n: {"decision": "approve", "nonce": n, "sender": "kyle"},
+                         expected_sender="kyle")
         self.assertIn("WHAT", sent["t"])
 
     def test_no_credentials_is_unavailable_and_not_approved(self):
