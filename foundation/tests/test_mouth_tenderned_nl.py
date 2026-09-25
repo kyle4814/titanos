@@ -15,6 +15,28 @@ from foundation.mouth_common import fetch_feed
 _NOW = datetime(2026, 9, 3, tzinfo=timezone.utc)
 
 
+class _FrozenDatetime(datetime):
+    """The module's clock, pinned to _NOW (the day the fixture was captured).
+    parse_items() reads the real clock, so without this the live-captured
+    record below (closing 2026-09-25T12:00) expired on 2026-09-25 and twelve
+    tests began failing on the calendar alone."""
+
+    @classmethod
+    def now(cls, tz=None):
+        return _NOW if tz is not None else _NOW.replace(tzinfo=None)
+
+
+_clock = mock.patch.object(mouth_tenderned_nl, "datetime", _FrozenDatetime)
+
+
+def setUpModule():
+    _clock.start()
+
+
+def tearDownModule():
+    _clock.stop()
+
+
 def _record(
     publication_id="433831",
     title="SIEM, SOC, SOAR-dienstverlening",
