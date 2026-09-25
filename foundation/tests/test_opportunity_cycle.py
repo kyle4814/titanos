@@ -220,7 +220,7 @@ class RunCycleTests(unittest.TestCase):
         self.assertIn("queue buyer ltd", item.title)
         self.assertIn("QUALIFY", item.next_action)
 
-    def test_repeated_observation_with_new_evidence_updates_without_regressing_state(self):
+    def test_repeated_observation_keeps_buyer_aggregate_discovered(self):
         ledger = _make_ledger()
         first = opportunity_cycle.run_cycle(
             self.state_dir, ledger,
@@ -228,11 +228,12 @@ class RunCycleTests(unittest.TestCase):
         self.assertEqual(first.queue_new, 1)
         queue = OpportunityStore(self.state_dir / "next_opportunities.json")
         item = next(iter(queue.load().values()))
-        queue.advance(item.id, "QUALIFIED")
 
         # The pipeline identity is the controlling opportunity. A second
-        # observation with another signal reference must merge evidence,
-        # not demote QUALIFIED back to DISCOVERED.
+        # observation with another signal reference must merge evidence.
+        # Its buyer-level aggregate identity does not match either notice's
+        # publication identity, so it remains DISCOVERED until evidence for
+        # that exact opportunity exists.
         extra = _release(ocid="ocds-extra", buyer_name="Example Council",
                          title="Second notice")
         second = opportunity_cycle.run_cycle(
@@ -240,7 +241,7 @@ class RunCycleTests(unittest.TestCase):
             fetch_fns={UK_MOUTH_ID: lambda: _feed(extra), TED_MOUTH_ID: lambda: _ted_feed()})
         self.assertEqual(second.queue_updated, 1)
         updated = queue.load()[item.id]
-        self.assertEqual(updated.status, "QUALIFIED")
+        self.assertEqual(updated.status, "DISCOVERED")
         self.assertGreater(len(updated.evidence_refs), len(item.evidence_refs))
 
     # -- re-running does not double-count in the ledger ------------------

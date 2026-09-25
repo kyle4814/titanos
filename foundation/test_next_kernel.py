@@ -1,4 +1,5 @@
 """Adversarial tests for the durable NEXT opportunity kernel."""
+from dataclasses import replace
 import json
 import tempfile
 import unittest
@@ -20,6 +21,38 @@ class TestNextKernel(unittest.TestCase):
         data = dict(id="op-1", source="source", title="Example")
         data.update(kwargs)
         return Opportunity(**data)
+
+    def qualification(self, opportunity_id="op-1"):
+        from foundation.qualification import assess
+        from foundation.tests.test_qualification import (
+            _notice_with_empty_criteria, _real_operator_profile,
+        )
+
+        result = assess(
+            __import__("foundation.eligibility", fromlist=["assess_eligibility"])
+            .assess_eligibility(_notice_with_empty_criteria()),
+            _real_operator_profile(),
+        )
+        return replace(result, publication_number=opportunity_id)
+
+    def qualified_item(self, **kwargs):
+        data = dict(id="op-1", source="source", title="Example", authority="O1")
+        data.update(kwargs)
+        result = self.qualification(data["id"])
+        refs = tuple(data.get("evidence_refs", ()))
+        data["evidence_refs"] = tuple(dict.fromkeys((*refs, result.evidence_ref())))
+        data["qualification_result"] = result
+        return Opportunity(**data)
+
+    def add_qualification(self, opportunity_id="op-1"):
+        current = self.store.load()[opportunity_id]
+        result = self.qualification(opportunity_id)
+        incoming = replace(
+            current,
+            evidence_refs=tuple(dict.fromkeys((*current.evidence_refs, result.evidence_ref()))),
+            qualification_result=result,
+        )
+        return self.store.upsert(incoming)
 
     def test_identity_collision_cannot_overwrite_existing_record(self):
         self.store.upsert(self.item())
@@ -60,7 +93,8 @@ class TestNextKernel(unittest.TestCase):
             controlling_party = "Example Party"
             signals = [Signal()]
 
-        self.store.upsert(self.item(id="external-2", authority="O3", status="QUALIFIED"))
+        self.store.upsert(self.qualified_item(
+            id="external-2", authority="O3", status="QUALIFIED"))
         result = ingest_pipeline_opportunities(self.store, [Observed()])
         self.assertEqual(result, ("DUPLICATE",))
         item = self.store.load()["external-2"]
@@ -90,28 +124,70 @@ class TestNextKernel(unittest.TestCase):
 
     def test_o1_cannot_promote_with_arbitrary_evidence_ref(self):
         self.store.upsert(self.item(
-            authority="O1", evidence_refs=("qualification:not-a-real-ref",)
+            authority="O1", evidence_refs=("qualification:" + "0" * 64,)
         ))
         with self.assertRaises(PermissionError):
             self.store.advance("op-1", "QUALIFIED")
 
-    def test_o1_can_promote_to_qualified_with_evidence(self):
-        from foundation.qualification import assess
-        from foundation.tests.test_qualification import (
-            _notice_with_empty_criteria, _real_operator_profile,
-        )
-        qualification = assess(
-            __import__("foundation.eligibility", fromlist=["assess_eligibility"])
-            .assess_eligibility(_notice_with_empty_criteria()),
-            _real_operator_profile(),
-        )
-        self.store.upsert(self.item(
-            authority="O1",
-            evidence_refs=(qualification.evidence_ref(),),
-        ))
+    def test_o1_can_promote_to_qualified_with_persisted_result(self):
+        qualification = self.qualification()
+        self.store.upsert(self.item(authority="O1"))
+        self.store.upsert(self.qualified_item(authority="O1"))
+        # Loading from disk must reconstruct and structurally validate the
+        # qualification result, not trust the serialized digest alone.
+        self.assertEqual(
+            self.store.load()["op-1"].qualification_result, qualification)
         result = self.store.advance("op-1", "QUALIFIED")
         self.assertEqual(result.status, "QUALIFIED")
         self.assertEqual(result.authority, "O1")
+        self.assertEqual(result.qualification_result.evidence_ref(),
+                         qualification.evidence_ref())
+
+    def test_qualification_result_does_not_raise_o0_authority(self):
+        self.store.upsert(self.item(authority="O0"))
+        self.store.upsert(self.qualified_item(authority="O0"))
+        self.assertEqual(self.store.load()["op-1"].authority, "O0")
+
+        new_store = OpportunityStore(self.path.parent / "new.json")
+        new_store.upsert(self.qualified_item(id="op-2", authority="O0"))
+        self.assertEqual(new_store.load()["op-2"].authority, "O0")
+
+        for store, opportunity_id in ((self.store, "op-1"),
+                                      (new_store, "op-2")):
+            with self.assertRaisesRegex(PermissionError, "requires authority O1"):
+                store.advance(opportunity_id, "QUALIFIED")
+            self.assertEqual(store.load()[opportunity_id].status, "DISCOVERED")
+
+    def test_qualification_for_another_opportunity_is_rejected(self):
+        qualification = self.qualification("different-notice")
+        with self.assertRaisesRegex(ValueError, "does not match opportunity id"):
+            self.item(
+                evidence_refs=(qualification.evidence_ref(),),
+                qualification_result=qualification,
+            )
+
+    def test_unresolved_qualification_cannot_promote(self):
+        from foundation.eligibility import assess_eligibility
+        from foundation.qualification import assess
+        from foundation.tests.test_qualification import (
+            _notice_with_no_criteria, _real_operator_profile,
+        )
+
+        result = assess(
+            assess_eligibility(_notice_with_no_criteria()),
+            _real_operator_profile(),
+        )
+        result = replace(result, publication_number="op-1")
+        self.store.upsert(self.item(authority="O1"))
+        unresolved = replace(
+            self.store.load()["op-1"],
+            evidence_refs=(result.evidence_ref(),),
+            qualification_result=result,
+        )
+        self.store.upsert(unresolved)
+        with self.assertRaisesRegex(PermissionError, "unresolved or disqualifying"):
+            self.store.advance("op-1", "QUALIFIED")
+        self.assertEqual(self.store.load()["op-1"].status, "DISCOVERED")
 
     def test_o0_cannot_promote_to_prepared(self):
         self.store.upsert(self.item(authority="O0"))
@@ -119,14 +195,14 @@ class TestNextKernel(unittest.TestCase):
             self.store.advance("op-1", "PREPARED")
 
     def test_o1_cannot_reach_ready(self):
-        self.store.upsert(self.item(authority="O1"))
+        self.store.upsert(self.qualified_item(authority="O1"))
         self.store.advance("op-1", "QUALIFIED")
         self.store.advance("op-1", "PREPARED")
         with self.assertRaises(PermissionError):
             self.store.advance("op-1", "READY")
 
     def test_new_evidence_cannot_overwrite_protected_lifecycle_fields(self):
-        existing = self.item(
+        existing = self.qualified_item(
             status="QUALIFIED",
             authority="O3",
             next_action="protected action",
@@ -144,10 +220,13 @@ class TestNextKernel(unittest.TestCase):
         self.assertEqual(item.status, "QUALIFIED")
         self.assertEqual(item.authority, "O3")
         self.assertEqual(item.next_action, "protected action")
-        self.assertEqual(item.evidence_refs, ("new", "old"))
+        self.assertEqual(
+            set(item.evidence_refs),
+            {"new", "old", item.qualification_result.evidence_ref()},
+        )
 
     def test_o3_can_reach_committed_after_valid_lifecycle(self):
-        self.store.upsert(self.item(authority="O3"))
+        self.store.upsert(self.qualified_item(authority="O3"))
         self.store.advance("op-1", "QUALIFIED")
         self.store.advance("op-1", "PREPARED")
         self.store.advance("op-1", "READY")
@@ -188,6 +267,7 @@ class TestNextKernel(unittest.TestCase):
         import threading
 
         self.store.upsert(self.item(authority="O3", evidence_refs=("base",)))
+        self.add_qualification()
         errors = []
         barrier = threading.Barrier(9)
 
@@ -216,7 +296,11 @@ class TestNextKernel(unittest.TestCase):
         item = self.store.load()["op-1"]
         self.assertEqual(item.status, "QUALIFIED")
         self.assertEqual(item.authority, "O3")
-        self.assertEqual(item.evidence_refs, tuple(["base"] + [f"race-{i}" for i in range(8)]))
+        self.assertEqual(
+            set(item.evidence_refs),
+            {"base", item.qualification_result.evidence_ref()}
+            | {f"race-{i}" for i in range(8)},
+        )
 
     def test_failed_atomic_save_preserves_previous_state(self):
         original = self.store.item if hasattr(self.store, "item") else None
@@ -237,7 +321,7 @@ class TestNextKernel(unittest.TestCase):
         self.assertEqual(item.evidence_refs, ("old",))
 
     def test_failed_atomic_save_leaves_no_temp_file(self):
-        self.store.upsert(self.item())
+        self.store.upsert(self.qualified_item())
         tmp = self.path.with_suffix(self.path.suffix + ".tmp")
         original_replace = Path.replace
         def fail_replace(self_path, target):
@@ -279,13 +363,13 @@ class TestNextKernel(unittest.TestCase):
             self.store.advance("op-1", "READY")
 
     def test_backward_lifecycle_transition_is_rejected(self):
-        self.store.upsert(self.item())
+        self.store.upsert(self.qualified_item())
         self.store.advance("op-1", "QUALIFIED")
         with self.assertRaises(ValueError):
             self.store.advance("op-1", "DISCOVERED")
 
     def test_terminal_state_cannot_be_reactivated(self):
-        self.store.upsert(self.item())
+        self.store.upsert(self.qualified_item())
         self.store.advance("op-1", "REJECTED")
         with self.assertRaises(ValueError):
             self.store.advance("op-1", "DISCOVERED")

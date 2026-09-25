@@ -12,6 +12,8 @@ import threading
 from pathlib import Path
 from typing import Any
 
+from foundation.qualification import QualificationIntegrityError, QualificationResult
+
 
 STATES = {
     "DISCOVERED", "QUALIFIED", "PREPARED", "READY", "COMMITTED", "OUTCOME",
@@ -69,6 +71,7 @@ class Opportunity:
     next_action: str = ""
     lease_owner: str = ""
     lease_until: str = ""
+    qualification_result: QualificationResult | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.id, str) or not self.id.strip():
@@ -86,6 +89,29 @@ class Opportunity:
         if not isinstance(self.evidence_refs, (tuple, list)) or not all(isinstance(x, str) for x in self.evidence_refs):
             raise ValueError("evidence_refs must be a sequence of strings")
         object.__setattr__(self, "evidence_refs", tuple(self.evidence_refs))
+        result = self.qualification_result
+        if isinstance(result, dict):
+            try:
+                result = QualificationResult.from_dict(result)
+            except (QualificationIntegrityError, TypeError, KeyError, AttributeError) as exc:
+                raise ValueError("invalid persisted qualification result") from exc
+            object.__setattr__(self, "qualification_result", result)
+        elif result is not None and not isinstance(result, QualificationResult):
+            raise ValueError("qualification_result must be a QualificationResult or None")
+        if result is not None:
+            if result.publication_number != self.id:
+                raise ValueError(
+                    "qualification publication does not match opportunity id")
+            if result.evidence_ref() not in self.evidence_refs:
+                raise ValueError(
+                    "opportunity must retain its qualification result evidence ref")
+        if self.status == "QUALIFIED":
+            if result is None:
+                raise ValueError("QUALIFIED opportunity requires a persisted qualification result")
+            if result.band != "QUALIFIED":
+                raise ValueError("QUALIFIED opportunity requires a QUALIFIED result")
+            if AUTHORITY_LEVEL[self.authority] < MIN_AUTHORITY["QUALIFIED"]:
+                raise ValueError("QUALIFIED opportunity requires O1 authority")
 
 
 class OpportunityStore:
@@ -138,12 +164,27 @@ class OpportunityStore:
                 if existing.source != item.source:
                     raise ValueError("opportunity identity collision")
                 merged_refs = tuple(sorted(set(existing.evidence_refs) | set(item.evidence_refs)))
-                if merged_refs == existing.evidence_refs:
+                qualification_result = existing.qualification_result
+                incoming_result = item.qualification_result
+                if incoming_result is not None:
+                    if (
+                        qualification_result is not None
+                        and qualification_result.evidence_ref() != incoming_result.evidence_ref()
+                        and existing.status != "DISCOVERED"
+                    ):
+                        raise ValueError(
+                            "cannot replace qualification evidence after lifecycle advancement")
+                    qualification_result = incoming_result
+                if (
+                    merged_refs == existing.evidence_refs
+                    and qualification_result == existing.qualification_result
+                ):
                     return "DUPLICATE"
                 items[item.id] = Opportunity(
                     **{
                         **asdict(existing),
                         "evidence_refs": merged_refs,
+                        "qualification_result": qualification_result,
                     }
                 )
                 self.save(items)
@@ -168,15 +209,23 @@ class OpportunityStore:
                     f"record has {current.authority}"
                 )
             if new_status == "QUALIFIED":
-                qualification_refs = tuple(
-                    ref for ref in current.evidence_refs
-                    if ref.startswith("qualification:")
-                    and len(ref) == len("qualification:") + 64
-                    and all(ch in "0123456789abcdef" for ch in ref[len("qualification:"):])
-                )
-                if not qualification_refs:
+                result = current.qualification_result
+                if result is None:
                     raise PermissionError(
-                        "QUALIFIED requires a canonical qualification evidence ref"
+                        "QUALIFIED requires a persisted qualification result"
+                    )
+                if result.publication_number != current.id:
+                    raise PermissionError(
+                        "qualification result does not match this opportunity"
+                    )
+                if result.band != "QUALIFIED":
+                    raise PermissionError(
+                        "QUALIFIED requires a QUALIFIED result; unresolved or "
+                        "disqualifying evidence must remain unpromoted"
+                    )
+                if result.evidence_ref() not in current.evidence_refs:
+                    raise PermissionError(
+                        "QUALIFIED requires the persisted result's evidence ref"
                     )
             allowed = FORWARD.get(current.status, set())
             if new_status not in allowed:

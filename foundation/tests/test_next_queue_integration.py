@@ -71,7 +71,7 @@ class NextQueueIntegrationTests(unittest.TestCase):
             self.assertTrue(all(item.evidence_refs for item in items.values()))
             self.assertTrue(all("QUALIFY:" in item.next_action for item in items.values()))
 
-    def test_repeated_evidence_compounds_without_regressing_lifecycle(self):
+    def test_repeated_evidence_compounds_without_inventing_qualification(self):
         with tempfile.TemporaryDirectory() as tmp:
             store = OpportunityStore(Path(tmp) / "next.json")
             from foundation.next_kernel import Opportunity
@@ -94,11 +94,10 @@ class NextQueueIntegrationTests(unittest.TestCase):
             )
 
             self.assertEqual(store.upsert(first), "NEW")
-            store.advance("opp-1", "QUALIFIED")
             self.assertEqual(store.upsert(second), "UPDATED")
 
             current = store.load()["opp-1"]
-            self.assertEqual(current.status, "QUALIFIED")
+            self.assertEqual(current.status, "DISCOVERED")
             self.assertEqual(current.evidence_refs, ("signal:a", "signal:b"))
 
 

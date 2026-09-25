@@ -247,6 +247,19 @@ class QualificationResultTests(unittest.TestCase):
         self.assertEqual(r.band, "QUALIFIED")
         self.assertEqual(r.blocking_clauses, ())
 
+    def test_persisted_result_round_trip_preserves_evidence_identity(self):
+        result = QualificationResult("pub", "op", "QUALIFIED", _all_clear_factors())
+        restored = QualificationResult.from_dict(result.to_dict())
+        self.assertEqual(restored, result)
+        self.assertEqual(restored.evidence_ref(), result.evidence_ref())
+
+    def test_persisted_result_rejects_structurally_invalid_factor(self):
+        payload = QualificationResult(
+            "pub", "op", "QUALIFIED", _all_clear_factors()).to_dict()
+        payload["factors"][0]["verdict"] = "BARRIER"
+        with self.assertRaises(QualificationIntegrityError):
+            QualificationResult.from_dict(payload)
+
     def test_factor_lookup(self):
         r = QualificationResult("pub", "op", "QUALIFIED", _all_clear_factors())
         self.assertEqual(r.factor(DIMENSIONS[0]).dimension, DIMENSIONS[0])

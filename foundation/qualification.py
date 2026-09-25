@@ -216,6 +216,11 @@ class QualificationFactor:
     evidence: str
 
     def __post_init__(self) -> None:
+        if not all(isinstance(value, str) for value in (
+            self.dimension, self.status, self.verdict, self.evidence,
+        )):
+            raise QualificationIntegrityError(
+                "qualification factor fields must be text")
         if self.dimension not in DIMENSIONS:
             raise QualificationIntegrityError(
                 f"unknown dimension {self.dimension!r}")
@@ -272,8 +277,30 @@ class QualificationResult:
     note: str = _DISCLAIMER
 
     def __post_init__(self) -> None:
+        if not isinstance(self.publication_number, str) or not self.publication_number.strip():
+            raise QualificationIntegrityError(
+                "a qualification result must name its publication")
+        if not isinstance(self.operator_name, str) or not self.operator_name.strip():
+            raise QualificationIntegrityError(
+                "a qualification result must name its operator")
+        if not isinstance(self.note, str):
+            raise QualificationIntegrityError(
+                "a qualification result note must be text")
         if self.band not in BANDS:
             raise QualificationIntegrityError(f"unknown band {self.band!r}")
+        if not isinstance(self.factors, (tuple, list)):
+            raise QualificationIntegrityError(
+                "qualification factors must be a sequence")
+        if not all(isinstance(f, QualificationFactor) for f in self.factors):
+            raise QualificationIntegrityError(
+                "qualification factors must be QualificationFactor records")
+        if not isinstance(self.blocking_clauses, (tuple, list)) or not all(
+            isinstance(clause, str) for clause in self.blocking_clauses
+        ):
+            raise QualificationIntegrityError(
+                "blocking clauses must be a sequence of text")
+        object.__setattr__(self, "factors", tuple(self.factors))
+        object.__setattr__(self, "blocking_clauses", tuple(self.blocking_clauses))
         present = tuple(f.dimension for f in self.factors)
         if present != DIMENSIONS:
             raise QualificationIntegrityError(
@@ -319,14 +346,9 @@ class QualificationResult:
                     "one of this result's own BARRIER factors -- never a "
                     "fabricated or unrelated string")
 
-    def evidence_ref(self) -> str:
-        """Return the canonical immutable evidence identity for this result.
-
-        The ref is derived from the complete qualification result, not from
-        a caller-supplied label. It is suitable for binding a NEXT record to
-        the exact qualification result that justified promotion.
-        """
-        payload = {
+    def to_dict(self) -> dict:
+        """Return the complete JSON-compatible qualification record."""
+        return {
             "publication_number": self.publication_number,
             "operator_name": self.operator_name,
             "band": self.band,
@@ -334,6 +356,54 @@ class QualificationResult:
             "blocking_clauses": list(self.blocking_clauses),
             "note": self.note,
         }
+
+    @classmethod
+    def from_dict(cls, payload: dict) -> "QualificationResult":
+        """Reconstruct and structurally validate a persisted result.
+
+        Persisted qualification evidence is untrusted input. Rebuilding the
+        factors and result through their constructors reapplies the same
+        invariants enforced for freshly assessed results.
+        """
+        expected = {
+            "publication_number", "operator_name", "band", "factors",
+            "blocking_clauses", "note",
+        }
+        if not isinstance(payload, dict) or set(payload) != expected:
+            raise QualificationIntegrityError(
+                "persisted qualification result has an invalid shape")
+        raw_factors = payload["factors"]
+        if not isinstance(raw_factors, (list, tuple)):
+            raise QualificationIntegrityError(
+                "persisted qualification factors must be a sequence")
+        factor_fields = {"dimension", "status", "verdict", "evidence"}
+        factors = []
+        for raw_factor in raw_factors:
+            if not isinstance(raw_factor, dict) or set(raw_factor) != factor_fields:
+                raise QualificationIntegrityError(
+                    "persisted qualification factor has an invalid shape")
+            factors.append(QualificationFactor(**raw_factor))
+        raw_clauses = payload["blocking_clauses"]
+        if not isinstance(raw_clauses, (list, tuple)):
+            raise QualificationIntegrityError(
+                "persisted blocking clauses must be a sequence")
+        return cls(
+            publication_number=payload["publication_number"],
+            operator_name=payload["operator_name"],
+            band=payload["band"],
+            factors=tuple(factors),
+            blocking_clauses=tuple(raw_clauses),
+            note=payload["note"],
+        )
+
+    def evidence_ref(self) -> str:
+        """Return the canonical immutable evidence identity for this result.
+
+        The ref is derived from the complete qualification result, not from
+        a caller-supplied label. It is suitable for binding a NEXT record to
+        the exact qualification result that justified promotion.
+        """
+        payload = self.to_dict()
         canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"))
         return "qualification:" + hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
