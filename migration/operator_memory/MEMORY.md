@@ -1,0 +1,3 @@
+- [Operator style: mobile TL;DR + KMD mode](mobile-tldr-reports.md) — phone-first box reports, action bias, court verdicts, evidence over persona
+- [TitanOS git identity](titanos-git-identity.md) — no git identity on host; commit with -c kyle4814 <tech2scale@gmail.com>
+- [TitanOS North Star](titanos-north-star.md) — external state map at ~/titanos_state.txt; read at start, update after work
