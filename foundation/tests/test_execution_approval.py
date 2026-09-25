@@ -51,7 +51,7 @@ class TestExecutionApproval(unittest.TestCase):
             self.assertEqual(request_id, f"intent:{intent.fingerprint()}")
             return "approve"
 
-        with patch("foundation.execution_approval.authorize_communication", return_value=True):
+        with patch("foundation.telegram_approval.authorize_communication", return_value=True):
             result = request_intent_approval(
                 intent,
                 sender=sender,
