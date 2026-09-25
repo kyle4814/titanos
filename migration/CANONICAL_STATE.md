@@ -151,6 +151,23 @@ Captured: 2026-09-25. Source HEAD before the migration commit:
   1 skipped, 32 distinct — same set, 0 new. **Foundation still RED.**
   Telegram gate 07 (approver identity): mechanism BUILT + CI-executed;
   policy value and private-transport verification remain NOT BUILT here.
+- `097fb9c2` test: supply the learning receipt that 1c90bb98 made
+  mandatory. Gate verification of H1: four `save(memory)` tests predate
+  the receipt requirement by 2–4 minutes (08:04–08:06 vs 08:08:47) and
+  were never touched — a documented supersession, so updating the call
+  (assertions unchanged) is maintenance, not policy. CI run
+  `36199728136`: 12/12 jobs, 11 green, foundation 3934 / 15F + 13E /
+  1 skipped, **32 → 28 distinct**, exactly the four fixed, 0 new.
+  **Foundation still RED.** H1 narrowed to genuine decisions:
+  `test_v1_migrates` (unchecksummed v1 must migrate vs `_verify`'s
+  checksum-mandatory rule from ca8d7875 — two invariants, one must win),
+  `test_worker_assignment` ×2 (`assign_worker`: 0 commits ever defined it)
+  and `test_persisted_assignment_outcome` (`expected_value=` never in the
+  signature). H4 was NOT a human gate (Claude-owned memory dir,
+  reversible): operator memories loaded on the PC 2026-09-26. H5 evidence:
+  `~/.titanos_env` carries `TELEGRAM_DM_ID` (name only) — the natural
+  `expected_sender` binding for the private poller (`callback_query.from.id`
+  == DM id); the value/policy remains Kyle's.
 - Security surface audit 2026-09-26 (evidence class STATIC_INSPECTION +
   LOCAL + CI): `untrusted_text` has 15 production consumers, all mouths /
   eligibility / opportunity sanitisers producing `.safe` display/record
@@ -182,8 +199,9 @@ Captured: 2026-09-25. Source HEAD before the migration commit:
   run `36192409688` = 11/12 green, `foundation` red (15F+17E, 32
   distinct); `f06050e4` run `36194505196` = same, 3915 tests; `352fdf67`
   run `36195787798` = same, 3920 tests; `ff576e56` run `36197110594` =
-  same, 3923 tests; `a0880da0` run `36198759847` = same, 3934 tests.
-  Last fully green run remains `c0a52300`, 2026-09-06.
+  same, 3923 tests; `a0880da0` run `36198759847` = same, 3934 tests;
+  `097fb9c2` run `36199728136` = 15F+13E, 28 distinct. Last fully green
+  run remains `c0a52300`, 2026-09-06.
 
 ## DEPLOYMENT STATE — none observed
 
@@ -274,6 +292,16 @@ gateway path VERIFIED locally + CI-executed; legacy paths unsigned) |
    no-op transition should be refused is a contract decision (other
    tests save an unchanged `InstitutionalMemory()` and expect success).
 4. Telegram reply poller with sender binding + nonce + expiry (after 3)
+
+## NEXT (one) — revised 2026-09-26 after 097fb9c2
+Floor 28. Every remaining item is a decision: H1 (v1-migrate vs
+checksum integrity; delete-or-build assign_worker ×2 and
+persist_assignment_outcome(expected_value=) ×1), H2 (no-op transition,
+1 test), H3 (Ring 0 secret), H5 (expected_sender value = TELEGRAM_DM_ID?
++ private poller), plus the ~20 workforce/planner/probation/retry
+contradictions (EXP-002, contract). Recommended first word from Kyle:
+H1 — "delete" (3 never-built-API tests → floor 25) and "integrity wins"
+(v1 test asserts rejection → floor 24). Earlier text:
 
 ## NEXT (one) — revised 2026-09-26 after a0880da0
 Frontier 4's open-repo contract is enforced (a0880da0). What remains is
