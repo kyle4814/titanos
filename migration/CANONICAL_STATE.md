@@ -82,6 +82,23 @@ Captured: 2026-09-25. Source HEAD before the migration commit:
   so a concurrent learner's stale `before` is (correctly) refused and the
   test expects both learners to succeed without retry. Read-modify-write
   race in the producer.
+- `f06050e4` fix: learners reload and reapply when a memory transition is
+  stale (frontier 3(g)). Contract proven, not chosen: the store's
+  optimistic refusal is correct and kept (typed as
+  `StaleMemoryTransition`, a ValueError subclass, raised before any
+  durable write); serialising in the producer is unavailable (flock not
+  re-entrant, EAGAIN); so `worker_assignment.persist_*` now reload +
+  reapply + re-receipt on a stale transition, bounded by
+  `MAX_LEARNING_ATTEMPTS=8` (mirrors `ConsumedIds`), then raise
+  `LearningConflict` with nothing applied. Measured before: 2 writers
+  lost an outcome in 6/12 trials, 8 writers 0–2/trial. After: 0 lost in
+  12+4 trials; `test_institutional_memory_concurrency` 8/8 (was 3/6).
+  Regression: `test_producer_concurrent_outcomes.py` (5). CI run
+  `36194505196`: 12/12 jobs, 0 cancelled, 11 green, foundation
+  3915 / 15F + 17E / 1 skipped, 32 distinct — same set as 77cb0cc0,
+  0 new. **Foundation still RED.** The durable learning path now has no
+  known production defect; the remaining 32 are test-contract /
+  never-built-API / semantics decisions.
 - Not run on the PC: `run_all_tests.sh`.
 
 ## TEST STATE — local only, NOT CI
@@ -101,7 +118,8 @@ Captured: 2026-09-25. Source HEAD before the migration commit:
   green, `foundation` red (16F+30E); `e8c80b31` run `36190914186` =
   11/12 green, `foundation` red (15F+20E, 35 distinct tests); `77cb0cc0`
   run `36192409688` = 11/12 green, `foundation` red (15F+17E, 32
-  distinct). Last fully green run remains `c0a52300`, 2026-09-06.
+  distinct); `f06050e4` run `36194505196` = same, 3915 tests. Last fully
+  green run remains `c0a52300`, 2026-09-06.
 
 ## DEPLOYMENT STATE — none observed
 
@@ -185,16 +203,21 @@ gateway path VERIFIED locally + CI-executed; legacy paths unsigned) |
    `persist_assignment_outcome(expected_value=)` never built (3);
    (f) reachability intent, regime_recovery, sigil real-repo tier,
    feedback_scheduler order, opportunity_gap_priority (1 each);
-   (g) NEW: `persist_*` read-modify-write race (flaky
-   `test_institutional_memory_concurrency`; also the mechanism behind
-   `test_eight_process_writers` 8≠1).
+   (g) ~~`persist_*` read-modify-write race~~ DONE `f06050e4`.
+   `test_eight_process_writers` (8≠1) is NOT the same mechanism: it
+   writes an unchanged empty memory from 8 processes and expects 7
+   rejections, which only the old `{}` artefact produced; whether a
+   no-op transition should be refused is a contract decision (other
+   tests save an unchanged `InstitutionalMemory()` and expect success).
 4. Telegram reply poller with sender binding + nonce + expiry (after 3)
 
 ## NEXT (one)
-Frontier 3(g): `worker_assignment.persist_opportunity_outcome` /
-`persist_assignment_outcome` load the memory outside the store's lock,
-so concurrent learners race and the loser is refused with no retry —
-the only remaining *production* defect in the durable learning path
-(everything else in the floor is a test-contract or never-built-API
-question). One mechanism, two known tests, and it is what makes the
-store's serialization guarantee unusable from the real producer.
+The 32 remaining foundation failures are all decisions, not defects —
+(a) 4 tests using a pre-receipt `save(memory)` API, (c) ~15 workforce /
+planner / probation / retry tests with contradictory expectations
+(EXP-002), (d) authority O0→PREPARED semantics, (e) 3 tests for APIs
+never built, (f) 5 singletons, plus the no-op-transition question above.
+HUMAN DECISION needed on (a)/(e): delete tests for APIs that no longer
+exist / never existed, or build them. Until then the next code-level
+lever is frontier 4 (Telegram inbound), gated on `TITANOS_RING0_SECRET`
+provisioning — also a human action.
