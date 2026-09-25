@@ -45,6 +45,9 @@ from foundation import communication_gate
 from foundation.approval_envelope import (
     AlreadyConsumedError, ConsumedIds, _check_key, load_ring0_key,
 )
+# ConsumptionUnavailable (ledger locked/unreachable) is deliberately NOT
+# caught anywhere below: an infrastructure failure must surface as one,
+# never be mistaken for a domain-level "already executed".
 from foundation.authorization_gate import (
     ApprovalReplayed, AuthorizationError, ExecutionPermit,
 )
@@ -57,7 +60,15 @@ from foundation.execution_receipt import ExecutionReceipt, ReceiptIntegrityError
 if TYPE_CHECKING:
     from foundation.execution_receipt_store import ExecutionReceiptStore
 
-__all__ = ["AdapterExecutionGateway", "ReceiptIntegrityError", "boot_gateway"]
+__all__ = ["AdapterExecutionGateway", "ExecutionClaimed", "ReceiptIntegrityError", "boot_gateway"]
+
+
+class ExecutionClaimed(AuthorizationError):
+    """Another process holds the `exec:<fingerprint>` claim and no authentic
+    receipt is persisted yet (it is mid-execution, or it crashed after
+    claiming). The adapter may already have acted, so this caller must not
+    run it again: fail closed and let a human or a later call that finds
+    the receipt resolve it."""
 
 
 @dataclass(frozen=True)
@@ -100,18 +111,27 @@ class AdapterExecutionGateway:
             # receipt this gateway can prove it minted. An existing record
             # that fails provenance verification is neither trusted nor
             # silently re-executed; see the module docstring.
-            existing = self.receipt_store.get(f"exec:{fingerprint}")
+            existing = self._authentic_receipt(fingerprint)
             if existing is not None:
-                try:
-                    existing.verify(self.key, fingerprint)
-                except ReceiptIntegrityError as exc:
-                    raise ReceiptIntegrityError(
-                        f"stored receipt {existing.receipt_id!r} failed provenance "
-                        "verification; refusing to trust it as proof of execution "
-                        "and refusing to blindly re-execute a possibly-already-"
-                        f"executed intent: {exc}"
-                    ) from exc
                 return existing
+            # The thread lock above covers one process. Across processes the
+            # single-use ledger decides: exactly one caller claims
+            # `exec:<fingerprint>` (SQLite PRIMARY KEY, BEGIN IMMEDIATE) and
+            # executes. A loser either finds the winner's authentic receipt
+            # or refuses -- it never runs the adapter a second time. Claimed
+            # after the permit is consumed, so a loser has spent its permit on
+            # an intent that is being executed exactly once, and before the
+            # adapter, so nothing external happens without the claim.
+            try:
+                self.consumed.consume(f"exec:{fingerprint}")
+            except AlreadyConsumedError as exc:
+                existing = self._authentic_receipt(fingerprint)
+                if existing is not None:
+                    return existing
+                raise ExecutionClaimed(
+                    f"execution of {intent.action} on {intent.target} is claimed by "
+                    "another process and no authentic receipt exists yet; refusing "
+                    "to execute again") from exc
             result: AdapterResult = self.dispatcher._execute(intent)
             receipt = ExecutionReceipt(
                 receipt_id=f"exec:{fingerprint}",
@@ -126,6 +146,24 @@ class AdapterExecutionGateway:
             ).sign(self.key)
             self.receipt_store.record(receipt)
             return receipt
+
+    def _authentic_receipt(self, fingerprint: str) -> Optional[ExecutionReceipt]:
+        """The persisted receipt for `fingerprint`, or None if absent. A
+        persisted record that fails provenance verification raises: it is
+        neither trusted nor a licence to re-execute."""
+        existing = self.receipt_store.get(f"exec:{fingerprint}")
+        if existing is None:
+            return None
+        try:
+            existing.verify(self.key, fingerprint)
+        except ReceiptIntegrityError as exc:
+            raise ReceiptIntegrityError(
+                f"stored receipt {existing.receipt_id!r} failed provenance "
+                "verification; refusing to trust it as proof of execution "
+                "and refusing to blindly re-execute a possibly-already-"
+                f"executed intent: {exc}"
+            ) from exc
+        return existing
 
 
 def boot_gateway(adapters: Iterable[ExecutionAdapter], receipt_store: ExecutionReceiptStore,
