@@ -13,7 +13,7 @@ class TestWorkerLifecycle(unittest.TestCase):
             s.upsert(Opportunity("o1","test","x","READY",10,authority="O2"))
             claim(s,"o1","w1")
             complete_worker(s,"o1","w1",WorkerResult("w1","o1","COMPLETED","verified",("ev:1",)))
-            item=s.get("o1")
+            item=s.load()["o1"]
             self.assertEqual(item.evidence_refs,("ev:1",))
             self.assertFalse(item.lease_owner)
     def test_wrong_worker_rejected(self):

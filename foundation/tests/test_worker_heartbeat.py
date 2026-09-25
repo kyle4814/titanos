@@ -10,7 +10,7 @@ class TestHeartbeat(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             s=OpportunityStore(Path(td)/"n.json"); s.upsert(Opportunity("o","x","x","DISCOVERED",authority="O0"))
             now=datetime.now(timezone.utc); claim(s,"o","w",ttl_seconds=60)
-            before=s.get("o").lease_until
+            before=s.load()["o"].lease_until
             out=renew(s,"o","w",ttl_seconds=600,now=now)
             self.assertNotEqual(out.lease_until,before)
     def test_non_owner_rejected(self):

@@ -24,7 +24,7 @@ def start_worker(store: OpportunityStore, coordinator: CrashRecoverableCoordinat
 
 def finish_worker(store: OpportunityStore, coordinator: CrashRecoverableCoordinator,
                   state: SwarmState, result: WorkerResult) -> SwarmState:
-    item = store.get(result.opportunity_id)
+    item = store.load()[result.opportunity_id]
     if item.lease_owner != result.worker_id:
         raise PermissionError("worker does not own lease")
     if result.status == "COMPLETED" and not result.evidence_refs:

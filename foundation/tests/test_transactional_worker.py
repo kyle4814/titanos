@@ -14,7 +14,7 @@ class TestTransactionalWorker(unittest.TestCase):
             state=SwarmState("sw",queued=("o",)); s.save(state)
             c=CrashRecoverableCoordinator(n,s,j)
             out=start_worker(n,c,state,"o","w")
-            self.assertEqual(out.active,("o",)); self.assertEqual(n.get("o").lease_owner,"w")
+            self.assertEqual(out.active,("o",)); self.assertEqual(n.load()["o"].lease_owner,"w")
     def test_finish_records_completed(self):
         with tempfile.TemporaryDirectory() as td:
             n=OpportunityStore(Path(td)/"next.json"); n.upsert(Opportunity("o","x","x","DISCOVERED",authority="O0"))
@@ -22,6 +22,6 @@ class TestTransactionalWorker(unittest.TestCase):
             state=SwarmState("sw",queued=("o",)); s.save(state); c=CrashRecoverableCoordinator(n,s,j)
             state=start_worker(n,c,state,"o","w")
             out=finish_worker(n,c,state,WorkerResult("w","o","COMPLETED","done",("ev:1",)))
-            self.assertEqual(out.completed,("o",)); self.assertFalse(n.get("o").lease_owner)
+            self.assertEqual(out.completed,("o",)); self.assertFalse(n.load()["o"].lease_owner)
 
 if __name__=="__main__": unittest.main()

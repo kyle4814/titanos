@@ -11,7 +11,7 @@ STATUS_MAP = {
 }
 
 def apply_worker_result(store: OpportunityStore, result: WorkerResult):
-    item = store.get(result.opportunity_id)
+    item = store.load()[result.opportunity_id]
     if result.status == "COMPLETED":
         if not result.evidence_refs:
             raise ValueError("completed work requires evidence")

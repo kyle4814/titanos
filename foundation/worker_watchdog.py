@@ -24,9 +24,9 @@ def inspect(store: OpportunityStore, *, now: datetime | None = None,
         if not item.lease_owner or not item.lease_until:
             continue
         expiry=datetime.fromisoformat(item.lease_until)
-        if expiry <= now: expired_ids.append(item.opportunity_id)
-        else: healthy.append(item.opportunity_id)
-    recovered=tuple(x.opportunity_id for x in recover_expired(store, now=now)) if recovery else ()
+        if expiry <= now: expired_ids.append(item.id)
+        else: healthy.append(item.id)
+    recovered=tuple(x.id for x in recover_expired(store, now=now)) if recovery else ()
     return WatchdogReport(tuple(expired_ids),tuple(healthy),recovered)
 
 __all__=["WatchdogReport","inspect"]

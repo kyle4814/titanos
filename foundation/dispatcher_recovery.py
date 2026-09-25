@@ -10,7 +10,7 @@ def reconcile_dispatcher(store: OpportunityStore, dispatcher_store: DispatcherSt
     canonical_active = []
     for opportunity_id in state.active:
         try:
-            item = store.get(opportunity_id)
+            item = store.load()[opportunity_id]
         except KeyError:
             continue
         if item.lease_owner:
