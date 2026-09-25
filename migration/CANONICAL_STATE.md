@@ -135,6 +135,22 @@ Captured: 2026-09-25. Source HEAD before the migration commit:
   foundation 3923 / 15F + 17E / 1 skipped, 32 distinct — same set, 0 new.
   **Foundation still RED.** The receipts.json cross-process UNKNOWN is now
   CLOSED (VERIFIED locally + CI-executed, fixture adapter).
+- `a0880da0` fix: bind a Telegram approval decision to its card, its
+  expiry and a sender claim (frontier 4 contract, no transport). Probed
+  before: bare-string decisions, no nonce/expiry, same request_id
+  approved twice, no sender identity in the module, constant default
+  request_id. Now: per-card `secrets.token_hex` nonce + ISO expiry on the
+  card and in callback data; `decision_source(request_id, nonce)` returns
+  a mapping; nonce echo via `hmac.compare_digest`; late → TIMEOUT;
+  non-mapping/wrong nonce/sender mismatch → MALFORMED; approve with no
+  `expected_sender` → UNBOUND; only APPROVED is approved. Identity enters
+  as an explicit caller-supplied policy (H5), never inferred. Regression
+  `test_telegram_decision_contract.py` (11; 10 fail before); 4 legacy
+  tests moved to the bound shape. Adjacent 113/113. CI run
+  `36198759847`: 12/12 jobs, 11 green, foundation 3934 / 15F + 17E /
+  1 skipped, 32 distinct — same set, 0 new. **Foundation still RED.**
+  Telegram gate 07 (approver identity): mechanism BUILT + CI-executed;
+  policy value and private-transport verification remain NOT BUILT here.
 - Security surface audit 2026-09-26 (evidence class STATIC_INSPECTION +
   LOCAL + CI): `untrusted_text` has 15 production consumers, all mouths /
   eligibility / opportunity sanitisers producing `.safe` display/record
@@ -166,7 +182,8 @@ Captured: 2026-09-25. Source HEAD before the migration commit:
   run `36192409688` = 11/12 green, `foundation` red (15F+17E, 32
   distinct); `f06050e4` run `36194505196` = same, 3915 tests; `352fdf67`
   run `36195787798` = same, 3920 tests; `ff576e56` run `36197110594` =
-  same, 3923 tests. Last fully green run remains `c0a52300`, 2026-09-06.
+  same, 3923 tests; `a0880da0` run `36198759847` = same, 3934 tests.
+  Last fully green run remains `c0a52300`, 2026-09-06.
 
 ## DEPLOYMENT STATE — none observed
 
@@ -257,6 +274,14 @@ gateway path VERIFIED locally + CI-executed; legacy paths unsigned) |
    no-op transition should be refused is a contract decision (other
    tests save an unchanged `InstitutionalMemory()` and expect success).
 4. Telegram reply poller with sender binding + nonce + expiry (after 3)
+
+## NEXT (one) — revised 2026-09-26 after a0880da0
+Frontier 4's open-repo contract is enforced (a0880da0). What remains is
+not code here: (H3) `TITANOS_RING0_SECRET`, (H5) the `expected_sender`
+policy value + the private poller that verifies and forwards the sender
+claim. Highest unblocked engineering lever now: none above rung 7 —
+the 32-test floor is decisions (H1/H2). Next code-level candidate once
+H1/H2 land: delete-or-build the 7 obsolete-API tests. Earlier text:
 
 ## NEXT (one) — revised 2026-09-26 after 352fdf67
 Frontier 4 (Telegram inbound approval poller) is the next *capability*
