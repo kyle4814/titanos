@@ -285,6 +285,31 @@ Captured: 2026-09-25. Source HEAD before the migration commit:
   `decision_source`; production path has none) — fail-closed, no sender
   binding / nonce / expiry exists; `alert_operator` and `send_card` are
   outbound only. `TITANOS_RING0_SECRET`: still unprovisioned; boot refuses.
+- `2a7de162` test: execute the delegated contract decisions. Kyle
+  delegated items 16, 17, 19–22 (not 18/H3) under a written rule
+  (production behaviour over stale tests, smallest reversible change, no
+  invented capability, no weakened gate, record everything). Test-only;
+  no production module changed. H1 DELETE + INTEGRITY WINS (3 files/
+  bodies removed, v1 test asserts checksum rejection); H2 ALLOW NO-OP
+  (8 writers → 8 saved, 8 ledger entries, one payload, no journal);
+  authority DEFERRED with tests following the constitution (PREPARED only
+  from a QUALIFIED O1 record with a persisted qualification result —
+  the old DISCOVERED/O0 fixtures also assumed a transition `FORWARD`
+  never allowed; three refusals added); probation stateless expectation
+  retired, current contract pinned, missing requirement recorded (item
+  21); workforce ×8 adjudicated by birth-commit runs in throwaway
+  worktrees — 2 ported (passed at birth, broken by later production
+  change), 4 pinned to production (failed at their own birth), 2 left
+  red as HUMAN CONTRACT REQUIRED (dispatcher admission unit; item 22).
+  Every choice has a `DELEGATED DECISION` line in `HUMAN_DECISIONS.md`
+  with evidence and reversal path. CI run `36226686264`: 11/12 green,
+  `foundation` **3944 / 3F / 0E / 1 skip, 18 → 3 distinct, 0 new**:
+  `test_dispatch_fills_available_capacity_fairly_before_queueing`,
+  `test_queue_capacity_is_hard_bounded` (both human contract), and
+  `test_sigil…real_network_tradeoff` (derivative of `all_tests_green`).
+  **Foundation still RED; SECURITY NOT GREEN.** `TITANOS_RING0_SECRET`
+  unprovisioned by Kyle's instruction; no issuer, adapter, runner or
+  transport built.
 - Not run on the PC: `run_all_tests.sh`.
 
 ## TEST STATE — local only, NOT CI
@@ -311,7 +336,8 @@ Captured: 2026-09-25. Source HEAD before the migration commit:
   `36202437356` = 13F+9E, 22 distinct; `20807afd` run `36203038114` =
   13F+8E, 21 distinct; `1eb1792f` run `36204120338` = 12F+8E, 20
   distinct; `0fc7ce8b` run `36205473710` = 12F+7E, 19 distinct; `1fd30608`
-  run `36206649405` = 11F+7E, 18 distinct. Last
+  run `36206649405` = 11F+7E, 18 distinct; `2a7de162` run `36226686264`
+  = 3F+0E, 3 distinct (3944 tests). Last
   fully green run remains `c0a52300`, 2026-09-06.
 
 ## DEPLOYMENT STATE — none observed
@@ -403,6 +429,17 @@ gateway path VERIFIED locally + CI-executed; legacy paths unsigned) |
    no-op transition should be refused is a contract decision (other
    tests save an unchanged `InstitutionalMemory()` and expect success).
 4. Telegram reply poller with sender binding + nonce + expiry (after 3)
+
+## NEXT (one) — revised 2026-09-26 after 2a7de162
+Floor 3: dispatcher admission contract ×2 (human — one worker per
+requirement vs `(requirement, worker)` pairs; does `plan_swarm` return
+ranked alternatives) and the sigil derivative. **ENGINEERING FRONTIER =
+EMPTY · HUMAN DECISION FLOOR = 18 (H3, not delegated) + 20 (issuer) +
+22 dispatcher pair + item-21 residuals · SECURITY = NOT GREEN.** The
+next engineering rung is unchanged: it opens only after H3 (then a real
+`ExecutionAdapter` + runner, authority-gated) or after the dispatcher
+contract is chosen (then a bounded planner/dispatcher change with
+fail-first tests). Earlier:
 
 ## NEXT (one) — revised 2026-09-26 after the frontier-audit court
 Floor 18. The three technical unknowns are classified (retry_queue fixed;
