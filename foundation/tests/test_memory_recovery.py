@@ -77,6 +77,13 @@ class TestMemoryRecovery(unittest.TestCase):
 
 
     def test_eight_process_writers_leave_one_valid_transaction(self):
+        # Every writer records the same unchanged (empty) memory. A no-op
+        # transition is a valid ledger event (delegated decision,
+        # HUMAN_DECISIONS.md item 17, 2026-09-26): each writer's `before`
+        # equals the persisted state whenever it runs, so all eight are
+        # accepted, serialised by the lock, and land as eight ledger entries
+        # on one consistent memory with no journal left behind. The former
+        # 1-saved/7-rejected count assumed absent != empty (pre e8c80b31).
         import multiprocessing
 
         def worker(path, result_queue, index):
@@ -99,12 +106,13 @@ class TestMemoryRecovery(unittest.TestCase):
             for process in processes: process.join()
 
             results=[queue.get() for _ in processes]
-            self.assertEqual(results.count("saved"),1)
-            self.assertEqual(results.count("rejected"),7)
+            self.assertEqual(results.count("saved"),8)
+            self.assertEqual(results.count("rejected"),0)
             store=InstitutionalMemoryStore(path)
             self.assertTrue(store.ledger.verify())
-            self.assertEqual(len(store.ledger.read()),1)
+            self.assertEqual(len(store.ledger.read()),8)
             self.assertIsNone(store.journal.load())
+            self.assertEqual(store._raw_payload(),store._payload(InstitutionalMemory()))
             store.load()
 
     def test_crash_before_memory_write_rolls_back(self):

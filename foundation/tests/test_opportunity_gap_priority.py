@@ -25,7 +25,12 @@ class TestOpportunityGapPriority(unittest.TestCase):
         result = prioritize_gaps((gap,), (adapter,))
         self.assertEqual(len(result), 1)
         self.assertGreater(result[0].score, 0)
-        self.assertIn("reusable_adapter_overlap=4", result[0].reasons)
+        # _overlap: type +1, region +1, jurisdiction +1, same source class
+        # +2 -- 5 for a full match, since the module's birth (5897e052).
+        # The former "=4" failed at this test's own birth (051e5871).
+        self.assertIn("reusable_adapter_overlap=5", result[0].reasons)
+        self.assertIn("effort_proxy=1", result[0].reasons)
+        self.assertEqual(prioritize_gaps((gap,))[0].score, 0)
 
     def test_output_is_deterministic(self):
         gaps = (

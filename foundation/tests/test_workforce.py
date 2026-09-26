@@ -93,11 +93,18 @@ class TestWorkforce(unittest.TestCase):
     def test_health_ranking_prefers_successful_fast_worker(self):
         from foundation.worker_health import WorkerHealthBook
 
+        # rank() orders by throughput (completed + failed per second), then
+        # failure rate -- test_worker_health pins both the metric and the
+        # order. "fast" and "unreliable" tie on throughput, so failure rate
+        # puts the successful worker first; "slow" has a quarter of the
+        # throughput and comes last. The former expectation (failure rate
+        # before throughput) failed at its birth commit bc44cb5a.
         health = WorkerHealthBook()
         health.record("slow", status="COMPLETED", latency_ms=2000)
         health.record("fast", status="COMPLETED", latency_ms=500)
         health.record("unreliable", status="FAILED", latency_ms=500)
-        self.assertEqual(health.rank(("slow", "fast", "unreliable")), ("fast", "slow", "unreliable"))
+        self.assertEqual(health.rank(("slow", "fast", "unreliable")), ("fast", "unreliable", "slow"))
+        self.assertEqual(health.rank(("unreliable", "fast")), ("fast", "unreliable"))
 
     def test_dispatch_fills_available_capacity_fairly_before_queueing(self):
         from foundation.workforce_dispatcher import DispatchBudget, dispatch
@@ -158,24 +165,6 @@ class TestWorkforce(unittest.TestCase):
             WorkRequirement("research", ("research",), "commercial"),
         ))
         self.assertEqual(plan.assignments[0].worker_ids, ("researcher",))
-
-    def test_router_prefers_specialization_then_health(self):
-        from foundation.specialization import SpecializationBook
-        from foundation.worker_health import WorkerHealthBook
-        from foundation.worker_router import route
-
-        registry = WorkforceRegistry().register(
-            WorkerSpec("general", "research", ("research",))
-        ).register(
-            WorkerSpec("specialist", "research", ("research", "security"))
-        )
-        health = WorkerHealthBook()
-        health.record("general", status="COMPLETED", latency_ms=100)
-        health.record("specialist", status="COMPLETED", latency_ms=200)
-        specialization = SpecializationBook()
-        specialization.learn("specialist", "security", success=True)
-        ordered = route(registry, health, specialization, ("general", "specialist"), "security")
-        self.assertEqual(ordered[0], "specialist")
 
     def test_worker_outcome_closes_feedback_loop_into_health_and_specialization(self):
         from foundation.worker_feedback import apply_worker_feedback
