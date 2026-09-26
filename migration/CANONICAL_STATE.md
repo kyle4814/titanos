@@ -208,6 +208,49 @@ Captured: 2026-09-25. Source HEAD before the migration commit:
   1 skipped, **21 → 20 distinct**, 0 new. **Foundation still RED.**
   Remaining 20 = H1 ×5 · H2 ×1 · authority O0→PREPARED ×2 · EXP-002
   drift ×11 · sigil real-repo ×1 (derivative). Engineering queue: empty.
+- V4 evidence campaign 2026-09-26 (A–D) + frontier audit:
+  **A** ConsumedIds under real processes, one `exec:<fp>` claim, N=2/4/8/16
+  ×5 trials: SUCCESS=1, DOMAIN_REJECTION=N−1, DB_LOCKED=0, UNEXPECTED=0,
+  final row=1 in 20/20 (harness `/tmp/titanos_A_consumed_ids.py`, raw log
+  kept locally; class LOCAL). VERIFIED, no mutation.
+  **B** 20→19 taxonomy (per-test, from tracebacks): A genuine defect ×2
+  found inside the "drift" label and FIXED (`0fc7ce8b` ready_retries
+  KeyError; `f92dc568` fail-open fcntl fallback in both stores — not a red
+  test, a doctrine violation) · H1 ×5 (v1 integrity-vs-migrate; assign_worker
+  ×2; expected_value; learn) · H2 ×1 · authority O0→PREPARED ×2 · sigil ×1
+  derivative · contract set ×9: retry_isolation (B: superseded by probation
+  53e6ef3c), retry_queue (C: attempts-vs-retries), worker_probation (C:
+  `record_success(probation_successes=)` validated then ignored), probation
+  _routing (C: rank excludes quarantined), workforce health ranking (C: key
+  order throughput>failure), workforce capacity & dispatcher queue bound (C:
+  alternate-worker semantics), feedback order (C), gap overlap 4-vs-5 (C),
+  regime shift (E: definition). None silently chosen.
+  **C** Telegram: no inbound parser exists in the open repo (VERIFIED absent:
+  no getUpdates/callback_query/from.id anywhere); trust boundary = the
+  `decision_source` injection point (a0880da0 contract). Private poller:
+  EXTERNAL/UNVERIFIED. Its contract: read `callback_query.from.id`, verify
+  == configured operator id, parse `approve|deny:<request_id>:<nonce>` from
+  callback_data, forward `{decision, nonce, sender: from.id}` within TTL,
+  never forward on any parse/identity failure.
+  **D** Ring 0: `load_ring0_key` reads env `TITANOS_RING0_SECRET` at
+  `boot_gateway()` only; ≥32 bytes, not KNOWN_DEV_SECRETS, not one repeated
+  char; no fallback; never logged/printed; not read from `~/.titanos_env`;
+  CI has no secrets; tests use `b"k"*32` fixtures; subprocesses inherit
+  os.environ (recursion_guard.child_env copies it). Lifecycle (PROVISION →
+  START → USE → ROTATE → REVOKE → RECOVER): **OPERATIONAL DESIGN
+  REQUIREMENT — NOT IMPLEMENTED** beyond boot validation; rotation would
+  invalidate every signed approval/permit/receipt (symmetric HMAC) so
+  needs a versioned-key design before any real value exists.
+  **H3 correction:** the c42c4603 receipt's "H3 → 19 modules reachable" is
+  CONTRADICTED. `ExecutionAdapter` has no implementation in the repo
+  (`claude_code_adapter` builds invocations only); nothing calls
+  `worker_cycle`/`boot_gateway`. H3 alone lets `boot_gateway()` succeed
+  with zero adapters. The 17 DORMANT modules need a swarm runner + an
+  adapter (engineering, but real external execution is authority-gated).
+  CI run `36205473710` on `0fc7ce8b`: 12/12 jobs, 11 green, foundation
+  3942 / 12F + 7E / 1 skipped, **20 → 19 distinct**, 0 new (`f92dc568`'s
+  run 36205434833 superseded by design: foundation cancelled, 11 green).
+  **Foundation still RED.** Security sweep: 13 adversarial suites 165/165.
 - Security surface audit 2026-09-26 (evidence class STATIC_INSPECTION +
   LOCAL + CI): `untrusted_text` has 15 production consumers, all mouths /
   eligibility / opportunity sanitisers producing `.safe` display/record
@@ -243,7 +286,8 @@ Captured: 2026-09-25. Source HEAD before the migration commit:
   `097fb9c2` run `36199728136` = 15F+13E, 28 distinct; `78bb0ee8` run
   `36202437356` = 13F+9E, 22 distinct; `20807afd` run `36203038114` =
   13F+8E, 21 distinct; `1eb1792f` run `36204120338` = 12F+8E, 20
-  distinct. Last fully green run remains `c0a52300`, 2026-09-06.
+  distinct; `0fc7ce8b` run `36205473710` = 12F+7E, 19 distinct. Last
+  fully green run remains `c0a52300`, 2026-09-06.
 
 ## DEPLOYMENT STATE — none observed
 
@@ -334,6 +378,18 @@ gateway path VERIFIED locally + CI-executed; legacy paths unsigned) |
    no-op transition should be refused is a contract decision (other
    tests save an unchanged `InstitutionalMemory()` and expect success).
 4. Telegram reply poller with sender binding + nonce + expiry (after 3)
+
+## NEXT (one) — revised 2026-09-26 after 0fc7ce8b
+Floor 19. The "no engineering frontier" claim was FALSE twice (fcntl
+fail-open; ready_retries KeyError) — both fixed. One contract-class item
+is arguably a defect and is the next candidate: `WorkerHealthBook.
+record_success(probation_successes=)` validates its parameter and then
+ignores it (test_worker_probation expects a stricter requirement to
+raise the bar). Fixing it as `remaining = max(h.probation_remaining,
+probation_successes) − 1` keeps every other probation test green — but
+it is a semantics choice inside the EXP-002 cluster, so it is listed
+for Kyle's word, not taken. Everything else: H1 ×5, H2, H3, H5,
+authority ×2, contract ×8. Earlier:
 
 ## NEXT (one) — revised 2026-09-26 after 1eb1792f
 Floor 20; **no unblocked engineering item remains.** Every red test is
