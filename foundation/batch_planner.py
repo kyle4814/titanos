@@ -6,7 +6,7 @@ simultaneous jobs. Ordering is deterministic; eligibility remains mandatory.
 from __future__ import annotations
 from dataclasses import dataclass, field
 from foundation.swarm_planner import PlannedAssignment, plan_assignment
-from foundation.worker_health import WorkerHealthBook
+from foundation.worker_health import WorkerHealth, WorkerHealthBook
 from foundation.specialization import SpecializationBook
 from foundation.workforce_registry import WorkforceRegistry
 
@@ -63,10 +63,13 @@ class ActiveBatch:
         return worker, accepted
 
     def ready_retries(self, retry_queue: RetryQueue, now: int, health: WorkerHealthBook) -> tuple[str, ...]:
+        # A worker with no health record has never failed and is not
+        # quarantined; index-by-key raised KeyError for it (reassign_retry
+        # below already uses .get for the same question).
         return tuple(
             oid for oid in retry_queue.ready(now)
             if retry_queue.workers.get(oid) is None
-            or not health.workers[retry_queue.workers[oid]].quarantined
+            or not (health.workers.get(retry_queue.workers[oid]) or WorkerHealth(retry_queue.workers[oid])).quarantined
         )
 
     def reassign_retry(self, opportunity_id: str, worker_id: str, retry_queue: "RetryQueue", health: WorkerHealthBook, now: int) -> str:
