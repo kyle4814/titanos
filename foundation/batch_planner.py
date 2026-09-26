@@ -112,8 +112,13 @@ class RetryQueue:
     workers: dict[str, str] = field(default_factory=dict)
 
     def schedule(self, opportunity_id: str, now: int, worker_id: str | None = None) -> bool:
+        # `max_attempts` is the total attempt budget including the first
+        # run, as retry_policy.decide_retry ("attempt >= max_attempts:
+        # retry budget exhausted") and task_queue (max_attempts=1 -> never
+        # retried) already define it; a retry is the (attempts+1)-th
+        # attempt, so `max_attempts` permits `max_attempts - 1` retries.
         attempt = self.attempts.get(opportunity_id, 0) + 1
-        if attempt > self.policy.max_attempts:
+        if attempt >= self.policy.max_attempts:
             return False
         self.attempts[opportunity_id] = attempt
         self.ready_at[opportunity_id] = now + self.policy.delay(attempt)

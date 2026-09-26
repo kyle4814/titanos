@@ -16,4 +16,17 @@ class RetryQueueTests(unittest.TestCase):
     def test_invalid_policy_rejected(self):
         with self.assertRaises(ValueError): RetryPolicy(base_backoff=0).delay(1)
 
+    def test_max_attempts_is_the_total_budget_like_decide_retry(self):
+        # Repository-wide convention (retry_policy.decide_retry, task_queue):
+        # max_attempts counts the first run, so max_attempts=1 means no retry
+        # and max_attempts=2 means exactly one.
+        from foundation.retry_policy import decide_retry
+        q=RetryQueue(RetryPolicy(max_attempts=1))
+        self.assertFalse(q.schedule("x",0))
+        self.assertFalse(decide_retry("FAILED","timeout",1,1).retry)
+        q=RetryQueue(RetryPolicy(max_attempts=2))
+        self.assertTrue(q.schedule("y",0)); self.assertFalse(q.schedule("y",1))
+        self.assertTrue(decide_retry("FAILED","timeout",1,2).retry)
+        self.assertFalse(decide_retry("FAILED","timeout",2,2).retry)
+
 if __name__=="__main__": unittest.main()
