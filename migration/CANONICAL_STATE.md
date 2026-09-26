@@ -379,6 +379,22 @@ gateway path VERIFIED locally + CI-executed; legacy paths unsigned) |
    tests save an unchanged `InstitutionalMemory()` and expect success).
 4. Telegram reply poller with sender binding + nonce + expiry (after 3)
 
+## NEXT (one) — revised 2026-09-26 after probation-hypothesis court
+Hypothesis "record_success(probation_successes=) is a minimal defect"
+FALSIFIED. Evidence: parameter validated-and-ignored since introduction
+(53e6ef3c 11:13:41); test_worker_probation born 4 s later (7adeaef4) and
+its `test_recovery_does_not_bypass_probation` failed `1 != 2` at that
+very commit; the sibling test in the same file requires 2→1→0 with
+p=2, so any stateless f(remaining,p) must satisfy f(2,2)=1, f(1,2)=0,
+f(2,3)=2 — `max(remaining,p)−1` and `p−1` both violate f(1,2)=0; the
+only fit (remaining+p−3) is meaningless. "Raise the bar" needs a stored
+original requirement (`probation_required`) that `WorkerHealth` does not
+carry → persisted-schema change → CONTRACT/DESIGN decision (H), not a
+fix. Production caller (`worker_assignment.record_assignment_outcome`)
+uses the default, so no live behaviour is at stake. Floor stays 19; no
+mutation. **No unblocked engineering frontier remains after this court.**
+Earlier:
+
 ## NEXT (one) — revised 2026-09-26 after 0fc7ce8b
 Floor 19. The "no engineering frontier" claim was FALSE twice (fcntl
 fail-open; ready_retries KeyError) — both fixed. One contract-class item
