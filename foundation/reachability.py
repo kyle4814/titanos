@@ -264,6 +264,112 @@ REACHABILITY_INTENT: dict = {
     "autonomous_window": ("DORMANT_CAPABILITY",
                           "bounded autonomous engineering window for the "
                           "autonomy ramp, which is not currently running"),
+    # --- 2026-09-26: the V12 execution chain and the workforce/swarm layer
+    # (master plan §7, "Workforce / swarm / institutional memory"). Every
+    # module below was verified to have zero non-test importers and no entry
+    # point at e5da6670; reasons are drawn from each module's own docstring.
+    "adapter_execution_gateway": (
+        "DELIBERATE_GATE",
+        "the ONLY public route to an execution adapter; boots only with a "
+        "Ring 0 key (TITANOS_RING0_SECRET) and a concrete adapter, neither "
+        "of which exists on any host — a caller today would fake an external "
+        "action (CANONICAL_STATE: nothing can execute externally)"),
+    "execution_approval": (
+        "DELIBERATE_GATE",
+        "approval bridge for ExecutionIntent envelopes; 'deliberately stops "
+        "at human approval' and creates no authority — invoked at a real "
+        "human tap, never by an in-repo loop"),
+    "reconciliation_coordinator": (
+        "DORMANT_CAPABILITY",
+        "turns an uncertain execution receipt into reconciliation evidence; "
+        "'observational only' — its consumer is the external-execution "
+        "pipeline, which has no adapter yet"),
+    "reconciliation_workflow": (
+        "DORMANT_CAPABILITY",
+        "observes and records reconciliation and prepares a retry proposal; "
+        "same consumer as reconciliation_coordinator"),
+    "retry_policy": (
+        "PRIMITIVE",
+        "conservative retry decision for bounded worker execution; a policy "
+        "block fed by a real execution status, not a loop"),
+    "feedback_scheduler": (
+        "PRIMITIVE",
+        "feedback-aware opportunity priority ordering; composed by a "
+        "scheduler when real outcome feedback exists"),
+    "opportunity_gap_priority": (
+        "PRIMITIVE",
+        "dependency-aware prioritisation of coverage gaps; scoring block "
+        "over a real gap list"),
+    "regime_scheduler": (
+        "PRIMITIVE",
+        "regime-aware utility restoration (recovered vs shifted "
+        "opportunities); a penalty policy composed by a scheduler"),
+    "source_health": (
+        "PRIMITIVE",
+        "source-adapter health and fetch telemetry; recorded at a real "
+        "fetch event by whichever mouth loop adopts it"),
+    "workforce": (
+        "DORMANT_CAPABILITY",
+        "public workforce facade over registry, swarm planning and NEXT "
+        "acquisition; the persistent swarm runner is not active"),
+    "worker_assignment": (
+        "DORMANT_CAPABILITY",
+        "evidence-backed opportunity-to-worker routing composing handoff, "
+        "specialization and health; consumer is the swarm runner"),
+    "worker_cycle": (
+        "DORMANT_CAPABILITY",
+        "end-to-end bounded worker cycle (claim, invocation, result, lease "
+        "release); 'external execution is supplied by the caller/Claude "
+        "Code adapter' — no runner drives it"),
+    "worker_heartbeat": (
+        "DORMANT_CAPABILITY",
+        "heartbeat/lease renewal for long-running bounded workers; "
+        "swarm runner not active"),
+    "worker_result_ingest": (
+        "DORMANT_CAPABILITY",
+        "ingests a bounded worker result against NEXT (lease ownership, "
+        "evidence merge, release); swarm runner not active"),
+    "worker_watchdog": (
+        "DORMANT_CAPABILITY",
+        "lease watchdog policy that 'never steals a live lease'; swarm "
+        "runner not active"),
+    "transactional_worker": (
+        "DORMANT_CAPABILITY",
+        "worker transition facade over canonical NEXT leases and swarm "
+        "state; swarm runner not active"),
+    "swarm_optimizer": (
+        "DORMANT_CAPABILITY",
+        "health-aware swarm planning; consumer is the swarm runner"),
+    "swarm_recovery": (
+        "DORMANT_CAPABILITY",
+        "restart/crash reconciliation for persistent swarms; consumer is "
+        "the swarm runner"),
+    "dispatcher_recovery": (
+        "DORMANT_CAPABILITY",
+        "reconciles dispatcher execution state against NEXT leases; "
+        "consumer is the swarm runner"),
+    "coordination_store": (
+        "DORMANT_CAPABILITY",
+        "single-file transactional persistence for swarm/NEXT coordination "
+        "snapshots; the OpportunityStore stays authoritative; swarm runner "
+        "not active"),
+    "lease_aware_frontier": (
+        "DORMANT_CAPABILITY",
+        "lease-aware frontier scheduling over the NEXT store; swarm runner "
+        "not active"),
+    "coverage_frontier_persistence": (
+        "DORMANT_CAPABILITY",
+        "persistence port for the coverage frontier ('prevents us from "
+        "inventing that API'); coverage pipeline not active"),
+    "coverage_next_store_adapter": (
+        "DORMANT_CAPABILITY",
+        "bridge from coverage work to the canonical NEXT OpportunityStore; "
+        "coverage pipeline not active"),
+    "coverage_opportunity_bridge": (
+        "DORMANT_CAPABILITY",
+        "translates coverage work items into the existing Opportunity/"
+        "Receipt model ('no second opportunity lifecycle'); coverage "
+        "pipeline not active"),
 }
 
 
