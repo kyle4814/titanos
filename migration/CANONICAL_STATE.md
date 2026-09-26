@@ -195,6 +195,19 @@ Captured: 2026-09-25. Source HEAD before the migration commit:
   **Foundation still RED.** Remaining 21 = H1 ×4 · H2 ×1 · authority
   O0→PREPARED ×2 (H) · reachability intents ×1 (engineering) · sigil
   real-repo ×1 (derivative) · EXP-002 same-day drift ×12.
+- `1eb1792f` docs: classify the 24 unreachable V12 execution and
+  workforce modules (REACHABILITY_INTENT, reasons from each docstring).
+  Verified zero production callers for all 24 (independent scan mirroring
+  the checker; no dynamic imports; no existing entry contradicted).
+  DELIBERATE_GATE ×2 (adapter_execution_gateway, execution_approval),
+  PRIMITIVE ×5, DORMANT_CAPABILITY ×17 (swarm/coverage/execution
+  pipelines not active; master plan §7). TEST_ONLY/DEAD/UNKNOWN 0. Report
+  now 44 unreachable, 0 unclassified (doc/CLI "23 of 90" is STALE,
+  untouched). test_reachability 18/18; structural gates 436/436. CI run
+  `36204120338`: 12/12 jobs, 11 green, foundation 3939 / 12F + 8E /
+  1 skipped, **21 → 20 distinct**, 0 new. **Foundation still RED.**
+  Remaining 20 = H1 ×5 · H2 ×1 · authority O0→PREPARED ×2 · EXP-002
+  drift ×11 · sigil real-repo ×1 (derivative). Engineering queue: empty.
 - Security surface audit 2026-09-26 (evidence class STATIC_INSPECTION +
   LOCAL + CI): `untrusted_text` has 15 production consumers, all mouths /
   eligibility / opportunity sanitisers producing `.safe` display/record
@@ -229,8 +242,8 @@ Captured: 2026-09-25. Source HEAD before the migration commit:
   same, 3923 tests; `a0880da0` run `36198759847` = same, 3934 tests;
   `097fb9c2` run `36199728136` = 15F+13E, 28 distinct; `78bb0ee8` run
   `36202437356` = 13F+9E, 22 distinct; `20807afd` run `36203038114` =
-  13F+8E, 21 distinct. Last fully green run remains `c0a52300`,
-  2026-09-06.
+  13F+8E, 21 distinct; `1eb1792f` run `36204120338` = 12F+8E, 20
+  distinct. Last fully green run remains `c0a52300`, 2026-09-06.
 
 ## DEPLOYMENT STATE — none observed
 
@@ -321,6 +334,14 @@ gateway path VERIFIED locally + CI-executed; legacy paths unsigned) |
    no-op transition should be refused is a contract decision (other
    tests save an unchanged `InstitutionalMemory()` and expect success).
 4. Telegram reply poller with sender binding + nonce + expiry (after 3)
+
+## NEXT (one) — revised 2026-09-26 after 1eb1792f
+Floor 20; **no unblocked engineering item remains.** Every red test is
+a decision: H1 ×5 (v1 integrity-vs-migrate; assign_worker ×2;
+expected_value; SpecializationBook.learn), H2 ×1, authority O0→PREPARED
+×2 (Art. VI / F09), EXP-002 drift ×11 (author's intended contract), sigil
+×1 (derivative). Capability rungs are gated: H3 (Ring 0) → real adapter
++ swarm runner; H5 → poller. Next move is a human word. Earlier:
 
 ## NEXT (one) — revised 2026-09-26 after 20807afd
 Floor 21. Proven-defect queue empty unless the EXP-002 drift set hides
