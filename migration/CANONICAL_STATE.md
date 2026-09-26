@@ -251,6 +251,30 @@ Captured: 2026-09-25. Source HEAD before the migration commit:
   3942 / 12F + 7E / 1 skipped, **20 → 19 distinct**, 0 new (`f92dc568`'s
   run 36205434833 superseded by design: foundation cancelled, 11 green).
   **Foundation still RED.** Security sweep: 13 adversarial suites 165/165.
+- Frontier-audit court 2026-09-26 on the three technical unknowns:
+  **retry_queue** → C, FIXED `1fd30608`: `RetryQueue.schedule` permitted
+  `max_attempts` retries (= max_attempts+1 total) while `retry_policy.
+  decide_retry` (`attempt >= max_attempts` → exhausted) and `task_queue`
+  (`max_attempts=1, attempts=1` → not retried) define `max_attempts` as
+  the total budget; `test_exponential_backoff_is_bounded` failed at its
+  own birth commit 133fb72e. One-character fix (`>` → `>=`) + a regression
+  pinning the convention against `decide_retry`. No production caller.
+  CI run `36206649405`: 12/12 jobs, 11 green, foundation 3943 / 11F + 7E /
+  1 skipped, **19 → 18 distinct**, 0 new. **Foundation still RED.**
+  **non-fcntl** → SAFE FAIL-CLOSED / ENVIRONMENT LIMITATION: both stores
+  refuse without flock (`f92dc568`, 3 tests); `authority_sigil` imports
+  `fcntl` at module top (loud ImportError). Supported platform contract:
+  POSIX with advisory locks. Not a defect.
+  **cross-host** → UNSUPPORTED / OUT OF SCOPE by construction: `ConsumedIds`
+  is a caller-supplied local SQLite file, `receipts.json`/memory stores
+  are local files, `flock` is host-local (undefined on NFS); no doctrine,
+  plan or code claims multi-host execution (only Art. V's isolation
+  note). Deployment contract to state explicitly: **single host, local
+  filesystem, one executor per ledger path.** No distributed guarantee
+  is made or manufactured.
+  Engineering frontier after this court: **EMPTY** (verified, not
+  declared) — remaining 18 = H1 ×5 · H2 ×1 · authority ×2 · design
+  (probation_required) ×1 · contract ×8 · sigil ×1.
 - Security surface audit 2026-09-26 (evidence class STATIC_INSPECTION +
   LOCAL + CI): `untrusted_text` has 15 production consumers, all mouths /
   eligibility / opportunity sanitisers producing `.safe` display/record
@@ -286,7 +310,8 @@ Captured: 2026-09-25. Source HEAD before the migration commit:
   `097fb9c2` run `36199728136` = 15F+13E, 28 distinct; `78bb0ee8` run
   `36202437356` = 13F+9E, 22 distinct; `20807afd` run `36203038114` =
   13F+8E, 21 distinct; `1eb1792f` run `36204120338` = 12F+8E, 20
-  distinct; `0fc7ce8b` run `36205473710` = 12F+7E, 19 distinct. Last
+  distinct; `0fc7ce8b` run `36205473710` = 12F+7E, 19 distinct; `1fd30608`
+  run `36206649405` = 11F+7E, 18 distinct. Last
   fully green run remains `c0a52300`, 2026-09-06.
 
 ## DEPLOYMENT STATE — none observed
@@ -378,6 +403,15 @@ gateway path VERIFIED locally + CI-executed; legacy paths unsigned) |
    no-op transition should be refused is a contract decision (other
    tests save an unchanged `InstitutionalMemory()` and expect success).
 4. Telegram reply poller with sender binding + nonce + expiry (after 3)
+
+## NEXT (one) — revised 2026-09-26 after the frontier-audit court
+Floor 18. The three technical unknowns are classified (retry_queue fixed;
+non-fcntl fail-closed by construction; cross-host out of scope by
+contract). **ENGINEERING FRONTIER = EMPTY · HUMAN DECISION FLOOR = OPEN ·
+SECURITY = NOT GREEN.** Next move is Kyle's: H1 line (→13), H2, the
+probation_required design call, authority O0→PREPARED (Art. VI), H3
+(Ring 0 → then a real ExecutionAdapter + runner is the next engineering
+rung), H5. Earlier:
 
 ## NEXT (one) — revised 2026-09-26 after probation-hypothesis court
 Hypothesis "record_success(probation_successes=) is a minimal defect"
