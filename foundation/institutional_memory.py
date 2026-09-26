@@ -25,13 +25,17 @@ class InstitutionalMemoryStore:
     def _lock(self):
         self.lock_path.parent.mkdir(parents=True,exist_ok=True); f=self.lock_path.open("a+")
         try:
-            import fcntl; fcntl.flock(f.fileno(),fcntl.LOCK_EX)
-        except ImportError: pass
+            import fcntl
+        except ImportError as exc:
+            # Fail closed: the cross-process serialization of save()/load()
+            # is a data-integrity guarantee; no flock means no guarantee.
+            f.close()
+            raise RuntimeError("institutional memory needs flock (fcntl) for cross-process "
+                               "safety and refuses to run without it") from exc
+        fcntl.flock(f.fileno(),fcntl.LOCK_EX)
         return f
     def _unlock(self,f):
-        try:
-            import fcntl; fcntl.flock(f.fileno(),fcntl.LOCK_UN)
-        except ImportError: pass
+        import fcntl; fcntl.flock(f.fileno(),fcntl.LOCK_UN)
         f.close()
     def _normalize(self,x):
         import dataclasses

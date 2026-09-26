@@ -38,18 +38,21 @@ class ExecutionReceiptStore:
         f = self.lock_path.open("a+")
         try:
             import fcntl
-            fcntl.flock(f.fileno(), fcntl.LOCK_EX)
-        except ImportError:  # platform without flock: thread lock only
-            pass
+        except ImportError as exc:
+            # Fail closed: without flock the cross-process guarantee this
+            # lock exists for (no lost receipts) cannot be given, and a
+            # silent thread-lock-only fallback would hide exactly that.
+            f.close()
+            raise RuntimeError(
+                "execution receipt store needs flock (fcntl) for cross-process "
+                "safety and refuses to record without it") from exc
+        fcntl.flock(f.fileno(), fcntl.LOCK_EX)
         return f
 
     @staticmethod
     def _unlock(f) -> None:
-        try:
-            import fcntl
-            fcntl.flock(f.fileno(), fcntl.LOCK_UN)
-        except ImportError:
-            pass
+        import fcntl
+        fcntl.flock(f.fileno(), fcntl.LOCK_UN)
         f.close()
 
     def load(self) -> dict[str, ExecutionReceipt]:
