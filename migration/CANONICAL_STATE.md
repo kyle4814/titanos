@@ -185,6 +185,16 @@ Captured: 2026-09-25. Source HEAD before the migration commit:
   `HandoffRefused` where the gate contract is `AssignmentRefused` ×1
   (proven; next 1-line frontier), reachability intents ×1 (24 modules,
   engineering), sigil real-repo ×1 (derivative of the floor).
+- `20807afd` fix: route_opportunity refuses with AssignmentRefused, not a
+  leaked HandoffRefused (one `except … raise … from exc` around
+  `handoff()`, the authorization_gate translation form; cause chained;
+  no broad catch). Regression: existing gate test ERROR→pass + new
+  `test_gate_refusal_keeps_the_handoff_reason_as_cause`. Focused 10/10;
+  adjacent 120 tests, 0 new. CI run `36203038114`: 12/12 jobs, 11 green,
+  foundation 3939 / 13F + 8E / 1 skipped, **22 → 21 distinct**, 0 new.
+  **Foundation still RED.** Remaining 21 = H1 ×4 · H2 ×1 · authority
+  O0→PREPARED ×2 (H) · reachability intents ×1 (engineering) · sigil
+  real-repo ×1 (derivative) · EXP-002 same-day drift ×12.
 - Security surface audit 2026-09-26 (evidence class STATIC_INSPECTION +
   LOCAL + CI): `untrusted_text` has 15 production consumers, all mouths /
   eligibility / opportunity sanitisers producing `.safe` display/record
@@ -218,8 +228,9 @@ Captured: 2026-09-25. Source HEAD before the migration commit:
   run `36195787798` = same, 3920 tests; `ff576e56` run `36197110594` =
   same, 3923 tests; `a0880da0` run `36198759847` = same, 3934 tests;
   `097fb9c2` run `36199728136` = 15F+13E, 28 distinct; `78bb0ee8` run
-  `36202437356` = 13F+9E, 22 distinct. Last fully green run remains
-  `c0a52300`, 2026-09-06.
+  `36202437356` = 13F+9E, 22 distinct; `20807afd` run `36203038114` =
+  13F+8E, 21 distinct. Last fully green run remains `c0a52300`,
+  2026-09-06.
 
 ## DEPLOYMENT STATE — none observed
 
@@ -310,6 +321,15 @@ gateway path VERIFIED locally + CI-executed; legacy paths unsigned) |
    no-op transition should be refused is a contract decision (other
    tests save an unchanged `InstitutionalMemory()` and expect success).
 4. Telegram reply poller with sender binding + nonce + expiry (after 3)
+
+## NEXT (one) — revised 2026-09-26 after 20807afd
+Floor 21. Proven-defect queue empty unless the EXP-002 drift set hides
+one (candidate: `test_workforce.test_router_prefers_specialization_then_health`
+→ `AttributeError: SpecializationBook has no attribute 'learn'` — rename
+or never-built, to be checked). Otherwise next engineering lever is
+`test_reachability` (24 modules need an evidence-backed
+REACHABILITY_INTENT entry or wiring). Decisions unchanged: H1 ×4, H2,
+H3, H5, authority ×2, drift ×11. Earlier:
 
 ## NEXT (one) — revised 2026-09-26 after 78bb0ee8
 Floor 22. Next proven engineering lever: `route_opportunity` must raise
